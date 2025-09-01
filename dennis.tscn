@@ -1,7 +1,10 @@
-[gd_scene load_steps=68 format=3 uid="uid://jla54h8ttkct"]
+[gd_scene load_steps=69 format=3 uid="uid://jla54h8ttkct"]
 
 [ext_resource type="Script" uid="uid://bx5nsadnbkhdk" path="res://dennis.gd" id="1_tdckb"]
 [ext_resource type="Texture2D" uid="uid://prsyb8jd7wdf" path="res://assets/dennis.png" id="2_tdckb"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_tdckb"]
+size = Vector2(54, 24.5274)
 
 [sub_resource type="Animation" id="Animation_3ch2m"]
 length = 0.001
@@ -786,6 +789,8 @@ graph_offset = Vector2(-265, 48)
 size = Vector2(25, 56)
 
 [node name="Dennis" type="CharacterBody2D"]
+collision_layer = 3
+collision_mask = 2
 script = ExtResource("1_tdckb")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
@@ -794,11 +799,12 @@ hframes = 10
 vframes = 19
 frame = 1
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]
-position = Vector2(-1.405, 22.031)
-rotation = -3.14159
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(-1.90013, 5)
+rotation = 1.5708
 scale = Vector2(1, 0.660475)
-polygon = PackedVector2Array(0.000123255, 74.2352, -9.99994, 36.3837, -9.99998, 15.1868, -2.63209e-05, -15.0944, 12, 15.1868, 12.0001, 37.8977)
+shape = SubResource("RectangleShape2D_tdckb")
+debug_color = Color(0, 0.642983, 0.308232, 0.42)
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="."]
 libraries = {
