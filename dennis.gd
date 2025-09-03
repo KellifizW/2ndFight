@@ -1,7 +1,7 @@
-extends Pushback
+extends Fighter
+
 @onready var animation_tree = $AnimationTree
 @onready var animation_state = animation_tree.get("parameters/playback")
-@onready var sprite = $Sprite2D
 var walk_speed = 150 # 走路速度（前進）
 var back_speed = walk_speed * 0.75 # 後退速度
 var jump_dir: float = 0.0 # 跳躍方向
@@ -29,12 +29,14 @@ var knockfly_speed: float = -200.0 # 擊飛後退速度
 signal hit_detected(target: String)
 
 func _ready():
-	super._ready() # 調用 Pushback 的 _ready
+	super._ready() # 調用父類的 _ready
 	animation_tree.active = true
 	animation_state.travel("Walk")
 	$Hitbox.area_entered.connect(_on_hitbox_area_entered)
 
 func _physics_process(delta):
+	super._physics_process(delta) # 調用父類的 _physics_process，執行推開邏輯
+	
 	# 更新計時器
 	if neutral_timer > 0:
 		neutral_timer -= delta
@@ -264,12 +266,14 @@ func _on_hitbox_area_entered(area: Area2D):
 		target.take_hit()
 		print("Debug: Hit detected on %s" % target.name)
 
-func has_state_preventing_pushback() -> bool:
-	return is_dashing or is_backdashing or is_attacking or is_hit or is_knockfly
-
-func _log_pushback(other, overlap: float, pushbackDirA: float, push_distance: float, center_distance: float, y_center_distance: float, leftA: float, rightA: float, upA: float, downA: float, leftB: float, rightB: float, upB: float, downB: float) -> void:
-	print("Debug Pushback for %s: Collided with %s" % [name, other.name])
-	print("  Self collision box: left=%s, right=%s, up=%s, down=%s" % [leftA, rightA, upA, downA])
-	print("  Other collision box: left=%s, right=%s, up=%s, down=%s" % [leftB, rightB, upB, downB])
-	print("  Center distance: %s, Y center distance: %s, Overlap: %s, Y overlap: %s" % [center_distance, y_center_distance, overlap, min(downA - upB, downB - upA)])
-	print("  Push direction: %s, Push distance: %s" % [pushbackDirA, push_distance])
+# 實現父類的虛擬方法
+func get_is_dashing() -> bool:
+	return is_dashing
+func get_is_backdashing() -> bool:
+	return is_backdashing
+func get_is_attacking() -> bool:
+	return is_attacking
+func get_is_hit() -> bool:
+	return is_hit
+func get_is_knockfly() -> bool:
+	return is_knockfly

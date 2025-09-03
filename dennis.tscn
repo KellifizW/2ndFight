@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://prsyb8jd7wdf" path="res://assets/dennis.png" id="2_tdckb"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tdckb"]
-size = Vector2(54, 24.5274)
+size = Vector2(16, 84.7875)
 
 [sub_resource type="Animation" id="Animation_3ch2m"]
 length = 0.001
@@ -800,8 +800,7 @@ vframes = 19
 frame = 1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(-1.90013, 5)
-rotation = 1.5708
+position = Vector2(-0.999999, 4)
 scale = Vector2(1, 0.660475)
 shape = SubResource("RectangleShape2D_tdckb")
 debug_color = Color(0, 0.642983, 0.308232, 0.42)

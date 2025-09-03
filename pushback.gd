@@ -10,8 +10,8 @@ func _ready():
 	var collision_shape = get_node_or_null("CollisionShape2D")
 	if collision_shape and collision_shape.shape is RectangleShape2D:
 		# 考慮旋轉：x 軸對應 size.y * scale.y，y 軸對應 size.x * scale.x
-		colbox_half_width = collision_shape.shape.extents.y * collision_shape.scale.y / 2 # 20 * 0.660475 / 2 ≈ 6.6
-		colbox_half_height = collision_shape.shape.extents.x * collision_shape.scale.x / 2 # 56 * 1.0 / 2 = 28
+		colbox_half_width = collision_shape.shape.extents.x * collision_shape.scale.x
+		colbox_half_height = collision_shape.shape.extents.y * collision_shape.scale.y
 		print("Debug: %s CollisionShape2D initialized. Half width: %s, Half height: %s, Layer: %s, Mask: %s" % [name, colbox_half_width, colbox_half_height, collision_layer, collision_mask])
 	else:
 		print("Warning: %s CollisionShape2D not found or not RectangleShape2D. Pushback may not work correctly." % name)
@@ -24,7 +24,6 @@ func _physics_process(delta):
 	var all_players = get_tree().get_nodes_in_group("players")
 	var arena_left = 0.0
 	var arena_right = get_viewport_rect().size.x
-	print("Debug: %s Arena boundaries: left=%s, right=%s" % [name, arena_left, arena_right])
 	
 	for other in all_players:
 		if other == self:
@@ -46,34 +45,29 @@ func _physics_process(delta):
 		var rightB = other.global_position.x + other.colbox_half_width
 		var upB = other.global_position.y - other.colbox_half_height
 		var downB = other.global_position.y + other.colbox_half_height
-		print("Debug: %s collision box: left=%s, right=%s, up=%s, down=%s" % [name, leftA, rightA, upA, downA])
-		print("Debug: %s collision box: left=%s, right=%s, up=%s, down=%s" % [other.name, leftB, rightB, upB, downB])
-		print("Debug: Overlap check: rightA-leftB=%s, leftA-rightB=%s" % [rightA - leftB, leftA - rightB])
 		# 檢查中心距離
 		var center_distance = abs(global_position.x - other.global_position.x)
-		var total_col_width = colbox_half_width * 2 + other.colbox_half_width * 2
-		if center_distance > total_col_width * 1.9:
-			print("Debug: Center distance %s > total collision width * 1.9 %s, skipping pushback" % [center_distance, total_col_width * 1.9])
+		var total_col_width = colbox_half_width + other.colbox_half_width
+		if center_distance > total_col_width * 2.0:
+			print("Debug: Center distance %s > total collision width * 2.0 %s, skipping pushback" % [center_distance, total_col_width * 2.0])
 			continue
 		# 檢查 y 軸中心距離
 		var y_center_distance = abs(global_position.y - other.global_position.y)
-		if y_center_distance > 15.0:
-			print("Debug: Y center distance %s > 15.0, skipping pushback" % y_center_distance)
+		if y_center_distance > 20.0:
+			print("Debug: Y center distance %s > 20.0, skipping pushback" % y_center_distance)
 			continue
 		# 檢查重疊
 		var epsilon = 2.0
 		var y_overlap = min(downA - upB, downB - upA)
-		if not (rightA >= leftB - epsilon and leftA <= rightB + epsilon and y_overlap > 10.0):
+		if not (rightA >= leftB - epsilon and leftA <= rightB + epsilon and y_overlap > 5.0):
 			print("Debug: No overlap detected between %s and %s (y_overlap: %s)" % [name, other.name, y_overlap])
 			continue
 		var overlap = min(rightA - leftB, rightB - leftA)
-		if overlap <= 5.0:
-			print("Debug: Overlap <= 5.0 between %s and %s (overlap: %s)" % [name, other.name, overlap])
+		if overlap <= 2.0:
+			print("Debug: Overlap <= 2.0 between %s and %s (overlap: %s)" % [name, other.name, overlap])
 			continue
 		# 推開方向
-		var pushbackDirA = (-1 if other.prev_position.x > prev_position.x else 1)
-		if prev_position.x == other.prev_position.x:
-			pushbackDirA = (-1 if other.global_position.x > global_position.x else 1)
+		var pushbackDirA = (-1 if other.global_position.x > global_position.x else 1)
 		# 平滑推開：使用速度
 		var push_distance = overlap / 2.0
 		velocity.x = pushbackDirA * push_speed
@@ -81,27 +75,36 @@ func _physics_process(delta):
 		move_and_slide()
 		other.move_and_slide()
 		# 檢查邊界
-		var self_col_width = colbox_half_width * 2
-		var other_col_width = other.colbox_half_width * 2
 		if global_position.x < arena_left + colbox_half_width:
 			global_position.x = arena_left + colbox_half_width
 			velocity.x = 0
+			print("Debug: %s hit left boundary during pushback, position set to %s" % [name, global_position.x])
 		elif global_position.x > arena_right - colbox_half_width:
 			global_position.x = arena_right - colbox_half_width
 			velocity.x = 0
+			print("Debug: %s hit right boundary during pushback, position set to %s" % [name, global_position.x])
 		if other.global_position.x < arena_left + other.colbox_half_width:
 			other.global_position.x = arena_left + other.colbox_half_width
 			other.velocity.x = 0
+			print("Debug: %s hit left boundary during pushback, position set to %s" % [other.name, other.global_position.x])
 		elif other.global_position.x > arena_right - other.colbox_half_width:
 			other.global_position.x = arena_right - other.colbox_half_width
 			other.velocity.x = 0
+			print("Debug: %s hit right boundary during pushback, position set to %s" % [other.name, other.global_position.x])
 		is_being_pushed = true
 		other.is_being_pushed = true
 		var distance_after = abs(global_position.x - other.global_position.x)
-		print("Debug: Pushback applied. Self: %s, Other: %s, Overlap: %s, Push dir: %s, Distance: %s, Distance change: %s -> %s" % [global_position, other.global_position, overlap, pushbackDirA, push_distance, center_distance, distance_after])
+		_log_pushback(other, overlap, pushbackDirA, push_distance, center_distance, y_center_distance, leftA, rightA, upA, downA, leftB, rightB, upB, downB, y_overlap)
 	
 	prev_position = current_position # 更新 prev_position
 
 # 虛擬函數，子類實現以檢查狀態
 func has_state_preventing_pushback() -> bool:
 	return false
+
+func _log_pushback(other, overlap: float, pushbackDirA: float, push_distance: float, center_distance: float, y_center_distance: float, leftA: float, rightA: float, upA: float, downA: float, leftB: float, rightB: float, upB: float, downB: float, y_overlap: float) -> void:
+	print("Debug Pushback for %s: Collided with %s" % [name, other.name])
+	print("  Self collision box: left=%s, right=%s, up=%s, down=%s" % [leftA, rightA, upA, downA])
+	print("  Other collision box: left=%s, right=%s, up=%s, down=%s" % [leftB, rightB, upB, downB])
+	print("  Center distance: %s, Y center distance: %s, Overlap: %s, Y overlap: %s" % [center_distance, y_center_distance, overlap, y_overlap])
+	print("  Push direction: %s, Push distance: %s" % [pushbackDirA, push_distance])

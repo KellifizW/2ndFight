@@ -9,31 +9,27 @@ func _ready():
 	dennis.hit_detected.connect(_on_hit_detected)
 
 func _physics_process(delta):
-	var viewport_width = get_viewport_rect().size.x  # 獲取畫面寬度
+	var viewport_width = ProjectSettings.get_setting("display/window/size/viewport_width")  # 獲取邏輯寬度 320
 
 	# 檢查 Davis 的邊界
-	var davis_collider = davis.get_node("CollisionShape2D")
-	var davis_width = davis_collider.shape.extents.x * 2 if davis_collider else 32
-	if davis.position.x < davis_width / 2:
-		davis.position.x = davis_width / 2
-		if davis.velocity.x < 0:  # 只在向左移動時清 velocity，避免影響互推
-			davis.velocity.x = 0
-	elif davis.position.x > viewport_width - davis_width / 2:
-		davis.position.x = viewport_width - davis_width / 2
-		if davis.velocity.x > 0:  # 只在向右移動時清
-			davis.velocity.x = 0
-
+	var davis_collision = davis.get_node("CollisionShape2D").shape as RectangleShape2D
+	var davis_scale = davis.get_node("CollisionShape2D").scale
+	var davis_width = davis_collision.size.x * davis_scale.x  # 考慮縮放後的碰撞寬度
+	var davis_half_width = davis_width / 2.0  # 碰撞形狀的半寬
+	if davis.position.x < davis_half_width:
+		davis.position.x = davis_half_width  # 確保碰撞左邊緣不超出視口左邊
+	elif davis.position.x > viewport_width - davis_half_width:
+		davis.position.x = viewport_width - davis_half_width  # 確保碰撞右邊緣不超出視口右邊
+	
 	# 檢查 Dennis 的邊界
-	var dennis_collider = dennis.get_node("CollisionShape2D")
-	var dennis_width = dennis_collider.shape.extents.x * 2 if dennis_collider else 32
-	if dennis.position.x < dennis_width / 2:
-		dennis.position.x = dennis_width / 2
-		if dennis.velocity.x < 0:
-			dennis.velocity.x = 0
-	elif dennis.position.x > viewport_width - dennis_width / 2:
-		dennis.position.x = viewport_width - dennis_width / 2
-		if dennis.velocity.x > 0:
-			dennis.velocity.x = 0
+	var dennis_collision = dennis.get_node("CollisionShape2D").shape as RectangleShape2D
+	var dennis_scale = dennis.get_node("CollisionShape2D").scale
+	var dennis_width = dennis_collision.size.x * dennis_scale.x  # 考慮縮放後的碰撞寬度
+	var dennis_half_width = dennis_width / 2.0  # 碰撞形狀的半寬
+	if dennis.position.x < dennis_half_width:
+		dennis.position.x = dennis_half_width
+	elif dennis.position.x > viewport_width - dennis_half_width:
+		dennis.position.x = viewport_width - dennis_half_width
 
 func _on_hit_detected(target: String):
 	hit_label.text = "Hits: " + target + " was hit!"

@@ -5,7 +5,7 @@
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_md12c"]
 custom_solver_bias = 0.125
-size = Vector2(56, 20)
+size = Vector2(16, 84.7875)
 
 [sub_resource type="Animation" id="Animation_3ch2m"]
 length = 0.001
@@ -801,8 +801,7 @@ vframes = 18
 frame = 1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(-2.425, 4)
-rotation = 1.5708
+position = Vector2(-2, 4)
 scale = Vector2(1, 0.660475)
 shape = SubResource("RectangleShape2D_md12c")
 debug_color = Color(1.44392e-06, 0.63631, 0.406489, 0.42)
