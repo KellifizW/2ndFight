@@ -9,29 +9,31 @@ func _ready():
 	dennis.hit_detected.connect(_on_hit_detected)
 
 func _physics_process(delta):
-	var viewport_width = get_viewport_rect().size.x  # 獲取畫面寬度，類似講稿的 GameViewport.width
-	
+	var viewport_width = get_viewport_rect().size.x  # 獲取畫面寬度
+
 	# 檢查 Davis 的邊界
-	var davis_width = davis.get_node("Sprite2D").texture.get_width()  # 假設子節點為 Sprite2D
-	if davis.position.x < 0:
-		davis.position.x = 0  # 限制在左邊界
-		if davis.has_method("reverse_direction"):  # 假設角色腳本有 reverse_direction 方法
-			davis.reverse_direction()
-	elif davis.position.x > viewport_width - davis_width:
-		davis.position.x = viewport_width - davis_width  # 限制在右邊界
-		if davis.has_method("reverse_direction"):
-			davis.reverse_direction()
-	
+	var davis_collider = davis.get_node("CollisionShape2D")
+	var davis_width = davis_collider.shape.extents.x * 2 if davis_collider else 32
+	if davis.position.x < davis_width / 2:
+		davis.position.x = davis_width / 2
+		if davis.velocity.x < 0:  # 只在向左移動時清 velocity，避免影響互推
+			davis.velocity.x = 0
+	elif davis.position.x > viewport_width - davis_width / 2:
+		davis.position.x = viewport_width - davis_width / 2
+		if davis.velocity.x > 0:  # 只在向右移動時清
+			davis.velocity.x = 0
+
 	# 檢查 Dennis 的邊界
-	var dennis_width = dennis.get_node("Sprite2D").texture.get_width()
-	if dennis.position.x < 0:
-		dennis.position.x = 0
-		if dennis.has_method("reverse_direction"):
-			dennis.reverse_direction()
-	elif dennis.position.x > viewport_width - dennis_width:
-		dennis.position.x = viewport_width - dennis_width
-		if dennis.has_method("reverse_direction"):
-			dennis.reverse_direction()
+	var dennis_collider = dennis.get_node("CollisionShape2D")
+	var dennis_width = dennis_collider.shape.extents.x * 2 if dennis_collider else 32
+	if dennis.position.x < dennis_width / 2:
+		dennis.position.x = dennis_width / 2
+		if dennis.velocity.x < 0:
+			dennis.velocity.x = 0
+	elif dennis.position.x > viewport_width - dennis_width / 2:
+		dennis.position.x = viewport_width - dennis_width / 2
+		if dennis.velocity.x > 0:
+			dennis.velocity.x = 0
 
 func _on_hit_detected(target: String):
 	hit_label.text = "Hits: " + target + " was hit!"
