@@ -30,11 +30,9 @@ func _physics_process(delta):
 			continue
 		# 避免雙向推開，優先 x 較小的角色
 		if is_being_pushed or other.is_being_pushed or global_position.x > other.global_position.x:
-			print("Debug: %s or %s already pushed or self x > other x, skipping pushback" % [name, other.name])
 			continue
 		# 檢查狀態
 		if has_state_preventing_pushback() or other.has_state_preventing_pushback():
-			print("Debug: %s skipped pushback due to state or other state" % name)
 			continue
 		# 碰撞箱計算
 		var leftA = global_position.x - colbox_half_width
@@ -49,22 +47,18 @@ func _physics_process(delta):
 		var center_distance = abs(global_position.x - other.global_position.x)
 		var total_col_width = colbox_half_width + other.colbox_half_width
 		if center_distance > total_col_width * 2.0:
-			print("Debug: Center distance %s > total collision width * 2.0 %s, skipping pushback" % [center_distance, total_col_width * 2.0])
 			continue
 		# 檢查 y 軸中心距離
 		var y_center_distance = abs(global_position.y - other.global_position.y)
 		if y_center_distance > 20.0:
-			print("Debug: Y center distance %s > 20.0, skipping pushback" % y_center_distance)
 			continue
 		# 檢查重疊
 		var epsilon = 2.0
 		var y_overlap = min(downA - upB, downB - upA)
 		if not (rightA >= leftB - epsilon and leftA <= rightB + epsilon and y_overlap > 5.0):
-			print("Debug: No overlap detected between %s and %s (y_overlap: %s)" % [name, other.name, y_overlap])
 			continue
 		var overlap = min(rightA - leftB, rightB - leftA)
 		if overlap <= 2.0:
-			print("Debug: Overlap <= 2.0 between %s and %s (overlap: %s)" % [name, other.name, overlap])
 			continue
 		# 推開方向
 		var pushbackDirA = (-1 if other.global_position.x > global_position.x else 1)

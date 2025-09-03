@@ -1,5 +1,4 @@
 extends Fighter
-
 @onready var animation_tree = $AnimationTree
 @onready var animation_state = animation_tree.get("parameters/playback")
 var walk_speed = 150 # 走路速度（前進）
@@ -20,6 +19,7 @@ var double_tap_timer = 0.3 # 雙擊時間窗口
 var last_input_dir = 0 # 上一次方向輸入
 var pending_dash_dir: int = 0 # 待確認方向
 var neutral_timer: float = 0.0 # 中立計時器
+var push_speed = walk_speed * 0.5 # 推力速度
 var crouch_pressed: bool = false # 蹲伏狀態
 var is_hit: bool = false # 是否受擊
 var is_knockfly: bool = false # 是否被擊飛
@@ -29,13 +29,21 @@ var knockfly_speed: float = -200.0 # 擊飛後退速度
 signal hit_detected(target: String)
 
 func _ready():
-	super._ready() # 調用父類的 _ready
 	animation_tree.active = true
 	animation_state.travel("Walk")
 	$Hitbox.area_entered.connect(_on_hitbox_area_entered)
+	add_to_group("players")
+	prev_position = global_position
+	if collision_shape and collision_shape.shape is RectangleShape2D:
+		colbox_half_width = collision_shape.shape.extents.x
+		colbox_half_height = collision_shape.shape.extents.y
+		print("Debug: CollisionShape2D initialized. Half width: %s, Half height: %s, Layer: %s, Mask: %s" % [colbox_half_width, colbox_half_height, collision_layer, collision_mask])
+	else:
+		print("Warning: CollisionShape2D not found or not RectangleShape2D. Pushback may not work correctly.")
 
 func _physics_process(delta):
-	super._physics_process(delta) # 調用父類的 _physics_process，執行推開邏輯
+	var current_position = global_position
+	is_being_pushed = false
 	
 	# 更新計時器
 	if neutral_timer > 0:
@@ -73,6 +81,7 @@ func _physics_process(delta):
 		velocity.y += 1300 * delta
 		move_and_slide()
 		_update_animation_state(input_dir, jump_pressed, crouch_pressed)
+		prev_position = current_position
 		return
 	
 	# 攻擊時鎖定移動
@@ -81,6 +90,7 @@ func _physics_process(delta):
 		velocity.y += 1300 * delta
 		move_and_slide()
 		_update_animation_state(input_dir, jump_pressed, crouch_pressed)
+		prev_position = current_position
 		return
 	
 	# 檢測攻擊輸入
@@ -91,6 +101,7 @@ func _physics_process(delta):
 		move_and_slide()
 		print("Debug: Attack triggered, playing St_mp")
 		_update_animation_state(input_dir, jump_pressed, crouch_pressed)
+		prev_position = current_position
 		return
 	
 	# 雙擊檢測邏輯
@@ -175,19 +186,97 @@ func _physics_process(delta):
 		# 跳躍處理
 		if jump_pressed and is_on_floor() and not crouch_pressed and not is_dashing and not is_backdashing:
 			jump_dir = input_dir
-			velocity.y = -400
+			velocity.y = -450
 			is_jumping = true
 			is_being_pushed = false
 			print("Debug: Jump triggered, direction: %s" % jump_dir)
 	
 	# 執行移動
 	move_and_slide()
+	
+	# 記錄跳躍時的 XY 座標
+	if is_jumping and not is_on_floor():
+		print("Debug: %s jump position: x=%s, y=%s" % [name, global_position.x, global_position.y])
+	
+	# 移植自長版的推開邏輯
+	var all_players = get_tree().get_nodes_in_group("players")
+	var arena_left = 0.0
+	var arena_right = ProjectSettings.get_setting("display/window/size/viewport_width")
+	print("Debug: Arena boundaries: left=%s, right=%s" % [arena_left, arena_right])
+	
+	for other in all_players:
+		if other == self:
+			continue
+		# 跳躍時跳過互推
+		if not is_on_floor() or not other.is_on_floor():
+			print("Debug: Skipping pushback for %s and %s due to airborne state" % [name, other.name])
+			continue
+		if is_dashing or is_backdashing or is_attacking or is_hit or is_knockfly:
+			print("Debug: %s skipped pushback due to state (dashing: %s, backdashing: %s, attacking: %s, hit: %s, knockfly: %s)" % [name, is_dashing, is_backdashing, is_attacking, is_hit, is_knockfly])
+			continue
+		if other.is_dashing or other.is_backdashing or other.is_attacking or other.is_hit or other.is_knockfly:
+			print("Debug: %s skipped pushback due to other state (dashing: %s, backdashing: %s, attacking: %s, hit: %s, knockfly: %s)" % [other.name, other.is_dashing, other.is_backdashing, other.is_attacking, other.is_hit, other.is_knockfly])
+			continue
+		var sprite_offset = sprite.position
+		var other_sprite_offset = other.sprite.position
+		var leftA = global_position.x - colbox_half_width + sprite_offset.x
+		var rightA = global_position.x + colbox_half_width + sprite_offset.x
+		var upA = global_position.y - colbox_half_height + sprite_offset.y
+		var downA = global_position.y + colbox_half_height + sprite_offset.y
+		var leftB = other.global_position.x - other.colbox_half_width + other_sprite_offset.x
+		var rightB = other.global_position.x + other.colbox_half_width + other_sprite_offset.x
+		var upB = other.global_position.y - other.colbox_half_height + other_sprite_offset.y
+		var downB = other.global_position.y + other.colbox_half_height + other_sprite_offset.y
+		print("Debug: %s collision box: left=%s, right=%s, up=%s, down=%s" % [name, leftA, rightA, upA, downA])
+		print("Debug: %s collision box: left=%s, right=%s, up=%s, down=%s" % [other.name, leftB, rightB, upB, downB])
+		print("Debug: Overlap check: rightA-leftB=%s, leftA-rightB=%s" % [rightA - leftB, leftA - rightB])
+		var epsilon = 2.0
+		if not (rightA >= leftB - epsilon and leftA <= rightB + epsilon and downA >= upB - epsilon and upA <= downB + epsilon):
+			print("Debug: No overlap detected between %s and %s" % [name, other.name])
+			continue
+		var overlap = min(rightA - leftB, rightB - leftA)
+		if overlap < -epsilon:
+			print("Debug: Overlap < -epsilon between %s and %s" % [name, other.name])
+			continue
+		overlap = max(overlap, 8.0)
+		var prevXA = prev_position.x
+		var prevXB = other.prev_position.x
+		var pushbackDirA = (-1 if prevXB > prevXA else 1)
+		if prevXA == prevXB:
+			pushbackDirA = (-1 if other.global_position.x > global_position.x else 1)
+		var push_distance = overlap / 2.0
+		if velocity.x * pushbackDirA > 0:
+			push_distance += abs(velocity.x) * delta * 2
+		if other.velocity.x * -pushbackDirA > 0:
+			push_distance += abs(other.velocity.x) * delta * 2
+		var new_self_x = global_position.x + pushbackDirA * push_distance
+		var new_other_x = other.global_position.x - pushbackDirA * push_distance
+		var sprite_width = sprite.texture.get_width() if sprite.texture else 20.0
+		var other_sprite_width = other.sprite.texture.get_width() if other.sprite.texture else 20.0
+		var can_push_self = new_self_x >= arena_left + colbox_half_width and new_self_x <= arena_right - colbox_half_width
+		var can_push_other = new_other_x >= arena_left + other.colbox_half_width and new_other_x <= arena_right - other.colbox_half_width
+		var distance_before = abs(global_position.x - other.global_position.x)
+		if can_push_self:
+			global_position.x = new_self_x
+		else:
+			global_position.x = clamp(new_self_x, arena_left + colbox_half_width, arena_right - colbox_half_width)
+			print("Debug: %s pushback restricted by boundary at x=%s" % [name, new_self_x])
+		if can_push_other:
+			other.global_position.x = new_other_x
+		else:
+			other.global_position.x = clamp(new_other_x, arena_left + other.colbox_half_width, arena_right - other.colbox_half_width)
+			print("Debug: %s pushback restricted by boundary at x=%s" % [other.name, new_other_x])
+		is_being_pushed = true
+		other.is_being_pushed = true
+		var distance_after = abs(global_position.x - other.global_position.x)
+		print("Debug: Pushback applied. Self: %s, Other: %s, Overlap: %s, Push dir: %s, Distance: %s, Distance change: %s -> %s" % [global_position, other.global_position, overlap, pushbackDirA, push_distance, distance_before, distance_after])
+	
 	_update_animation_state(input_dir, jump_pressed, crouch_pressed)
+	prev_position = current_position
 
 func _update_animation_state(dir_x: float, jump_pressed: bool, crouch_pressed: bool) -> void:
 	var curr_state = animation_state.get_current_node()
 	var on_floor = is_on_floor()
-	# 更新動畫樹條件
 	animation_tree.set("parameters/conditions/Walk", false)
 	animation_tree.set("parameters/conditions/Crouch", false)
 	animation_tree.set("parameters/conditions/Dash", is_dashing)
@@ -265,15 +354,3 @@ func _on_hitbox_area_entered(area: Area2D):
 		hit_detected.emit(target.name)
 		target.take_hit()
 		print("Debug: Hit detected on %s" % target.name)
-
-# 實現父類的虛擬方法
-func get_is_dashing() -> bool:
-	return is_dashing
-func get_is_backdashing() -> bool:
-	return is_backdashing
-func get_is_attacking() -> bool:
-	return is_attacking
-func get_is_hit() -> bool:
-	return is_hit
-func get_is_knockfly() -> bool:
-	return is_knockfly
