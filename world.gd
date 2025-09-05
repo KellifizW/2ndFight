@@ -1,6 +1,7 @@
 extends Node2D
 
 @onready var hit_label = $HitLabel
+@onready var FPS = $FPS
 @onready var davis = $Davis
 @onready var dennis = $Dennis
 
@@ -33,3 +34,6 @@ func _physics_process(delta):
 
 func _on_hit_detected(target: String):
 	hit_label.text = "Hits: " + target + " was hit!"
+	
+func _process(delta):
+	FPS.text = "FPS: %d" % (1.0 / delta)

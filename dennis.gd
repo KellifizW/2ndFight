@@ -277,60 +277,56 @@ func _physics_process(delta):
 func _update_animation_state(dir_x: float, jump_pressed: bool, crouch_pressed: bool) -> void:
 	var curr_state = animation_state.get_current_node()
 	var on_floor = is_on_floor()
-	animation_tree.set("parameters/conditions/Walk", false)
-	animation_tree.set("parameters/conditions/Crouch", false)
-	animation_tree.set("parameters/conditions/Dash", is_dashing)
+	var target_state = "Walk"  # 預設目標狀態，從這裡開始計算
+
+	# 先計算目標狀態（這是新邏輯：根據優先順序決定）
+	if is_knockfly:
+		target_state = "knockfly"
+	elif is_hit:
+		target_state = "hit"
+	elif is_attacking:
+		target_state = "St_mp"
+	elif is_dashing:
+		target_state = "Dash"
+	elif is_backdashing:
+		target_state = "Backdash"
+	elif crouch_pressed and on_floor:
+		target_state = "Crouch"
+	elif not on_floor and is_jumping:
+		if jump_dir > 0:
+			target_state = "Jump_F"
+		elif jump_dir < 0:
+			target_state = "Jump_B"
+		else:
+			target_state = "Jump_V"
+	# else: 保持為"Walk"（地面正常移動）
+
+	# 持續設定條件參數（這是關鍵修正：每幀都更新，維持狀態）
+	# 不再在開頭強制設false，而是基於實際情況設true/false
+	animation_tree.set("parameters/conditions/Walk", target_state == "Walk")
+	animation_tree.set("parameters/conditions/Crouch", target_state == "Crouch")
+	animation_tree.set("parameters/conditions/Dash", is_dashing)  # 維持原邏輯
 	animation_tree.set("parameters/conditions/Backdash", is_backdashing)
 	animation_tree.set("parameters/conditions/St_mp", is_attacking)
-	animation_tree.set("parameters/conditions/Jump_F", is_jumping and jump_dir > 0)
-	animation_tree.set("parameters/conditions/Jump_B", is_jumping and jump_dir < 0)
-	animation_tree.set("parameters/conditions/Jump_V", is_jumping and jump_dir == 0)
+	animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
+	animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
+	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
 	animation_tree.set("parameters/conditions/hit", is_hit)
 	animation_tree.set("parameters/conditions/knockfly", is_knockfly)
-	
-	if is_knockfly and curr_state != "knockfly":
-		animation_state.travel("knockfly")
-		print("Debug: Animation switched to knockfly")
-		return
-	if is_hit and curr_state != "hit":
-		animation_state.travel("hit")
-		print("Debug: Animation switched to hit")
-		return
-	if is_attacking and curr_state != "St_mp":
-		animation_state.travel("St_mp")
-		print("Debug: Animation switched to St_mp")
-		return
-	if is_dashing and curr_state != "Dash":
-		animation_state.travel("Dash")
-		print("Debug: Animation switched to Dash")
-		return
-	if is_backdashing and curr_state != "Backdash":
-		animation_state.travel("Backdash")
-		print("Debug: Animation switched to Backdash")
-		return
-	if crouch_pressed and on_floor and curr_state != "Crouch":
-		animation_state.travel("Crouch")
-		animation_tree.set("parameters/conditions/Crouch", true)
-		print("Debug: Animation switched to Crouch")
-		return
+
+	# 只在需要時切換狀態（避免重複travel導致跳幀）
+	if curr_state != target_state:
+		animation_state.travel(target_state)
+		print("Debug: Animation switched to %s" % target_state)  # 幫助你追蹤
+
+	# 如果是Walk，設定blend_position（維持原邏輯）
+	if target_state == "Walk":
+		animation_tree.set("parameters/Walk/blend_position", dir_x)
+
+	# 額外檢查：落地時重置跳躍旗標（維持原邏輯）
 	if is_jumping and on_floor:
 		is_jumping = false
 		print("Debug: Landing, resetting is_jumping")
-	if not on_floor and is_jumping:
-		var target_jump_state = "Jump_V"
-		if jump_dir > 0:
-			target_jump_state = "Jump_F"
-		elif jump_dir < 0:
-			target_jump_state = "Jump_B"
-		if curr_state != target_jump_state:
-			animation_state.travel(target_jump_state)
-			print("Debug: Animation switched to %s" % target_jump_state)
-		return
-	if curr_state != "Walk":
-		animation_state.travel("Walk")
-		animation_tree.set("parameters/conditions/Walk", true)
-		print("Debug: Animation switched to Walk")
-	animation_tree.set("parameters/Walk/blend_position", dir_x)
 
 func take_hit():
 	if not is_hit and not is_knockfly and is_on_floor():

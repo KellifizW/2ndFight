@@ -43,3 +43,10 @@ offset_right = 132.0
 offset_bottom = 23.0
 label_settings = SubResource("LabelSettings_aqk2v")
 horizontal_alignment = 1
+
+[node name="FPS" type="Label" parent="."]
+offset_left = 192.0
+offset_right = 256.0
+offset_bottom = 23.0
+label_settings = SubResource("LabelSettings_aqk2v")
+horizontal_alignment = 1

@@ -21,6 +21,10 @@ window/size/viewport_width=320
 window/size/viewport_height=180
 window/stretch/mode="viewport"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/SpritesheetGenerator/plugin.cfg")
+
 [input]
 
 move_right={
