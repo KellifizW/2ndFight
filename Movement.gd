@@ -4,6 +4,7 @@ class_name Movement extends CharacterBody2D
 @onready var animation_state = animation_tree.get("parameters/playback")
 var walk_speed: float = 150.0 # 走路速度（前進）
 var back_speed: float = walk_speed * 0.75 # 後退速度
+var jump_horizontal_speed: float = 120.0 # 修改：跳躍水平速度，獨立於walk_speed
 var jump_dir: float = 0.0 # 跳躍方向
 var is_jumping: bool = false # 是否跳躍
 var is_dashing: bool = false # 是否前撤
@@ -27,6 +28,7 @@ var hit_timer: float = 0.0 # 受擊計時器
 var knockfly_timer: float = 0.0 # 擊飛計時器
 var knockfly_speed: float = -200.0 # 擊飛後退速度
 var facing_direction: float = 1.0 # 角色面向（1.0 向右，-1.0 向左）
+var dash_direction: float = 0.0 # Dash 方向（鎖定觸發時的輸入方向）
 
 func _ready():
 	if animation_tree:
@@ -103,11 +105,12 @@ func _physics_process(delta):
 	if current_input_dir != last_input_dir:
 		if last_input_dir == 0 and current_input_dir != 0:
 			if pending_dash_dir == current_input_dir and neutral_timer > 0 and is_on_floor() and not crouch_pressed and not is_jumping:
-				if current_input_dir * get_facing_multiplier() > 0:
+				if current_input_dir * facing_direction > 0:
 					is_dashing = true
 					dash_timer = dash_time
+					dash_direction = current_input_dir
 					print("Debug: Dash triggered, direction: %s" % current_input_dir)
-				elif current_input_dir * get_facing_multiplier() < 0:
+				elif current_input_dir * facing_direction < 0:
 					is_backdashing = true
 					dash_timer = backdash_time
 					print("Debug: Backdash triggered, direction: %s" % current_input_dir)
@@ -125,33 +128,36 @@ func _physics_process(delta):
 	
 	# Dash 或 Backdash 處理
 	if is_dashing:
-		velocity.x = dash_speed * current_input_dir
+		velocity.x = dash_speed * dash_direction
 		dash_timer -= delta
 		if dash_timer <= 0:
 			is_dashing = false
 			velocity.x = 0
+			dash_direction = 0.0
 			print("Debug: Dash ended")
 	elif is_backdashing:
-		velocity.x = -backdash_speed * current_input_dir
+		velocity.x = backdash_speed * -facing_direction
 		dash_timer -= delta
 		if dash_timer <= 0:
 			is_backdashing = false
 			velocity.x = 0
 			print("Debug: Backdash ended")
 	else:
-		# 正常移動邏輯
-		if crouch_pressed and is_on_floor():
-			input_dir = 0
-		# 設置速度
+		# 正常移動處理
 		if is_on_floor():
-			if input_dir != 0:
-				velocity.x = input_dir * walk_speed
+			if crouch_pressed:
+				velocity.x = 0
+			elif input_dir != 0:
+				if input_dir * facing_direction > 0:
+					velocity.x = walk_speed * input_dir
+				else:
+					velocity.x = back_speed * input_dir
 			else:
 				velocity.x = 0
 			jump_dir = 0.0
 			is_jumping = false
 		else:
-			velocity.x = jump_dir * walk_speed
+			velocity.x = jump_dir * jump_horizontal_speed # 修改：使用獨立的jump_horizontal_speed
 		velocity.y += 1300 * delta
 	
 		# 跳躍處理
@@ -175,9 +181,9 @@ func _update_animation_state(dir_x: float, jump_pressed: bool, crouch_pressed: b
 	var on_floor = is_on_floor()
 	var target_state = "Walk"  # 預設目標狀態
 
-	# 僅對動畫方向應用 facing_multiplier
-	var anim_dir = dir_x * get_facing_multiplier()
-	var anim_jump_dir = jump_dir * get_facing_multiplier()
+	# 僅對動畫方向應用 facing_direction
+	var anim_dir = dir_x * facing_direction
+	var anim_jump_dir = jump_dir * facing_direction
 
 	if is_knockfly:
 		target_state = "knockfly"
@@ -240,7 +246,7 @@ func get_input() -> Dictionary:
 	return {"input_dir": 0, "crouch_pressed": false, "jump_pressed": false, "attack_pressed": false}
 
 func get_facing_multiplier() -> float:
-	return 1.0  # 默認為正向（Davis）
+	return facing_direction
 
 func get_is_dashing() -> bool:
 	return is_dashing
