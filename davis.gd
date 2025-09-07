@@ -39,4 +39,4 @@ func _on_hitbox_area_entered(area: Area2D):
 		print("Debug: Hit detected on %s" % target.name)
 
 func get_facing_multiplier() -> float:
-	return 1.0  # Davis 正向da
+	return 1.0  # Davis 正向d

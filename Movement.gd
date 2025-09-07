@@ -65,8 +65,9 @@ func _physics_process(delta):
 	var jump_pressed = input_data["jump_pressed"]
 	var attack_pressed = input_data["attack_pressed"]
 	
-	# 動態更新面向（根據其他角色位置）
-	update_facing_direction()
+	# 動態更新面向（僅在地面上時）
+	if is_on_floor():
+		update_facing_direction()
 	
 	# 受擊或擊飛鎖定移動
 	if is_hit or is_knockfly:
@@ -262,13 +263,25 @@ func update_hitbox_position():
 		hitbox.position.x = 16.5 * facing_direction
 
 func update_facing_direction():
-	# 假設場景中有另一個角色（例如，Davis 或 Dennis）
-	var other_player = get_tree().get_first_node_in_group("player")
-	if other_player and other_player != self:
+	# 獲取所有在 "players" 組中的節點
+	var players = get_tree().get_nodes_in_group("players")
+	var other_player = null
+	# 尋找與自身不同的另一個角色
+	for player in players:
+		if player != self:
+			other_player = player
+			break
+	
+	if other_player:
+		print("Debug: Updating facing direction for %s. Self x=%s, Other x=%s, Other name=%s" % [name, global_position.x, other_player.global_position.x, other_player.name])
 		if global_position.x > other_player.global_position.x:
 			facing_direction = -1.0  # 面向左邊
 			$Sprite2D.flip_h = true
+			print("Debug: %s facing left (flip_h = true)" % name)
 		else:
 			facing_direction = 1.0  # 面向右邊
 			$Sprite2D.flip_h = false
+			print("Debug: %s facing right (flip_h = false)" % name)
 		update_hitbox_position()
+	else:
+		print("Warning: No other player found in group 'players' for %s" % name)

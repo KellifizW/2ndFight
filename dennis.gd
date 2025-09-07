@@ -1,4 +1,4 @@
-class_name Dennis extends Fighter
+extends Fighter
 
 signal hit_detected(target: String)
 
@@ -7,6 +7,7 @@ func _ready():
 	$Hitbox.area_entered.connect(_on_hitbox_area_entered)
 	$Sprite2D.flip_h = true
 	facing_direction = -1.0
+	add_to_group("players") # 改為 "players"
 	update_hitbox_position()
 
 func get_input() -> Dictionary:
