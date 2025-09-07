@@ -58,7 +58,7 @@ tracks/3/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [Vector2(-2, 4.325)]
+"values": [Vector2(0, 4.325)]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -544,7 +544,7 @@ tracks/5/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(-2.5, 4.3125)]
+"values": [Vector2(0, 4.313)]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
@@ -768,7 +768,7 @@ tracks/2/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(-2, 4.38121)]
+"values": [Vector2(0, 4.381)]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
@@ -881,7 +881,7 @@ tracks/4/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(-2.5, 4.3125)]
+"values": [Vector2(0, 4.313)]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
@@ -1188,7 +1188,7 @@ vframes = 18
 frame = 1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(-2, 4.325)
+position = Vector2(0, 4.325)
 scale = Vector2(1, 0.660475)
 shape = SubResource("RectangleShape2D_md12c")
 debug_color = Color(1.44392e-06, 0.63631, 0.406489, 0.42)
@@ -1229,6 +1229,6 @@ collision_layer = 8
 collision_mask = 2
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
-position = Vector2(-2.5, 4.3125)
+position = Vector2(0, 4.313)
 shape = SubResource("RectangleShape2D_x536s")
 debug_color = Color(1.44392e-06, 0.569045, 0.850655, 0.42)
