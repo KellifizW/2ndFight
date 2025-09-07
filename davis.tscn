@@ -5,7 +5,7 @@
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_md12c"]
 custom_solver_bias = 0.125
-size = Vector2(16, 85.9418)
+size = Vector2(18, 86)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_x536s"]
 size = Vector2(24, 57)
@@ -58,7 +58,7 @@ tracks/3/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [Vector2(0, 4.325)]
+"values": [Vector2(-1, 4.325)]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -82,7 +82,7 @@ tracks/5/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [Vector2(16, 85.9418)]
+"values": [Vector2(18, 86)]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
@@ -107,6 +107,18 @@ tracks/7/keys = {
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [SubResource("RectangleShape2D_x536s")]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("Hurtbox/CollisionShape2D:position")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(-2.1, 4.313)]
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_yev3d"]
@@ -544,7 +556,7 @@ tracks/5/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, 4.313)]
+"values": [Vector2(-2.1, 4.313)]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
@@ -1188,7 +1200,7 @@ vframes = 18
 frame = 1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, 4.325)
+position = Vector2(-1, 4.325)
 scale = Vector2(1, 0.660475)
 shape = SubResource("RectangleShape2D_md12c")
 debug_color = Color(1.44392e-06, 0.63631, 0.406489, 0.42)
@@ -1229,6 +1241,6 @@ collision_layer = 8
 collision_mask = 2
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
-position = Vector2(0, 4.313)
+position = Vector2(-2.1, 4.313)
 shape = SubResource("RectangleShape2D_x536s")
 debug_color = Color(1.44392e-06, 0.569045, 0.850655, 0.42)

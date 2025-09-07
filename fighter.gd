@@ -8,8 +8,10 @@ var is_being_pushed: bool = false
 var prev_position: Vector2 = Vector2()
 var arena_left: float = 0.0
 var arena_right: float = ProjectSettings.get_setting("display/window/size/viewport_width")
-var push_distance_multiplier: float = 0.5  # 保持推開速度
-var PUSH_FRICTION: float = 66.0  # 輕推效果的摩擦常數
+var push_distance_multiplier: float = 0.5  # 推開速度倍數
+var PUSH_FRICTION: float = 66.0  # 推移摩擦常數
+@export var push_trigger_distance: float = 5.0  # 新增：推移觸發距離
+@export var collision_epsilon: float = 5.0  # 新增：碰撞檢測容差
 
 func _ready():
 	super._ready()
@@ -25,6 +27,9 @@ func _ready():
 
 func _physics_process(delta):
 	super._physics_process(delta)
+	
+	# 重置推移狀態
+	is_being_pushed = false
 	
 	# 推開邏輯
 	var all_players = get_tree().get_nodes_in_group("players")
@@ -47,7 +52,6 @@ func _physics_process(delta):
 		var downB = other.global_position.y + other.colbox_half_height + other_sprite_offset.y
 		print("Debug: %s collision box: left=%s, right=%s, up=%s, down=%s" % [name, leftA, rightA, upA, downA])
 		print("Debug: %s collision box: left=%s, right=%s, up=%s, down=%s" % [other.name, leftB, rightB, upB, downB])
-		var epsilon = 5.0  # 增加容差以提高碰撞檢測穩定性
 		
 		# 計算重疊
 		var overlap_x = min(rightA - leftB, rightB - leftA)
@@ -56,59 +60,60 @@ func _physics_process(delta):
 		var push_distance = max(overlap_x, 12.0) * push_distance_multiplier
 		var distance_before = abs(global_position.x - other.global_position.x)
 		
-		# 空中推開邏輯
-		if not is_on_floor() and (other.is_on_floor() or other.is_jumping or other.crouch_pressed):
-			if rightA >= leftB - epsilon and leftA <= rightB + epsilon and downA >= upB - epsilon and upA <= downB + epsilon:
-				if overlap_x > -epsilon and overlap_y > -epsilon:
-					print("Debug: Air overlap detected between %s and %s, x_overlap=%s, y_overlap=%s" % [name, other.name, overlap_x, overlap_y])
-					push_distance += PUSH_FRICTION * delta
-					var new_self_x = global_position.x
-					var new_other_x = other.global_position.x
-					
-					if relative_pos_x > 0:
-						new_self_x += push_distance
-						new_other_x -= push_distance
-					else:
-						new_self_x -= push_distance
-						new_other_x += push_distance
-					
-					new_self_x = clamp(new_self_x, arena_left + colbox_half_width, arena_right - colbox_half_width)
-					new_other_x = clamp(new_other_x, arena_left + other.colbox_half_width, arena_right - other.colbox_half_width)
-					
-					global_position.x = new_self_x
-					other.global_position.x = new_other_x
-					
-					is_being_pushed = true
-					other.is_being_pushed = true
-					var distance_after = abs(global_position.x - other.global_position.x)
-					print("Debug: Air pushback applied. Self: %s, Other: %s, Push distance: %s, Distance: %s -> %s" % [global_position, other.global_position, push_distance, distance_before, distance_after])
+		# 檢查是否在角落
+		var self_at_left = abs(global_position.x - (arena_left + colbox_half_width)) < collision_epsilon
+		var self_at_right = abs(global_position.x - (arena_right - colbox_half_width)) < collision_epsilon
+		var other_at_left = abs(other.global_position.x - (arena_left + other.colbox_half_width)) < collision_epsilon
+		var other_at_right = abs(other.global_position.x - (arena_right - other.colbox_half_width)) < collision_epsilon
 		
-		# 地面推開邏輯（簡化）
-		elif rightA >= leftB - epsilon and leftA <= rightB + epsilon and downA >= upB - epsilon and upA <= downB + epsilon:
-			if overlap_x > -epsilon and overlap_y > -epsilon:
-				print("Debug: Ground overlap detected between %s and %s, x_overlap=%s, y_overlap=%s" % [name, other.name, overlap_x, overlap_y])
+		# 推移邏輯：當碰撞框接近或重疊時觸發
+		if rightA >= leftB - push_trigger_distance and leftA <= rightB + push_trigger_distance and downA >= upB - push_trigger_distance and upA <= downB + push_trigger_distance:
+			if overlap_x > -collision_epsilon and overlap_y > -collision_epsilon:
+				print("Debug: Overlap detected between %s and %s, x_overlap=%s, y_overlap=%s" % [name, other.name, overlap_x, overlap_y])
+				push_distance += PUSH_FRICTION * delta
 				var new_self_x = global_position.x
 				var new_other_x = other.global_position.x
 				
-				if relative_pos_x > 0:
-					new_self_x += push_distance * 0.5
-					new_other_x -= push_distance * 0.5
+				# 角落保護：如果對手在角落，優先將自己推到對手前方
+				if other_at_right and relative_pos_x > 0:
+					new_self_x -= push_distance  # A在B右邊，A向左推
+					new_other_x = arena_right - other.colbox_half_width  # B固定在右邊界
+					print("Debug: %s at right boundary, pushing %s left" % [other.name, name])
+				elif other_at_left and relative_pos_x < 0:
+					new_self_x += push_distance  # A在B左邊，A向右推
+					new_other_x = arena_left + other.colbox_half_width  # B固定在左邊界
+					print("Debug: %s at left boundary, pushing %s right" % [other.name, name])
+				elif self_at_right and relative_pos_x < 0:
+					new_other_x += push_distance  # A在右邊界，B向右推
+					new_self_x = arena_right - colbox_half_width  # A固定在右邊界
+					print("Debug: %s at right boundary, pushing %s right" % [name, other.name])
+				elif self_at_left and relative_pos_x > 0:
+					new_other_x -= push_distance  # A在左邊界，B向左推
+					new_self_x = arena_left + colbox_half_width  # A固定在左邊界
+					print("Debug: %s at left boundary, pushing %s left" % [name, other.name])
 				else:
-					new_self_x -= push_distance * 0.5
-					new_other_x += push_distance * 0.5
+					# 正常推移：根據相對位置推開
+					if relative_pos_x > 0:
+						new_self_x += push_distance * 0.5
+						new_other_x -= push_distance * 0.5
+					else:
+						new_self_x -= push_distance * 0.5
+						new_other_x += push_distance * 0.5
 				
+				# 限制在場地邊界內
 				new_self_x = clamp(new_self_x, arena_left + colbox_half_width, arena_right - colbox_half_width)
 				new_other_x = clamp(new_other_x, arena_left + other.colbox_half_width, arena_right - other.colbox_half_width)
 				
+				# 應用位置更新
 				global_position.x = new_self_x
 				other.global_position.x = new_other_x
 				
 				is_being_pushed = true
 				other.is_being_pushed = true
 				var distance_after = abs(global_position.x - other.global_position.x)
-				print("Debug: Ground pushback applied. Self: %s, Other: %s, Push distance: %s, Distance: %s -> %s" % [global_position, other.global_position, push_distance, distance_before, distance_after])
+				print("Debug: Pushback applied. Self: %s, Other: %s, Push distance: %s, Distance: %s -> %s" % [global_position, other.global_position, push_distance, distance_before, distance_after])
 	
-	# 邊界檢查
+	# 最終邊界檢查
 	global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
 	
 	prev_position = global_position
