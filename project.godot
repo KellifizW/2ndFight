@@ -23,7 +23,7 @@ window/stretch/mode="viewport"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/SpritesheetGenerator/plugin.cfg")
+enabled=PackedStringArray("res://addons/SpritesheetGenerator/plugin.cfg", "res://addons/copilot-advanced/plugin.cfg")
 
 [input]
 

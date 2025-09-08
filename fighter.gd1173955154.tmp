@@ -1,0 +1,154 @@
+class_name Fighter extends Movement
+
+@onready var collision_shape = $CollisionShape2D
+@onready var sprite = $Sprite2D
+var colbox_half_width: float = 0.0
+var colbox_half_height: float = 0.0
+var is_being_pushed: bool = false
+var prev_position: Vector2 = Vector2()
+var arena_left: float = 0.0
+var arena_right: float = ProjectSettings.get_setting("display/window/size/viewport_width")
+var push_distance_multiplier: float = 0.5  # 推開速度倍數
+var PUSH_FRICTION: float = 66.0  # 推移摩擦常數
+@export var push_trigger_distance: float = 5.0  # 新增：推移觸發距離
+@export var collision_epsilon: float = 5.0  # 新增：碰撞檢測容差
+
+func _ready():
+	super._ready()
+	if collision_shape and collision_shape.shape is RectangleShape2D:
+		var collision_scale = collision_shape.scale
+		colbox_half_width = collision_shape.shape.size.x * collision_scale.x / 2.0
+		colbox_half_height = collision_shape.shape.size.y * collision_scale.y / 2.0
+		print("Debug: CollisionShape2D initialized for %s. Half width: %s, Half height: %s, Layer: %s, Mask: %s, Sprite offset: %s" % [name, colbox_half_width, colbox_half_height, collision_layer, collision_mask, sprite.position])
+	else:
+		print("Warning: CollisionShape2D not found or not RectangleShape2D for %s. Pushback may not work correctly." % name)
+	add_to_group("players")
+	prev_position = global_position
+
+func _physics_process(delta):
+	super._physics_process(delta)
+	
+	# 重置推移狀態
+	is_being_pushed = false
+	
+	# 推開邏輯
+	var all_players = get_tree().get_nodes_in_group("players")
+	print("Debug: Arena boundaries: left=%s, right=%s" % [arena_left, arena_right])
+	
+	for other in all_players:
+		if other == self:
+			continue
+			
+		# 計算碰撞框範圍
+		var sprite_offset = sprite.position
+		var other_sprite_offset = other.sprite.position
+		var leftA = global_position.x - colbox_half_width + sprite_offset.x
+		var rightA = global_position.x + colbox_half_width + sprite_offset.x
+		var upA = global_position.y - colbox_half_height + sprite_offset.y
+		var downA = global_position.y + colbox_half_height + sprite_offset.y
+		var leftB = other.global_position.x - other.colbox_half_width + other_sprite_offset.x
+		var rightB = other.global_position.x + other.colbox_half_width + other_sprite_offset.x
+		var upB = other.global_position.y - other.colbox_half_height + other_sprite_offset.y
+		var downB = other.global_position.y + other.colbox_half_height + other_sprite_offset.y
+		print("Debug: %s collision box: left=%s, right=%s, up=%s, down=%s" % [name, leftA, rightA, upA, downA])
+		print("Debug: %s collision box: left=%s, right=%s, up=%s, down=%s" % [other.name, leftB, rightB, upB, downB])
+		
+		# 計算重疊
+		var overlap_x = min(rightA - leftB, rightB - leftA)
+		var overlap_y = min(downA - upB, downB - upA)
+		var relative_pos_x = global_position.x - other.global_position.x
+		var push_distance = max(overlap_x, 12.0) * push_distance_multiplier
+		var distance_before = abs(global_position.x - other.global_position.x)
+		
+		# 檢查是否在角落
+		var self_at_left = abs(global_position.x - (arena_left + colbox_half_width)) < collision_epsilon
+		var self_at_right = abs(global_position.x - (arena_right - colbox_half_width)) < collision_epsilon
+		var other_at_left = abs(other.global_position.x - (arena_left + other.colbox_half_width)) < collision_epsilon
+		var other_at_right = abs(other.global_position.x - (arena_right - other.colbox_half_width)) < collision_epsilon
+		
+		# 推移邏輯：當碰撞框接近或重疊時觸發
+		if rightA >= leftB - push_trigger_distance and leftA <= rightB + push_trigger_distance and downA >= upB - push_trigger_distance and upA <= downB + push_trigger_distance:
+			if overlap_x > -collision_epsilon and overlap_y > -collision_epsilon:
+				print("Debug: Overlap detected between %s and %s, x_overlap=%s, y_overlap=%s" % [name, other.name, overlap_x, overlap_y])
+				push_distance += PUSH_FRICTION * delta
+				var new_self_x = global_position.x
+				var new_other_x = other.global_position.x
+				
+				# 角落保護：如果對手在角落，優先將自己推到對手前方
+				if other_at_right and relative_pos_x > 0:
+					new_self_x -= push_distance  # A在B右邊，A向左推
+					new_other_x = arena_right - other.colbox_half_width  # B固定在右邊界
+					print("Debug: %s at right boundary, pushing %s left" % [other.name, name])
+				elif other_at_left and relative_pos_x < 0:
+					new_self_x += push_distance  # A在B左邊，A向右推
+					new_other_x = arena_left + other.colbox_half_width  # B固定在左邊界
+					print("Debug: %s at left boundary, pushing %s right" % [other.name, name])
+				elif self_at_right and relative_pos_x < 0:
+					new_other_x += push_distance  # A在右邊界，B向右推
+					new_self_x = arena_right - colbox_half_width  # A固定在右邊界
+					print("Debug: %s at right boundary, pushing %s right" % [name, other.name])
+				elif self_at_left and relative_pos_x > 0:
+					new_other_x -= push_distance  # A在左邊界，B向左推
+					new_self_x = arena_left + colbox_half_width  # A固定在左邊界
+					print("Debug: %s at left boundary, pushing %s left" % [name, other.name])
+				else:
+					# 正常推移：根據相對位置推開
+					if relative_pos_x > 0:
+						new_self_x += push_distance * 0.5
+						new_other_x -= push_distance * 0.5
+					else:
+						new_self_x -= push_distance * 0.5
+						new_other_x += push_distance * 0.5
+				
+				# 限制在場地邊界內
+				new_self_x = clamp(new_self_x, arena_left + colbox_half_width, arena_right - colbox_half_width)
+				new_other_x = clamp(new_other_x, arena_left + other.colbox_half_width, arena_right - other.colbox_half_width)
+				
+				# 應用位置更新
+				global_position.x = new_self_x
+				other.global_position.x = new_other_x
+				
+				is_being_pushed = true
+				other.is_being_pushed = true
+				var distance_after = abs(global_position.x - other.global_position.x)
+				print("Debug: Pushback applied. Self: %s, Other: %s, Push distance: %s, Distance: %s -> %s" % [global_position, other.global_position, push_distance, distance_before, distance_after])
+	
+	# 最終邊界檢查
+	global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
+	
+	prev_position = global_position
+
+# 新增：覆寫 update_facing_direction() 以實現完全跨過才轉身
+func update_facing_direction():
+	var players = get_tree().get_nodes_in_group("players")
+	var other_player = null
+	for player in players:
+		if player != self:
+			other_player = player
+			break
+	
+	if other_player:
+		# 計算碰撞框邊界（考慮 sprite 偏移）
+		var sprite_offset = sprite.position
+		var other_sprite_offset = other_player.sprite.position
+		var self_left = global_position.x - colbox_half_width + sprite_offset.x
+		var self_right = global_position.x + colbox_half_width + sprite_offset.x
+		var other_left = other_player.global_position.x - other_player.colbox_half_width + other_sprite_offset.x
+		var other_right = other_player.global_position.x + other_player.colbox_half_width + other_sprite_offset.x
+		
+		print("Debug: Updating facing for %s. Self left=%s, right=%s; Other left=%s, right=%s" % [name, self_left, self_right, other_left, other_right])
+		
+		# 只在完全跨過時更新面向
+		if self_left > other_right:
+			facing_direction = -1.0  # 完全在右邊，面向左
+			$Sprite2D.flip_h = true
+			print("Debug: %s fully crossed to right, facing left" % name)
+		elif self_right < other_left:
+			facing_direction = 1.0  # 完全在左邊，面向右
+			$Sprite2D.flip_h = false
+			print("Debug: %s fully crossed to left, facing right" % name)
+		# else: 不更新，保持原面向（例如重疊或未完全跨過）
+		
+		update_hitbox_position()
+	else:
+		print("Warning: No other player found in group 'players' for %s" % name)

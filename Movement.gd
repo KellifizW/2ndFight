@@ -4,7 +4,7 @@ class_name Movement extends CharacterBody2D
 @onready var animation_state = animation_tree.get("parameters/playback")
 var walk_speed: float = 150.0 # 走路速度（前進）
 var back_speed: float = walk_speed * 0.75 # 後退速度
-var jump_horizontal_speed: float = 120.0 # 修改：跳躍水平速度，獨立於walk_speed
+var jump_horizontal_speed: float = 130.0 # 修改：跳躍水平速度，獨立於walk_speed
 var jump_dir: float = 0.0 # 跳躍方向
 var is_jumping: bool = false # 是否跳躍
 var is_dashing: bool = false # 是否前撤
@@ -36,7 +36,6 @@ func _ready():
 		animation_state.travel("Walk")
 	else:
 		print("Warning: AnimationTree not found for %s" % name)
-	update_hitbox_position()
 
 func _physics_process(delta):
 	var current_position = global_position
@@ -158,12 +157,12 @@ func _physics_process(delta):
 			is_jumping = false
 		else:
 			velocity.x = jump_dir * jump_horizontal_speed # 修改：使用獨立的jump_horizontal_speed
-		velocity.y += 1300 * delta
+		velocity.y += 1800 * delta
 	
 		# 跳躍處理
 		if jump_pressed and is_on_floor() and not crouch_pressed and not is_dashing and not is_backdashing:
 			jump_dir = input_dir
-			velocity.y = -450
+			velocity.y = -600
 			is_jumping = true
 			print("Debug: Jump triggered, direction: %s" % jump_dir)
 	
@@ -264,9 +263,10 @@ func get_is_knockfly() -> bool:
 	return is_knockfly
 
 func update_hitbox_position():
-	if has_node("Hitbox/CollisionShape2D"):
-		var hitbox = $Hitbox/CollisionShape2D
-		hitbox.position.x = 16.5 * facing_direction
+	if has_node("Hitbox/HitShape"):
+		var hitbox = $Hitbox/HitShape
+		# hitbox.position.x = 16.5 * facing_direction # 註釋掉原始位置更新
+		$Hitbox.scale.x = facing_direction # 使用 scale 翻轉 Hitbox
 
 func update_facing_direction():
 	# 獲取所有在 "players" 組中的節點
