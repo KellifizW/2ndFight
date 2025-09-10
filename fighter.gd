@@ -14,13 +14,13 @@ var PUSH_FRICTION: float = 66.0
 @export var collision_epsilon: float = 5.0
 
 func _ready():
-	super._ready()
+	super._ready() # 調用父類 Movement 的 _ready()，確保已定義
 	if collision_shape and collision_shape.shape is RectangleShape2D:
 		var collision_scale = collision_shape.scale
 		colbox_half_width = collision_shape.shape.size.x * collision_scale.x / 2.0
 		colbox_half_height = collision_shape.shape.size.y * collision_scale.y / 2.0
 	else:
-		pass
+		print("Warning: CollisionShape2D not found or invalid for %s" % name)
 	add_to_group("players")
 	prev_position = global_position
 

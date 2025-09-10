@@ -4,7 +4,7 @@ class_name Movement extends CharacterBody2D
 @onready var animation_state = animation_tree.get("parameters/playback")
 var walk_speed: float = 150.0 # 走路速度（前進）
 var back_speed: float = walk_speed * 0.75 # 後退速度
-var jump_horizontal_speed: float = 130.0 # 修改：跳躍水平速度，獨立於walk_speed
+var jump_horizontal_speed: float = 130.0 # 跳躍水平速度
 var jump_dir: float = 0.0 # 跳躍方向
 var is_jumping: bool = false # 是否跳躍
 var is_dashing: bool = false # 是否前撤
@@ -25,10 +25,13 @@ var crouch_pressed: bool = false # 蹲伏狀態
 var is_hit: bool = false # 是否受擊
 var is_knockfly: bool = false # 是否被擊飛
 var hit_timer: float = 0.0 # 受擊計時器
+var block_timer: float = 0.0 # 格擋持續時間計時器
 var knockfly_timer: float = 0.0 # 擊飛計時器
 var knockfly_speed: float = -200.0 # 擊飛後退速度
 var facing_direction: float = 1.0 # 角色面向（1.0 向右，-1.0 向左）
-var dash_direction: float = 0.0 # Dash 方向（鎖定觸發時的輸入方向）
+var dash_direction: float = 0.0 # Dash 方向
+var is_blocking: bool = false # 是否在格擋狀態
+var is_holding_back: bool = false # 是否按住遠離對手的方向
 
 func _ready():
 	if animation_tree:
@@ -53,25 +56,37 @@ func _physics_process(delta):
 		if hit_timer <= 0:
 			is_hit = false
 			print("Debug: Hit ended, is_hit set to false")
+	if block_timer > 0:
+		block_timer -= delta
+		if block_timer <= 0:
+			is_blocking = false
+			print("Debug: Block ended, is_blocking set to false")
 	if knockfly_timer > 0:
 		knockfly_timer -= delta
 		if knockfly_timer <= 0 and is_knockfly:
 			is_knockfly = false
 			print("Debug: Knockfly ended, transitioning to wakeup")
 	
-	# 獲取輸入（子類實現）
+	# 獲取輸入
 	var input_data = get_input()
 	var input_dir = input_data["input_dir"]
 	var crouch_pressed = input_data["crouch_pressed"]
 	var jump_pressed = input_data["jump_pressed"]
 	var attack_pressed = input_data["attack_pressed"]
 	
-	# 動態更新面向（僅在地面上時）
+	# 檢測是否按住遠離對手的方向
+	is_holding_back = false
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not crouch_pressed and not jump_pressed:
+		if input_dir * facing_direction < 0:
+			is_holding_back = true
+			print("Debug: Holding back detected")
+	
+	# 動態更新面向
 	if is_on_floor():
 		update_facing_direction()
 	
-	# 受擊或擊飛鎖定移動
-	if is_hit or is_knockfly:
+	# 受擊、擊飛或格擋鎖定移動
+	if is_hit or is_knockfly or is_blocking:
 		if is_knockfly:
 			velocity.x = knockfly_speed * facing_direction
 		else:
@@ -123,7 +138,7 @@ func _physics_process(delta):
 		else:
 			pending_dash_dir = current_input_dir
 			neutral_timer = 0
-	last_input_dir = current_input_dir
+		last_input_dir = current_input_dir
 	
 	# Dash 或 Backdash 處理
 	if is_dashing:
@@ -156,7 +171,7 @@ func _physics_process(delta):
 			jump_dir = 0.0
 			is_jumping = false
 		else:
-			velocity.x = jump_dir * jump_horizontal_speed # 修改：使用獨立的jump_horizontal_speed
+			velocity.x = jump_dir * jump_horizontal_speed
 		velocity.y += 1800 * delta
 	
 		# 跳躍處理
@@ -178,9 +193,8 @@ func _physics_process(delta):
 func _update_animation_state(dir_x: float, jump_pressed: bool, crouch_pressed: bool) -> void:
 	var curr_state = animation_state.get_current_node()
 	var on_floor = is_on_floor()
-	var target_state = "Walk"  # 預設目標狀態
+	var target_state = "Walk"
 
-	# 僅對動畫方向應用 facing_direction
 	var anim_dir = dir_x * facing_direction
 	var anim_jump_dir = jump_dir * facing_direction
 
@@ -188,6 +202,8 @@ func _update_animation_state(dir_x: float, jump_pressed: bool, crouch_pressed: b
 		target_state = "knockfly"
 	elif is_hit:
 		target_state = "hit"
+	elif is_blocking:
+		target_state = "block"
 	elif is_attacking:
 		target_state = "St_mp"
 	elif is_dashing:
@@ -214,6 +230,7 @@ func _update_animation_state(dir_x: float, jump_pressed: bool, crouch_pressed: b
 	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
 	animation_tree.set("parameters/conditions/hit", is_hit)
 	animation_tree.set("parameters/conditions/knockfly", is_knockfly)
+	animation_tree.set("parameters/conditions/block", is_blocking)
 
 	if curr_state != target_state:
 		animation_state.travel(target_state)
@@ -228,9 +245,16 @@ func _update_animation_state(dir_x: float, jump_pressed: bool, crouch_pressed: b
 
 func take_hit():
 	if not is_hit and not is_knockfly and is_on_floor():
-		is_hit = true
-		hit_timer = 0.28
-		print("Debug: Hit taken, hit_timer set to 0.28")
+		if is_holding_back:
+			is_blocking = true
+			block_timer = 0.28
+			velocity.x = 0
+			velocity.y = 0
+			print("Debug: Block successful, movement locked, playing block animation")
+		else:
+			is_hit = true
+			hit_timer = 0.28
+			print("Debug: Hit taken, hit_timer set to 0.28")
 		_update_animation_state(0, false, false)
 
 func take_knockfly():
@@ -240,7 +264,6 @@ func take_knockfly():
 		print("Debug: Knockfly taken, knockfly_timer set to 0.75")
 		_update_animation_state(0, false, false)
 
-# 虛擬方法，子類必須實現
 func get_input() -> Dictionary:
 	return {"input_dir": 0, "crouch_pressed": false, "jump_pressed": false, "attack_pressed": false}
 
@@ -265,14 +288,11 @@ func get_is_knockfly() -> bool:
 func update_hitbox_position():
 	if has_node("Hitbox/HitShape"):
 		var hitbox = $Hitbox/HitShape
-		# hitbox.position.x = 16.5 * facing_direction # 註釋掉原始位置更新
-		$Hitbox.scale.x = facing_direction # 使用 scale 翻轉 Hitbox
+		$Hitbox.scale.x = facing_direction
 
 func update_facing_direction():
-	# 獲取所有在 "players" 組中的節點
 	var players = get_tree().get_nodes_in_group("players")
 	var other_player = null
-	# 尋找與自身不同的另一個角色
 	for player in players:
 		if player != self:
 			other_player = player
@@ -281,11 +301,11 @@ func update_facing_direction():
 	if other_player:
 		print("Debug: Updating facing direction for %s. Self x=%s, Other x=%s, Other name=%s" % [name, global_position.x, other_player.global_position.x, other_player.name])
 		if global_position.x > other_player.global_position.x:
-			facing_direction = -1.0  # 面向左邊
+			facing_direction = -1.0
 			$Sprite2D.flip_h = true
 			print("Debug: %s facing left (flip_h = true)" % name)
 		else:
-			facing_direction = 1.0  # 面向右邊
+			facing_direction = 1.0
 			$Sprite2D.flip_h = false
 			print("Debug: %s facing right (flip_h = false)" % name)
 		update_hitbox_position()

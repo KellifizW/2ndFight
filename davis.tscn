@@ -910,8 +910,7 @@ advance_condition = &"Walk"
 advance_condition = &"block"
 
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_8t16y"]
-switch_mode = 2
-advance_mode = 2
+advance_condition = &"Walk"
 
 [sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_mbed6"]
 states/Backdash/node = SubResource("AnimationNodeAnimation_3h1ys")
