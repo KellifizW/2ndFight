@@ -33,6 +33,7 @@ var dash_direction: float = 0.0 # Dash 方向
 var is_blocking: bool = false # 是否在格擋狀態
 var is_holding_back: bool = false # 是否按住遠離對手的方向
 var is_opponent_proximity: bool = false # Hurtbox 是否檢測到對手的 ProximityBox
+signal block_detected(target: String) # 新增信號：格擋檢測
 
 func _ready():
 	if animation_tree:
@@ -54,23 +55,23 @@ func _physics_process(delta):
 			is_attacking = false
 			if has_node("Proximitybox/ProxShape"):
 				$Proximitybox/ProxShape.disabled = true
-				print("Debug: ProximityBox disabled after attack")
-			print("Debug: Attack ended, is_attacking set to false")
+				print("Debug: ProximityBox disabled after attack for %s" % name)
+			print("Debug: Attack ended, is_attacking set to false for %s" % name)
 	if hit_timer > 0:
 		hit_timer -= delta
 		if hit_timer <= 0:
 			is_hit = false
-			print("Debug: Hit ended, is_hit set to false")
+			print("Debug: Hit ended, is_hit set to false for %s" % name)
 	if block_timer > 0:
 		block_timer -= delta
 		if block_timer <= 0:
 			is_blocking = false
-			print("Debug: Block ended, is_blocking set to false")
+			print("Debug: Block ended, is_blocking set to false for %s" % name)
 	if knockfly_timer > 0:
 		knockfly_timer -= delta
 		if knockfly_timer <= 0 and is_knockfly:
 			is_knockfly = false
-			print("Debug: Knockfly ended, transitioning to wakeup")
+			print("Debug: Knockfly ended, transitioning to wakeup for %s" % name)
 	
 	# 獲取輸入
 	var input_data = get_input()
@@ -87,7 +88,7 @@ func _physics_process(delta):
 	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_crouching and not jump_pressed:
 		if input_dir * facing_direction < 0:
 			is_holding_back = true
-			print("Debug: Holding back detected")
+			print("Debug: Holding back detected for %s" % name)
 	
 	# 動態更新面向
 	if is_on_floor():
@@ -119,9 +120,9 @@ func _physics_process(delta):
 		velocity.x = 0
 		if has_node("Proximitybox/ProxShape"):
 			$Proximitybox/ProxShape.disabled = false
-			print("Debug: ProximityBox enabled during attack")
+			print("Debug: ProximityBox enabled during attack for %s" % name)
 		move_and_slide()
-		print("Debug: Attack triggered, playing St_mp")
+		print("Debug: Attack triggered, playing St_mp for %s" % name)
 		_update_animation_state(input_dir, is_crouching)
 		return
 	
@@ -134,11 +135,11 @@ func _physics_process(delta):
 					is_dashing = true
 					dash_timer = dash_time
 					dash_direction = current_input_dir
-					print("Debug: Dash triggered, direction: %s" % current_input_dir)
+					print("Debug: Dash triggered, direction: %s for %s" % [current_input_dir, name])
 				elif current_input_dir * facing_direction < 0:
 					is_backdashing = true
 					dash_timer = backdash_time
-					print("Debug: Backdash triggered, direction: %s" % current_input_dir)
+					print("Debug: Backdash triggered, direction: %s for %s" % [current_input_dir, name])
 				pending_dash_dir = 0
 				neutral_timer = 0
 			else:
@@ -159,14 +160,14 @@ func _physics_process(delta):
 			is_dashing = false
 			velocity.x = 0
 			dash_direction = 0.0
-			print("Debug: Dash ended")
+			print("Debug: Dash ended for %s" % name)
 	elif is_backdashing:
 		velocity.x = backdash_speed * -facing_direction
 		dash_timer -= delta
 		if dash_timer <= 0:
 			is_backdashing = false
 			velocity.x = 0
-			print("Debug: Backdash ended")
+			print("Debug: Backdash ended for %s" % name)
 	else:
 		# 正常移動處理
 		if is_on_floor():
@@ -190,7 +191,7 @@ func _physics_process(delta):
 			jump_dir = input_dir
 			velocity.y = -600
 			is_jumping = true
-			print("Debug: Jump triggered, direction: %s" % jump_dir)
+			print("Debug: Jump triggered, direction: %s for %s" % [jump_dir, name])
 	
 	# 執行移動
 	move_and_slide()
@@ -245,14 +246,14 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 
 	if curr_state != target_state:
 		animation_state.travel(target_state)
-		print("Debug: Animation switched to %s" % target_state)
+		print("Debug: Animation switched to %s for %s" % [target_state, name])
 
 	if target_state == "Walk":
 		animation_tree.set("parameters/Walk/blend_position", anim_dir)
 
 	if is_jumping and on_floor:
 		is_jumping = false
-		print("Debug: Landing, resetting is_jumping")
+		print("Debug: Landing, resetting is_jumping for %s" % name)
 
 func take_hit():
 	if not is_hit and not is_knockfly and is_on_floor():
@@ -261,18 +262,19 @@ func take_hit():
 			block_timer = 0.28
 			velocity.x = 0
 			velocity.y = 0
-			print("Debug: Block successful, movement locked, playing block animation")
+			print("Debug: Block successful for %s, is_opponent_proximity=%s, movement locked, playing block animation" % [name, is_opponent_proximity])
+			block_detected.emit(name)
 		else:
 			is_hit = true
 			hit_timer = 0.28
-			print("Debug: Hit taken, hit_timer set to 0.28")
+			print("Debug: Hit taken for %s, is_opponent_proximity=%s, hit_timer set to 0.28" % [name, is_opponent_proximity])
 		_update_animation_state(0, is_crouching)
 
 func take_knockfly():
 	if not is_hit and not is_knockfly and is_on_floor():
 		is_knockfly = true
 		knockfly_timer = 0.75
-		print("Debug: Knockfly taken, knockfly_timer set to 0.75")
+		print("Debug: Knockfly taken for %s, knockfly_timer set to 0.75" % name)
 		_update_animation_state(0, is_crouching)
 
 func get_input() -> Dictionary:
@@ -299,12 +301,12 @@ func get_is_knockfly() -> bool:
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = true
-		print("Debug: Detected opponent's ProximityBox in Hurtbox")
+		print("Debug: %s's Hurtbox detected %s's ProximityBox" % [name, area.get_parent().name])
 
 func _on_hurtbox_area_exited(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = false
-		print("Debug: Opponent's ProximityBox exited Hurtbox")
+		print("Debug: %s's Hurtbox no longer detects %s's ProximityBox" % [name, area.get_parent().name])
 
 func update_hitbox_position():
 	if has_node("Hitbox/HitShape"):
