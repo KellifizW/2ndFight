@@ -804,7 +804,7 @@ debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="."]
 collision_layer = 8
-collision_mask = 2
+collision_mask = 18
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]
 position = Vector2(0, 3)
@@ -812,7 +812,8 @@ shape = SubResource("RectangleShape2D_tdckb")
 debug_color = Color(1.44392e-06, 0.569045, 0.850655, 0.42)
 
 [node name="Proximitybox" type="Area2D" parent="."]
-collision_layer = 3
+collision_layer = 16
+collision_mask = 0
 
 [node name="ProxShape" type="CollisionShape2D" parent="Proximitybox"]
 debug_color = Color(0.62189, 0.533606, 0, 0.42)

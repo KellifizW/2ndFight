@@ -32,6 +32,7 @@ var facing_direction: float = 1.0 # 角色面向（1.0 向右，-1.0 向左）
 var dash_direction: float = 0.0 # Dash 方向
 var is_blocking: bool = false # 是否在格擋狀態
 var is_holding_back: bool = false # 是否按住遠離對手的方向
+var is_opponent_proximity: bool = false # Hurtbox 是否檢測到對手的 ProximityBox
 
 func _ready():
 	if animation_tree:
@@ -39,6 +40,9 @@ func _ready():
 		animation_state.travel("Walk")
 	else:
 		print("Warning: AnimationTree not found for %s" % name)
+	if has_node("Hurtbox"):
+		$Hurtbox.area_entered.connect(_on_hurtbox_area_entered)
+		$Hurtbox.area_exited.connect(_on_hurtbox_area_exited)
 
 func _physics_process(delta):
 	# 更新計時器
@@ -48,6 +52,9 @@ func _physics_process(delta):
 		attack_timer -= delta
 		if attack_timer <= 0:
 			is_attacking = false
+			if has_node("Proximitybox/ProxShape"):
+				$Proximitybox/ProxShape.disabled = true
+				print("Debug: ProximityBox disabled after attack")
 			print("Debug: Attack ended, is_attacking set to false")
 	if hit_timer > 0:
 		hit_timer -= delta
@@ -110,6 +117,9 @@ func _physics_process(delta):
 		is_attacking = true
 		attack_timer = attack_time
 		velocity.x = 0
+		if has_node("Proximitybox/ProxShape"):
+			$Proximitybox/ProxShape.disabled = false
+			print("Debug: ProximityBox enabled during attack")
 		move_and_slide()
 		print("Debug: Attack triggered, playing St_mp")
 		_update_animation_state(input_dir, is_crouching)
@@ -246,7 +256,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 
 func take_hit():
 	if not is_hit and not is_knockfly and is_on_floor():
-		if is_holding_back:
+		if is_holding_back and is_opponent_proximity:
 			is_blocking = true
 			block_timer = 0.28
 			velocity.x = 0
@@ -285,6 +295,16 @@ func get_is_hit() -> bool:
 
 func get_is_knockfly() -> bool:
 	return is_knockfly
+
+func _on_hurtbox_area_entered(area: Area2D) -> void:
+	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
+		is_opponent_proximity = true
+		print("Debug: Detected opponent's ProximityBox in Hurtbox")
+
+func _on_hurtbox_area_exited(area: Area2D) -> void:
+	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
+		is_opponent_proximity = false
+		print("Debug: Opponent's ProximityBox exited Hurtbox")
 
 func update_hitbox_position():
 	if has_node("Hitbox/HitShape"):
