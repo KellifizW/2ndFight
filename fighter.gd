@@ -124,3 +124,9 @@ func update_facing_direction():
 			$Sprite2D.flip_h = false
 		
 		update_hitbox_position()
+
+func update_hitbox_position():
+	if has_node("Hitbox/HitShape"):
+		$Hitbox.scale.x = facing_direction
+	if has_node("Proximitybox/ProxShape"):
+		$Proximitybox.scale.x = facing_direction

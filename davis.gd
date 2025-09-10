@@ -40,3 +40,9 @@ func _on_hitbox_area_entered(area: Area2D):
 
 func get_facing_multiplier() -> float:
 	return 1.0  # Davis 正向
+
+func update_hitbox_position():
+	if has_node("Hitbox/HitShape"):
+		$Hitbox.scale.x = facing_direction
+	if has_node("Proximitybox/ProxShape"):
+		$Proximitybox.scale.x = facing_direction

@@ -21,7 +21,7 @@ var double_tap_timer: float = 0.3 # 雙擊時間窗口
 var last_input_dir: int = 0 # 上一次方向輸入
 var pending_dash_dir: int = 0 # 待確認方向
 var neutral_timer: float = 0.0 # 中立計時器
-var crouch_pressed: bool = false # 蹲伏狀態
+var is_crouching: bool = false # 蹲伏狀態
 var is_hit: bool = false # 是否受擊
 var is_knockfly: bool = false # 是否被擊飛
 var hit_timer: float = 0.0 # 受擊計時器
@@ -41,8 +41,6 @@ func _ready():
 		print("Warning: AnimationTree not found for %s" % name)
 
 func _physics_process(delta):
-	var current_position = global_position
-	
 	# 更新計時器
 	if neutral_timer > 0:
 		neutral_timer -= delta
@@ -74,9 +72,12 @@ func _physics_process(delta):
 	var jump_pressed = input_data["jump_pressed"]
 	var attack_pressed = input_data["attack_pressed"]
 	
+	# 更新蹲伏狀態
+	is_crouching = crouch_pressed
+	
 	# 檢測是否按住遠離對手的方向
 	is_holding_back = false
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not crouch_pressed and not jump_pressed:
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_crouching and not jump_pressed:
 		if input_dir * facing_direction < 0:
 			is_holding_back = true
 			print("Debug: Holding back detected")
@@ -93,7 +94,7 @@ func _physics_process(delta):
 			velocity.x = 0
 		velocity.y += 1300 * delta
 		move_and_slide()
-		_update_animation_state(input_dir, jump_pressed, crouch_pressed)
+		_update_animation_state(input_dir, is_crouching)
 		return
 	
 	# 攻擊時鎖定移動
@@ -101,24 +102,24 @@ func _physics_process(delta):
 		velocity.x = 0
 		velocity.y += 1300 * delta
 		move_and_slide()
-		_update_animation_state(input_dir, jump_pressed, crouch_pressed)
+		_update_animation_state(input_dir, is_crouching)
 		return
 	
 	# 檢測攻擊輸入
-	if attack_pressed and is_on_floor() and not is_dashing and not is_backdashing and not crouch_pressed and not is_jumping:
+	if attack_pressed and is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping:
 		is_attacking = true
 		attack_timer = attack_time
 		velocity.x = 0
 		move_and_slide()
 		print("Debug: Attack triggered, playing St_mp")
-		_update_animation_state(input_dir, jump_pressed, crouch_pressed)
+		_update_animation_state(input_dir, is_crouching)
 		return
 	
 	# 雙擊檢測邏輯
 	var current_input_dir = input_dir
 	if current_input_dir != last_input_dir:
 		if last_input_dir == 0 and current_input_dir != 0:
-			if pending_dash_dir == current_input_dir and neutral_timer > 0 and is_on_floor() and not crouch_pressed and not is_jumping:
+			if pending_dash_dir == current_input_dir and neutral_timer > 0 and is_on_floor() and not is_crouching and not is_jumping:
 				if current_input_dir * facing_direction > 0:
 					is_dashing = true
 					dash_timer = dash_time
@@ -159,7 +160,7 @@ func _physics_process(delta):
 	else:
 		# 正常移動處理
 		if is_on_floor():
-			if crouch_pressed:
+			if is_crouching:
 				velocity.x = 0
 			elif input_dir != 0:
 				if input_dir * facing_direction > 0:
@@ -175,7 +176,7 @@ func _physics_process(delta):
 		velocity.y += 1800 * delta
 	
 		# 跳躍處理
-		if jump_pressed and is_on_floor() and not crouch_pressed and not is_dashing and not is_backdashing:
+		if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing:
 			jump_dir = input_dir
 			velocity.y = -600
 			is_jumping = true
@@ -188,9 +189,9 @@ func _physics_process(delta):
 	if is_jumping and not is_on_floor():
 		print("Debug: %s jump position: x=%s, y=%s" % [name, global_position.x, global_position.y])
 	
-	_update_animation_state(input_dir, jump_pressed, crouch_pressed)
+	_update_animation_state(input_dir, is_crouching)
 
-func _update_animation_state(dir_x: float, jump_pressed: bool, crouch_pressed: bool) -> void:
+func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var curr_state = animation_state.get_current_node()
 	var on_floor = is_on_floor()
 	var target_state = "Walk"
@@ -210,7 +211,7 @@ func _update_animation_state(dir_x: float, jump_pressed: bool, crouch_pressed: b
 		target_state = "Dash"
 	elif is_backdashing:
 		target_state = "Backdash"
-	elif crouch_pressed and on_floor:
+	elif crouch_input and on_floor:
 		target_state = "Crouch"
 	elif not on_floor and is_jumping:
 		if anim_jump_dir > 0:
@@ -255,14 +256,14 @@ func take_hit():
 			is_hit = true
 			hit_timer = 0.28
 			print("Debug: Hit taken, hit_timer set to 0.28")
-		_update_animation_state(0, false, false)
+		_update_animation_state(0, is_crouching)
 
 func take_knockfly():
 	if not is_hit and not is_knockfly and is_on_floor():
 		is_knockfly = true
 		knockfly_timer = 0.75
 		print("Debug: Knockfly taken, knockfly_timer set to 0.75")
-		_update_animation_state(0, false, false)
+		_update_animation_state(0, is_crouching)
 
 func get_input() -> Dictionary:
 	return {"input_dir": 0, "crouch_pressed": false, "jump_pressed": false, "attack_pressed": false}
@@ -287,8 +288,9 @@ func get_is_knockfly() -> bool:
 
 func update_hitbox_position():
 	if has_node("Hitbox/HitShape"):
-		var hitbox = $Hitbox/HitShape
 		$Hitbox.scale.x = facing_direction
+	if has_node("Proximitybox/ProxShape"):
+		$Proximitybox.scale.x = facing_direction
 
 func update_facing_direction():
 	var players = get_tree().get_nodes_in_group("players")
