@@ -1,12 +1,16 @@
 class_name Davis extends Fighter
 
-signal hit_detected(target: String, blockstun_duration: float)
+signal hit_detected(target: String, blockstun_duration: float, is_blocked: bool) # 添加 is_blocked
 
 func _ready():
 	super._ready()
-	$Hitbox.area_entered.connect(_on_hitbox_area_entered)
+	if has_node("Hitbox"):
+		$Hitbox.area_entered.connect(_on_hitbox_area_entered)
+	else:
+		print("Warning: Hitbox not found for %s" % name)
 	$Sprite2D.flip_h = false
 	facing_direction = 1.0
+	add_to_group("players")
 	update_hitbox_position()
 
 func get_input() -> Dictionary:
@@ -40,9 +44,10 @@ func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
 		var target = area.get_parent()
 		var blockstun_duration = get_input().blockstun_duration
-		hit_detected.emit(target.name, blockstun_duration)
-		target.take_hit(blockstun_duration)
-		print("Debug: Hit detected on %s with blockstun duration %s" % [target.name, blockstun_duration])
+		target.take_hit(blockstun_duration) # 先執行 take_hit
+		var is_blocked = target.is_blocking and target.block_type == "ordinary" # 檢查格擋
+		hit_detected.emit(target.name, blockstun_duration, is_blocked)
+		print("Debug: Hit detected on %s with blockstun duration %s, is_blocked: %s" % [target.name, blockstun_duration, is_blocked])
 
 func get_facing_multiplier() -> float:
 	return 1.0
