@@ -64,7 +64,7 @@ func _physics_process(delta):
 		hit_timer -= delta
 		if hit_timer <= 0:
 			is_hit = false
-			print("Debug: Hit ended, is_hit set to false for %s" % name)
+			print("Debug: Hit taken for %s" % name)
 	if block_timer > 0:
 		block_timer -= delta
 		if block_timer <= 0:
@@ -198,12 +198,12 @@ func _physics_process(delta):
 			velocity.x = jump_dir * jump_horizontal_speed
 		velocity.y += 1800 * delta
 	
-		# 跳躍處理
-		if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing:
-			jump_dir = input_dir
-			velocity.y = -600
-			is_jumping = true
-			print("Debug: Jump triggered, direction: %s for %s" % [jump_dir, name])
+	# 跳躍處理
+	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing:
+		jump_dir = input_dir
+		velocity.y = -600
+		is_jumping = true
+		print("Debug: Jump triggered, direction: %s for %s" % [jump_dir, name])
 	
 	# 執行移動
 	move_and_slide()
@@ -267,11 +267,11 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		is_jumping = false
 		print("Debug: Landing, resetting is_jumping for %s" % name)
 
-func take_hit(blockstun_duration: float = 0.2):
+func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
 	if not is_hit and not is_knockfly and is_on_floor():
 		if is_holding_back and is_opponent_proximity:
 			is_blocking = true
-			block_timer = max(block_timer, blockstun_duration) # 使用攻擊的 blockstun 時長，延長如果已proximity
+			block_timer = max(block_timer, blockstun_duration)
 			block_type = "ordinary"
 			velocity.x = 0
 			velocity.y = 0
@@ -317,7 +317,7 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 		print("Debug: %s's Hurtbox detected %s's ProximityBox" % [name, area.get_parent().name])
 		if is_holding_back and is_on_floor() and not is_blocking:
 			is_blocking = true
-			block_timer = 0.1 # 最短時間
+			block_timer = 0.1
 			block_type = "proximity"
 			velocity.x = 0
 			velocity.y = 0

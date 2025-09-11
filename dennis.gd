@@ -1,6 +1,6 @@
 class_name Dennis extends Fighter
 
-signal hit_detected(target: String, blockstun_duration: float, is_blocked: bool) # 添加 is_blocked
+signal hit_detected(target: String, blockstun_duration: float, is_blocked: bool)
 
 func _ready():
 	super._ready()
@@ -30,6 +30,7 @@ func get_input() -> Dictionary:
 	
 	var attack_type = "light" if attack_pressed else "none"
 	var blockstun_duration = 0.2 if attack_type == "light" else 0.4
+	var damage = 10.0 if attack_type == "light" else 0.0
 	
 	return {
 		"input_dir": input_dir,
@@ -37,17 +38,20 @@ func get_input() -> Dictionary:
 		"jump_pressed": jump_pressed,
 		"attack_pressed": attack_pressed,
 		"attack_type": attack_type,
-		"blockstun_duration": blockstun_duration
+		"blockstun_duration": blockstun_duration,
+		"damage": damage
 	}
 
 func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
 		var target = area.get_parent()
-		var blockstun_duration = get_input().blockstun_duration
-		target.take_hit(blockstun_duration) # 先執行 take_hit
-		var is_blocked = target.is_blocking and target.block_type == "ordinary" # 檢查格擋
+		var input_data = get_input()
+		var blockstun_duration = input_data.blockstun_duration
+		var damage = input_data.damage
+		target.take_hit(blockstun_duration, damage)
+		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		hit_detected.emit(target.name, blockstun_duration, is_blocked)
-		print("Debug: Hit detected on %s with blockstun duration %s, is_blocked: %s" % [target.name, blockstun_duration, is_blocked])
+		print("Debug: Hit detected on %s with blockstun duration %s, damage %s, is_blocked: %s" % [target.name, blockstun_duration, damage, is_blocked])
 
 func get_facing_multiplier() -> float:
 	return -1.0

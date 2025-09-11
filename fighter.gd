@@ -2,6 +2,7 @@ class_name Fighter extends Movement
 
 @onready var collision_shape = $Pushbox
 @onready var sprite = $Sprite2D
+@onready var healthbar = $Healthbar
 var colbox_half_width: float = 0.0
 var colbox_half_height: float = 0.0
 var is_being_pushed: bool = false
@@ -21,6 +22,8 @@ func _ready():
 		colbox_half_height = collision_shape.shape.size.y * collision_scale.y / 2.0
 	else:
 		print("Warning: CollisionShape2D not found or invalid for %s" % name)
+	if not healthbar:
+		print("Warning: Healthbar not found for %s" % name)
 	add_to_group("players")
 	prev_position = global_position
 
@@ -99,6 +102,24 @@ func _physics_process(delta):
 	global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
 	
 	prev_position = global_position
+
+func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
+	if not is_hit and not is_knockfly and is_on_floor():
+		if is_holding_back and is_opponent_proximity:
+			is_blocking = true
+			block_timer = max(block_timer, blockstun_duration)
+			block_type = "ordinary"
+			velocity.x = 0
+			velocity.y = 0
+			print("Debug: Ordinary block successful, blockstun duration %s for %s" % [blockstun_duration, name])
+			block_detected.emit(name, block_type)
+		else:
+			is_hit = true
+			hit_timer = 0.28
+			if healthbar:
+				healthbar.take_damage(damage) # 使用傳入的 damage 參數
+			print("Debug: Hit taken, health reduced by %s for %s" % [damage, name])
+		_update_animation_state(0, is_crouching)
 
 func update_facing_direction():
 	var players = get_tree().get_nodes_in_group("players")
