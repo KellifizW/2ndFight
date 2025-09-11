@@ -33,7 +33,8 @@ var dash_direction: float = 0.0 # Dash 方向
 var is_blocking: bool = false # 是否在格擋狀態
 var is_holding_back: bool = false # 是否按住遠離對手的方向
 var is_opponent_proximity: bool = false # Hurtbox 是否檢測到對手的 ProximityBox
-signal block_detected(target: String) # 新增信號：格擋檢測
+var block_type: String = "none" # 格擋類型: "proximity" 或 "ordinary"
+signal block_detected(target: String, block_type: String) # 更新信號，傳遞類型
 
 func _ready():
 	if animation_tree:
@@ -46,6 +47,8 @@ func _ready():
 		$Hurtbox.area_exited.connect(_on_hurtbox_area_exited)
 
 func _physics_process(delta):
+	var current_position = global_position
+	
 	# 更新計時器
 	if neutral_timer > 0:
 		neutral_timer -= delta
@@ -61,11 +64,12 @@ func _physics_process(delta):
 		hit_timer -= delta
 		if hit_timer <= 0:
 			is_hit = false
-			print("Debug: Hit ended, is_hit set to false for %s" % name)
+			print("Debug: Hit taken for %s" % name)
 	if block_timer > 0:
 		block_timer -= delta
 		if block_timer <= 0:
 			is_blocking = false
+			block_type = "none"
 			print("Debug: Block ended, is_blocking set to false for %s" % name)
 	if knockfly_timer > 0:
 		knockfly_timer -= delta
@@ -94,12 +98,20 @@ func _physics_process(delta):
 	if is_on_floor():
 		update_facing_direction()
 	
-	# 受擊、擊飛或格擋鎖定移動
-	if is_hit or is_knockfly or is_blocking:
+	# 受擊或擊飛鎖定移動
+	if is_hit or is_knockfly:
 		if is_knockfly:
 			velocity.x = knockfly_speed * facing_direction
 		else:
 			velocity.x = 0
+		velocity.y += 1300 * delta
+		move_and_slide()
+		_update_animation_state(input_dir, is_crouching)
+		return
+	
+	# 格擋鎖定移動
+	if is_blocking:
+		velocity.x = 0
 		velocity.y += 1300 * delta
 		move_and_slide()
 		_update_animation_state(input_dir, is_crouching)
@@ -186,12 +198,12 @@ func _physics_process(delta):
 			velocity.x = jump_dir * jump_horizontal_speed
 		velocity.y += 1800 * delta
 	
-		# 跳躍處理
-		if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing:
-			jump_dir = input_dir
-			velocity.y = -600
-			is_jumping = true
-			print("Debug: Jump triggered, direction: %s for %s" % [jump_dir, name])
+	# 跳躍處理
+	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing:
+		jump_dir = input_dir
+		velocity.y = -600
+		is_jumping = true
+		print("Debug: Jump triggered, direction: %s for %s" % [jump_dir, name])
 	
 	# 執行移動
 	move_and_slide()
@@ -255,19 +267,20 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		is_jumping = false
 		print("Debug: Landing, resetting is_jumping for %s" % name)
 
-func take_hit():
+func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
 	if not is_hit and not is_knockfly and is_on_floor():
 		if is_holding_back and is_opponent_proximity:
 			is_blocking = true
-			block_timer = 0.28
+			block_timer = max(block_timer, blockstun_duration)
+			block_type = "ordinary"
 			velocity.x = 0
 			velocity.y = 0
-			print("Debug: Block successful for %s, is_opponent_proximity=%s, movement locked, playing block animation" % [name, is_opponent_proximity])
-			block_detected.emit(name)
+			print("Debug: Ordinary block successful, blockstun duration %s for %s" % [blockstun_duration, name])
+			block_detected.emit(name, block_type)
 		else:
 			is_hit = true
 			hit_timer = 0.28
-			print("Debug: Hit taken for %s, is_opponent_proximity=%s, hit_timer set to 0.28" % [name, is_opponent_proximity])
+			print("Debug: Hit taken for %s" % name)
 		_update_animation_state(0, is_crouching)
 
 func take_knockfly():
@@ -302,6 +315,14 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = true
 		print("Debug: %s's Hurtbox detected %s's ProximityBox" % [name, area.get_parent().name])
+		if is_holding_back and is_on_floor() and not is_blocking:
+			is_blocking = true
+			block_timer = 0.1
+			block_type = "proximity"
+			velocity.x = 0
+			velocity.y = 0
+			print("Debug: Proximity block triggered for %s" % name)
+			block_detected.emit(name, block_type)
 
 func _on_hurtbox_area_exited(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
