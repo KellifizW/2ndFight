@@ -1,6 +1,6 @@
 class_name Davis extends Fighter
 
-signal hit_detected(target: String)
+signal hit_detected(target: String, blockstun_duration: float)
 
 func _ready():
 	super._ready()
@@ -24,19 +24,31 @@ func get_input() -> Dictionary:
 	elif left_pressed:
 		input_dir = -1
 	
+	var attack_type = "light" if attack_pressed else "none"
+	var blockstun_duration = 0.2 if attack_type == "light" else 0.4
+	
 	return {
 		"input_dir": input_dir,
 		"crouch_pressed": crouch_pressed,
 		"jump_pressed": jump_pressed,
-		"attack_pressed": attack_pressed
+		"attack_pressed": attack_pressed,
+		"attack_type": attack_type,
+		"blockstun_duration": blockstun_duration
 	}
 
 func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
 		var target = area.get_parent()
-		hit_detected.emit(target.name)
-		target.take_hit()
-		print("Debug: Hit detected on %s" % target.name)
+		var blockstun_duration = get_input().blockstun_duration
+		hit_detected.emit(target.name, blockstun_duration)
+		target.take_hit(blockstun_duration)
+		print("Debug: Hit detected on %s with blockstun duration %s" % [target.name, blockstun_duration])
 
 func get_facing_multiplier() -> float:
-	return 1.0  # Davis 正向
+	return 1.0
+
+func update_hitbox_position():
+	if has_node("Hitbox/HitShape"):
+		$Hitbox.scale.x = facing_direction
+	if has_node("Proximitybox/ProxShape"):
+		$Proximitybox.scale.x = facing_direction

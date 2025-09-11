@@ -1,13 +1,13 @@
 extends Fighter
 
-signal hit_detected(target: String)
+signal hit_detected(target: String, blockstun_duration: float) # 更新信號，傳遞 blockstun 時長
 
 func _ready():
 	super._ready()
 	$Hitbox.area_entered.connect(_on_hitbox_area_entered)
 	$Sprite2D.flip_h = true
 	facing_direction = -1.0
-	add_to_group("players") # 改為 "players"
+	add_to_group("players")
 	update_hitbox_position()
 
 func get_input() -> Dictionary:
@@ -25,19 +25,32 @@ func get_input() -> Dictionary:
 	elif left_pressed:
 		input_dir = -1
 	
+	# 假設 attack_p2 是輕攻擊，重攻擊用另一輸入（未來可擴展）
+	var attack_type = "light" if attack_pressed else "none"
+	var blockstun_duration = 0.2 if attack_type == "light" else 0.4 # 輕攻擊 0.2 秒，重攻擊 0.4 秒
+	
 	return {
 		"input_dir": input_dir,
 		"crouch_pressed": crouch_pressed,
 		"jump_pressed": jump_pressed,
-		"attack_pressed": attack_pressed
+		"attack_pressed": attack_pressed,
+		"attack_type": attack_type,
+		"blockstun_duration": blockstun_duration
 	}
 
 func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
 		var target = area.get_parent()
-		hit_detected.emit(target.name)
-		target.take_hit()
-		print("Debug: Hit detected on %s" % target.name)
+		var blockstun_duration = get_input().blockstun_duration
+		hit_detected.emit(target.name, blockstun_duration)
+		target.take_hit(blockstun_duration)
+		print("Debug: Hit detected on %s with blockstun duration %s" % [target.name, blockstun_duration])
 
 func get_facing_multiplier() -> float:
-	return -1.0  # Dennis 反向
+	return -1.0
+
+func update_hitbox_position():
+	if has_node("Hitbox/HitShape"):
+		$Hitbox.scale.x = facing_direction
+	if has_node("Proximitybox/ProxShape"):
+		$Proximitybox.scale.x = facing_direction
