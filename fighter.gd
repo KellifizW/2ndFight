@@ -2,7 +2,7 @@ class_name Fighter extends Movement
 
 @onready var collision_shape = $Pushbox
 @onready var sprite = $Sprite2D
-@onready var healthbar = $Healthbar
+@onready var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 var colbox_half_width: float = 0.0
 var colbox_half_height: float = 0.0
 var is_being_pushed: bool = false
@@ -15,7 +15,7 @@ var PUSH_FRICTION: float = 66.0
 @export var collision_epsilon: float = 5.0
 
 func _ready():
-	super._ready() # 調用父類 Movement 的 _ready()，確保已定義
+	super._ready()
 	if collision_shape and collision_shape.shape is RectangleShape2D:
 		var collision_scale = collision_shape.scale
 		colbox_half_width = collision_shape.shape.size.x * collision_scale.x / 2.0
@@ -117,7 +117,9 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
 			is_hit = true
 			hit_timer = 0.28
 			if healthbar:
-				healthbar.take_damage(damage) # 使用傳入的 damage 參數
+				healthbar.take_damage(damage)
+			else:
+				print("Warning: No healthbar assigned for %s" % name)
 			print("Debug: Hit taken, health reduced by %s for %s" % [damage, name])
 		_update_animation_state(0, is_crouching)
 
@@ -145,9 +147,3 @@ func update_facing_direction():
 			$Sprite2D.flip_h = false
 		
 		update_hitbox_position()
-
-func update_hitbox_position():
-	if has_node("Hitbox/HitShape"):
-		$Hitbox.scale.x = facing_direction
-	if has_node("Proximitybox/ProxShape"):
-		$Proximitybox.scale.x = facing_direction

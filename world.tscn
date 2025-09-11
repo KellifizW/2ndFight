@@ -30,12 +30,6 @@ position = Vector2(135, 138)
 push_trigger_distance = 6.0
 collision_epsilon = 2.5
 
-[node name="Healthbar" parent="Davis" instance=ExtResource("4_036b0")]
-offset_left = -122.0
-offset_top = -124.0
-offset_right = 18.0
-offset_bottom = -120.0
-
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
 position = Vector2(164, 177)
 collision_layer = 2
@@ -49,12 +43,6 @@ position = Vector2(199, 139)
 push_trigger_distance = 6.0
 collision_epsilon = 2.5
 
-[node name="Healthbar" parent="Dennis" instance=ExtResource("4_036b0")]
-offset_left = -26.0
-offset_top = -125.0
-offset_right = 114.0
-offset_bottom = -121.0
-
 [node name="HitLabel" type="Label" parent="."]
 offset_right = 132.0
 offset_bottom = 23.0
@@ -67,3 +55,19 @@ offset_right = 256.0
 offset_bottom = 23.0
 label_settings = SubResource("LabelSettings_aqk2v")
 horizontal_alignment = 1
+
+[node name="UI" type="CanvasLayer" parent="." groups=["ui"]]
+
+[node name="DennisHealthbar" parent="UI" instance=ExtResource("4_036b0")]
+offset_left = 173.0
+offset_top = 14.0
+offset_right = 313.0
+offset_bottom = 18.0
+target_node = NodePath("../../Dennis")
+
+[node name="DavisHealthbar" parent="UI" instance=ExtResource("4_036b0")]
+offset_left = 13.0
+offset_top = 14.0
+offset_right = 153.0
+offset_bottom = 18.0
+target_node = NodePath("../../Davis")

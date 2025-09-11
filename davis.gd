@@ -2,6 +2,8 @@ class_name Davis extends Fighter
 
 signal hit_detected(target: String, blockstun_duration: float, is_blocked: bool)
 
+var current_damage: float = 0.0  # 新增：記錄當前攻擊的傷害值
+
 func _ready():
 	super._ready()
 	if has_node("Hitbox"):
@@ -42,16 +44,22 @@ func get_input() -> Dictionary:
 		"damage": damage
 	}
 
+func _physics_process(delta):  # 新增：覆蓋父類，偵測攻擊輸入時記錄 damage
+	super._physics_process(delta)
+	var input_data = get_input()
+	if input_data.attack_pressed and is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping:
+		current_damage = input_data.damage  # 記錄傷害值
+
 func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
 		var target = area.get_parent()
 		var input_data = get_input()
 		var blockstun_duration = input_data.blockstun_duration
-		var damage = input_data.damage
-		target.take_hit(blockstun_duration, damage)
+		target.take_hit(blockstun_duration, current_damage)  # 使用記錄的 current_damage，而不是重新算
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		hit_detected.emit(target.name, blockstun_duration, is_blocked)
-		print("Debug: Hit detected on %s with blockstun duration %s, damage %s, is_blocked: %s" % [target.name, blockstun_duration, damage, is_blocked])
+		print("Debug: Hit detected on %s with blockstun duration %s, damage %s, is_blocked: %s" % [target.name, blockstun_duration, current_damage, is_blocked])
+		current_damage = 0.0  # 碰撞後重置，避免重複使用
 
 func get_facing_multiplier() -> float:
 	return 1.0
