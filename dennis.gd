@@ -22,6 +22,7 @@ func get_input() -> Dictionary:
 	var attack_pressed = Input.is_action_just_pressed("attack_p2")
 	var right_pressed = Input.is_action_pressed("move_right_p2")
 	var left_pressed = Input.is_action_pressed("move_left_p2")
+	var spmove1_pressed = Input.is_action_pressed("spmove1_p2")
 	
 	if right_pressed and left_pressed:
 		input_dir = 0

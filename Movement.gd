@@ -74,8 +74,12 @@ func _physics_process(delta):
 	if knockfly_timer > 0:
 		knockfly_timer -= delta
 		if knockfly_timer <= 0 and is_knockfly:
-			is_knockfly = false
-			print("Debug: Knockfly ended, transitioning to wakeup for %s" % name)
+			var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
+			if healthbar and healthbar.current_health <= 0:
+				print("Debug: Health is zero, staying in knockfly for %s" % name)
+			else:
+				is_knockfly = false
+				print("Debug: Knockfly ended, transitioning to wakeup for %s" % name)
 	
 	# 獲取輸入
 	var input_data = get_input()
@@ -255,6 +259,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	animation_tree.set("parameters/conditions/hit", is_hit)
 	animation_tree.set("parameters/conditions/knockfly", is_knockfly)
 	animation_tree.set("parameters/conditions/block", is_blocking)
+	# 注意：保留 powerkk 條件，允許子類（如 davis.gd）設置
 
 	if curr_state != target_state:
 		animation_state.travel(target_state)

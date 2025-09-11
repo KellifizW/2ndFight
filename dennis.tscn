@@ -1,4 +1,4 @@
-[gd_scene load_steps=70 format=3 uid="uid://jla54h8ttkct"]
+[gd_scene load_steps=72 format=3 uid="uid://jla54h8ttkct"]
 
 [ext_resource type="Script" uid="uid://bx5nsadnbkhdk" path="res://dennis.gd" id="1_tdckb"]
 [ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="2_tdckb"]
@@ -115,6 +115,18 @@ tracks/8/keys = {
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [null]
+}
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("Hitbox/HitShape:disabled")
+tracks/9/interp = 1
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tm1hu"]
@@ -560,6 +572,85 @@ tracks/0/keys = {
 "values": [Vector2i(1, 6), Vector2i(0, 6)]
 }
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_awblj"]
+size = Vector2(70, 20)
+
+[sub_resource type="Animation" id="Animation_ybsl7"]
+resource_name = "spnk"
+step = 0.025
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame_coords")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.1, 0.175, 0.325, 0.375, 0.45, 0.533333, 0.675, 0.8, 0.875, 0.95),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [Vector2i(0, 16), Vector2i(1, 16), Vector2i(2, 16), Vector2i(3, 16), Vector2i(4, 16), Vector2i(5, 16), Vector2i(6, 16), Vector2i(7, 16), Vector2i(0, 17), Vector2i(0, 6), Vector2i(1, 6)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:position")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0, 3)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Hitbox/HitShape:shape")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0.175, 0.675),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [SubResource("RectangleShape2D_awblj"), null]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Hitbox/HitShape:shape:size")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0.175),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(70, 20)]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("Hitbox/HitShape:position")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0.175),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0, 10)]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("Hitbox/HitShape:disabled")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0.175, 0.475, 0.55),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 1,
+"values": [false, true, false]
+}
+
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_46qut"]
 _data = {
 &"RESET": SubResource("Animation_3ch2m"),
@@ -579,6 +670,7 @@ _data = {
 &"knockfly": SubResource("Animation_64yue"),
 &"move_b": SubResource("Animation_yev3d"),
 &"move_f": SubResource("Animation_pokt4"),
+&"spnk": SubResource("Animation_ybsl7"),
 &"wakeup": SubResource("Animation_g4e5n")
 }
 
@@ -687,6 +779,7 @@ advance_condition = &"knockfly"
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_g4e5n"]
 switch_mode = 2
 advance_mode = 2
+advance_condition = &"healthbar.current_health > 0"
 
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_aiihl"]
 switch_mode = 2
@@ -790,6 +883,7 @@ parameters/conditions/St_mp = false
 parameters/conditions/Walk = false
 parameters/conditions/block = false
 parameters/conditions/cr_block = false
+"parameters/conditions/healthbar.current_health > 0" = false
 parameters/conditions/hit = false
 parameters/conditions/knockfly = false
 parameters/Walk/blend_position = 0.000833988

@@ -114,13 +114,22 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
 			print("Debug: Ordinary block successful, blockstun duration %s for %s" % [blockstun_duration, name])
 			block_detected.emit(name, block_type)
 		else:
-			is_hit = true
-			hit_timer = 0.28
+			# 先減血（變更：移到前面，以便檢查血量）
 			if healthbar:
 				healthbar.take_damage(damage)
+				# 變更：檢查血量是否歸零
+				if healthbar.current_health <= 0:
+					take_knockfly()  # 觸發擊飛狀態，播放 knockfly 動畫
+					print("Debug: Health reached zero, triggering knockfly for %s" % name)
+				else:
+					is_hit = true
+					hit_timer = 0.28
+					print("Debug: Hit taken, health reduced by %s for %s" % [damage, name])
 			else:
-				print("Warning: No healthbar assigned for %s" % name)
-			print("Debug: Hit taken, health reduced by %s for %s" % [damage, name])
+				# 如果沒有血條，維持原有邏輯（但建議總是綁定血條）
+				is_hit = true
+				hit_timer = 0.28
+				print("Warning: No healthbar, hit taken without damage for %s" % name)
 		_update_animation_state(0, is_crouching)
 
 func update_facing_direction():

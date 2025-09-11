@@ -13,7 +13,7 @@ expand_margin_left = 1.0
 expand_margin_top = 1.0
 expand_margin_right = 1.0
 expand_margin_bottom = 1.0
-shadow_color = Color(0, 0, 0, 0.345098)
+shadow_color = Color(0, 0, 0, 0.27451)
 shadow_offset = Vector2(0, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ngjae"]
@@ -45,3 +45,5 @@ show_percentage = false
 [node name="Timer" type="Timer" parent="."]
 wait_time = 0.4
 one_shot = true
+
+[connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]
