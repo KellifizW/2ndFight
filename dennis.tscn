@@ -41,7 +41,7 @@ tracks/2/loop_wrap = true
 tracks/2/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
+"update": 1,
 "values": [Vector2(20, 70)]
 }
 tracks/3/type = "value"
@@ -53,8 +53,8 @@ tracks/3/loop_wrap = true
 tracks/3/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [Vector2(0, 3)]
+"update": 1,
+"values": [Vector2(0, 0)]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -65,8 +65,8 @@ tracks/4/loop_wrap = true
 tracks/4/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [Vector2(0, 3)]
+"update": 1,
+"values": [Vector2(0, 0)]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
@@ -77,7 +77,7 @@ tracks/5/loop_wrap = true
 tracks/5/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
+"update": 1,
 "values": [Vector2(30, 70)]
 }
 tracks/6/type = "value"
@@ -89,8 +89,8 @@ tracks/6/loop_wrap = true
 tracks/6/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [Vector2(0, 5)]
+"update": 1,
+"values": [Vector2(0, 0)]
 }
 tracks/7/type = "value"
 tracks/7/imported = false
@@ -128,12 +128,24 @@ tracks/9/keys = {
 "update": 1,
 "values": [false]
 }
+tracks/10/type = "value"
+tracks/10/imported = false
+tracks/10/enabled = true
+tracks/10/path = NodePath("Sprite2D:offset")
+tracks/10/interp = 1
+tracks/10/loop_wrap = true
+tracks/10/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0, -2)]
+}
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tm1hu"]
 size = Vector2(30, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_gwt7q"]
-size = Vector2(50, 20)
+size = Vector2(0, 0)
 
 [sub_resource type="Animation" id="Animation_qr7ep"]
 resource_name = "davis_atk"
@@ -262,14 +274,14 @@ tracks/0/keys = {
 tracks/1/type = "value"
 tracks/1/imported = false
 tracks/1/enabled = true
-tracks/1/path = NodePath("Sprite2D:position")
+tracks/1/path = NodePath("Sprite2D:offset")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [Vector2(0, 3)]
+"values": [Vector2(0, -7)]
 }
 
 [sub_resource type="Animation" id="Animation_kcguo"]
@@ -536,6 +548,18 @@ tracks/0/keys = {
 "transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
 "values": [Vector2i(3, 1), Vector2i(7, 7), Vector2i(4, 1), Vector2i(6, 8)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:offset")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.233333, 0.466667, 0.7),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 1,
+"values": [Vector2(0, -3), Vector2(0, -6), Vector2(0, -2), Vector2(0, -6)]
 }
 
 [sub_resource type="Animation" id="Animation_pokt4"]
@@ -852,15 +876,13 @@ collision_mask = 2
 script = ExtResource("1_tdckb")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-position = Vector2(0, 5)
 texture = ExtResource("2_tdckb")
-offset = Vector2(0, -4.385)
+offset = Vector2(0, -2)
 hframes = 10
 vframes = 22
 frame = 1
 
 [node name="Pushbox" type="CollisionShape2D" parent="."]
-position = Vector2(0, 3)
 shape = SubResource("RectangleShape2D_0e34t")
 debug_color = Color(0, 0.642983, 0.308232, 0.42)
 
@@ -900,7 +922,6 @@ collision_layer = 8
 collision_mask = 18
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]
-position = Vector2(0, 3)
 shape = SubResource("RectangleShape2D_tdckb")
 debug_color = Color(1.44392e-06, 0.569045, 0.850655, 0.42)
 

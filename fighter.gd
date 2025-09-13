@@ -12,6 +12,7 @@ var arena_right: float = ProjectSettings.get_setting("display/window/size/viewpo
 var push_distance_multiplier: float = 0.5
 var PUSH_FRICTION: float = 66.0
 @export var push_trigger_distance: float = 5.0
+@export var jump_push_trigger_distance: float = 50.0  # 從 20.0 增加到 50.0，角落跳躍更遠觸發
 @export var collision_epsilon: float = 5.0
 var current_damage: float = 0.0
 
@@ -71,21 +72,25 @@ func _physics_process(delta):
 		var relative_pos_x = global_position.x - other.global_position.x
 		var push_distance = max(overlap_x, 12.0) * push_distance_multiplier
 		
-		var is_overlapping = rightA >= leftB - push_trigger_distance and leftA <= rightB + push_trigger_distance and downA >= upB - push_trigger_distance and upA <= downB + push_trigger_distance
-		var is_jump_overlapping = is_jumping or other.is_jumping
+		# 檢查是否在角落（任一角色靠近邊界）
+		var self_at_left = abs(global_position.x - (arena_left + colbox_half_width)) < collision_epsilon
+		var self_at_right = abs(global_position.x - (arena_right - colbox_half_width)) < collision_epsilon
+		var other_at_left = abs(other.global_position.x - (arena_left + other.colbox_half_width)) < collision_epsilon
+		var other_at_right = abs(other.global_position.x - (arena_right - other.colbox_half_width)) < collision_epsilon
+		var is_corner = self_at_left or self_at_right or other_at_left or other_at_right
+		
+		# 根據是否在角落和跳躍狀態選擇觸發距離
+		var y_trigger_distance = jump_push_trigger_distance if is_corner and (is_jumping or other.is_jumping) else push_trigger_distance
+		var is_overlapping = rightA >= leftB - push_trigger_distance and leftA <= rightB + push_trigger_distance and downA >= upB - y_trigger_distance and upA <= downB + push_trigger_distance
 		
 		if is_overlapping:
-			if is_jump_overlapping:
+			if is_jumping or other.is_jumping:
 				push_distance += PUSH_FRICTION * delta * 1.5
 			else:
 				push_distance += PUSH_FRICTION * delta
 			
 			var new_self_x = global_position.x
 			var new_other_x = other.global_position.x
-			var self_at_left = abs(global_position.x - (arena_left + colbox_half_width)) < collision_epsilon
-			var self_at_right = abs(global_position.x - (arena_right - colbox_half_width)) < collision_epsilon
-			var other_at_left = abs(other.global_position.x - (arena_left + other.colbox_half_width)) < collision_epsilon
-			var other_at_right = abs(other.global_position.x - (arena_right - other.colbox_half_width)) < collision_epsilon
 			
 			if other_at_right and relative_pos_x > 0:
 				new_self_x -= push_distance

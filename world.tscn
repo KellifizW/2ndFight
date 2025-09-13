@@ -26,12 +26,13 @@ scale = Vector2(0.17, 0.17)
 texture = ExtResource("1_fj7yv")
 
 [node name="Davis" parent="." instance=ExtResource("1_f3sb7")]
-position = Vector2(135, 138)
-push_trigger_distance = 6.0
-collision_epsilon = 2.5
+position = Vector2(120, 135)
+push_trigger_distance = 8.0
+jump_push_trigger_distance = 29.0
+collision_epsilon = 2.0
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
-position = Vector2(164, 177)
+position = Vector2(160, 170)
 collision_layer = 2
 metadata/_edit_group_ = true
 
@@ -39,9 +40,10 @@ metadata/_edit_group_ = true
 shape = SubResource("WorldBoundaryShape2D_036b0")
 
 [node name="Dennis" parent="." instance=ExtResource("3_tlwt5")]
-position = Vector2(199, 139)
-push_trigger_distance = 6.0
-collision_epsilon = 2.5
+position = Vector2(200, 135)
+push_trigger_distance = 8.0
+jump_push_trigger_distance = 29.0
+collision_epsilon = 2.0
 
 [node name="HitLabel" type="Label" parent="."]
 offset_right = 132.0
