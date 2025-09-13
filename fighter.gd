@@ -13,6 +13,7 @@ var push_distance_multiplier: float = 0.5
 var PUSH_FRICTION: float = 66.0
 @export var push_trigger_distance: float = 5.0
 @export var collision_epsilon: float = 5.0
+var current_damage: float = 0.0
 
 func _ready():
 	super._ready()
@@ -29,6 +30,22 @@ func _ready():
 
 func _physics_process(delta):
 	super._physics_process(delta)
+	
+	var input_data = get_input()
+	var is_valid_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping
+	
+	if is_hit or is_knockfly or is_blocking:
+		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+	else:
+		if input_data.attack_pressed and is_valid_state:
+			current_damage = input_data.damage
+			is_attacking = true
+			attack_timer = attack_time
+			velocity.x = 0
+			if has_node("Proximitybox/ProxShape"):
+				$Proximitybox/ProxShape.disabled = false
+				print("Debug: ProximityBox enabled during attack for %s" % name)
+		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 	
 	is_being_pushed = false
 	
@@ -57,7 +74,7 @@ func _physics_process(delta):
 		var is_overlapping = rightA >= leftB - push_trigger_distance and leftA <= rightB + push_trigger_distance and downA >= upB - push_trigger_distance and upA <= downB + push_trigger_distance
 		var is_jump_overlapping = is_jumping or other.is_jumping
 		
-		if is_overlapping and (overlap_x > -collision_epsilon or is_jump_overlapping):
+		if is_overlapping:
 			if is_jump_overlapping:
 				push_distance += PUSH_FRICTION * delta * 1.5
 			else:
@@ -103,6 +120,60 @@ func _physics_process(delta):
 	
 	prev_position = global_position
 
+func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
+	var curr_state = animation_state.get_current_node() if animation_state else ""
+	var on_floor = is_on_floor()
+	var target_state = "Walk"
+
+	var anim_dir = dir_x * facing_direction
+	var anim_jump_dir = jump_dir * facing_direction
+
+	if is_knockfly:
+		target_state = "knockfly"
+	elif is_hit:
+		target_state = "hit"
+	elif is_blocking:
+		target_state = "block"
+	elif is_attacking:
+		target_state = "St_mp"
+	elif is_dashing:
+		target_state = "Dash"
+	elif is_backdashing:
+		target_state = "Backdash"
+	elif crouch_input and on_floor:
+		target_state = "Crouch"
+	elif not on_floor and is_jumping:
+		if anim_jump_dir > 0:
+			target_state = "Jump_F"
+		elif anim_jump_dir < 0:
+			target_state = "Jump_B"
+		else:
+			target_state = "Jump_V"
+
+	animation_tree.set("parameters/conditions/Walk", target_state == "Walk")
+	animation_tree.set("parameters/conditions/Crouch", target_state == "Crouch")
+	animation_tree.set("parameters/conditions/Dash", is_dashing)
+	animation_tree.set("parameters/conditions/Backdash", is_backdashing)
+	animation_tree.set("parameters/conditions/St_mp", is_attacking)
+	animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
+	animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
+	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
+	animation_tree.set("parameters/conditions/hit", is_hit)
+	animation_tree.set("parameters/conditions/knockfly", is_knockfly)
+	animation_tree.set("parameters/conditions/block", is_blocking)
+	animation_tree.set("parameters/conditions/powerkk", false)
+
+	if curr_state != target_state:
+		animation_state.travel(target_state)
+		print("Debug: Animation switched to %s for %s" % [target_state, name])
+
+	if target_state == "Walk":
+		animation_tree.set("parameters/Walk/blend_position", anim_dir)
+
+	if is_jumping and on_floor:
+		is_jumping = false
+		print("Debug: Landing, resetting is_jumping for %s" % name)
+
 func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
 	if not is_hit and not is_knockfly and is_on_floor():
 		if is_holding_back and is_opponent_proximity:
@@ -114,22 +185,27 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
 			print("Debug: Ordinary block successful, blockstun duration %s for %s" % [blockstun_duration, name])
 			block_detected.emit(name, block_type)
 		else:
-			# 先減血（變更：移到前面，以便檢查血量）
 			if healthbar:
 				healthbar.take_damage(damage)
-				# 變更：檢查血量是否歸零
 				if healthbar.current_health <= 0:
-					take_knockfly()  # 觸發擊飛狀態，播放 knockfly 動畫
+					is_knockfly = true
+					knockfly_timer = 0.75
 					print("Debug: Health reached zero, triggering knockfly for %s" % name)
 				else:
 					is_hit = true
 					hit_timer = 0.28
 					print("Debug: Hit taken, health reduced by %s for %s" % [damage, name])
 			else:
-				# 如果沒有血條，維持原有邏輯（但建議總是綁定血條）
 				is_hit = true
 				hit_timer = 0.28
 				print("Warning: No healthbar, hit taken without damage for %s" % name)
+		_update_animation_state(0, is_crouching)
+
+func take_knockfly():
+	if not is_hit and not is_knockfly and is_on_floor():
+		is_knockfly = true
+		knockfly_timer = 0.75
+		print("Debug: Knockfly taken for %s, knockfly_timer set to 0.75" % name)
 		_update_animation_state(0, is_crouching)
 
 func update_facing_direction():

@@ -2,39 +2,39 @@ class_name Movement extends CharacterBody2D
 
 @onready var animation_tree = $AnimationTree
 @onready var animation_state = animation_tree.get("parameters/playback")
-var walk_speed: float = 150.0 # 走路速度（前進）
-var back_speed: float = walk_speed * 0.75 # 後退速度
-var jump_horizontal_speed: float = 130.0 # 跳躍水平速度
-var jump_dir: float = 0.0 # 跳躍方向
-var is_jumping: bool = false # 是否跳躍
-var is_dashing: bool = false # 是否前撤
-var is_backdashing: bool = false # 是否後撤
-var is_attacking: bool = false # 是否攻擊
-var attack_time: float = 0.4 # 攻擊動畫持續時間
-var attack_timer: float = 0.0 # 攻擊計時器
-var dash_speed: float = 130.0 # 前撤速度
-var backdash_speed: float = 110.0 # 後撤速度
-var dash_time: float = 0.35 # 前撤持續時間
-var backdash_time: float = 0.4 # 後撤持續時間
-var dash_timer: float = 0.0 # Dash計時器
-var double_tap_timer: float = 0.3 # 雙擊時間窗口
-var last_input_dir: int = 0 # 上一次方向輸入
-var pending_dash_dir: int = 0 # 待確認方向
-var neutral_timer: float = 0.0 # 中立計時器
-var is_crouching: bool = false # 蹲伏狀態
-var is_hit: bool = false # 是否受擊
-var is_knockfly: bool = false # 是否被擊飛
-var hit_timer: float = 0.0 # 受擊計時器
-var block_timer: float = 0.0 # 格擋持續時間計時器
-var knockfly_timer: float = 0.0 # 擊飛計時器
-var knockfly_speed: float = -200.0 # 擊飛後退速度
-var facing_direction: float = 1.0 # 角色面向（1.0 向右，-1.0 向左）
-var dash_direction: float = 0.0 # Dash 方向
-var is_blocking: bool = false # 是否在格擋狀態
-var is_holding_back: bool = false # 是否按住遠離對手的方向
-var is_opponent_proximity: bool = false # Hurtbox 是否檢測到對手的 ProximityBox
-var block_type: String = "none" # 格擋類型: "proximity" 或 "ordinary"
-signal block_detected(target: String, block_type: String) # 更新信號，傳遞類型
+var walk_speed: float = 150.0
+var back_speed: float = walk_speed * 0.75
+var jump_horizontal_speed: float = 130.0
+var jump_dir: float = 0.0
+var is_jumping: bool = false
+var is_dashing: bool = false
+var is_backdashing: bool = false
+var is_attacking: bool = false
+var attack_time: float = 0.4
+var attack_timer: float = 0.0
+var dash_speed: float = 130.0
+var backdash_speed: float = 110.0
+var dash_time: float = 0.35
+var backdash_time: float = 0.4
+var dash_timer: float = 0.0
+var double_tap_timer: float = 0.3
+var last_input_dir: int = 0
+var pending_dash_dir: int = 0
+var neutral_timer: float = 0.0
+var is_crouching: bool = false
+var is_hit: bool = false
+var is_knockfly: bool = false
+var hit_timer: float = 0.0
+var block_timer: float = 0.0
+var knockfly_timer: float = 0.0
+var knockfly_speed: float = -200.0
+var facing_direction: float = 1.0
+var dash_direction: float = 0.0
+var is_blocking: bool = false
+var is_holding_back: bool = false
+var is_opponent_proximity: bool = false
+var block_type: String = "none"
+signal block_detected(target: String, block_type: String)
 
 func _ready():
 	if animation_tree:
@@ -86,7 +86,6 @@ func _physics_process(delta):
 	var input_dir = input_data["input_dir"]
 	var crouch_pressed = input_data["crouch_pressed"]
 	var jump_pressed = input_data["jump_pressed"]
-	var attack_pressed = input_data["attack_pressed"]
 	
 	# 更新蹲伏狀態
 	is_crouching = crouch_pressed
@@ -110,7 +109,6 @@ func _physics_process(delta):
 			velocity.x = 0
 		velocity.y += 1300 * delta
 		move_and_slide()
-		_update_animation_state(input_dir, is_crouching)
 		return
 	
 	# 格擋鎖定移動
@@ -118,28 +116,6 @@ func _physics_process(delta):
 		velocity.x = 0
 		velocity.y += 1300 * delta
 		move_and_slide()
-		_update_animation_state(input_dir, is_crouching)
-		return
-	
-	# 攻擊時鎖定移動
-	if is_attacking:
-		velocity.x = 0
-		velocity.y += 1300 * delta
-		move_and_slide()
-		_update_animation_state(input_dir, is_crouching)
-		return
-	
-	# 檢測攻擊輸入
-	if attack_pressed and is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping:
-		is_attacking = true
-		attack_timer = attack_time
-		velocity.x = 0
-		if has_node("Proximitybox/ProxShape"):
-			$Proximitybox/ProxShape.disabled = false
-			print("Debug: ProximityBox enabled during attack for %s" % name)
-		move_and_slide()
-		print("Debug: Attack triggered, playing St_mp for %s" % name)
-		_update_animation_state(input_dir, is_crouching)
 		return
 	
 	# 雙擊檢測邏輯
@@ -215,85 +191,6 @@ func _physics_process(delta):
 	# 記錄跳躍時的 XY 座標
 	if is_jumping and not is_on_floor():
 		print("Debug: %s jump position: x=%s, y=%s" % [name, global_position.x, global_position.y])
-	
-	_update_animation_state(input_dir, is_crouching)
-
-func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	var curr_state = animation_state.get_current_node()
-	var on_floor = is_on_floor()
-	var target_state = "Walk"
-
-	var anim_dir = dir_x * facing_direction
-	var anim_jump_dir = jump_dir * facing_direction
-
-	if is_knockfly:
-		target_state = "knockfly"
-	elif is_hit:
-		target_state = "hit"
-	elif is_blocking:
-		target_state = "block"
-	elif is_attacking:
-		target_state = "St_mp"
-	elif is_dashing:
-		target_state = "Dash"
-	elif is_backdashing:
-		target_state = "Backdash"
-	elif crouch_input and on_floor:
-		target_state = "Crouch"
-	elif not on_floor and is_jumping:
-		if anim_jump_dir > 0:
-			target_state = "Jump_F"
-		elif anim_jump_dir < 0:
-			target_state = "Jump_B"
-		else:
-			target_state = "Jump_V"
-
-	animation_tree.set("parameters/conditions/Walk", target_state == "Walk")
-	animation_tree.set("parameters/conditions/Crouch", target_state == "Crouch")
-	animation_tree.set("parameters/conditions/Dash", is_dashing)
-	animation_tree.set("parameters/conditions/Backdash", is_backdashing)
-	animation_tree.set("parameters/conditions/St_mp", is_attacking)
-	animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
-	animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
-	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
-	animation_tree.set("parameters/conditions/hit", is_hit)
-	animation_tree.set("parameters/conditions/knockfly", is_knockfly)
-	animation_tree.set("parameters/conditions/block", is_blocking)
-	# 注意：保留 powerkk 條件，允許子類（如 davis.gd）設置
-
-	if curr_state != target_state:
-		animation_state.travel(target_state)
-		print("Debug: Animation switched to %s for %s" % [target_state, name])
-
-	if target_state == "Walk":
-		animation_tree.set("parameters/Walk/blend_position", anim_dir)
-
-	if is_jumping and on_floor:
-		is_jumping = false
-		print("Debug: Landing, resetting is_jumping for %s" % name)
-
-func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
-	if not is_hit and not is_knockfly and is_on_floor():
-		if is_holding_back and is_opponent_proximity:
-			is_blocking = true
-			block_timer = max(block_timer, blockstun_duration)
-			block_type = "ordinary"
-			velocity.x = 0
-			velocity.y = 0
-			print("Debug: Ordinary block successful, blockstun duration %s for %s" % [blockstun_duration, name])
-			block_detected.emit(name, block_type)
-		else:
-			is_hit = true
-			hit_timer = 0.28
-			print("Debug: Hit taken for %s" % name)
-		_update_animation_state(0, is_crouching)
-
-func take_knockfly():
-	if not is_hit and not is_knockfly and is_on_floor():
-		is_knockfly = true
-		knockfly_timer = 0.75
-		print("Debug: Knockfly taken for %s, knockfly_timer set to 0.75" % name)
-		_update_animation_state(0, is_crouching)
 
 func get_input() -> Dictionary:
 	return {"input_dir": 0, "crouch_pressed": false, "jump_pressed": false, "attack_pressed": false}
@@ -335,10 +232,7 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 		print("Debug: %s's Hurtbox no longer detects %s's ProximityBox" % [name, area.get_parent().name])
 
 func update_hitbox_position():
-	if has_node("Hitbox/HitShape"):
-		$Hitbox.scale.x = facing_direction
-	if has_node("Proximitybox/ProxShape"):
-		$Proximitybox.scale.x = facing_direction
+	pass
 
 func update_facing_direction():
 	var players = get_tree().get_nodes_in_group("players")
