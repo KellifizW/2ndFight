@@ -8,10 +8,7 @@ func _ready():
 		$Hitbox.area_entered.connect(_on_hitbox_area_entered)
 	else:
 		print("Warning: Hitbox not found for %s" % name)
-	$Sprite2D.flip_h = true
-	facing_direction = -1.0
 	add_to_group("players")
-	update_hitbox_position()
 
 func get_input() -> Dictionary:
 	var input_dir = 0
@@ -54,7 +51,4 @@ func _on_hitbox_area_entered(area: Area2D):
 		current_damage = 0.0
 
 func get_facing_multiplier() -> float:
-	return -1.0
-
-func update_hitbox_position():
-	pass
+	return facing_direction # 與 facing_direction 保持一致

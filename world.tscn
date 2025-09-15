@@ -1,9 +1,9 @@
 [gd_scene load_steps=8 format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
-[ext_resource type="PackedScene" uid="uid://bw2666uj5f0gw" path="res://davis.tscn" id="1_f3sb7"]
+[ext_resource type="PackedScene" uid="uid://bw2666uj5f0gw" path="res://player1.tscn" id="1_f3sb7"]
 [ext_resource type="Texture2D" uid="uid://cl5cldwpbfwt6" path="res://assets/stage.png" id="1_fj7yv"]
-[ext_resource type="PackedScene" uid="uid://jla54h8ttkct" path="res://dennis.tscn" id="3_tlwt5"]
+[ext_resource type="PackedScene" uid="uid://jla54h8ttkct" path="res://player2.tscn" id="3_tlwt5"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_036b0"]
@@ -25,11 +25,11 @@ offset_bottom = 1075.0
 scale = Vector2(0.17, 0.17)
 texture = ExtResource("1_fj7yv")
 
-[node name="Davis" parent="." instance=ExtResource("1_f3sb7")]
+[node name="Player1" parent="." instance=ExtResource("1_f3sb7")]
 position = Vector2(120, 135)
-push_trigger_distance = 8.0
-jump_push_trigger_distance = 29.0
-collision_epsilon = 2.0
+
+[node name="Player2" parent="." instance=ExtResource("3_tlwt5")]
+position = Vector2(200, 135)
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
 position = Vector2(160, 170)
@@ -38,12 +38,6 @@ metadata/_edit_group_ = true
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
 shape = SubResource("WorldBoundaryShape2D_036b0")
-
-[node name="Dennis" parent="." instance=ExtResource("3_tlwt5")]
-position = Vector2(200, 135)
-push_trigger_distance = 8.0
-jump_push_trigger_distance = 29.0
-collision_epsilon = 2.0
 
 [node name="HitLabel" type="Label" parent="."]
 offset_right = 132.0
@@ -60,16 +54,16 @@ horizontal_alignment = 1
 
 [node name="UI" type="CanvasLayer" parent="." groups=["ui"]]
 
-[node name="DennisHealthbar" parent="UI" instance=ExtResource("4_036b0")]
+[node name="Player2Healthbar" parent="UI" instance=ExtResource("4_036b0")]
 offset_left = 173.0
 offset_top = 14.0
 offset_right = 313.0
 offset_bottom = 18.0
-target_node = NodePath("../../Dennis")
+target_node = NodePath("../../Player2")
 
-[node name="DavisHealthbar" parent="UI" instance=ExtResource("4_036b0")]
+[node name="Player1Healthbar" parent="UI" instance=ExtResource("4_036b0")]
 offset_left = 13.0
 offset_top = 14.0
 offset_right = 153.0
 offset_bottom = 18.0
-target_node = NodePath("../../Davis")
+target_node = NodePath("../../Player1")

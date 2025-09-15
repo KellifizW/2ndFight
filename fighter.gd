@@ -1,19 +1,15 @@
 class_name Fighter extends Movement
 
 @onready var collision_shape = $Pushbox
-@onready var sprite = $Sprite2D
 @onready var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
-var colbox_half_width: float = 0.0
-var colbox_half_height: float = 0.0
 var is_being_pushed: bool = false
-var prev_position: Vector2 = Vector2()
 var arena_left: float = 0.0
 var arena_right: float = ProjectSettings.get_setting("display/window/size/viewport_width")
 var push_distance_multiplier: float = 0.5
 var PUSH_FRICTION: float = 66.0
-@export var push_trigger_distance: float = 5.0
-@export var jump_push_trigger_distance: float = 50.0  # 從 20.0 增加到 50.0，角落跳躍更遠觸發
-@export var collision_epsilon: float = 5.0
+@export var push_trigger_distance: float = 7.0
+@export var jump_push_trigger_distance: float = 28.0
+@export var collision_epsilon: float = 2.0
 var current_damage: float = 0.0
 
 func _ready():
@@ -27,7 +23,6 @@ func _ready():
 	if not healthbar:
 		print("Warning: Healthbar not found for %s" % name)
 	add_to_group("players")
-	prev_position = global_position
 
 func _physics_process(delta):
 	super._physics_process(delta)
@@ -47,7 +42,8 @@ func _physics_process(delta):
 				$Proximitybox/ProxShape.disabled = false
 				print("Debug: ProximityBox enabled during attack for %s" % name)
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-	
+
+func post_physics_process(delta):
 	is_being_pushed = false
 	
 	var all_players = get_tree().get_nodes_in_group("players")
@@ -72,16 +68,14 @@ func _physics_process(delta):
 		var relative_pos_x = global_position.x - other.global_position.x
 		var push_distance = max(overlap_x, 12.0) * push_distance_multiplier
 		
-		# 檢查是否在角落（任一角色靠近邊界）
 		var self_at_left = abs(global_position.x - (arena_left + colbox_half_width)) < collision_epsilon
 		var self_at_right = abs(global_position.x - (arena_right - colbox_half_width)) < collision_epsilon
 		var other_at_left = abs(other.global_position.x - (arena_left + other.colbox_half_width)) < collision_epsilon
 		var other_at_right = abs(other.global_position.x - (arena_right - other.colbox_half_width)) < collision_epsilon
 		var is_corner = self_at_left or self_at_right or other_at_left or other_at_right
 		
-		# 根據是否在角落和跳躍狀態選擇觸發距離
 		var y_trigger_distance = jump_push_trigger_distance if is_corner and (is_jumping or other.is_jumping) else push_trigger_distance
-		var is_overlapping = rightA >= leftB - push_trigger_distance and leftA <= rightB + push_trigger_distance and downA >= upB - y_trigger_distance and upA <= downB + push_trigger_distance
+		var is_overlapping = rightA >= leftB - push_trigger_distance and leftA <= rightB + push_trigger_distance and downA >= upB - y_trigger_distance and upA <= downB + y_trigger_distance
 		
 		if is_overlapping:
 			if is_jumping or other.is_jumping:
@@ -122,8 +116,6 @@ func _physics_process(delta):
 			other.is_being_pushed = true
 	
 	global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
-	
-	prev_position = global_position
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var curr_state = animation_state.get_current_node() if animation_state else ""
@@ -192,7 +184,11 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
 		else:
 			if healthbar:
 				healthbar.take_damage(damage)
-				if healthbar.current_health <= 0:
+				if damage == 20.0:  # powerkk damage, always trigger knockfly
+					is_knockfly = true
+					knockfly_timer = 0.75
+					print("Debug: Powerkk hit, triggering knockfly for %s" % name)
+				elif healthbar.current_health <= 0:
 					is_knockfly = true
 					knockfly_timer = 0.75
 					print("Debug: Health reached zero, triggering knockfly for %s" % name)
@@ -212,28 +208,3 @@ func take_knockfly():
 		knockfly_timer = 0.75
 		print("Debug: Knockfly taken for %s, knockfly_timer set to 0.75" % name)
 		_update_animation_state(0, is_crouching)
-
-func update_facing_direction():
-	var players = get_tree().get_nodes_in_group("players")
-	var other_player = null
-	for player in players:
-		if player != self:
-			other_player = player
-			break
-	
-	if other_player:
-		var sprite_offset = sprite.position
-		var other_sprite_offset = other_player.sprite.position
-		var self_left = global_position.x - colbox_half_width + sprite_offset.x
-		var self_right = global_position.x + colbox_half_width + sprite_offset.x
-		var other_left = other_player.global_position.x - other_player.colbox_half_width + other_sprite_offset.x
-		var other_right = other_player.global_position.x + other_player.colbox_half_width + other_sprite_offset.x
-		
-		if self_left > other_right:
-			facing_direction = -1.0
-			$Sprite2D.flip_h = true
-		elif self_right < other_left:
-			facing_direction = 1.0
-			$Sprite2D.flip_h = false
-		
-		update_hitbox_position()

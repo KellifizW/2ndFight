@@ -1,6 +1,6 @@
 [gd_scene load_steps=72 format=3 uid="uid://jla54h8ttkct"]
 
-[ext_resource type="Script" uid="uid://bx5nsadnbkhdk" path="res://dennis.gd" id="1_tdckb"]
+[ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_tdckb"]
 [ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="2_tdckb"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
@@ -145,7 +145,7 @@ tracks/10/keys = {
 size = Vector2(30, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_gwt7q"]
-size = Vector2(0, 0)
+size = Vector2(50, 20)
 
 [sub_resource type="Animation" id="Animation_qr7ep"]
 resource_name = "davis_atk"
@@ -252,7 +252,19 @@ tracks/0/keys = {
 "times": PackedFloat32Array(0, 0.1, 0.2, 0.3),
 "transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": [Vector2i(0, 1), Vector2i(3, 11), Vector2i(4, 6), Vector2i(7, 1)]
+"values": [Vector2i(2, 11), Vector2i(1, 11), Vector2i(4, 6), Vector2i(7, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:offset")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.1, 0.3),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 1,
+"values": [Vector2(0, -6), Vector2(0, 0), Vector2(0, -2)]
 }
 
 [sub_resource type="Animation" id="Animation_3h1ys"]
@@ -870,10 +882,12 @@ graph_offset = Vector2(-234, 37)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tdckb"]
 size = Vector2(30, 70)
 
-[node name="Dennis" type="CharacterBody2D"]
+[node name="Player2" type="CharacterBody2D"]
 collision_layer = 3
 collision_mask = 2
 script = ExtResource("1_tdckb")
+player_id = "p2"
+push_trigger_distance = 9.0
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_tdckb")
@@ -915,6 +929,7 @@ collision_layer = 2
 collision_mask = 8
 
 [node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
+position = Vector2(25, 5)
 debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="."]
@@ -930,3 +945,5 @@ collision_layer = 16
 collision_mask = 0
 
 [node name="ProxShape" type="CollisionShape2D" parent="Proximitybox"]
+position = Vector2(35, 5)
+debug_color = Color(0.607617, 0.540146, 0, 0.42)

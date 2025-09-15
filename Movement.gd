@@ -2,6 +2,9 @@ class_name Movement extends CharacterBody2D
 
 @onready var animation_tree = $AnimationTree
 @onready var animation_state = animation_tree.get("parameters/playback")
+@onready var sprite = $Sprite2D
+var colbox_half_width: float = 0.0
+var colbox_half_height: float = 0.0
 var walk_speed: float = 150.0
 var back_speed: float = walk_speed * 0.75
 var jump_horizontal_speed: float = 130.0
@@ -34,6 +37,7 @@ var is_blocking: bool = false
 var is_holding_back: bool = false
 var is_opponent_proximity: bool = false
 var block_type: String = "none"
+var prev_position: Vector2 = Vector2()
 signal block_detected(target: String, block_type: String)
 
 func _ready():
@@ -42,23 +46,27 @@ func _ready():
 		animation_state.travel("Walk")
 	else:
 		print("Warning: AnimationTree not found for %s" % name)
+	if has_node("Pushbox") and $Pushbox.shape is RectangleShape2D:
+		var collision_scale = $Pushbox.scale
+		colbox_half_width = $Pushbox.shape.size.x * collision_scale.x / 2.0
+		colbox_half_height = $Pushbox.shape.size.y * collision_scale.y / 2.0
+	else:
+		print("Warning: Pushbox not found or invalid for %s" % name)
 	if has_node("Hurtbox"):
 		$Hurtbox.area_entered.connect(_on_hurtbox_area_entered)
 		$Hurtbox.area_exited.connect(_on_hurtbox_area_exited)
+	prev_position = global_position
+	update_facing_direction()
 
 func _physics_process(delta):
 	var current_position = global_position
 	
-	# 更新計時器
 	if neutral_timer > 0:
 		neutral_timer -= delta
 	if attack_timer > 0:
 		attack_timer -= delta
 		if attack_timer <= 0:
 			is_attacking = false
-			if has_node("Proximitybox/ProxShape"):
-				$Proximitybox/ProxShape.disabled = true
-				print("Debug: ProximityBox disabled after attack for %s" % name)
 			print("Debug: Attack ended, is_attacking set to false for %s" % name)
 	if hit_timer > 0:
 		hit_timer -= delta
@@ -81,27 +89,19 @@ func _physics_process(delta):
 				is_knockfly = false
 				print("Debug: Knockfly ended, transitioning to wakeup for %s" % name)
 	
-	# 獲取輸入
 	var input_data = get_input()
 	var input_dir = input_data["input_dir"]
 	var crouch_pressed = input_data["crouch_pressed"]
 	var jump_pressed = input_data["jump_pressed"]
 	
-	# 更新蹲伏狀態
 	is_crouching = crouch_pressed
 	
-	# 檢測是否按住遠離對手的方向
 	is_holding_back = false
 	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_crouching and not jump_pressed:
 		if input_dir * facing_direction < 0:
 			is_holding_back = true
 			print("Debug: Holding back detected for %s" % name)
 	
-	# 動態更新面向
-	if is_on_floor():
-		update_facing_direction()
-	
-	# 受擊或擊飛鎖定移動
 	if is_hit or is_knockfly:
 		if is_knockfly:
 			velocity.x = knockfly_speed * facing_direction
@@ -111,14 +111,12 @@ func _physics_process(delta):
 		move_and_slide()
 		return
 	
-	# 格擋鎖定移動
 	if is_blocking:
 		velocity.x = 0
 		velocity.y += 1300 * delta
 		move_and_slide()
 		return
 	
-	# 雙擊檢測邏輯
 	var current_input_dir = input_dir
 	if current_input_dir != last_input_dir:
 		if last_input_dir == 0 and current_input_dir != 0:
@@ -144,7 +142,6 @@ func _physics_process(delta):
 			neutral_timer = 0
 		last_input_dir = current_input_dir
 	
-	# Dash 或 Backdash 處理
 	if is_dashing:
 		velocity.x = dash_speed * dash_direction
 		dash_timer -= delta
@@ -161,7 +158,6 @@ func _physics_process(delta):
 			velocity.x = 0
 			print("Debug: Backdash ended for %s" % name)
 	else:
-		# 正常移動處理
 		if is_on_floor():
 			if is_crouching:
 				velocity.x = 0
@@ -178,22 +174,43 @@ func _physics_process(delta):
 			velocity.x = jump_dir * jump_horizontal_speed
 		velocity.y += 1800 * delta
 	
-	# 跳躍處理
 	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing:
 		jump_dir = input_dir
 		velocity.y = -600
 		is_jumping = true
 		print("Debug: Jump triggered, direction: %s for %s" % [jump_dir, name])
 	
-	# 執行移動
 	move_and_slide()
 	
-	# 記錄跳躍時的 XY 座標
 	if is_jumping and not is_on_floor():
 		print("Debug: %s jump position: x=%s, y=%s" % [name, global_position.x, global_position.y])
+	
+	post_physics_process(delta)
+	
+	if is_on_floor() and prev_position.x != global_position.x:
+		update_facing_direction()
+	
+	prev_position = global_position
 
 func get_input() -> Dictionary:
-	return {"input_dir": 0, "crouch_pressed": false, "jump_pressed": false, "attack_pressed": false}
+	return {
+		"input_dir": 0,
+		"crouch_pressed": false,
+		"jump_pressed": false,
+		"attack_pressed": false,
+		"attack_type": "none",
+		"blockstun_duration": 0.2,
+		"damage": 0.0
+	}
+
+func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
+	pass # 虛函數，由子類實現
+
+func update_hitbox_position():
+	pass # 虛函數，由子類實現
+
+func post_physics_process(delta):
+	pass # 虛函數，由子類實現
 
 func get_facing_multiplier() -> float:
 	return facing_direction
@@ -231,9 +248,6 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 		is_opponent_proximity = false
 		print("Debug: %s's Hurtbox no longer detects %s's ProximityBox" % [name, area.get_parent().name])
 
-func update_hitbox_position():
-	pass
-
 func update_facing_direction():
 	var players = get_tree().get_nodes_in_group("players")
 	var other_player = null
@@ -243,15 +257,30 @@ func update_facing_direction():
 			break
 	
 	if other_player:
-		print("Debug: Updating facing direction for %s. Self x=%s, Other x=%s, Other name=%s" % [name, global_position.x, other_player.global_position.x, other_player.name])
-		if global_position.x > other_player.global_position.x:
+		var sprite_offset = sprite.position
+		var other_sprite_offset = other_player.sprite.position
+		var self_left = global_position.x - colbox_half_width + sprite_offset.x
+		var self_right = global_position.x + colbox_half_width + sprite_offset.x
+		var other_left = other_player.global_position.x - other_player.colbox_half_width + other_sprite_offset.x
+		var other_right = other_player.global_position.x + other_player.colbox_half_width + other_sprite_offset.x
+		
+		if self_left > other_right:
 			facing_direction = -1.0
-			$Sprite2D.flip_h = true
-			print("Debug: %s facing left (flip_h = true)" % name)
-		else:
+			scale.x = -1
+			scale.y = 1
+			rotation_degrees = 0
+			print("Debug: %s facing left (self_left=%s > other_right=%s)" % [name, self_left, other_right])
+		elif self_right < other_left:
 			facing_direction = 1.0
-			$Sprite2D.flip_h = false
-			print("Debug: %s facing right (flip_h = false)" % name)
+			scale.x = 1
+			scale.y = 1
+			rotation_degrees = 0
+			print("Debug: %s facing right (self_right=%s < other_left=%s)" % [name, self_right, other_left])
+		
 		update_hitbox_position()
 	else:
-		print("Warning: No other player found in group 'players' for %s" % name)
+		facing_direction = 1.0
+		scale.x = 1
+		scale.y = 1
+		rotation_degrees = 0
+		print("Debug: No other player found, %s defaults to facing right" % name)

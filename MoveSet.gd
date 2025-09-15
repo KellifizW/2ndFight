@@ -22,11 +22,12 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if input_data.spm1_pressed and not is_powerkk:
 		is_powerkk = true
 		powerkk_timer = powerkk_time
+		parent.current_damage = powerkk_damage  # 設置 powerkk 的傷害
 		parent.velocity.x = 0  # 鎖定移動
 		sprite.scale.x = parent.facing_direction  # 設置動畫方向
 		animation_player.play("powerkk")
 		hitbox.disabled = false
-		print("Debug: Powerkk triggered for %s" % parent.name)
+		print("Debug: Powerkk triggered for %s, current_damage set to %s" % [parent.name, powerkk_damage])
 		return true
 	
 	# powerkk 持續處理
