@@ -11,8 +11,8 @@ func _ready():
 		$Hitbox.area_entered.connect(_on_hitbox_area_entered)
 	else:
 		print("Warning: Hitbox not found for %s" % name)
-	if move_set and player_id != "p1":
-		print("Warning: MoveSet node found for %s, but only P1 should have MoveSet" % name)
+	if move_set and player_id != "p1" and player_id != "p2":
+		print("Warning: MoveSet node found for %s, but only P1 or P2 should have MoveSet" % name)
 	add_to_group("players")
 
 func get_input() -> Dictionary:
@@ -22,7 +22,7 @@ func get_input() -> Dictionary:
 	var attack_pressed = Input.is_action_just_pressed("attack" + ("_p2" if player_id == "p2" else ""))
 	var right_pressed = Input.is_action_pressed("move_right" + ("_p2" if player_id == "p2" else ""))
 	var left_pressed = Input.is_action_pressed("move_left" + ("_p2" if player_id == "p2" else ""))
-	var spm1_pressed = Input.is_action_just_pressed("spmove1") if player_id == "p1" else false
+	var spm1_pressed = Input.is_action_just_pressed("spmove1" + ("_p2" if player_id == "p2" else "")) 
 	
 	if right_pressed and left_pressed:
 		input_dir = 0
@@ -32,8 +32,8 @@ func get_input() -> Dictionary:
 		input_dir = -1
 	
 	var attack_type = "attack" if attack_pressed else "none"
-	var blockstun_duration = 0.4 if move_set and move_set.is_powerkk and player_id == "p1" else 0.2
-	var damage = move_set.get_powerkk_damage() if move_set and move_set.is_powerkk and player_id == "p1" else (10.0 if attack_pressed else 0.0)
+	var blockstun_duration = 0.4 if move_set and ((move_set.is_powerkk and player_id == "p1") or (move_set.is_spnk and player_id == "p2")) else 0.2
+	var damage = move_set.get_special_damage() if move_set and ((move_set.is_powerkk and player_id == "p1") or (move_set.is_spnk and player_id == "p2")) else (10.0 if attack_pressed else 0.0)
 	
 	return {
 		"input_dir": input_dir,
@@ -52,7 +52,7 @@ func _physics_process(delta):
 	
 	var is_valid_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping
 	
-	if move_set and player_id == "p1" and move_set.process_move(delta, input_data, is_valid_state):
+	if move_set and (player_id == "p1" or player_id == "p2") and move_set.process_move(delta, input_data, is_valid_state):
 		return
 	
 	if input_data.attack_pressed and is_valid_state:
@@ -70,24 +70,26 @@ func _physics_process(delta):
 	_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	if move_set and move_set.is_powerkk and player_id == "p1":
+	if move_set and ((move_set.is_powerkk and player_id == "p1") or (move_set.is_spnk and player_id == "p2")):
 		var curr_state = animation_state.get_current_node() if animation_state else ""
-		var target_state = "powerkk"
-		animation_tree.set("parameters/conditions/powerkk", true)
+		var target_state = "powerkk" if player_id == "p1" else "spnk"
+		animation_tree.set("parameters/conditions/powerkk", player_id == "p1")
+		animation_tree.set("parameters/conditions/spnk", player_id == "p2")
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 			print("Debug: Animation switched to %s for %s" % [target_state, name])
 	else:
 		super._update_animation_state(dir_x, crouch_input)
 		animation_tree.set("parameters/conditions/powerkk", false)
+		animation_tree.set("parameters/conditions/spnk", false)
 
 func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
 		var target = area.get_parent()
 		var input_data = get_input()
 		var blockstun_duration = input_data.blockstun_duration
-		var damage = current_damage  # 使用 current_damage 以確保普通攻擊和 powerkk 的傷害一致
-		target.take_hit(blockstun_duration, damage)  # 統一調用 take_hit
+		var damage = current_damage
+		target.take_hit(blockstun_duration, damage)
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		hit_detected.emit(target.name, blockstun_duration, is_blocked)
 		print("Debug: Hit detected on %s with blockstun duration %s, damage %s, is_blocked: %s" % [target.name, blockstun_duration, damage, is_blocked])
