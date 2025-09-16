@@ -1,4 +1,3 @@
-# filename: MoveSet.gd
 class_name MoveSet extends Node
 
 # 招式相關變數
@@ -10,8 +9,8 @@ var powerkk_timer: float = 0.0
 var spnk_timer: float = 0.0
 var powerkk_damage: float = 20.0
 var spnk_damage: float = 20.0
-var powerkk_move_distance: float = 70.0  # powerkk 總移動距離
-var spnk_move_distance: float = 60.0     # spnk 總移動距離
+var powerkk_move_distance: float = 150.0  # powerkk 總移動距離
+var spnk_move_distance: float = 150.0     # spnk 總移動距離
 @onready var parent = get_parent()
 @onready var hitbox = parent.get_node("Hitbox/HitShape") if parent.has_node("Hitbox/HitShape") else null
 @onready var animation_player = parent.get_node("AnimationPlayer") if parent.has_node("AnimationPlayer") else null

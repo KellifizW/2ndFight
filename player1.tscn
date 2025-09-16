@@ -1094,7 +1094,10 @@ size = Vector2(30, 70)
 collision_layer = 3
 collision_mask = 2
 script = ExtResource("1_0e34t")
+player_id = null
 push_trigger_distance = 9.0
+jump_push_trigger_distance = null
+collision_epsilon = null
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_yev3d")

@@ -38,6 +38,7 @@ var is_holding_back: bool = false
 var is_opponent_proximity: bool = false
 var block_type: String = "none"
 var prev_position: Vector2 = Vector2()
+var was_in_air: bool = false  # 新增變數宣告
 signal block_detected(target: String, block_type: String)
 
 func _ready():
@@ -96,11 +97,29 @@ func _physics_process(delta):
 	
 	is_crouching = crouch_pressed
 	
-	is_holding_back = false
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_crouching and not jump_pressed:
+	# 從 MoveSet 獲取特殊招式狀態
+	var move_set = $MoveSet if has_node("MoveSet") else null
+	var is_powerkk = move_set.is_powerkk if move_set else false
+	var is_spnk = move_set.is_spnk if move_set else false
+	
+	# 只有在非攻擊狀態時才檢查 is_holding_back
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_crouching and not jump_pressed and not is_powerkk and not is_spnk:
 		if input_dir * facing_direction < 0:
 			is_holding_back = true
 			print("Debug: Holding back detected for %s" % name)
+		else:
+			is_holding_back = false
+	
+	# 動態獲取邊界變數
+	var arena_left = 0.0
+	var arena_right = ProjectSettings.get_setting("display/window/size/viewport_width")
+	if is_class("Fighter"):
+		var arena_left_value = get("arena_left")
+		var arena_right_value = get("arena_right")
+		if arena_left_value != null:
+			arena_left = arena_left_value
+		if arena_right_value != null:
+			arena_right = arena_right_value
 	
 	if is_hit or is_knockfly:
 		if is_knockfly:
@@ -109,12 +128,16 @@ func _physics_process(delta):
 			velocity.x = 0
 		velocity.y += 1300 * delta
 		move_and_slide()
+		# 限制 knockfly 狀態下的 x 軸位置
+		global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
 		return
 	
 	if is_blocking:
 		velocity.x = 0
 		velocity.y += 1300 * delta
 		move_and_slide()
+		# 限制 block 狀態下的 x 軸位置
+		global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
 		return
 	
 	var current_input_dir = input_dir
@@ -161,7 +184,8 @@ func _physics_process(delta):
 		if is_on_floor():
 			if is_crouching:
 				velocity.x = 0
-			elif input_dir != 0:
+			# 只有在非攻擊狀態時才根據 input_dir 設置移動速度
+			elif not is_attacking and not is_powerkk and not is_spnk and input_dir != 0:
 				if input_dir * facing_direction > 0:
 					velocity.x = walk_speed * input_dir
 				else:
@@ -174,7 +198,7 @@ func _physics_process(delta):
 			velocity.x = jump_dir * jump_horizontal_speed
 		velocity.y += 1800 * delta
 	
-	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing:
+	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk:
 		jump_dir = input_dir
 		velocity.y = -600
 		is_jumping = true
@@ -182,10 +206,21 @@ func _physics_process(delta):
 	
 	move_and_slide()
 	
+	# 統一限制所有移動的 x 軸位置
+	global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
+	
 	if is_jumping and not is_on_floor():
 		print("Debug: %s jump position: x=%s, y=%s" % [name, global_position.x, global_position.y])
 	
 	post_physics_process(delta)
+	
+	# 修正：當角色著地時，強制更新面向方向，無論位置是否改變
+	if is_on_floor() and was_in_air:
+		update_facing_direction()
+		print("Debug: Landing, forcing facing direction update for %s" % name)
+	
+	# 更新 was_in_air 狀態
+	was_in_air = not is_on_floor()
 	
 	if is_on_floor() and prev_position.x != global_position.x:
 		update_facing_direction()
@@ -193,15 +228,7 @@ func _physics_process(delta):
 	prev_position = global_position
 
 func get_input() -> Dictionary:
-	return {
-		"input_dir": 0,
-		"crouch_pressed": false,
-		"jump_pressed": false,
-		"attack_pressed": false,
-		"attack_type": "none",
-		"blockstun_duration": 0.2,
-		"damage": 0.0
-	}
+	return {} # 虛函數，由子類實現，返回空字典以滿足返回類型
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	pass # 虛函數，由子類實現
@@ -268,19 +295,22 @@ func update_facing_direction():
 			facing_direction = -1.0
 			scale.x = -1
 			scale.y = 1
+			sprite.scale.x = 1.0
 			rotation_degrees = 0
-			print("Debug: %s facing left (self_left=%s > other_right=%s)" % [name, self_left, other_right])
+			print("Debug: %s facing left, scale.x=%s, sprite.scale.x=%s" % [name, scale.x, sprite.scale.x])
 		elif self_right < other_left:
 			facing_direction = 1.0
 			scale.x = 1
 			scale.y = 1
+			sprite.scale.x = 1.0
 			rotation_degrees = 0
-			print("Debug: %s facing right (self_right=%s < other_left=%s)" % [name, self_right, other_left])
+			print("Debug: %s facing right, scale.x=%s, sprite.scale.x=%s" % [name, scale.x, sprite.scale.x])
 		
 		update_hitbox_position()
 	else:
 		facing_direction = 1.0
 		scale.x = 1
 		scale.y = 1
+		sprite.scale.x = 1.0
 		rotation_degrees = 0
-		print("Debug: No other player found, %s defaults to facing right" % name)
+		print("Debug: No other player found, %s defaults to facing right, sprite.scale.x=%s" % [name, sprite.scale.x])

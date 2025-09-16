@@ -165,6 +165,18 @@ tracks/12/keys = {
 "update": 0,
 "values": [Vector2(40, 20)]
 }
+tracks/13/type = "value"
+tracks/13/imported = false
+tracks/13/enabled = true
+tracks/13/path = NodePath("Hurtbox/HurtShape:disabled")
+tracks/13/interp = 1
+tracks/13/loop_wrap = true
+tracks/13/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tm1hu"]
 size = Vector2(30, 20)
@@ -567,8 +579,20 @@ tracks/0/loop_wrap = true
 tracks/0/keys = {
 "times": PackedFloat32Array(0, 0.116667, 0.2, 0.283333, 0.383333, 0.483333, 0.6),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
-"update": 1,
+"update": 0,
 "values": [Vector2i(0, 3), Vector2i(1, 3), Vector2i(2, 3), Vector2i(3, 3), Vector2i(4, 3), Vector2i(5, 3), Vector2i(4, 3)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Hurtbox/HurtShape:disabled")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0.75),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [true]
 }
 
 [sub_resource type="Animation" id="Animation_yev3d"]
@@ -996,7 +1020,6 @@ collision_layer = 3
 collision_mask = 2
 script = ExtResource("1_tdckb")
 player_id = "p2"
-push_trigger_distance = 9.0
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_tdckb")
@@ -1055,7 +1078,6 @@ collision_layer = 16
 collision_mask = 0
 
 [node name="ProxShape" type="CollisionShape2D" parent="Proximitybox"]
-position = Vector2(25, 10)
 debug_color = Color(0.607617, 0.540146, 0, 0.42)
 
 [node name="MoveSet" type="Node" parent="."]

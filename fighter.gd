@@ -7,8 +7,9 @@ var arena_left: float = 0.0
 var arena_right: float = ProjectSettings.get_setting("display/window/size/viewport_width")
 var push_distance_multiplier: float = 0.5
 var PUSH_FRICTION: float = 66.0
-@export var push_trigger_distance: float = 7.0
-@export var jump_push_trigger_distance: float = 28.0
+@export var ground_push_trigger_distance: float = 2.0  # 地對地推送觸發距離
+@export var air_push_trigger_distance: float = 9.0    # 空對地推送觸發距離
+@export var corner_y_trigger_distance: float = 26.0   # 角落跳躍時的 Y 軸觸發距離
 @export var collision_epsilon: float = 2.0
 var current_damage: float = 0.0
 
@@ -74,8 +75,21 @@ func post_physics_process(delta):
 		var other_at_right = abs(other.global_position.x - (arena_right - other.colbox_half_width)) < collision_epsilon
 		var is_corner = self_at_left or self_at_right or other_at_left or other_at_right
 		
-		var y_trigger_distance = jump_push_trigger_distance if is_corner and (is_jumping or other.is_jumping) else push_trigger_distance
-		var is_overlapping = rightA >= leftB - push_trigger_distance and leftA <= rightB + push_trigger_distance and downA >= upB - y_trigger_distance and upA <= downB + y_trigger_distance
+		# 先檢查 X 軸重疊，使用標準觸發距離（不因跳躍或角落放大）
+		var x_trigger_distance = air_push_trigger_distance if (is_jumping or other.is_jumping) else ground_push_trigger_distance
+		var has_x_overlap = rightA >= leftB - x_trigger_distance and leftA <= rightB + x_trigger_distance
+		
+		# 如果 X 有重疊，再檢查 Y 軸
+		var y_trigger_distance = ground_push_trigger_distance
+		if has_x_overlap:
+			if is_corner and (is_jumping or other.is_jumping):
+				y_trigger_distance = corner_y_trigger_distance  # 只用於 Y 軸，當 X 已重疊時
+			elif is_jumping or other.is_jumping:
+				y_trigger_distance = air_push_trigger_distance
+			else:
+				y_trigger_distance = ground_push_trigger_distance
+		
+		var is_overlapping = has_x_overlap and (downA >= upB - y_trigger_distance and upA <= downB + y_trigger_distance)
 		
 		if is_overlapping:
 			if is_jumping or other.is_jumping:
