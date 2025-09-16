@@ -70,18 +70,22 @@ func _physics_process(delta):
 	_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	if move_set and ((move_set.is_powerkk and player_id == "p1") or (move_set.is_spnk and player_id == "p2")):
+	var was_special = move_set and ((move_set.is_powerkk and player_id == "p1") or (move_set.is_spnk and player_id == "p2"))
+	if was_special:
 		var curr_state = animation_state.get_current_node() if animation_state else ""
 		var target_state = "powerkk" if player_id == "p1" else "spnk"
 		animation_tree.set("parameters/conditions/powerkk", player_id == "p1")
 		animation_tree.set("parameters/conditions/spnk", player_id == "p2")
 		if curr_state != target_state:
 			animation_state.travel(target_state)
-			print("Debug: Animation switched to %s for %s" % [target_state, name])
+			print("Debug: Animation switched to %s for %s, sprite.scale.x=%s" % [target_state, name, sprite.scale.x])
 	else:
 		super._update_animation_state(dir_x, crouch_input)
 		animation_tree.set("parameters/conditions/powerkk", false)
 		animation_tree.set("parameters/conditions/spnk", false)
+		if was_special:
+			update_facing_direction()  # 特殊招式結束後更新面向
+			print("Debug: Special move ended, updating facing direction for %s, sprite.scale.x=%s" % [name, sprite.scale.x])
 
 func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:

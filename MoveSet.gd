@@ -1,3 +1,4 @@
+# filename: MoveSet.gd
 class_name MoveSet extends Node
 
 # 招式相關變數
@@ -32,7 +33,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			powerkk_timer = powerkk_time
 			parent.current_damage = powerkk_damage
 			parent.velocity.x = 0
-			sprite.scale.x = parent.facing_direction
+			parent.update_facing_direction()
 			animation_player.play("powerkk")
 			hitbox.disabled = false
 			print("Debug: Powerkk triggered for %s, current_damage set to %s" % [parent.name, powerkk_damage])
@@ -42,7 +43,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			spnk_timer = spnk_time
 			parent.current_damage = spnk_damage
 			parent.velocity.x = 0
-			sprite.scale.x = parent.facing_direction
+			parent.update_facing_direction()
 			animation_player.play("spnk")
 			hitbox.disabled = false
 			print("Debug: Spnk triggered for %s, current_damage set to %s" % [parent.name, spnk_damage])
@@ -51,7 +52,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if is_powerkk:
 		parent.velocity.x = 0
 		var move_speed = (powerkk_move_distance / powerkk_time) * parent.facing_direction
-		parent.global_position.x += move_speed * delta  # 平滑移動
+		parent.global_position.x += move_speed * delta
 		powerkk_timer -= delta
 		if powerkk_timer <= 0:
 			is_powerkk = false
@@ -60,15 +61,16 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			animation_player.stop()
 			sprite.position = Vector2.ZERO
 			parent.global_position.x += final_position.x
-			sprite.scale.x = 1.0
-			print("Debug: Powerkk ended for %s, final position: %s" % [parent.name, parent.global_position])
+			parent.update_facing_direction()
+			print("Debug: Powerkk ended for %s, final position: %s, facing_direction=%s" % [parent.name, parent.global_position, parent.facing_direction])
 		return true
-	
+
 	if is_spnk:
 		parent.velocity.x = 0
 		var move_speed = (spnk_move_distance / spnk_time) * parent.facing_direction
-		parent.global_position.x += move_speed * delta  # 平滑移動
+		parent.global_position.x += move_speed * delta
 		spnk_timer -= delta
+		print("Debug: Spnk active, facing_direction=%s, sprite.scale.x=%s, parent.scale.x=%s" % [parent.facing_direction, sprite.scale.x, parent.scale.x])
 		if spnk_timer <= 0:
 			is_spnk = false
 			hitbox.disabled = true
@@ -76,8 +78,8 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			animation_player.stop()
 			sprite.position = Vector2.ZERO
 			parent.global_position.x += final_position.x
-			sprite.scale.x = 1.0
-			print("Debug: Spnk ended for %s, final position: %s" % [parent.name, parent.global_position])
+			parent.update_facing_direction()
+			print("Debug: Spnk ended, sprite.scale.x=%s, facing_direction=%s, parent.scale.x=%s" % [sprite.scale.x, parent.facing_direction, parent.scale.x])
 		return true
 	
 	return false
