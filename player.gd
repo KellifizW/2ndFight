@@ -3,6 +3,7 @@ class_name Player extends Fighter
 signal hit_detected(target: String, blockstun_duration: float, is_blocked: bool)
 
 @export var player_id: String = "p1" # 用於區分玩家1或玩家2的輸入
+@export var is_ai_controlled: bool = false  # 新增：AI控制開關
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 
 func _ready():
@@ -16,6 +17,14 @@ func _ready():
 	add_to_group("players")
 
 func get_input() -> Dictionary:
+	if is_ai_controlled:  # 如果AI開關，呼叫AI子節點
+		var ai_behavior = $AIBehavior if has_node("AIBehavior") else null
+		if ai_behavior:
+			return ai_behavior.get_ai_input()
+		else:
+			print("Warning: AIBehavior node not found for %s, falling back to manual input" % name)
+	
+	# 原來的玩家輸入邏輯（不變）
 	var input_dir = 0
 	var crouch_pressed = Input.is_action_pressed("crouch" + ("_p2" if player_id == "p2" else ""))
 	var jump_pressed = Input.is_action_pressed("jump" + ("_p2" if player_id == "p2" else ""))

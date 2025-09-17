@@ -1,8 +1,9 @@
-[gd_scene load_steps=84 format=3 uid="uid://jla54h8ttkct"]
+[gd_scene load_steps=85 format=3 uid="uid://jla54h8ttkct"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_tdckb"]
 [ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="2_tdckb"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://MoveSet.gd" id="3_vop8p"]
+[ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai_behavior.gd" id="4_tj0vx"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(20, 70)
@@ -1082,3 +1083,6 @@ debug_color = Color(0.607617, 0.540146, 0, 0.42)
 
 [node name="MoveSet" type="Node" parent="."]
 script = ExtResource("3_vop8p")
+
+[node name="AIBehavior" type="Node" parent="."]
+script = ExtResource("4_tj0vx")

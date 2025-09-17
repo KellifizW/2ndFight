@@ -1,8 +1,9 @@
-[gd_scene load_steps=81 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=82 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="2_yev3d"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://MoveSet.gd" id="3_0e34t"]
+[ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai_behavior.gd" id="4_3pafw"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(20, 70)
@@ -1095,8 +1096,6 @@ collision_layer = 3
 collision_mask = 2
 script = ExtResource("1_0e34t")
 player_id = null
-push_trigger_distance = 9.0
-jump_push_trigger_distance = null
 collision_epsilon = null
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
@@ -1159,3 +1158,6 @@ debug_color = Color(0.62189, 0.533606, 0, 0.42)
 
 [node name="MoveSet" type="Node" parent="."]
 script = ExtResource("3_0e34t")
+
+[node name="AIBehavior" type="Node" parent="."]
+script = ExtResource("4_3pafw")
