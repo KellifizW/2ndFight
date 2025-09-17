@@ -28,8 +28,6 @@ texture = ExtResource("1_fj7yv")
 
 [node name="Player1" parent="." instance=ExtResource("1_f3sb7")]
 position = Vector2(120, 135)
-player_id = "p1"
-collision_epsilon = 2.0
 
 [node name="Player2" parent="." instance=ExtResource("3_tlwt5")]
 position = Vector2(200, 135)

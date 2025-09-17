@@ -1,4 +1,4 @@
-[gd_scene load_steps=85 format=3 uid="uid://jla54h8ttkct"]
+[gd_scene load_steps=91 format=3 uid="uid://jla54h8ttkct"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_tdckb"]
 [ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="2_tdckb"]
@@ -980,6 +980,24 @@ advance_condition = &"spnk"
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_7gy1f"]
 advance_condition = &"knockfly"
 
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_uns0w"]
+advance_condition = &"knockfly"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_iwfv5"]
+advance_condition = &"knockfly"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_i62jw"]
+advance_condition = &"knockfly"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_ikxd4"]
+advance_condition = &"spnk"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_r433l"]
+advance_condition = &"spnk"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_4w63e"]
+advance_condition = &"spnk"
+
 [sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_mbed6"]
 states/Backdash/node = SubResource("AnimationNodeAnimation_3h1ys")
 states/Backdash/position = Vector2(-73, 86)
@@ -988,30 +1006,30 @@ states/Crouch/position = Vector2(482, 216)
 states/Dash/node = SubResource("AnimationNodeAnimation_46qut")
 states/Dash/position = Vector2(740, 86)
 states/Jump_B/node = SubResource("AnimationNodeAnimation_md12c")
-states/Jump_B/position = Vector2(185, 12)
+states/Jump_B/position = Vector2(209, 54)
 states/Jump_F/node = SubResource("AnimationNodeAnimation_x536s")
-states/Jump_F/position = Vector2(469, 12)
+states/Jump_F/position = Vector2(469, 59)
 states/Jump_V/node = SubResource("AnimationNodeAnimation_kcguo")
-states/Jump_V/position = Vector2(334, 12)
+states/Jump_V/position = Vector2(335, 54)
 states/St_mp/node = SubResource("AnimationNodeAnimation_3ch2m")
 states/St_mp/position = Vector2(603, 134)
 states/Start/position = Vector2(-168, 12)
 states/Walk/node = SubResource("AnimationNodeBlendSpace1D_idi7q")
 states/Walk/position = Vector2(334, 134)
 states/block/node = SubResource("AnimationNodeAnimation_qr7ep")
-states/block/position = Vector2(-157, 143)
+states/block/position = Vector2(-73, 140)
 states/cr_block/node = SubResource("AnimationNodeAnimation_5b203")
 states/cr_block/position = Vector2(335, 285)
 states/hit/node = SubResource("AnimationNodeAnimation_idi7q")
-states/hit/position = Vector2(136, 277)
+states/hit/position = Vector2(176, 216)
 states/knockfly/node = SubResource("AnimationNodeAnimation_meopb")
-states/knockfly/position = Vector2(-9, 277)
+states/knockfly/position = Vector2(74, 211)
 states/spnk/node = SubResource("AnimationNodeAnimation_rihsh")
 states/spnk/position = Vector2(749, 194)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
-states/wakeup/position = Vector2(-58, 194)
-transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "Crouch", SubResource("AnimationNodeStateMachineTransition_ph7k6"), "Crouch", "Walk", SubResource("AnimationNodeStateMachineTransition_qr7ep"), "Walk", "Backdash", SubResource("AnimationNodeStateMachineTransition_yev3d"), "Backdash", "Walk", SubResource("AnimationNodeStateMachineTransition_0e34t"), "Walk", "Jump_F", SubResource("AnimationNodeStateMachineTransition_md12c"), "Jump_F", "Walk", SubResource("AnimationNodeStateMachineTransition_x536s"), "Walk", "Jump_V", SubResource("AnimationNodeStateMachineTransition_kcguo"), "Jump_V", "Walk", SubResource("AnimationNodeStateMachineTransition_3h1ys"), "Walk", "Jump_B", SubResource("AnimationNodeStateMachineTransition_46qut"), "Jump_B", "Walk", SubResource("AnimationNodeStateMachineTransition_3ch2m"), "Walk", "Dash", SubResource("AnimationNodeStateMachineTransition_6ev7e"), "Dash", "Walk", SubResource("AnimationNodeStateMachineTransition_aar5g"), "Walk", "St_mp", SubResource("AnimationNodeStateMachineTransition_idi7q"), "St_mp", "Walk", SubResource("AnimationNodeStateMachineTransition_5b203"), "Walk", "knockfly", SubResource("AnimationNodeStateMachineTransition_64yue"), "knockfly", "wakeup", SubResource("AnimationNodeStateMachineTransition_g4e5n"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_aiihl"), "Walk", "hit", SubResource("AnimationNodeStateMachineTransition_mbed6"), "hit", "Walk", SubResource("AnimationNodeStateMachineTransition_r23na"), "hit", "knockfly", SubResource("AnimationNodeStateMachineTransition_pr04f"), "Crouch", "cr_block", SubResource("AnimationNodeStateMachineTransition_hqspj"), "Walk", "cr_block", SubResource("AnimationNodeStateMachineTransition_tbhii"), "cr_block", "Crouch", SubResource("AnimationNodeStateMachineTransition_wcnsh"), "cr_block", "Walk", SubResource("AnimationNodeStateMachineTransition_4cyww"), "Walk", "block", SubResource("AnimationNodeStateMachineTransition_8tyea"), "block", "Walk", SubResource("AnimationNodeStateMachineTransition_tdckb"), "Walk", "spnk", SubResource("AnimationNodeStateMachineTransition_vop8p"), "spnk", "Walk", SubResource("AnimationNodeStateMachineTransition_tj0vx"), "spnk", "hit", SubResource("AnimationNodeStateMachineTransition_bhnal"), "spnk", "Crouch", SubResource("AnimationNodeStateMachineTransition_uqwy3"), "spnk", "cr_block", SubResource("AnimationNodeStateMachineTransition_8caby"), "wakeup", "spnk", SubResource("AnimationNodeStateMachineTransition_61wwb"), "cr_block", "spnk", SubResource("AnimationNodeStateMachineTransition_2dedv"), "Crouch", "spnk", SubResource("AnimationNodeStateMachineTransition_fqpan"), "spnk", "knockfly", SubResource("AnimationNodeStateMachineTransition_7gy1f")]
-graph_offset = Vector2(-228, 81)
+states/wakeup/position = Vector2(-1, 174)
+transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "Crouch", SubResource("AnimationNodeStateMachineTransition_ph7k6"), "Crouch", "Walk", SubResource("AnimationNodeStateMachineTransition_qr7ep"), "Walk", "Backdash", SubResource("AnimationNodeStateMachineTransition_yev3d"), "Backdash", "Walk", SubResource("AnimationNodeStateMachineTransition_0e34t"), "Walk", "Jump_F", SubResource("AnimationNodeStateMachineTransition_md12c"), "Jump_F", "Walk", SubResource("AnimationNodeStateMachineTransition_x536s"), "Walk", "Jump_V", SubResource("AnimationNodeStateMachineTransition_kcguo"), "Jump_V", "Walk", SubResource("AnimationNodeStateMachineTransition_3h1ys"), "Walk", "Jump_B", SubResource("AnimationNodeStateMachineTransition_46qut"), "Jump_B", "Walk", SubResource("AnimationNodeStateMachineTransition_3ch2m"), "Walk", "Dash", SubResource("AnimationNodeStateMachineTransition_6ev7e"), "Dash", "Walk", SubResource("AnimationNodeStateMachineTransition_aar5g"), "Walk", "St_mp", SubResource("AnimationNodeStateMachineTransition_idi7q"), "St_mp", "Walk", SubResource("AnimationNodeStateMachineTransition_5b203"), "Walk", "knockfly", SubResource("AnimationNodeStateMachineTransition_64yue"), "knockfly", "wakeup", SubResource("AnimationNodeStateMachineTransition_g4e5n"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_aiihl"), "Walk", "hit", SubResource("AnimationNodeStateMachineTransition_mbed6"), "hit", "Walk", SubResource("AnimationNodeStateMachineTransition_r23na"), "hit", "knockfly", SubResource("AnimationNodeStateMachineTransition_pr04f"), "Crouch", "cr_block", SubResource("AnimationNodeStateMachineTransition_hqspj"), "Walk", "cr_block", SubResource("AnimationNodeStateMachineTransition_tbhii"), "cr_block", "Crouch", SubResource("AnimationNodeStateMachineTransition_wcnsh"), "cr_block", "Walk", SubResource("AnimationNodeStateMachineTransition_4cyww"), "Walk", "block", SubResource("AnimationNodeStateMachineTransition_8tyea"), "block", "Walk", SubResource("AnimationNodeStateMachineTransition_tdckb"), "Walk", "spnk", SubResource("AnimationNodeStateMachineTransition_vop8p"), "spnk", "Walk", SubResource("AnimationNodeStateMachineTransition_tj0vx"), "spnk", "hit", SubResource("AnimationNodeStateMachineTransition_bhnal"), "spnk", "Crouch", SubResource("AnimationNodeStateMachineTransition_uqwy3"), "spnk", "cr_block", SubResource("AnimationNodeStateMachineTransition_8caby"), "wakeup", "spnk", SubResource("AnimationNodeStateMachineTransition_61wwb"), "cr_block", "spnk", SubResource("AnimationNodeStateMachineTransition_2dedv"), "Crouch", "spnk", SubResource("AnimationNodeStateMachineTransition_fqpan"), "spnk", "knockfly", SubResource("AnimationNodeStateMachineTransition_7gy1f"), "Jump_B", "knockfly", SubResource("AnimationNodeStateMachineTransition_uns0w"), "Jump_V", "knockfly", SubResource("AnimationNodeStateMachineTransition_iwfv5"), "Jump_F", "knockfly", SubResource("AnimationNodeStateMachineTransition_i62jw"), "block", "spnk", SubResource("AnimationNodeStateMachineTransition_ikxd4"), "Backdash", "spnk", SubResource("AnimationNodeStateMachineTransition_r433l"), "Dash", "spnk", SubResource("AnimationNodeStateMachineTransition_4w63e")]
+graph_offset = Vector2(-99, 37)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tdckb"]
 size = Vector2(30, 70)

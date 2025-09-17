@@ -12,10 +12,6 @@ var PUSH_FRICTION: float = 66.0
 @export var corner_y_trigger_distance: float = 26.0   # 角落跳躍時的 Y 軸觸發距離
 @export var collision_epsilon: float = 2.0
 var current_damage: float = 0.0
-var is_block_pushback: bool = false  # 新增：標記是否在格擋後退中
-var block_pushback_timer: float = 0.0  # 新增：格擋後退計時器
-var block_pushback_duration: float = 0.1  # 新增：後退持續時間（秒）
-var block_pushback_speed: float = 60.0  # 新增：後退速度（6px / 0.1s = 60px/s）
 
 func _ready():
 	super._ready()
@@ -47,19 +43,6 @@ func _physics_process(delta):
 				$Proximitybox/ProxShape.disabled = false
 				print("Debug: ProximityBox enabled during attack for %s" % name)
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-	
-	# 處理格擋後退
-	if is_block_pushback:
-		block_pushback_timer -= delta
-		if block_pushback_timer <= 0:
-			is_block_pushback = false
-			velocity.x = 0
-			print("Debug: Block pushback ended for %s" % name)
-		else:
-			velocity.x = block_pushback_speed * -facing_direction
-			move_and_slide()
-			global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
-			print("Debug: Block pushback active, velocity.x=%s, position.x=%s for %s" % [velocity.x, global_position.x, name])
 
 func post_physics_process(delta):
 	is_being_pushed = false
@@ -206,15 +189,14 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
 	if not is_hit and not is_knockfly and is_on_floor():
 		if is_holding_back and is_opponent_proximity:
 			is_blocking = true
-			block_timer = max(block_timer, blockstun_duration)
+			initial_blockstun = 0.267  # 固定0.267秒blockstun
+			block_timer = initial_blockstun
 			block_type = "ordinary"
 			velocity.x = 0
 			velocity.y = 0
-			# 啟動格擋後退
-			is_block_pushback = true
-			block_pushback_timer = block_pushback_duration
-			velocity.x = block_pushback_speed * -facing_direction
-			print("Debug: Ordinary block successful, blockstun duration %s, starting pushback with velocity.x=%s for %s" % [blockstun_duration, velocity.x, name])
+			block_push_timer = initial_blockstun  # 同步計時器
+			block_push_velocity = 2.0 * block_push_distance / initial_blockstun  # 初始速度（三角形平均，讓總距離精準）
+			print("Debug: Ordinary block successful, blockstun duration %s for %s" % [initial_blockstun, name])
 			block_detected.emit(name, block_type)
 		else:
 			if healthbar:
@@ -228,13 +210,22 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
 					knockfly_timer = 0.75
 					print("Debug: Health reached zero, triggering knockfly for %s" % name)
 				else:
+					# 新增：hitstun 邏輯
 					is_hit = true
-					hit_timer = 0.28
-					print("Debug: Hit taken, health reduced by %s for %s" % [damage, name])
+					initial_hitstun = 0.35  # 固定0.35秒hitstun
+					hit_timer = initial_hitstun
+					hit_push_timer = initial_hitstun  # 同步計時器
+					hit_push_velocity = 2.0 * hit_push_distance / initial_hitstun  # 初始速度（三角形平均，讓總距離精準）
+					velocity.x = 0
+					velocity.y = 0
+					print("Debug: Hitstun triggered, duration %s for %s, damage %s" % [initial_hitstun, name, damage])
 			else:
 				is_hit = true
-				hit_timer = 0.28
-				print("Warning: No healthbar, hit taken without damage for %s" % name)
+				initial_hitstun = 0.35
+				hit_timer = initial_hitstun
+				hit_push_timer = initial_hitstun
+				hit_push_velocity = 2.0 * hit_push_distance / initial_hitstun
+				print("Warning: No healthbar, hitstun triggered without damage for %s" % name)
 		_update_animation_state(0, is_crouching)
 
 func take_knockfly():
@@ -243,20 +234,3 @@ func take_knockfly():
 		knockfly_timer = 0.75
 		print("Debug: Knockfly taken for %s, knockfly_timer set to 0.75" % name)
 		_update_animation_state(0, is_crouching)
-
-func _on_hurtbox_area_entered(area: Area2D) -> void:
-	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
-		is_opponent_proximity = true
-		print("Debug: %s's Hurtbox detected %s's ProximityBox" % [name, area.get_parent().name])
-		if is_holding_back and is_on_floor() and not is_blocking:
-			is_blocking = true
-			block_timer = 0.1
-			block_type = "proximity"
-			velocity.x = 0
-			velocity.y = 0
-			# 啟動格擋後退
-			is_block_pushback = true
-			block_pushback_timer = block_pushback_duration
-			velocity.x = block_pushback_speed * -facing_direction
-			print("Debug: Proximity block triggered, starting pushback with velocity.x=%s for %s" % [velocity.x, name])
-			block_detected.emit(name, block_type)

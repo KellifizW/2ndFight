@@ -30,7 +30,15 @@ var is_knockfly: bool = false
 var hit_timer: float = 0.0
 var block_timer: float = 0.0
 var knockfly_timer: float = 0.0
-var knockfly_speed: float = -200.0
+var knockfly_speed: float = -300.0
+@export var block_push_distance: float = 20.0  # 格擋後退總距離（像素）
+var block_push_timer: float = 0.0      # 格擋後退計時器
+var initial_blockstun: float = 0.0     # 初始blockstun時間
+var block_push_velocity: float = 0.0   # 格擋後退速度
+@export var hit_push_distance: float = 20.0  # 受擊後退總距離（像素）
+var hit_push_timer: float = 0.0        # 受擊後退計時器
+var initial_hitstun: float = 0.0       # 初始hitstun時間
+var hit_push_velocity: float = 0.0     # 受擊後退速度
 var facing_direction: float = 1.0
 var dash_direction: float = 0.0
 var is_blocking: bool = false
@@ -38,7 +46,10 @@ var is_holding_back: bool = false
 var is_opponent_proximity: bool = false
 var block_type: String = "none"
 var prev_position: Vector2 = Vector2()
-var was_in_air: bool = false  # 新增變數宣告
+var was_in_air: bool = false
+# 新增：空中普通攻擊的 knockfly 後退距離和標誌
+var air_hit_knockfly_distance: float = 10.0
+var is_air_hit_knockfly: bool = false
 signal block_detected(target: String, block_type: String)
 
 func _ready():
@@ -73,12 +84,18 @@ func _physics_process(delta):
 		hit_timer -= delta
 		if hit_timer <= 0:
 			is_hit = false
-			print("Debug: Hit taken for %s" % name)
+			hit_push_timer = 0.0
+			hit_push_velocity = 0.0
+			initial_hitstun = 0.0
+			print("Debug: Hitstun ended for %s" % name)
 	if block_timer > 0:
 		block_timer -= delta
 		if block_timer <= 0:
 			is_blocking = false
 			block_type = "none"
+			block_push_timer = 0.0
+			block_push_velocity = 0.0
+			initial_blockstun = 0.0
 			print("Debug: Block ended, is_blocking set to false for %s" % name)
 	if knockfly_timer > 0:
 		knockfly_timer -= delta
@@ -88,6 +105,7 @@ func _physics_process(delta):
 				print("Debug: Health is zero, staying in knockfly for %s" % name)
 			else:
 				is_knockfly = false
+				is_air_hit_knockfly = false  # 重置空中普通攻擊標誌
 				print("Debug: Knockfly ended, transitioning to wakeup for %s" % name)
 	
 	var input_data = get_input()
@@ -123,20 +141,51 @@ func _physics_process(delta):
 	
 	if is_hit or is_knockfly:
 		if is_knockfly:
-			velocity.x = knockfly_speed * facing_direction
+			if is_air_hit_knockfly and not is_on_floor():  # 空中普通攻擊 knockfly
+				if knockfly_timer > 0:
+					var deceleration_rate = 2.0 * air_hit_knockfly_distance / (knockfly_timer * knockfly_timer)
+					var current_speed = (2.0 * air_hit_knockfly_distance / knockfly_timer) - (deceleration_rate * (knockfly_timer - (knockfly_timer - delta)))
+					if current_speed < 0:
+						current_speed = 0
+					velocity.x = -facing_direction * current_speed
+					print("Debug: Air hit knockfly for %s, velocity.x=%s, remaining=%s, current_speed=%s" % [name, velocity.x, knockfly_timer, current_speed])
+				else:
+					velocity.x = 0
+			else:  # 特殊招式或地面 knockfly
+				velocity.x = knockfly_speed * facing_direction
 		else:
-			velocity.x = 0
+			if hit_push_timer > 0:
+				hit_push_timer -= delta
+				if hit_push_velocity > 0:
+					var deceleration_rate = 2.0 * hit_push_distance / (initial_hitstun * initial_hitstun)
+					hit_push_velocity -= deceleration_rate * delta
+					if hit_push_velocity < 0:
+						hit_push_velocity = 0
+				velocity.x = -facing_direction * hit_push_velocity
+				print("Debug: Hit push active for %s, velocity.x=%s, initial_hitstun=%s, remaining=%s, current_speed=%s" % [name, velocity.x, initial_hitstun, hit_push_timer, hit_push_velocity])
+			else:
+				velocity.x = 0
+				hit_push_velocity = 0
 		velocity.y += 1300 * delta
 		move_and_slide()
-		# 限制 knockfly 狀態下的 x 軸位置
 		global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
 		return
 	
 	if is_blocking:
-		velocity.x = 0
+		if block_push_timer > 0:
+			block_push_timer -= delta
+			if block_push_velocity > 0:
+				var deceleration_rate = 2.0 * block_push_distance / (initial_blockstun * initial_blockstun)
+				block_push_velocity -= deceleration_rate * delta
+				if block_push_velocity < 0:
+					block_push_velocity = 0
+			velocity.x = -facing_direction * block_push_velocity
+			print("Debug: Block push active for %s, velocity.x=%s, initial_blockstun=%s, remaining=%s, current_speed=%s" % [name, velocity.x, initial_blockstun, block_push_timer, block_push_velocity])
+		else:
+			velocity.x = 0
+			block_push_velocity = 0
 		velocity.y += 1300 * delta
 		move_and_slide()
-		# 限制 block 狀態下的 x 軸位置
 		global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
 		return
 	
@@ -184,7 +233,6 @@ func _physics_process(delta):
 		if is_on_floor():
 			if is_crouching:
 				velocity.x = 0
-			# 只有在非攻擊狀態時才根據 input_dir 設置移動速度
 			elif not is_attacking and not is_powerkk and not is_spnk and input_dir != 0:
 				if input_dir * facing_direction > 0:
 					velocity.x = walk_speed * input_dir
@@ -206,7 +254,6 @@ func _physics_process(delta):
 	
 	move_and_slide()
 	
-	# 統一限制所有移動的 x 軸位置
 	global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
 	
 	if is_jumping and not is_on_floor():
@@ -214,30 +261,28 @@ func _physics_process(delta):
 	
 	post_physics_process(delta)
 	
-	# 修正：當角色著地時，強制更新面向方向，無論位置是否改變
-	if is_on_floor() and was_in_air:
+	if is_on_floor() and was_in_air and not (is_powerkk or is_spnk):  # 修改：招式期間不更新
 		update_facing_direction()
 		print("Debug: Landing, forcing facing direction update for %s" % name)
 	
-	# 更新 was_in_air 狀態
 	was_in_air = not is_on_floor()
 	
-	if is_on_floor() and prev_position.x != global_position.x:
+	if is_on_floor() and prev_position.x != global_position.x and not (is_powerkk or is_spnk):  # 修改：招式期間不更新
 		update_facing_direction()
 	
 	prev_position = global_position
 
 func get_input() -> Dictionary:
-	return {} # 虛函數，由子類實現，返回空字典以滿足返回類型
+	return {}
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	pass # 虛函數，由子類實現
+	pass
 
 func update_hitbox_position():
-	pass # 虛函數，由子類實現
+	pass
 
 func post_physics_process(delta):
-	pass # 虛函數，由子類實現
+	pass
 
 func get_facing_multiplier() -> float:
 	return facing_direction
@@ -263,6 +308,7 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 		print("Debug: %s's Hurtbox detected %s's ProximityBox" % [name, area.get_parent().name])
 		if is_holding_back and is_on_floor() and not is_blocking:
 			is_blocking = true
+			initial_blockstun = 0.1
 			block_timer = 0.1
 			block_type = "proximity"
 			velocity.x = 0
@@ -276,6 +322,11 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 		print("Debug: %s's Hurtbox no longer detects %s's ProximityBox" % [name, area.get_parent().name])
 
 func update_facing_direction():
+	var move_set = $MoveSet if has_node("MoveSet") else null
+	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)  # 新增：檢查是否在特殊招式
+	if is_special_move:
+		return  # 招式期間不更新 facing_direction
+	
 	var players = get_tree().get_nodes_in_group("players")
 	var other_player = null
 	for player in players:

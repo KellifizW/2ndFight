@@ -113,3 +113,58 @@ func _on_hitbox_area_entered(area: Area2D):
 
 func get_facing_multiplier() -> float:
 	return facing_direction
+
+# 修改：移除 is_on_floor() 限制，並根據 damage 區分空中普通攻擊和特殊招式
+func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
+	if not is_hit and not is_knockfly:
+		if is_holding_back and is_opponent_proximity and is_on_floor():  # 空中不允許格擋
+			is_blocking = true
+			initial_blockstun = 0.267  # 固定0.267秒blockstun
+			block_timer = initial_blockstun
+			block_type = "ordinary"
+			velocity.x = 0
+			velocity.y = 0
+			block_push_timer = initial_blockstun  # 同步計時器
+			block_push_velocity = 2.0 * block_push_distance / initial_blockstun  # 初始速度（三角形平均，讓總距離精準）
+			print("Debug: Ordinary block successful, blockstun duration %s for %s" % [initial_blockstun, name])
+			block_detected.emit(name, block_type)
+		else:
+			if healthbar:
+				healthbar.take_damage(damage)
+				if damage == 20.0:  # powerkk 或 spnk，空中與地面一致
+					is_knockfly = true
+					knockfly_timer = 0.75
+					print("Debug: Special move hit (powerkk/spnk), triggering knockfly for %s" % name)
+				elif healthbar.current_health <= 0:  # 血量歸零，空中與地面一致
+					is_knockfly = true
+					knockfly_timer = 0.75
+					print("Debug: Health reached zero, triggering knockfly for %s" % name)
+				else:
+					if is_on_floor():  # 地面普通攻擊：hitstun
+						is_hit = true
+						initial_hitstun = 0.35
+						hit_timer = initial_hitstun
+						hit_push_timer = initial_hitstun
+						hit_push_velocity = 2.0 * hit_push_distance / initial_hitstun
+						velocity.x = 0
+						velocity.y = 0
+						print("Debug: Ground hitstun triggered, duration %s for %s, damage %s" % [initial_hitstun, name, damage])
+					else:  # 空中普通攻擊：knockfly，後退 40px
+						is_knockfly = true
+						knockfly_timer = 0.75
+						# 設置空中普通攻擊的後退距離（在 Movement.gd 中處理速度）
+						if "air_hit_knockfly_distance" in self:
+							set("air_hit_knockfly_distance", 40.0)
+						if "is_air_hit_knockfly" in self:
+							set("is_air_hit_knockfly", true)
+						velocity.x = 0
+						velocity.y = 0
+						print("Debug: Air hit by normal attack, triggering knockfly with 40px pushback for %s" % name)
+			else:
+				is_hit = true
+				initial_hitstun = 0.35
+				hit_timer = initial_hitstun
+				hit_push_timer = initial_hitstun
+				hit_push_velocity = 2.0 * hit_push_distance / initial_hitstun
+				print("Warning: No healthbar, hitstun triggered without damage for %s" % name)
+		_update_animation_state(0, is_crouching)
