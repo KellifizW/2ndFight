@@ -50,7 +50,7 @@ func _physics_process(delta):
 	super._physics_process(delta)
 	var input_data = get_input()
 	
-	var is_valid_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping and not is_blocking and not is_attacking
+	var is_valid_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping
 	
 	if move_set and (player_id == "p1" or player_id == "p2") and move_set.process_move(delta, input_data, is_valid_state):
 		return
@@ -67,19 +67,10 @@ func _physics_process(delta):
 			$Proximitybox/ProxShape.disabled = false
 			print("Debug: ProximityBox enabled during attack for %s" % name)
 	
-	# 在攻擊結束時重置 Hitbox 狀態
-	if is_attacking and attack_timer <= 0:
-		is_attacking = false
-		if has_node("Hitbox/HitShape"):
-			$Hitbox/HitShape.disabled = true
-			print("Debug: Hitbox disabled after attack ended for %s" % name)
-		if has_node("Proximitybox/ProxShape"):
-			$Proximitybox/ProxShape.disabled = true
-			print("Debug: ProximityBox disabled after attack ended for %s" % name)
-	
 	_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
+<<<<<<< HEAD
 <<<<<<< HEAD
 	var curr_state = animation_state.get_current_node() if animation_state else ""
 	var target_state = "Walk"
@@ -140,6 +131,8 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		is_jumping = false
 		print("Debug: Landing, resetting is_jumping for %s" % name)
 =======
+=======
+>>>>>>> parent of 034eb24 (9191)
 	var was_special = move_set and ((move_set.is_powerkk and player_id == "p1") or (move_set.is_spnk and player_id == "p2"))
 	if was_special:
 		var curr_state = animation_state.get_current_node() if animation_state else ""
@@ -153,10 +146,17 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		super._update_animation_state(dir_x, crouch_input)
 		animation_tree.set("parameters/conditions/powerkk", false)
 		animation_tree.set("parameters/conditions/spnk", false)
+<<<<<<< HEAD
 		if was_special:
 			update_facing_direction()  # 特殊招式結束後更新面向
 			print("Debug: Special move ended, updating facing direction for %s, sprite.scale.x=%s" % [name, sprite.scale.x])
 >>>>>>> parent of 64cbfd8 (9181)
+=======
+		animation_tree.set("parameters/conditions/Cr_block", false)
+		if was_special:
+			update_facing_direction()
+			print("Debug: Special move ended, updating facing direction for %s, sprite.scale.x=%s" % [name, sprite.scale.x])
+>>>>>>> parent of 034eb24 (9191)
 
 func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
@@ -164,6 +164,7 @@ func _on_hitbox_area_entered(area: Area2D):
 		var input_data = get_input()
 		var blockstun_duration = input_data.blockstun_duration
 		var damage = current_damage
+<<<<<<< HEAD
 <<<<<<< HEAD
 		if damage > 0:  # 確保傷害大於 0 才觸發
 			var skip_target_push = target.is_at_corner()
@@ -197,11 +198,36 @@ func _on_hitbox_area_entered(area: Area2D):
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		hit_detected.emit(target.name, blockstun_duration, is_blocked)
 		print("Debug: Hit detected on %s with blockstun duration %s, damage %s, is_blocked: %s" % [target.name, blockstun_duration, damage, is_blocked])
+=======
+		var skip_target_push = target.is_at_corner()
+		target.take_hit(blockstun_duration, damage, skip_target_push)
+		var is_blocked = target.is_blocking and target.block_type == "ordinary"
+		hit_detected.emit(target.name, blockstun_duration, is_blocked)
+		print("Debug: Hit detected on %s with blockstun duration %s, damage %s, is_blocked: %s" % [target.name, blockstun_duration, damage, is_blocked])
+		if skip_target_push:
+			var push_duration: float
+			if damage == 20.0:
+				push_duration = 0.4
+			elif is_blocked:
+				push_duration = 0.267
+			else:
+				push_duration = 0.35
+			is_push_back = true
+			initial_push_back = push_duration
+			push_back_timer = push_duration
+			push_back_velocity = 2.0 * corner_push_distance / push_duration
+			velocity.x = -push_back_velocity * facing_direction
+			velocity.y = 0
+			print("Debug: Corner push triggered for attacker %s, duration %s, velocity.x=%s" % [name, push_duration, velocity.x])
+>>>>>>> parent of 034eb24 (9191)
 		current_damage = 0.0
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = true
 			print("Debug: Hitbox disabled after hit for %s" % name)
+<<<<<<< HEAD
 >>>>>>> parent of 64cbfd8 (9181)
+=======
+>>>>>>> parent of 034eb24 (9191)
 
 func get_facing_multiplier() -> float:
 	return facing_direction
