@@ -1,10 +1,11 @@
-[gd_scene load_steps=8 format=3 uid="uid://c0j8o4o3jtun1"]
+[gd_scene load_steps=9 format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
 [ext_resource type="PackedScene" uid="uid://bw2666uj5f0gw" path="res://player1.tscn" id="1_f3sb7"]
 [ext_resource type="Texture2D" uid="uid://cl5cldwpbfwt6" path="res://assets/stage.png" id="1_fj7yv"]
 [ext_resource type="PackedScene" uid="uid://jla54h8ttkct" path="res://player2.tscn" id="3_tlwt5"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
+[ext_resource type="Script" uid="uid://dwchp2rimawb" path="res://cpu_controller.gd" id="6_dwbse"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_036b0"]
 
@@ -27,11 +28,15 @@ texture = ExtResource("1_fj7yv")
 
 [node name="Player1" parent="." instance=ExtResource("1_f3sb7")]
 position = Vector2(120, 135)
-player_id = "p1"
-collision_epsilon = 2.0
+corner_push_distance = 5.0
+block_push_distance = 10.0
+hit_push_distance = 10.0
 
 [node name="Player2" parent="." instance=ExtResource("3_tlwt5")]
 position = Vector2(200, 135)
+corner_push_distance = 5.0
+block_push_distance = 10.0
+hit_push_distance = 10.0
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
 position = Vector2(160, 170)
@@ -69,3 +74,6 @@ offset_top = 14.0
 offset_right = 153.0
 offset_bottom = 18.0
 target_node = NodePath("../../Player1")
+
+[node name="CPUController" type="Node" parent="."]
+script = ExtResource("6_dwbse")

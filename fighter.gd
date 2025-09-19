@@ -3,15 +3,14 @@ class_name Fighter extends Movement
 @onready var collision_shape = $Pushbox
 @onready var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 var is_being_pushed: bool = false
-var arena_left: float = 0.0
-var arena_right: float = ProjectSettings.get_setting("display/window/size/viewport_width")
 var push_distance_multiplier: float = 0.5
 var PUSH_FRICTION: float = 66.0
-@export var ground_push_trigger_distance: float = 2.0  # 地對地推送觸發距離
-@export var air_push_trigger_distance: float = 9.0    # 空對地推送觸發距離
-@export var corner_y_trigger_distance: float = 26.0   # 角落跳躍時的 Y 軸觸發距離
+@export var ground_push_trigger_distance: float = 2.0
+@export var air_push_trigger_distance: float = 9.0
+@export var corner_y_trigger_distance: float = 26.0
 @export var collision_epsilon: float = 2.0
 var current_damage: float = 0.0
+var air_hit_knockfly_speed: float = 53.33
 
 func _ready():
 	super._ready()
@@ -24,6 +23,11 @@ func _ready():
 	if not healthbar:
 		print("Warning: Healthbar not found for %s" % name)
 	add_to_group("players")
+
+func is_at_corner() -> bool:
+	var self_at_left = abs(global_position.x - (arena_left + colbox_half_width)) < collision_epsilon
+	var self_at_right = abs(global_position.x - (arena_right - colbox_half_width)) < collision_epsilon
+	return self_at_left or self_at_right
 
 func _physics_process(delta):
 	super._physics_process(delta)
@@ -75,15 +79,13 @@ func post_physics_process(delta):
 		var other_at_right = abs(other.global_position.x - (arena_right - other.colbox_half_width)) < collision_epsilon
 		var is_corner = self_at_left or self_at_right or other_at_left or other_at_right
 		
-		# 先檢查 X 軸重疊，使用標準觸發距離（不因跳躍或角落放大）
 		var x_trigger_distance = air_push_trigger_distance if (is_jumping or other.is_jumping) else ground_push_trigger_distance
 		var has_x_overlap = rightA >= leftB - x_trigger_distance and leftA <= rightB + x_trigger_distance
 		
-		# 如果 X 有重疊，再檢查 Y 軸
 		var y_trigger_distance = ground_push_trigger_distance
 		if has_x_overlap:
 			if is_corner and (is_jumping or other.is_jumping):
-				y_trigger_distance = corner_y_trigger_distance  # 只用於 Y 軸，當 X 已重疊時
+				y_trigger_distance = corner_y_trigger_distance
 			elif is_jumping or other.is_jumping:
 				y_trigger_distance = air_push_trigger_distance
 			else:
@@ -144,14 +146,17 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	elif is_hit:
 		target_state = "hit"
 	elif is_blocking:
-		target_state = "block"
+		if is_crouching:
+			target_state = "cr_block"
+		else:
+			target_state = "block"
 	elif is_attacking:
 		target_state = "St_mp"
 	elif is_dashing:
 		target_state = "Dash"
 	elif is_backdashing:
 		target_state = "Backdash"
-	elif crouch_input and on_floor:
+	elif crouch_input and on_floor and not is_blocking:
 		target_state = "Crouch"
 	elif not on_floor and is_jumping:
 		if anim_jump_dir > 0:
@@ -171,7 +176,8 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
 	animation_tree.set("parameters/conditions/hit", is_hit)
 	animation_tree.set("parameters/conditions/knockfly", is_knockfly)
-	animation_tree.set("parameters/conditions/block", is_blocking)
+	animation_tree.set("parameters/conditions/block", is_blocking and not is_crouching)
+	animation_tree.set("parameters/conditions/cr_block", is_blocking and is_crouching)
 	animation_tree.set("parameters/conditions/powerkk", false)
 
 	if curr_state != target_state:
@@ -185,35 +191,65 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		is_jumping = false
 		print("Debug: Landing, resetting is_jumping for %s" % name)
 
-func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0):
-	if not is_hit and not is_knockfly and is_on_floor():
-		if is_holding_back and is_opponent_proximity:
+func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: bool = false):
+	if not is_hit and not is_knockfly:
+		if (is_holding_back or is_crouch_blocking) and is_opponent_proximity and is_on_floor():
 			is_blocking = true
-			block_timer = max(block_timer, blockstun_duration)
+			initial_blockstun = 0.267
+			block_timer = initial_blockstun
 			block_type = "ordinary"
 			velocity.x = 0
 			velocity.y = 0
-			print("Debug: Ordinary block successful, blockstun duration %s for %s" % [blockstun_duration, name])
+			if not skip_push:
+				block_push_timer = initial_blockstun
+				block_push_velocity = 2.0 * block_push_distance / initial_blockstun
+			print("Debug: Ordinary block successful, blockstun duration %s for %s" % [initial_blockstun, name])
 			block_detected.emit(name, block_type)
 		else:
 			if healthbar:
 				healthbar.take_damage(damage)
-				if damage == 20.0:  # powerkk damage, always trigger knockfly
+				var facing_mult = get_facing_multiplier()
+				if damage == 20.0:
 					is_knockfly = true
 					knockfly_timer = 0.75
-					print("Debug: Powerkk hit, triggering knockfly for %s" % name)
+					if not skip_push:
+						knockfly_velocity_x = -knockfly_push_speed * facing_mult
+					print("Debug: Special move hit, triggering knockfly for %s" % name)
 				elif healthbar.current_health <= 0:
 					is_knockfly = true
 					knockfly_timer = 0.75
+					if not skip_push:
+						knockfly_velocity_x = -knockfly_push_speed * facing_mult
 					print("Debug: Health reached zero, triggering knockfly for %s" % name)
 				else:
-					is_hit = true
-					hit_timer = 0.28
-					print("Debug: Hit taken, health reduced by %s for %s" % [damage, name])
+					if is_on_floor():
+						is_hit = true
+						initial_hitstun = 0.35
+						hit_timer = initial_hitstun
+						if not skip_push:
+							hit_push_timer = initial_hitstun
+							hit_push_velocity = 2.0 * hit_push_distance / initial_hitstun
+						velocity.x = 0
+						velocity.y = 0
+						print("Debug: Ground hitstun triggered, duration %s for %s, damage %s" % [initial_hitstun, name, damage])
+					else:
+						is_knockfly = true
+						knockfly_timer = 0.75
+						air_hit_knockfly_distance = 40.0
+						is_air_hit_knockfly = true
+						if not skip_push:
+							knockfly_velocity_x = -air_hit_knockfly_speed * facing_mult
+						velocity.x = 0
+						velocity.y = 0
+						print("Debug: Air hit by normal attack, triggering knockfly with 40px pushback for %s" % name)
 			else:
 				is_hit = true
-				hit_timer = 0.28
-				print("Warning: No healthbar, hit taken without damage for %s" % name)
+				initial_hitstun = 0.35
+				hit_timer = initial_hitstun
+				if not skip_push:
+					hit_push_timer = initial_hitstun
+					hit_push_velocity = 2.0 * hit_push_distance / initial_hitstun
+				print("Warning: No healthbar, hitstun triggered without damage for %s" % name)
 		_update_animation_state(0, is_crouching)
 
 func take_knockfly():
