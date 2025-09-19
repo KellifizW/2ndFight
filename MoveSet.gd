@@ -10,6 +10,7 @@ var powerkk_timer: float = 0.0
 var spnk_timer: float = 0.0
 var powerkk_damage: float = 20.0
 var spnk_damage: float = 20.0
+<<<<<<< HEAD
 var powerkk_move_distance: float = 150.0
 var spnk_move_distance: float = 150.0
 var powerkk_initial_facing: float = 0.0
@@ -19,6 +20,10 @@ var powerkk_initial_sprite_scale_x: float = 0.0
 var spnk_initial_parent_scale_x: float = 0.0
 var spnk_initial_sprite_scale_x: float = 0.0
 var is_spmove_animation_playing: bool = false  # 新增：追蹤 spnk 動畫是否播放中
+=======
+var powerkk_move_distance: float = 150.0  # powerkk 總移動距離
+var spnk_move_distance: float = 150.0     # spnk 總移動距離
+>>>>>>> parent of 2da39c1 (91733)
 @onready var parent = get_parent()
 @onready var hitbox = parent.get_node("Hitbox/HitShape") if parent.has_node("Hitbox/HitShape") else null
 @onready var animation_player = parent.get_node("AnimationPlayer") if parent.has_node("AnimationPlayer") else null
@@ -27,6 +32,7 @@ var is_spmove_animation_playing: bool = false  # 新增：追蹤 spnk 動畫是�
 func _ready():
 	if not parent or not hitbox or not animation_player or not sprite:
 		print("Warning: MoveSet initialization failed. Missing parent, Hitbox, AnimationPlayer, or Sprite2D")
+<<<<<<< HEAD
 	if animation_player:
 		for anim_name in ["powerkk", "spnk"]:
 			if animation_player.has_animation(anim_name):
@@ -53,6 +59,8 @@ func stop_special_move():
 		sprite.scale.x = abs(sprite.scale.x) * sign(parent.facing_direction)
 		parent.update_facing_direction()
 		print("Debug: Special move stopped for %s due to hit, position: %s, sprite.scale.x=%s" % [parent.name, parent.global_position, sprite.scale.x])
+=======
+>>>>>>> parent of 2da39c1 (91733)
 
 func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) -> bool:
 	if parent.is_hit or parent.is_knockfly:
@@ -72,14 +80,16 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			powerkk_timer = powerkk_time
 			parent.current_damage = powerkk_damage
 			parent.velocity.x = 0
-			powerkk_initial_facing = parent.facing_direction
-			powerkk_initial_parent_scale_x = parent.scale.x
-			powerkk_initial_sprite_scale_x = sprite.scale.x
+			parent.update_facing_direction()
 			animation_player.play("powerkk")
 			hitbox.disabled = false
+<<<<<<< HEAD
 			parent.scale.x = powerkk_initial_parent_scale_x
 			sprite.scale.x = powerkk_initial_sprite_scale_x
 			print("Debug: Powerkk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s" % [parent.name, powerkk_damage, powerkk_initial_facing, parent.scale.x, sprite.scale.x])
+=======
+			print("Debug: Powerkk triggered for %s, current_damage set to %s" % [parent.name, powerkk_damage])
+>>>>>>> parent of 2da39c1 (91733)
 			return true
 		elif player_id == "p2" and not is_spnk:
 			is_spnk = true
@@ -93,10 +103,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				spnk_timer = 1.2  # 後備值，如果動畫不存在
 			parent.current_damage = spnk_damage
 			parent.velocity.x = 0
-			spnk_initial_facing = parent.facing_direction
-			spnk_initial_parent_scale_x = parent.scale.x
-			spnk_initial_sprite_scale_x = sprite.scale.x
+			parent.update_facing_direction()
 			animation_player.play("spnk")
+<<<<<<< HEAD
 			hitbox.disabled = false  # 初始啟用，但讓軌道控制
 			parent.scale.x = spnk_initial_parent_scale_x
 			sprite.scale.x = spnk_initial_sprite_scale_x
@@ -105,14 +114,21 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				animation_player.animation_finished.connect(_on_spmove_animation_finished)
 			is_spmove_animation_playing = true  # 標記開始監聽
 			print("Debug: Spnk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s" % [parent.name, spnk_damage, spnk_initial_facing, parent.scale.x, sprite.scale.x])
+=======
+			hitbox.disabled = false
+			print("Debug: Spnk triggered for %s, current_damage set to %s" % [parent.name, spnk_damage])
+>>>>>>> parent of 2da39c1 (91733)
 			return true
 	
 	if is_powerkk:
 		parent.velocity.x = 0
-		var move_speed = (powerkk_move_distance / powerkk_time) * powerkk_initial_facing
+		var move_speed = (powerkk_move_distance / powerkk_time) * parent.facing_direction
 		parent.global_position.x += move_speed * delta
+<<<<<<< HEAD
 		parent.call_deferred("set", "scale/x", powerkk_initial_parent_scale_x)
 		sprite.call_deferred("set", "scale/x", powerkk_initial_sprite_scale_x)
+=======
+>>>>>>> parent of 2da39c1 (91733)
 		powerkk_timer -= delta
 		if powerkk_timer <= 0:
 			is_powerkk = false
@@ -123,19 +139,27 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			animation_player.stop()
 			sprite.position = Vector2.ZERO
 			parent.global_position.x += final_position.x
+<<<<<<< HEAD
 			sprite.scale.x = abs(sprite.scale.x) * sign(powerkk_initial_facing)
 			parent.update_facing_direction()
 			print("Debug: Powerkk ended for %s, final position: %s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s" % [parent.name, parent.global_position, powerkk_initial_facing, parent.scale.x, sprite.scale.x])
+=======
+			parent.update_facing_direction()
+			print("Debug: Powerkk ended for %s, final position: %s, facing_direction=%s" % [parent.name, parent.global_position, parent.facing_direction])
+>>>>>>> parent of 2da39c1 (91733)
 		return true
 
 	if is_spnk:
 		parent.velocity.x = 0
-		var move_speed = (spnk_move_distance / spnk_time) * spnk_initial_facing
+		var move_speed = (spnk_move_distance / spnk_time) * parent.facing_direction
 		parent.global_position.x += move_speed * delta
+<<<<<<< HEAD
 		parent.call_deferred("set", "scale/x", spnk_initial_parent_scale_x)
 		sprite.call_deferred("set", "scale/x", spnk_initial_sprite_scale_x)
+=======
+>>>>>>> parent of 2da39c1 (91733)
 		spnk_timer -= delta
-		print("Debug: Spnk active for %s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s" % [parent.name, spnk_initial_facing, parent.scale.x, sprite.scale.x])
+		print("Debug: Spnk active, facing_direction=%s, sprite.scale.x=%s, parent.scale.x=%s" % [parent.facing_direction, sprite.scale.x, parent.scale.x])
 		if spnk_timer <= 0:
 			is_spnk = false
 			is_spmove = false
@@ -144,9 +168,14 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			animation_player.stop()
 			sprite.position = Vector2.ZERO
 			parent.global_position.x += final_position.x
+<<<<<<< HEAD
 			sprite.scale.x = abs(sprite.scale.x) * sign(spnk_initial_facing)
 			parent.update_facing_direction()
 			print("Debug: Spnk ended for %s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s" % [parent.name, spnk_initial_facing, parent.scale.x, sprite.scale.x])
+=======
+			parent.update_facing_direction()
+			print("Debug: Spnk ended, sprite.scale.x=%s, facing_direction=%s, parent.scale.x=%s" % [sprite.scale.x, parent.facing_direction, parent.scale.x])
+>>>>>>> parent of 2da39c1 (91733)
 		return true
 	
 	return false
