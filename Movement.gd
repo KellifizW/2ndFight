@@ -30,32 +30,26 @@ var is_knockfly: bool = false
 var hit_timer: float = 0.0
 var block_timer: float = 0.0
 var knockfly_timer: float = 0.0
-var knockfly_push_speed: float = 300.0
-var knockfly_velocity_x: float = 0.0
-var air_hit_knockfly_speed: float = 53.33
-@export var block_push_distance: float = 20.0
-var block_push_timer: float = 0.0
-var initial_blockstun: float = 0.0
-var block_push_velocity: float = 0.0
-@export var hit_push_distance: float = 20.0
-var hit_push_timer: float = 0.0
-var initial_hitstun: float = 0.0
-var hit_push_velocity: float = 0.0
+var knockfly_speed: float = -300.0
+@export var block_push_distance: float = 20.0  # 格擋後退總距離（像素）
+var block_push_timer: float = 0.0      # 格擋後退計時器
+var initial_blockstun: float = 0.0     # 初始blockstun時間
+var block_push_velocity: float = 0.0   # 格擋後退速度
+@export var hit_push_distance: float = 20.0  # 受擊後退總距離（像素）
+var hit_push_timer: float = 0.0        # 受擊後退計時器
+var initial_hitstun: float = 0.0       # 初始hitstun時間
+var hit_push_velocity: float = 0.0     # 受擊後退速度
 var facing_direction: float = 1.0
 var dash_direction: float = 0.0
 var is_blocking: bool = false
 var is_holding_back: bool = false
-var is_crouch_blocking: bool = false
 var is_opponent_proximity: bool = false
 var block_type: String = "none"
 var prev_position: Vector2 = Vector2()
 var was_in_air: bool = false
+# 新增：空中普通攻擊的 knockfly 後退距離和標誌
 var air_hit_knockfly_distance: float = 10.0
 var is_air_hit_knockfly: bool = false
-var is_push_back: bool = false
-var push_back_timer: float = 0.0
-var initial_push_back: float = 0.0
-var push_back_velocity: float = 0.0
 signal block_detected(target: String, block_type: String)
 
 func _ready():
@@ -111,16 +105,8 @@ func _physics_process(delta):
 				print("Debug: Health is zero, staying in knockfly for %s" % name)
 			else:
 				is_knockfly = false
-				is_air_hit_knockfly = false
-				knockfly_velocity_x = 0.0
+				is_air_hit_knockfly = false  # 重置空中普通攻擊標誌
 				print("Debug: Knockfly ended, transitioning to wakeup for %s" % name)
-	if is_push_back:
-		push_back_timer -= delta
-		if push_back_timer <= 0:
-			is_push_back = false
-			push_back_velocity = 0.0
-			initial_push_back = 0.0
-			print("Debug: Attacker push_back ended for %s" % name)
 	
 	var input_data = get_input()
 	var input_dir = input_data["input_dir"]
@@ -129,24 +115,20 @@ func _physics_process(delta):
 	
 	is_crouching = crouch_pressed
 	
+	# 從 MoveSet 獲取特殊招式狀態
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_powerkk = move_set.is_powerkk if move_set else false
 	var is_spnk = move_set.is_spnk if move_set else false
 	
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_crouching and not jump_pressed and not is_powerkk and not is_spnk and not is_blocking:
+	# 只有在非攻擊狀態時才檢查 is_holding_back
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_crouching and not jump_pressed and not is_powerkk and not is_spnk:
 		if input_dir * facing_direction < 0:
 			is_holding_back = true
 			print("Debug: Holding back detected for %s" % name)
 		else:
 			is_holding_back = false
 	
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and is_crouching and not jump_pressed and not is_powerkk and not is_spnk and not is_blocking:
-		if input_dir * facing_direction < 0:
-			is_crouch_blocking = true
-			print("Debug: Crouch blocking detected for %s" % name)
-		else:
-			is_crouch_blocking = false
-	
+	# 動態獲取邊界變數
 	var arena_left = 0.0
 	var arena_right = ProjectSettings.get_setting("display/window/size/viewport_width")
 	if is_class("Fighter"):
@@ -157,97 +139,120 @@ func _physics_process(delta):
 		if arena_right_value != null:
 			arena_right = arena_right_value
 	
-	if hit_timer > 0:
-		hit_push_timer -= delta
-		if hit_push_timer > 0:
-			velocity.x = -hit_push_velocity * facing_direction * (hit_push_timer / initial_hitstun)
-			print("Debug: Hit push active for %s, velocity.x=%s" % [name, velocity.x])
-		else:
-			velocity.x = 0
-	if block_timer > 0:
-		block_push_timer -= delta
-		if block_push_timer > 0:
-			velocity.x = -block_push_velocity * facing_direction * (block_push_timer / initial_blockstun)
-			print("Debug: Block push active for %s, velocity.x=%s" % [name, velocity.x])
-		else:
-			velocity.x = 0
-	if knockfly_timer > 0:
-		velocity.x = knockfly_velocity_x
-		print("Debug: Knockfly push active for %s, velocity.x=%s" % [name, velocity.x])
-	if is_push_back:
-		if push_back_timer > 0:
-			velocity.x = -push_back_velocity * facing_direction
-			global_position.x += velocity.x * delta
-			print("Debug: Attacker push back active for %s, velocity.x=%s, position.x=%s" % [name, velocity.x, global_position.x])
-		else:
-			velocity.x = 0
-	
-	var is_disabled_state = is_hit or is_knockfly or is_blocking
-	if not is_disabled_state:
-		if input_dir != 0 and not is_holding_back:
-			if neutral_timer > 0 and input_dir == last_input_dir:
-				if input_dir * facing_direction > 0:
-					is_dashing = true
-					dash_direction = input_dir
-					dash_timer = dash_time
-					velocity.x = 0
-					print("Debug: Dash triggered for %s" % name)
+	if is_hit or is_knockfly:
+		if is_knockfly:
+			if is_air_hit_knockfly and not is_on_floor():  # 空中普通攻擊 knockfly
+				if knockfly_timer > 0:
+					var deceleration_rate = 2.0 * air_hit_knockfly_distance / (knockfly_timer * knockfly_timer)
+					var current_speed = (2.0 * air_hit_knockfly_distance / knockfly_timer) - (deceleration_rate * (knockfly_timer - (knockfly_timer - delta)))
+					if current_speed < 0:
+						current_speed = 0
+					velocity.x = -facing_direction * current_speed
+					print("Debug: Air hit knockfly for %s, velocity.x=%s, remaining=%s, current_speed=%s" % [name, velocity.x, knockfly_timer, current_speed])
 				else:
+					velocity.x = 0
+			else:  # 特殊招式或地面 knockfly
+				velocity.x = knockfly_speed * facing_direction
+		else:
+			if hit_push_timer > 0:
+				hit_push_timer -= delta
+				if hit_push_velocity > 0:
+					var deceleration_rate = 2.0 * hit_push_distance / (initial_hitstun * initial_hitstun)
+					hit_push_velocity -= deceleration_rate * delta
+					if hit_push_velocity < 0:
+						hit_push_velocity = 0
+				velocity.x = -facing_direction * hit_push_velocity
+				print("Debug: Hit push active for %s, velocity.x=%s, initial_hitstun=%s, remaining=%s, current_speed=%s" % [name, velocity.x, initial_hitstun, hit_push_timer, hit_push_velocity])
+			else:
+				velocity.x = 0
+				hit_push_velocity = 0
+		velocity.y += 1300 * delta
+		move_and_slide()
+		global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
+		return
+	
+	if is_blocking:
+		if block_push_timer > 0:
+			block_push_timer -= delta
+			if block_push_velocity > 0:
+				var deceleration_rate = 2.0 * block_push_distance / (initial_blockstun * initial_blockstun)
+				block_push_velocity -= deceleration_rate * delta
+				if block_push_velocity < 0:
+					block_push_velocity = 0
+			velocity.x = -facing_direction * block_push_velocity
+			print("Debug: Block push active for %s, velocity.x=%s, initial_blockstun=%s, remaining=%s, current_speed=%s" % [name, velocity.x, initial_blockstun, block_push_timer, block_push_velocity])
+		else:
+			velocity.x = 0
+			block_push_velocity = 0
+		velocity.y += 1300 * delta
+		move_and_slide()
+		global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
+		return
+	
+	var current_input_dir = input_dir
+	if current_input_dir != last_input_dir:
+		if last_input_dir == 0 and current_input_dir != 0:
+			if pending_dash_dir == current_input_dir and neutral_timer > 0 and is_on_floor() and not is_crouching and not is_jumping:
+				if current_input_dir * facing_direction > 0:
+					is_dashing = true
+					dash_timer = dash_time
+					dash_direction = current_input_dir
+					print("Debug: Dash triggered, direction: %s for %s" % [current_input_dir, name])
+				elif current_input_dir * facing_direction < 0:
 					is_backdashing = true
 					dash_timer = backdash_time
-					velocity.x = 0
-					print("Debug: Backdash triggered for %s" % name)
+					print("Debug: Backdash triggered, direction: %s for %s" % [current_input_dir, name])
+				pending_dash_dir = 0
 				neutral_timer = 0
-			elif input_dir == 0 and last_input_dir != 0:
-				neutral_timer = double_tap_timer
 			else:
-				pending_dash_dir = input_dir
+				pending_dash_dir = current_input_dir
 				neutral_timer = 0
-			last_input_dir = input_dir
-		if is_dashing:
-			velocity.x = dash_speed * dash_direction
-			dash_timer -= delta
-			if dash_timer <= 0:
-				is_dashing = false
-				velocity.x = 0
-				dash_direction = 0.0
-				print("Debug: Dash ended for %s" % name)
-		elif is_backdashing:
-			velocity.x = backdash_speed * -facing_direction
-			dash_timer -= delta
-			if dash_timer <= 0:
-				is_backdashing = false
-				velocity.x = 0
-				print("Debug: Backdash ended for %s" % name)
+		elif current_input_dir == 0 and last_input_dir != 0:
+			neutral_timer = double_tap_timer
 		else:
-			if is_on_floor():
-				if is_crouching:
-					velocity.x = 0
-				elif not is_attacking and not is_powerkk and not is_spnk and input_dir != 0:
-					if input_dir * facing_direction > 0:
-						velocity.x = walk_speed * input_dir
-					else:
-						velocity.x = back_speed * input_dir
-				else:
-					velocity.x = 0
-				jump_dir = 0.0
-				is_jumping = false
-			else:
-				velocity.x = jump_dir * jump_horizontal_speed
-	else:
-		jump_dir = 0.0
-		is_jumping = false
+			pending_dash_dir = current_input_dir
+			neutral_timer = 0
+		last_input_dir = current_input_dir
 	
-	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk and not is_disabled_state:
+	if is_dashing:
+		velocity.x = dash_speed * dash_direction
+		dash_timer -= delta
+		if dash_timer <= 0:
+			is_dashing = false
+			velocity.x = 0
+			dash_direction = 0.0
+			print("Debug: Dash ended for %s" % name)
+	elif is_backdashing:
+		velocity.x = backdash_speed * -facing_direction
+		dash_timer -= delta
+		if dash_timer <= 0:
+			is_backdashing = false
+			velocity.x = 0
+			print("Debug: Backdash ended for %s" % name)
+	else:
+		if is_on_floor():
+			if is_crouching:
+				velocity.x = 0
+			elif not is_attacking and not is_powerkk and not is_spnk and input_dir != 0:
+				if input_dir * facing_direction > 0:
+					velocity.x = walk_speed * input_dir
+				else:
+					velocity.x = back_speed * input_dir
+			else:
+				velocity.x = 0
+			jump_dir = 0.0
+			is_jumping = false
+		else:
+			velocity.x = jump_dir * jump_horizontal_speed
+		velocity.y += 1800 * delta
+	
+	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk:
 		jump_dir = input_dir
 		velocity.y = -600
 		is_jumping = true
 		print("Debug: Jump triggered, direction: %s for %s" % [jump_dir, name])
 	
 	move_and_slide()
-	
-	if not is_on_floor():
-		velocity.y += 1800 * delta
 	
 	global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
 	
@@ -256,13 +261,13 @@ func _physics_process(delta):
 	
 	post_physics_process(delta)
 	
-	if is_on_floor() and was_in_air and not (is_powerkk or is_spnk):
+	if is_on_floor() and was_in_air and not (is_powerkk or is_spnk):  # 修改：招式期間不更新
 		update_facing_direction()
 		print("Debug: Landing, forcing facing direction update for %s" % name)
 	
 	was_in_air = not is_on_floor()
 	
-	if is_on_floor() and prev_position.x != global_position.x and not (is_powerkk or is_spnk):
+	if is_on_floor() and prev_position.x != global_position.x and not (is_powerkk or is_spnk):  # 修改：招式期間不更新
 		update_facing_direction()
 	
 	prev_position = global_position
@@ -301,7 +306,7 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = true
 		print("Debug: %s's Hurtbox detected %s's ProximityBox" % [name, area.get_parent().name])
-		if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_blocking:
+		if is_holding_back and is_on_floor() and not is_blocking:
 			is_blocking = true
 			initial_blockstun = 0.1
 			block_timer = 0.1
@@ -318,9 +323,9 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 
 func update_facing_direction():
 	var move_set = $MoveSet if has_node("MoveSet") else null
-	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
+	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)  # 新增：檢查是否在特殊招式
 	if is_special_move:
-		return
+		return  # 招式期間不更新 facing_direction
 	
 	var players = get_tree().get_nodes_in_group("players")
 	var other_player = null

@@ -28,15 +28,9 @@ texture = ExtResource("1_fj7yv")
 
 [node name="Player1" parent="." instance=ExtResource("1_f3sb7")]
 position = Vector2(120, 135)
-corner_push_distance = 5.0
-block_push_distance = 10.0
-hit_push_distance = 10.0
 
 [node name="Player2" parent="." instance=ExtResource("3_tlwt5")]
 position = Vector2(200, 135)
-corner_push_distance = 5.0
-block_push_distance = 10.0
-hit_push_distance = 10.0
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
 position = Vector2(160, 170)
