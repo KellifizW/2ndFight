@@ -193,9 +193,10 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 
 func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: bool = false):
 	if not is_hit and not is_knockfly:
-		if (is_holding_back or is_crouch_blocking) and is_opponent_proximity and is_on_floor():
+		# Allow blocking special moves (damage >= 20.0) without proximity check
+		if (is_holding_back or is_crouch_blocking) and is_on_floor() and (is_opponent_proximity or damage >= 20.0):
 			is_blocking = true
-			initial_blockstun = 0.267
+			initial_blockstun = 0.4 if damage >= 20.0 else 0.267
 			block_timer = initial_blockstun
 			block_type = "ordinary"
 			velocity.x = 0
@@ -209,7 +210,7 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 			if healthbar:
 				healthbar.take_damage(damage)
 				var facing_mult = get_facing_multiplier()
-				if damage == 20.0:
+				if damage >= 20.0:
 					is_knockfly = true
 					knockfly_timer = 0.75
 					if not skip_push:

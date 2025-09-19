@@ -1167,15 +1167,6 @@ size = Vector2(27, 70)
 collision_layer = 3
 collision_mask = 2
 script = ExtResource("1_0e34t")
-player_id = null
-is_ai_controlled = null
-corner_push_distance = null
-ground_push_trigger_distance = null
-air_push_trigger_distance = null
-corner_y_trigger_distance = null
-collision_epsilon = null
-block_push_distance = null
-hit_push_distance = null
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_yev3d")
@@ -1218,6 +1209,7 @@ collision_layer = 2
 collision_mask = 8
 
 [node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
+position = Vector2(20, 0)
 debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="."]
@@ -1228,6 +1220,7 @@ collision_mask = 18
 shape = SubResource("RectangleShape2D_kcguo")
 
 [node name="AttackHurtShape" type="CollisionShape2D" parent="Hurtbox"]
+position = Vector2(20, 0)
 debug_color = Color(0.9878623, 0.092036285, 0.1464591, 0.41960785)
 
 [node name="Proximitybox" type="Area2D" parent="."]
