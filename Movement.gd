@@ -106,6 +106,8 @@ func _physics_process(delta):
 		if hit_push_timer > 0:
 			velocity.x = -hit_push_velocity * facing_direction * (hit_push_timer / initial_hitstun)
 			hit_push_timer -= delta
+		else:
+			velocity.x = 0
 		if hit_timer <= 0:
 			is_hit = false
 			hit_push_timer = 0.0
@@ -116,6 +118,8 @@ func _physics_process(delta):
 		if block_push_timer > 0:
 			velocity.x = -block_push_velocity * facing_direction * (block_push_timer / initial_blockstun)
 			block_push_timer -= delta
+		else:
+			velocity.x = 0
 		if block_timer <= 0:
 			is_blocking = false
 			is_crouch_blocking = false
@@ -158,16 +162,6 @@ func _physics_process(delta):
 			is_crouch_blocking = false
 		else:
 			is_holding_back = false
-			is_crouch_blocking = false
-	else:
-		if is_crouching:
-			if input_dir * facing_direction < 0:
-				is_crouch_blocking = true
-				is_holding_back = false
-			else:
-				is_crouch_blocking = false
-				is_holding_back = false
-		else:
 			is_crouch_blocking = false
 	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and is_crouching and not jump_pressed and not is_powerkk and not is_spnk and not is_blocking:
 		if input_dir * facing_direction < 0:

@@ -192,10 +192,23 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		print("Debug: Landing, resetting is_jumping for %s" % name)
 
 func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: bool = false):
+	var move_set = $MoveSet if has_node("MoveSet") else null
+	var is_spmove = move_set and move_set.is_spmove
+	
 	if not is_hit and not is_knockfly:
+		if is_attacking:
+			is_attacking = false
+			attack_timer = 0.0
+			print("Debug: Attack interrupted by hit for %s" % name)
+		
+		if is_spmove:
+			move_set.stop_special_move()
+			print("Debug: Special move interrupted by hit for %s" % name)
+		
 		var input_data = get_input()
-		if (is_holding_back or is_crouch_blocking) and is_on_floor() and input_data["input_dir"] * facing_direction < 0:
+		if (is_holding_back or (input_data.crouch_pressed and input_data.input_dir * facing_direction < 0)) and is_on_floor():
 			is_blocking = true
+			is_crouch_blocking = input_data.crouch_pressed
 			initial_blockstun = 0.4 if damage >= 20.0 else 0.267
 			block_timer = initial_blockstun
 			block_type = "ordinary"
@@ -204,7 +217,7 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 			if not skip_push:
 				block_push_timer = initial_blockstun
 				block_push_velocity = 2.0 * block_push_distance / initial_blockstun
-			print("Debug: Ordinary block successful, blockstun duration %s for %s" % [initial_blockstun, name])
+			print("Debug: Ordinary block successful, blockstun duration %s for %s, crouch_blocking=%s" % [initial_blockstun, name, is_crouch_blocking])
 			block_detected.emit(name, block_type)
 		else:
 			if healthbar:
@@ -212,13 +225,13 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 				var facing_mult = get_facing_multiplier()
 				if damage >= 20.0:
 					is_knockfly = true
-					knockfly_timer = knockfly_duration # 修改：使用暴露的 knockfly_duration
+					knockfly_timer = knockfly_duration
 					if not skip_push:
 						knockfly_velocity_x = -knockfly_push_speed * facing_mult
 					print("Debug: Special move hit, triggering knockfly for %s" % name)
 				elif healthbar.current_health <= 0:
 					is_knockfly = true
-					knockfly_timer = knockfly_duration # 修改：使用暴露的 knockfly_duration
+					knockfly_timer = knockfly_duration
 					if not skip_push:
 						knockfly_velocity_x = -knockfly_push_speed * facing_mult
 					print("Debug: Health reached zero, triggering knockfly for %s" % name)
@@ -235,7 +248,7 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 						print("Debug: Ground hitstun triggered, duration %s for %s, damage %s" % [initial_hitstun, name, damage])
 					else:
 						is_knockfly = true
-						knockfly_timer = knockfly_duration # 修改：使用暴露的 knockfly_duration
+						knockfly_timer = knockfly_duration
 						air_hit_knockfly_distance = 40.0
 						is_air_hit_knockfly = true
 						if not skip_push:
@@ -251,11 +264,17 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 					hit_push_timer = initial_hitstun
 					hit_push_velocity = 2.0 * hit_push_distance / initial_hitstun
 				print("Warning: No healthbar, hitstun triggered without damage for %s" % name)
-		_update_animation_state(0, is_crouching)
+		_update_animation_state(0, input_data.crouch_pressed)
 
 func take_knockfly():
+	var move_set = $MoveSet if has_node("MoveSet") else null
+	var is_spmove = move_set and move_set.is_spmove
+	
 	if not is_hit and not is_knockfly and is_on_floor():
+		if is_spmove:
+			move_set.stop_special_move()
+			print("Debug: Special move interrupted by knockfly for %s" % name)
 		is_knockfly = true
-		knockfly_timer = knockfly_duration # 修改：使用暴露的 knockfly_duration
+		knockfly_timer = knockfly_duration
 		print("Debug: Knockfly taken for %s, knockfly_timer set to %.2f" % [name, knockfly_duration])
 		_update_animation_state(0, is_crouching)

@@ -126,6 +126,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var on_floor = is_on_floor()
 	var anim_dir = dir_x * get_facing_multiplier()
 	var anim_jump_dir = jump_dir * get_facing_multiplier()
+
 	if is_knockfly:
 		current_mode = "knockfly"
 		target_state = "knockfly"
@@ -150,6 +151,11 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		target_state = "cr_block" if is_crouch_blocking else "block"
 		is_landing = false
 		is_wakeup = false
+	elif is_holding_back and crouch_input and on_floor and not is_attacking and not is_dashing and not is_backdashing and not is_jumping:
+		current_mode = "ground_crouch"
+		target_state = "cr_block"
+		is_landing = false
+		is_wakeup = false
 	elif is_attacking:
 		current_mode = "attack"
 		target_state = "St_mp"
@@ -165,12 +171,14 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		is_wakeup = false
 	elif crouch_input and on_floor:
 		current_mode = "ground_crouch"
+		target_state = "Crouch"
 		is_landing = false
 		is_wakeup = false
 	else:
 		current_mode = "ground_stand"
 		is_landing = false
 		is_wakeup = false
+
 	match current_mode:
 		"attack":
 			if is_animation_finished:
@@ -183,6 +191,8 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 					target_state = "hit"
 				elif is_blocking:
 					target_state = "cr_block" if is_crouch_blocking else "block"
+				elif is_holding_back and crouch_input and on_floor:
+					target_state = "cr_block"
 				elif crouch_input and on_floor:
 					target_state = "Crouch"
 				elif dir_x != 0:
@@ -211,6 +221,9 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 				is_landing = false
 			elif is_blocking:
 				target_state = "cr_block" if is_crouch_blocking else "block"
+				is_landing = false
+			elif is_holding_back and crouch_input and on_floor:
+				target_state = "cr_block"
 				is_landing = false
 			elif is_attacking:
 				target_state = "St_mp"
@@ -242,7 +255,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			elif dir_x != 0:
 				target_state = "Walk"
 		"ground_crouch":
-			target_state = "Crouch"
+			target_state = "Crouch" if not is_holding_back else "cr_block"
 		"air":
 			if anim_jump_dir > 0:
 				target_state = "Jump_F"
@@ -252,6 +265,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 				target_state = "Jump_V"
 		"wakeup":
 			target_state = "wakeup"
+
 	if animation_tree and animation_state:
 		animation_tree.set("parameters/conditions/Walk", target_state == "Walk")
 		animation_tree.set("parameters/conditions/Crouch", target_state == "Crouch")
