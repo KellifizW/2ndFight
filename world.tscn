@@ -1,15 +1,22 @@
-[gd_scene load_steps=9 format=3 uid="uid://c0j8o4o3jtun1"]
+[gd_scene load_steps=12 format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
 [ext_resource type="PackedScene" uid="uid://bw2666uj5f0gw" path="res://player1.tscn" id="1_f3sb7"]
 [ext_resource type="Texture2D" uid="uid://cl5cldwpbfwt6" path="res://assets/stage.png" id="1_fj7yv"]
+[ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://FollowCamera.tscn" id="3_gbfbk"]
 [ext_resource type="PackedScene" uid="uid://jla54h8ttkct" path="res://player2.tscn" id="3_tlwt5"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
 [ext_resource type="Script" uid="uid://dwchp2rimawb" path="res://cpu_controller.gd" id="6_dwbse"]
+[ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://slow_mo_controller.gd" id="7_pkg7o"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_036b0"]
 
+[sub_resource type="SystemFont" id="SystemFont_pkg7o"]
+
 [sub_resource type="LabelSettings" id="LabelSettings_aqk2v"]
+line_spacing = 2.0
+font = SubResource("SystemFont_pkg7o")
+font_size = 14
 outline_size = 2
 outline_color = Color(0, 0, 0, 1)
 shadow_size = 2
@@ -19,27 +26,32 @@ script = ExtResource("1_aqk2v")
 
 [node name="TextureRect" type="TextureRect" parent="."]
 modulate = Color(1, 0.898039, 0.670588, 0.772549)
-offset_left = -90.0
-offset_top = -5.0
-offset_right = 2742.0
-offset_bottom = 1075.0
-scale = Vector2(0.17, 0.17)
+offset_left = -158.99998
+offset_right = 3040.1106
+offset_bottom = 1219.9999
+scale = Vector2(0.2, 0.2)
 texture = ExtResource("1_fj7yv")
 
+[node name="FollowCamera" parent="." instance=ExtResource("3_gbfbk")]
+visible = false
+position = Vector2(180, 120.00001)
+scale = Vector2(1e-05, 1e-05)
+enabled = false
+
 [node name="Player1" parent="." instance=ExtResource("1_f3sb7")]
-position = Vector2(120, 135)
+position = Vector2(107, 194)
 corner_push_distance = 5.0
 block_push_distance = 10.0
 hit_push_distance = 10.0
 
 [node name="Player2" parent="." instance=ExtResource("3_tlwt5")]
-position = Vector2(200, 135)
+position = Vector2(227, 194)
 corner_push_distance = 5.0
 block_push_distance = 10.0
 hit_push_distance = 10.0
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
-position = Vector2(160, 170)
+position = Vector2(320, 230)
 collision_layer = 2
 metadata/_edit_group_ = true
 
@@ -47,33 +59,47 @@ metadata/_edit_group_ = true
 shape = SubResource("WorldBoundaryShape2D_036b0")
 
 [node name="HitLabel" type="Label" parent="."]
-offset_right = 132.0
-offset_bottom = 23.0
+offset_left = 1.0
+offset_top = 32.0
+offset_right = 133.0
+offset_bottom = 55.0
 label_settings = SubResource("LabelSettings_aqk2v")
 horizontal_alignment = 1
 
 [node name="FPS" type="Label" parent="."]
-offset_left = 192.0
-offset_right = 256.0
-offset_bottom = 23.0
+offset_left = 236.0
+offset_top = 24.0
+offset_right = 314.0
+offset_bottom = 47.0
 label_settings = SubResource("LabelSettings_aqk2v")
 horizontal_alignment = 1
+
+[node name="AnimationLabel" type="Label" parent="."]
+offset_left = 1.0
+offset_top = 42.0
+offset_right = 41.0
+offset_bottom = 65.0
+text = "Animation:"
 
 [node name="UI" type="CanvasLayer" parent="." groups=["ui"]]
 
 [node name="Player2Healthbar" parent="UI" instance=ExtResource("4_036b0")]
-offset_left = 173.0
-offset_top = 14.0
-offset_right = 313.0
-offset_bottom = 18.0
+offset_left = 219.0
+offset_top = 97.0
+offset_right = 359.0
+offset_bottom = 109.0
 target_node = NodePath("../../Player2")
 
 [node name="Player1Healthbar" parent="UI" instance=ExtResource("4_036b0")]
-offset_left = 13.0
-offset_top = 14.0
-offset_right = 153.0
-offset_bottom = 18.0
+layout_direction = 3
+offset_left = 190.0
+offset_top = 97.0
+offset_right = 330.0
+offset_bottom = 109.0
 target_node = NodePath("../../Player1")
 
 [node name="CPUController" type="Node" parent="."]
 script = ExtResource("6_dwbse")
+
+[node name="SlowMoController" type="Node" parent="."]
+script = ExtResource("7_pkg7o")

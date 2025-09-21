@@ -30,6 +30,12 @@ func set_ai_enabled(enabled: bool):
 func _physics_process(delta):
 	if not ai_enabled:
 		return
+	# Check if either the parent or opponent's health is zero or less
+	var opponent = get_opponent()
+	var parent_health = parent.healthbar.current_health if parent and parent.healthbar else 100.0
+	var opponent_health = opponent.healthbar.current_health if opponent and opponent.healthbar else 100.0
+	if parent_health <= 0.0 or opponent_health <= 0.0:
+		return  # Stop all AI behavior if either character is defeated
 	update_ai_state(delta)
 
 func update_ai_state(delta: float):
@@ -51,72 +57,81 @@ func update_ai_state(delta: float):
 	var distance = abs(parent.global_position.x - opponent.global_position.x)
 	var is_cornered = parent.is_at_corner() if "is_at_corner" in parent else false
 	
-	# 狀態轉換邏輯（優化：增加進攻頻率，新增 jump 狀態）
+	# 狀態轉換邏輯（優化：增加進攻頻率，新增 jump 狀態，並加強角落逃脫邏輯）
 	match current_state:
 		"idle":
-			if last_action_time > 0.3:  # 新增：簡短延遲避免快速循環
-				if can_attack and randf() > 0.2:  # 80% 機率直接攻擊
+			if last_action_time > 0.2:  # 縮短延遲，避免快速循環
+				if can_attack and randf() > 0.1:  # 提高直接攻擊機率到90%
 					current_state = "attack"
 					print("Debug: Aggressive attack triggered for AI")
 				elif in_danger or opponent_attacking:
 					current_state = "defend"
-				elif is_cornered and distance < 80.0 and randf() > 0.3:  # 角落跳脫
+				elif is_cornered and distance < 80.0 and randf() > 0.3:  # 角落跳脫機率從30%提高到70%（randf()>0.3）
 					current_state = "jump"
 					state_timer = 0.5  # 跳躍持續時間
 					print("Debug: Corner jump escape triggered for AI")
 				elif state_timer <= 0:
 					current_state = "approach"
-					state_timer = randf() * 0.4 + 0.2  # 縮短停頓，0.2-0.6秒
+					state_timer = randf() * 0.3 + 0.1  # 進一步縮短停頓，0.1-0.4秒，更主動
 		"approach":
-			if last_action_time > 0.3:  # 新增：簡短延遲避免快速循環
-				if can_attack and randf() > 0.2:  # 80% 機率進攻
+			if last_action_time > 0.2:  # 縮短延遲
+				if can_attack and randf() > 0.1:  # 提高進攻機率到90%
 					current_state = "attack"
 					print("Debug: Aggressive attack from approach for AI")
-				elif opponent_recovery_time < 0.2 and distance < 100.0 and randf() > 0.5:  # 對手剛結束攻擊，50% 機率 punish
+				elif opponent_recovery_time < 0.2 and distance < 100.0 and randf() > 0.2:  # 對手剛結束攻擊，提高punish機率到80%
 					current_state = "attack"
 					print("Debug: Punish attack triggered for AI")
 				elif in_danger or opponent_attacking:
 					current_state = "defend"
-				elif is_cornered and distance < 80.0 and randf() > 0.3:  # 角落跳脫
+				elif is_cornered and distance < 80.0 and randf() > 0.3:  # 加強角落跳脫，70%機率
 					current_state = "jump"
 					state_timer = 0.5
 					print("Debug: Corner jump escape triggered for AI")
 				elif state_timer <= 0:
-					current_state = "approach" if randf() > 0.5 else "idle"  # 50% 保持追擊
-					state_timer = randf() * 0.4 + 0.2
+					current_state = "approach" if randf() > 0.3 else "idle"  # 提高保持追擊機率到70%
+					state_timer = randf() * 0.3 + 0.1  # 更短延遲
 		"attack":
 			if in_danger or opponent_attacking:
 				current_state = "defend"
 			elif state_timer <= 0:
 				current_state = "approach"
-				state_timer = 0.3  # 攻後快速接近（考慮 attack_time=0.4s）
+				state_timer = 0.2  # 攻後更快接近（考慮 attack_time=0.4s）
 		"defend":
 			if not (in_danger or opponent_attacking) and distance > 100.0:
 				current_state = "approach" if not is_low_health else "idle"
-			elif opponent_stun_remaining > 0.1 and randf() > 0.2:  # 對手硬直初期，80% 反擊
+			elif opponent_stun_remaining > 0.1 and randf() > 0.1:  # 對手硬直，提高反擊機率到90%
 				current_state = "attack"
 				print("Debug: Counterattack after stun for AI")
 			elif state_timer <= 0:
-				current_state = "attack" if can_attack and randf() > 0.2 else "idle"
-				state_timer = randf() * 0.2 + 0.1  # 防後反擊延遲（考慮 blockstun=0.267s）
+				current_state = "attack" if can_attack and randf() > 0.1 else "idle"  # 防後反擊更快
+				state_timer = randf() * 0.1 + 0.05  # 縮短延遲（考慮 blockstun=0.267s）
 		"jump":
 			if state_timer <= 0 or opponent.is_jumping:  # 跳完或對手跳，回到接近
 				current_state = "approach"
-				state_timer = randf() * 0.4 + 0.2
+				state_timer = randf() * 0.3 + 0.1  # 更快回應
 			elif in_danger or opponent_attacking:
 				current_state = "defend"
+			elif is_cornered and randf() > 0.5:  # 角落連續跳脫，50%機率重跳
+				state_timer = 0.5
 	
 	last_action_time += delta
 	if parent:
 		if OS.is_debug_build():  # 僅在除錯模式下輸出，減少 overflow
-			print("Debug: AI state for %s: %s, can_attack=%s, in_danger=%s, opponent_stun=%s" % [parent.name, current_state, can_attack, in_danger, opponent_stun_remaining])
+			print("Debug: AI state for %s: %s, can_attack=%s, in_danger=%s, opponent_stun=%s, is_cornered=%s" % [parent.name, current_state, can_attack, in_danger, opponent_stun_remaining, is_cornered])
 	else:
 		if OS.is_debug_build():
-			print("Debug: AI state for unknown: %s, can_attack=%s, in_danger=%s, opponent_stun=%s" % [current_state, can_attack, in_danger, opponent_stun_remaining])
+			print("Debug: AI state for unknown: %s, can_attack=%s, in_danger=%s, opponent_stun=%s, is_cornered=%s" % [current_state, can_attack, in_danger, opponent_stun_remaining, is_cornered])
 
 func get_ai_input() -> Dictionary:
 	if not ai_enabled:
-		return {}
+		return build_input_dict(0, false, false, false, "none", 0.2, 0.0, false)
+	
+	# Check if either the parent or opponent's health is zero or less
+	var parent_health = parent.healthbar.current_health if parent and parent.healthbar else 100.0
+	var opponent = get_opponent()
+	var opponent_health = opponent.healthbar.current_health if opponent and opponent.healthbar else 100.0
+	if parent_health <= 0.0 or opponent_health <= 0.0:
+		return build_input_dict(0, false, false, false, "none", 0.2, 0.0, false)  # Return neutral input if either character is defeated
 	
 	var input_dir = 0
 	var crouch_pressed = false  # 預設不蹲
@@ -127,7 +142,6 @@ func get_ai_input() -> Dictionary:
 	var blockstun_duration = 0.2
 	var damage = 0.0
 	
-	var opponent = get_opponent()
 	if not opponent:
 		input_dir = 1  # 沒對手走右
 		return build_input_dict(input_dir, crouch_pressed, jump_pressed, attack_pressed, attack_type, blockstun_duration, damage, spm1_pressed)
@@ -142,66 +156,76 @@ func get_ai_input() -> Dictionary:
 	var opponent_stun_remaining = max(opponent.hit_timer, opponent.block_timer) if opponent else 0.0
 	var opponent_recovery_time = opponent.attack_timer if opponent else 0.0
 	
-	# 移動邏輯
+	# 移動邏輯（優化：角落時強制後退或跳躍）
 	if parent.global_position.x < opponent.global_position.x:
 		input_dir = 1
 	else:
 		input_dir = -1
 	
-	# 輸入邏輯（優化：穩定攻擊輸出）
+	# 輸入邏輯（優化：穩定攻擊輸出，加強角落逃脫與立回反擊）
 	if current_state == "defend" or (in_danger and opponent_attacking):
 		input_dir *= -1  # 後退
-		if in_danger and randf() > 0.7:  # 降低蹲機率（30% 有效）
+		if in_danger and randf() > 0.6:  # 降低蹲機率（40% 有效），優先後退
 			crouch_pressed = true
 		else:
 			crouch_pressed = false
+		if is_cornered and randf() > 0.7:  # 角落時70%機率跳脫
+			jump_pressed = true
+			print("Debug: Corner escape jump in defend for AI")
 	elif current_state == "approach":
-		if time_since_last > 0.1:  # 更快接近
-			input_dir = abs(input_dir)
+		if time_since_last > 0.05:  # 更快接近
+			# 移除abs，讓input_dir保持朝向對手的方向（這是修bug關鍵）
+			pass  # 直接用初始input_dir
+		if is_cornered:  # 接近中偵測角落，轉後退
+			input_dir *= -1
+			if randf() > 0.5:
+				jump_pressed = true
+				print("Debug: Approach corner escape for AI")
 	elif current_state == "attack":
-		if can_attack and time_since_last > 0.6:  # 新增：冷卻避免連續攻擊
+		if can_attack and time_since_last > 0.5:  # 冷卻避免連續
 			attack_pressed = true
 			damage = 10.0
 			attack_type = "attack"
 			state_timer = 0.4
-			# 擴大特殊招條件：硬直>0.15s 或 blocking + 近距 <50, 70%機率
-			if (opponent_stun_remaining > 0.15 or (opponent_blocking and distance < 50)) and randf() > 0.3:  # 70%機率
+			# 擴大特殊招條件：硬直>0.15s 或 blocking + 近距 <50, 提高機率到80%
+			if (opponent_stun_remaining > 0.15 or (opponent_blocking and distance < 50)) and randf() > 0.2:  # 80%機率
 				spm1_pressed = true
 				damage = 20.0
 				if OS.is_debug_build():
 					print("Debug: Enhanced combo special attack triggered for AI")
-			# punish時優先特殊招
-			elif opponent_recovery_time < 0.2 and distance < 50 and randf() > 0.4:  # 60%機率
+			# punish時優先特殊招，提高機率
+			elif opponent_recovery_time < 0.2 and distance < 50 and randf() > 0.3:  # 70%機率
 				spm1_pressed = true
 				damage = 20.0
 				if OS.is_debug_build():
 					print("Debug: Punish special attack triggered for AI")
 		else:
-			input_dir = abs(input_dir)  # 追上再砍
+			# 移除abs，讓追擊朝向對手
+			pass  # 直接用初始input_dir
 	elif current_state == "jump":
 		jump_pressed = true
 		crouch_pressed = false
-		input_dir = abs(input_dir)  # 前跳朝對手反方向
+		input_dir = input_dir * (-1 if is_cornered else 1)  # 移除abs，角落時反向跳，其他時朝向對手
 		if OS.is_debug_build():
 			print("Debug: Jump input for corner escape")
 	
-	# 低血量仍進攻
-	if parent.healthbar and parent.healthbar.current_health < 50.0:
-		if randf() > 0.5:  # 50% 機率禁用攻擊（原 80%）
-			attack_pressed = false
-			spm1_pressed = false
+	# 低血量更積極進攻（提高機率到70%）
+	if parent_health < 50.0:
+		if randf() > 0.3:  # 70% 機率進攻
+			attack_pressed = true if can_attack else false
+			spm1_pressed = true if distance < 50 and randf() > 0.4 else false
 	
-	# 跟跳
-	if opponent.is_jumping and is_opponent_close(opponent) and randf() > 0.7:
+	# 跟跳（優化：如果對手跳且近，80%跟進）
+	if opponent.is_jumping and is_opponent_close(opponent) and randf() > 0.2:
 		jump_pressed = true
 		crouch_pressed = false
 	
 	if parent:
 		if OS.is_debug_build():
-			print("Debug: AI input for %s: state=%s, dir=%s, attack=%s, crouch=%s, jump=%s" % [parent.name, current_state, input_dir, attack_pressed, crouch_pressed, jump_pressed])
+			print("Debug: AI input for %s: state=%s, dir=%s, attack=%s, crouch=%s, jump=%s, cornered=%s" % [parent.name, current_state, input_dir, attack_pressed, crouch_pressed, jump_pressed, is_cornered])
 	else:
 		if OS.is_debug_build():
-			print("Debug: AI input for unknown: state=%s, dir=%s, attack=%s, crouch=%s, jump=%s" % [current_state, input_dir, attack_pressed, crouch_pressed, jump_pressed])
+			print("Debug: AI input for unknown: state=%s, dir=%s, attack=%s, crouch=%s, jump=%s, cornered=%s" % [current_state, input_dir, attack_pressed, crouch_pressed, jump_pressed, is_cornered])
 	
 	return build_input_dict(input_dir, crouch_pressed, jump_pressed, attack_pressed, attack_type, blockstun_duration, damage, spm1_pressed)
 

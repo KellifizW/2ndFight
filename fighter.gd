@@ -146,7 +146,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	elif is_hit:
 		target_state = "hit"
 	elif is_blocking:
-		if is_crouching:
+		if is_crouch_blocking:
 			target_state = "cr_block"
 		else:
 			target_state = "block"
@@ -176,8 +176,8 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
 	animation_tree.set("parameters/conditions/hit", is_hit)
 	animation_tree.set("parameters/conditions/knockfly", is_knockfly)
-	animation_tree.set("parameters/conditions/block", is_blocking and not is_crouching)
-	animation_tree.set("parameters/conditions/cr_block", is_blocking and is_crouching)
+	animation_tree.set("parameters/conditions/block", is_blocking and not is_crouch_blocking)
+	animation_tree.set("parameters/conditions/cr_block", is_blocking and is_crouch_blocking)
 	animation_tree.set("parameters/conditions/powerkk", false)
 
 	if curr_state != target_state:
@@ -193,8 +193,8 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 
 func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: bool = false):
 	if not is_hit and not is_knockfly:
-		# Allow blocking special moves (damage >= 20.0) without proximity check
-		if (is_holding_back or is_crouch_blocking) and is_on_floor() and (is_opponent_proximity or damage >= 20.0):
+		var input_data = get_input()
+		if (is_holding_back or is_crouch_blocking) and is_on_floor() and input_data["input_dir"] * facing_direction < 0:
 			is_blocking = true
 			initial_blockstun = 0.4 if damage >= 20.0 else 0.267
 			block_timer = initial_blockstun
@@ -212,13 +212,13 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 				var facing_mult = get_facing_multiplier()
 				if damage >= 20.0:
 					is_knockfly = true
-					knockfly_timer = 0.75
+					knockfly_timer = knockfly_duration # 修改：使用暴露的 knockfly_duration
 					if not skip_push:
 						knockfly_velocity_x = -knockfly_push_speed * facing_mult
 					print("Debug: Special move hit, triggering knockfly for %s" % name)
 				elif healthbar.current_health <= 0:
 					is_knockfly = true
-					knockfly_timer = 0.75
+					knockfly_timer = knockfly_duration # 修改：使用暴露的 knockfly_duration
 					if not skip_push:
 						knockfly_velocity_x = -knockfly_push_speed * facing_mult
 					print("Debug: Health reached zero, triggering knockfly for %s" % name)
@@ -235,7 +235,7 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 						print("Debug: Ground hitstun triggered, duration %s for %s, damage %s" % [initial_hitstun, name, damage])
 					else:
 						is_knockfly = true
-						knockfly_timer = 0.75
+						knockfly_timer = knockfly_duration # 修改：使用暴露的 knockfly_duration
 						air_hit_knockfly_distance = 40.0
 						is_air_hit_knockfly = true
 						if not skip_push:
@@ -256,6 +256,6 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 func take_knockfly():
 	if not is_hit and not is_knockfly and is_on_floor():
 		is_knockfly = true
-		knockfly_timer = 0.75
-		print("Debug: Knockfly taken for %s, knockfly_timer set to 0.75" % name)
+		knockfly_timer = knockfly_duration # 修改：使用暴露的 knockfly_duration
+		print("Debug: Knockfly taken for %s, knockfly_timer set to %.2f" % [name, knockfly_duration])
 		_update_animation_state(0, is_crouching)

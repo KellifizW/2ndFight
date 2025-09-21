@@ -55,6 +55,9 @@ func stop_special_move():
 				prox_shape.disabled = true
 			var proxbox_pos = parent.get_node("Proximitybox").global_position
 			print("Debug: Special move stopped for %s, Proximitybox global_position: (%s, %s)" % [parent.name, proxbox_pos.x, proxbox_pos.y])
+		if hitbox:
+			hitbox.disabled = true  # 確保停止時禁用 Hitbox
+			print("Debug: Hitbox disabled for %s after stopping special move" % parent.name)
 		print("Debug: Special move stopped for %s, final position: %s, sprite.scale.x=%s" % [parent.name, parent.global_position, sprite.scale.x])
 
 func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) -> bool:
@@ -68,7 +71,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	
 	var player_id = parent.player_id if "player_id" in parent else "p1"
 	
-	if input_data.spm1_pressed:
+	if input_data.spm1_pressed and not parent.is_attacking:
 		if player_id == "p1" and not is_powerkk:
 			is_powerkk = true
 			is_spmove = true
@@ -83,8 +86,12 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				var prox_shape = parent.get_node("Proximitybox/ProxShape")
 				if prox_shape:
 					prox_shape.disabled = false
+			if hitbox:  # 顯式啟用 Hitbox
+				hitbox.disabled = false
+				print("Debug: Hitbox enabled for %s during powerkk" % parent.name)
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
 			print("Debug: Powerkk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, Hitbox global_position: (%s, %s)" % [parent.name, powerkk_damage, powerkk_initial_facing, parent.scale.x, sprite.scale.x, hitbox_pos.x, hitbox_pos.y])
+			is_spmove_animation_playing = true
 			return true
 		elif player_id == "p2" and not is_spnk:
 			is_spnk = true
@@ -105,6 +112,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				var prox_shape = parent.get_node("Proximitybox/ProxShape")
 				if prox_shape:
 					prox_shape.disabled = false
+			if hitbox:  # 顯式啟用 Hitbox
+				hitbox.disabled = false
+				print("Debug: Hitbox enabled for %s during spnk" % parent.name)
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
 			print("Debug: Spnk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, Hitbox global_position: (%s, %s)" % [parent.name, spnk_damage, spnk_initial_facing, parent.scale.x, sprite.scale.x, hitbox_pos.x, hitbox_pos.y])
 			if not animation_player.animation_finished.is_connected(_on_spmove_animation_finished):
@@ -132,6 +142,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 					prox_shape.disabled = true
 				var proxbox_pos = parent.get_node("Proximitybox").global_position
 				print("Debug: Powerkk ended for %s, Proximitybox final global_position: (%s, %s)" % [parent.name, proxbox_pos.x, proxbox_pos.y])
+			if hitbox:
+				hitbox.disabled = true
+				print("Debug: Hitbox disabled for %s after powerkk" % parent.name)
 			var final_position = sprite.position
 			animation_player.stop()
 			sprite.position = Vector2.ZERO
@@ -161,6 +174,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 					prox_shape.disabled = true
 				var proxbox_pos = parent.get_node("Proximitybox").global_position
 				print("Debug: Spnk ended for %s, Proximitybox final global_position: (%s, %s)" % [parent.name, proxbox_pos.x, proxbox_pos.y])
+			if hitbox:
+				hitbox.disabled = true
+				print("Debug: Hitbox disabled for %s after spnk" % parent.name)
 			var final_position = sprite.position
 			animation_player.stop()
 			sprite.position = Vector2.ZERO
@@ -173,14 +189,17 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	return false
 
 func _on_spmove_animation_finished(anim_name: String):
-	if anim_name == "spnk" and is_spmove_animation_playing:
+	if (anim_name == "spnk" or anim_name == "powerkk") and is_spmove_animation_playing:
 		is_spmove_animation_playing = false
 		if parent.has_node("Proximitybox"):
 			var prox_shape = parent.get_node("Proximitybox/ProxShape")
 			if prox_shape:
 				prox_shape.disabled = true
 			var proxbox_pos = parent.get_node("Proximitybox").global_position
-			print("Debug: Spnk animation finished for %s, Proximitybox global_position: (%s, %s)" % [parent.name, proxbox_pos.x, proxbox_pos.y])
+			print("Debug: %s animation finished for %s, Proximitybox global_position: (%s, %s)" % [anim_name, parent.name, proxbox_pos.x, proxbox_pos.y])
+		if hitbox:
+			hitbox.disabled = true
+			print("Debug: Hitbox disabled for %s after %s animation finished" % [parent.name, anim_name])
 
 func _process(delta: float):
 	if not is_spmove_animation_playing or not animation_player or not animation_player.is_playing():
@@ -188,7 +207,7 @@ func _process(delta: float):
 	
 	var current_time = animation_player.get_current_animation_position()
 	var anim = animation_player.get_current_animation()
-	if anim != "spnk":
+	if anim != "spnk" and anim != "powerkk":
 		return
 	
 	var hitbox_track_index = 9
@@ -206,13 +225,14 @@ func _process(delta: float):
 					should_enable = not keys_values[i]
 					break
 			
-			if parent.has_node("Hitbox"):
-				var hitbox_pos = parent.get_node("Hitbox").global_position
-				var shape_status = "disabled" if hitbox and hitbox.disabled else "enabled" if hitbox else "null"
-				print("Debug: Spnk time %.2f for %s, Hitbox global_position: (%s, %s), shape: %s" % [current_time, parent.name, hitbox_pos.x, hitbox_pos.y, shape_status])
+			if hitbox:
+				hitbox.disabled = not should_enable
+				var shape_status = "enabled" if not hitbox.disabled else "disabled"
+				var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
+				print("Debug: %s time %.2f for %s, Hitbox global_position: (%s, %s), shape: %s" % [anim, current_time, parent.name, hitbox_pos.x, hitbox_pos.y, shape_status])
 			if parent.has_node("Proximitybox"):
 				var proxbox_pos = parent.get_node("Proximitybox").global_position
-				print("Debug: Spnk time %.2f for %s, Proximitybox global_position: (%s, %s)" % [current_time, parent.name, proxbox_pos.x, proxbox_pos.y])
+				print("Debug: %s time %.2f for %s, Proximitybox global_position: (%s, %s)" % [anim, current_time, parent.name, proxbox_pos.x, proxbox_pos.y])
 
 func get_special_damage() -> float:
 	var player_id = parent.player_id if "player_id" in parent else "p1"
