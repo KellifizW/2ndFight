@@ -113,6 +113,7 @@ func _physics_process(delta):
 			$Hitbox/HitShape.disabled = true
 		if has_node("Proximitybox/ProxShape"):
 			$Proximitybox/ProxShape.disabled = true
+		update_facing_direction()
 	if is_jumping and is_on_floor():
 		is_jumping = false
 		is_landing = true
@@ -150,7 +151,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			if is_on_floor():
 				target_state = "hit"
 			else:
-				target_state = "Jump_B"  # Modified to play Jump_B when hit in air
+				target_state = "Jump_B"
 			is_landing = false
 		elif move_set and move_set.is_spmove and not is_hit and not is_knockfly:
 			current_mode = "attack"
@@ -188,6 +189,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		"attack":
 			if is_animation_finished:
 				is_animation_finished = false
+				update_facing_direction()
 				if is_knockfly:
 					target_state = "knockfly"
 				elif is_wakeup:
@@ -196,7 +198,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 					if is_on_floor():
 						target_state = "hit"
 					else:
-						target_state = "Jump_B"  # Modified to play Jump_B when hit in air
+						target_state = "Jump_B"
 				elif is_blocking:
 					target_state = "cr_block" if is_crouch_blocking else "block"
 				elif crouch_input and on_floor:
@@ -226,7 +228,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 				if is_on_floor():
 					target_state = "hit"
 				else:
-					target_state = "Jump_B"  # Modified to play Jump_B when hit in air
+					target_state = "Jump_B"
 				is_landing = false
 			elif is_blocking:
 				target_state = "cr_block" if is_crouch_blocking else "block"
@@ -338,6 +340,9 @@ func _on_animation_tree_finished(anim_name: String):
 	elif anim_name == "landing" and is_landing:
 		is_landing = false
 		_update_animation_state(0, false)
+	elif anim_name == "St_mp":
+		is_animation_finished = false
+		update_facing_direction()
 
 func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:

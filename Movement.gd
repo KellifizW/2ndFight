@@ -101,6 +101,7 @@ func _physics_process(delta):
 		attack_timer -= delta
 		if attack_timer <= 0:
 			is_attacking = false
+			update_facing_direction()
 	if hit_timer > 0:
 		hit_timer -= delta
 		if hit_push_timer > 0:
