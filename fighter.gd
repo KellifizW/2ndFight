@@ -134,6 +134,7 @@ func post_physics_process(delta):
 	global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
+	print("Debug: Fighter _update_animation_state called, dir_x=" + str(dir_x) + ", crouch_input=" + str(crouch_input) + ", is_blocking=" + str(is_blocking) + ", is_crouch_blocking=" + str(is_crouch_blocking))
 	var curr_state = animation_state.get_current_node() if animation_state else ""
 	var on_floor = is_on_floor()
 	var target_state = "Walk"
@@ -144,7 +145,10 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	if is_knockfly:
 		target_state = "knockfly"
 	elif is_hit:
-		target_state = "hit"
+		if is_on_floor():
+			target_state = "hit"
+		else:
+			target_state = "Jump_B"  # Modified to play Jump_B when hit in air
 	elif is_blocking:
 		if is_crouch_blocking:
 			target_state = "cr_block"
@@ -174,7 +178,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
 	animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
 	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
-	animation_tree.set("parameters/conditions/hit", is_hit)
+	animation_tree.set("parameters/conditions/hit", target_state == "hit")
 	animation_tree.set("parameters/conditions/knockfly", is_knockfly)
 	animation_tree.set("parameters/conditions/block", is_blocking and not is_crouch_blocking)
 	animation_tree.set("parameters/conditions/cr_block", is_blocking and is_crouch_blocking)
@@ -206,9 +210,10 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 			print("Debug: Special move interrupted by hit for %s" % name)
 		
 		var input_data = get_input()
-		if (is_holding_back or (input_data.crouch_pressed and input_data.input_dir * facing_direction < 0)) and is_on_floor():
+		print("Debug: take_hit called, input_dir=" + str(input_data.input_dir) + ", crouch_pressed=" + str(input_data.crouch_pressed) + ", is_holding_back=" + str(is_holding_back) + ", facing_direction=" + str(get_facing_multiplier()))
+		if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_spmove:
 			is_blocking = true
-			is_crouch_blocking = input_data.crouch_pressed
+			is_crouch_blocking = is_crouch_blocking or (input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0)
 			initial_blockstun = 0.4 if damage >= 20.0 else 0.267
 			block_timer = initial_blockstun
 			block_type = "ordinary"
@@ -220,6 +225,7 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 			print("Debug: Ordinary block successful, blockstun duration %s for %s, crouch_blocking=%s" % [initial_blockstun, name, is_crouch_blocking])
 			block_detected.emit(name, block_type)
 		else:
+			print("Debug: No block triggered, proceeding to hit logic, is_on_floor=" + str(is_on_floor()))
 			if healthbar:
 				healthbar.take_damage(damage)
 				var facing_mult = get_facing_multiplier()
@@ -247,15 +253,14 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 						velocity.y = 0
 						print("Debug: Ground hitstun triggered, duration %s for %s, damage %s" % [initial_hitstun, name, damage])
 					else:
-						is_knockfly = true
-						knockfly_timer = knockfly_duration
-						air_hit_knockfly_distance = 40.0
-						is_air_hit_knockfly = true
-						if not skip_push:
-							knockfly_velocity_x = -air_hit_knockfly_speed * facing_mult
-						velocity.x = 0
-						velocity.y = 0
-						print("Debug: Air hit by normal attack, triggering knockfly with 40px pushback for %s" % name)
+						is_jumping = true
+						jump_dir = -facing_mult
+						velocity.y = -300
+						velocity.x = jump_dir * (jump_horizontal_speed / 2)
+						is_hit = true
+						initial_hitstun = 0.35
+						hit_timer = initial_hitstun
+						print("Debug: Air hit triggered passive back jump for %s, velocity.y=%s, velocity.x=%s" % [name, velocity.y, velocity.x])
 			else:
 				is_hit = true
 				initial_hitstun = 0.35

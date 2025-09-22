@@ -106,8 +106,6 @@ func _physics_process(delta):
 		if hit_push_timer > 0:
 			velocity.x = -hit_push_velocity * facing_direction * (hit_push_timer / initial_hitstun)
 			hit_push_timer -= delta
-		else:
-			velocity.x = 0
 		if hit_timer <= 0:
 			is_hit = false
 			hit_push_timer = 0.0
@@ -118,8 +116,6 @@ func _physics_process(delta):
 		if block_push_timer > 0:
 			velocity.x = -block_push_velocity * facing_direction * (block_push_timer / initial_blockstun)
 			block_push_timer -= delta
-		else:
-			velocity.x = 0
 		if block_timer <= 0:
 			is_blocking = false
 			is_crouch_blocking = false
@@ -156,17 +152,18 @@ func _physics_process(delta):
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_powerkk = move_set.is_powerkk if move_set else false
 	var is_spnk = move_set.is_spnk if move_set else false
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_crouching and not jump_pressed and not is_powerkk and not is_spnk and not is_blocking:
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk:
 		if input_dir * facing_direction < 0:
 			is_holding_back = true
-			is_crouch_blocking = false
 		else:
 			is_holding_back = false
-			is_crouch_blocking = false
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and is_crouching and not jump_pressed and not is_powerkk and not is_spnk and not is_blocking:
-		if input_dir * facing_direction < 0:
-			is_crouch_blocking = true
+		if crouch_pressed:
+			is_crouch_blocking = (input_dir * facing_direction < 0)
 		else:
+			is_crouch_blocking = false
+	else:
+		if not (is_hit or is_knockfly):
+			is_holding_back = false
 			is_crouch_blocking = false
 	var arena_left = 0.0
 	var arena_right = ProjectSettings.get_setting("display/window/size/viewport_width")
@@ -288,6 +285,7 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 			velocity.x = 0
 			velocity.y = 0
 			block_detected.emit(name, block_type)
+			print("Debug: Proximity block triggered, is_holding_back=" + str(is_holding_back) + ", is_crouch_blocking=" + str(is_crouch_blocking))
 
 func _on_hurtbox_area_exited(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
