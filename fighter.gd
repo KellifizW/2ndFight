@@ -226,6 +226,8 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 			block_detected.emit(name, block_type)
 		else:
 			print("Debug: No block triggered, proceeding to hit logic, is_on_floor=" + str(is_on_floor()))
+			if not is_on_floor():
+				update_facing_direction()
 			if healthbar:
 				healthbar.take_damage(damage)
 				var facing_mult = get_facing_multiplier()
