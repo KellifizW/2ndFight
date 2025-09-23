@@ -295,7 +295,8 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 func update_facing_direction():
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
-	if is_special_move:
+	var is_attacking_state = is_attacking and attack_timer > 0  # 新增檢查普通攻擊狀態
+	if is_special_move or is_attacking_state:  # 在特殊招式或普通攻擊期間不更新面向
 		return
 	var players = get_tree().get_nodes_in_group("players")
 	var other_player = null

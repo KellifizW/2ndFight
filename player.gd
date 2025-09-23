@@ -299,8 +299,16 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 					target_state = "Walk"
 			else:
 				target_state = "cr_block" if is_crouch_blocking else "block"
-		"dash_lock", "backdash_lock":
-			pass
+		"dash_lock":
+			if is_hit or is_knockfly:
+				target_state = "hit" if is_hit and is_on_floor() else "knockfly" if is_knockfly else "Jump_B"
+			else:
+				target_state = "Dash"
+		"backdash_lock":
+			if is_hit or is_knockfly:
+				target_state = "hit" if is_hit and is_on_floor() else "knockfly" if is_knockfly else "Jump_B"
+			else:
+				target_state = "Backdash"
 	if animation_tree and animation_state:
 		animation_tree.set("parameters/conditions/Walk", target_state == "Walk")
 		animation_tree.set("parameters/conditions/Crouch", target_state == "Crouch")
