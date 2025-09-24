@@ -9,9 +9,9 @@ signal hit_detected(target: String, blockstun_duration: float, is_blocked: bool)
 
 var current_mode: String = "ground_stand"
 var attack_type: String = "none"
-var is_animation_finished: bool = false
 var is_landing: bool = false
 var is_wakeup: bool = false
+var is_wakeup_locked: bool = false  # 新增鎖定，避免 wakeup 重置
 
 func _ready():
 	super._ready()
@@ -23,13 +23,6 @@ func _ready():
 	if animation_tree and not animation_tree.animation_finished.is_connected(_on_animation_tree_finished):
 		animation_tree.animation_finished.connect(_on_animation_tree_finished)
 	add_to_group("players")
-
-func _get_collision_layer_indices(value: int) -> Array:
-	var indices = []
-	for i in range(32):
-		if value & (1 << i):
-			indices.append(i + 1)
-	return indices
 
 func get_input() -> Dictionary:
 	if is_knockfly or is_wakeup or is_hit:
@@ -108,7 +101,6 @@ func _physics_process(delta):
 			$Proximitybox/ProxShape.disabled = false
 	if is_attacking and attack_timer <= 0:
 		is_attacking = false
-		is_animation_finished = true
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = true
 		if has_node("Proximitybox/ProxShape"):
@@ -125,232 +117,51 @@ func _physics_process(delta):
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var curr_state = animation_state.get_current_node() if animation_state else "none"
-	var target_state = "Walk"
 	var on_floor = is_on_floor()
-	var anim_dir = dir_x * get_facing_multiplier()
-	var anim_jump_dir = jump_dir * get_facing_multiplier()
 	
-	if is_dashing:
-		target_state = "Dash"
-		current_mode = "dash_lock"
-	elif is_backdashing:
-		target_state = "Backdash"
-		current_mode = "backdash_lock"
-	else:
-		if is_knockfly:
-			current_mode = "knockfly"
-			target_state = "knockfly"
-			is_landing = false
-			is_wakeup = false
-		elif is_wakeup:
-			current_mode = "wakeup"
-			target_state = "wakeup"
-			is_landing = false
-		elif is_hit:
-			current_mode = "hit"
-			if is_on_floor():
-				target_state = "hit"
-			else:
-				target_state = "Jump_B"
-			is_landing = false
-		elif move_set and move_set.is_spmove and not is_hit and not is_knockfly:
-			current_mode = "attack"
-			target_state = "powerkk" if player_id == "p1" else "spnk"
-			attack_type = "powerkk" if player_id == "p1" else "spnk"
-			is_landing = false
-			is_wakeup = false
-		elif is_blocking:
-			current_mode = "cr_block" if is_crouch_blocking else "block"
-			target_state = "cr_block" if is_crouch_blocking else "block"
-			is_landing = false
-			is_wakeup = false
-		elif is_attacking:
-			current_mode = "attack"
-			target_state = "St_mp"
-			is_landing = false
-			is_wakeup = false
-		elif is_landing and on_floor and not is_dashing and not is_backdashing:
-			current_mode = "landing"
-			is_wakeup = false
-		elif not on_floor and is_jumping:
-			current_mode = "air"
-			is_landing = false
-			is_wakeup = false
-		elif crouch_input and on_floor:
-			current_mode = "ground_crouch"
-			is_landing = false
-			is_wakeup = false
-		else:
-			current_mode = "ground_stand"
-			is_landing = false
-			is_wakeup = false
-	
-	match current_mode:
-		"attack":
-			if is_animation_finished:
-				is_animation_finished = false
-				update_facing_direction()
-				if is_knockfly:
-					target_state = "knockfly"
-				elif is_wakeup:
-					target_state = "wakeup"
-				elif is_hit:
-					if is_on_floor():
-						target_state = "hit"
-					else:
-						target_state = "Jump_B"
-				elif is_blocking:
-					target_state = "cr_block" if is_crouch_blocking else "block"
-				elif crouch_input and on_floor:
-					target_state = "Crouch"
-				elif dir_x != 0:
-					if dir_x * get_facing_multiplier() > 0:
-						target_state = "Dash" if is_dashing else "Walk"
-					else:
-						target_state = "Backdash" if is_backdashing else "Walk"
-				elif not on_floor:
-					if anim_jump_dir > 0:
-						target_state = "Jump_F"
-					elif anim_jump_dir < 0:
-						target_state = "Jump_B"
-					else:
-						target_state = "Jump_V"
-				else:
-					target_state = "Walk"
-		"landing":
-			if is_knockfly:
-				target_state = "knockfly"
-				is_landing = false
-			elif is_wakeup:
-				target_state = "wakeup"
-				is_landing = false
-			elif is_hit:
-				if is_on_floor():
-					target_state = "hit"
-				else:
-					target_state = "Jump_B"
-				is_landing = false
-			elif is_blocking:
-				target_state = "cr_block" if is_crouch_blocking else "block"
-				is_landing = false
-			elif is_attacking:
-				target_state = "St_mp"
-				is_landing = false
-			elif crouch_input and on_floor:
-				target_state = "Crouch"
-				is_landing = false
-			elif dir_x != 0:
-				if dir_x * get_facing_multiplier() > 0:
-					target_state = "Dash" if is_dashing else "Walk"
-				else:
-					target_state = "Backdash" if is_backdashing else "Walk"
-				is_landing = false
-			elif not on_floor:
-				if anim_jump_dir > 0:
-					target_state = "Jump_F"
-				elif anim_jump_dir < 0:
-					target_state = "Jump_B"
-				else:
-					target_state = "Jump_V"
-				is_landing = false
-			else:
-				target_state = "landing"
-		"ground_stand":
-			if is_dashing:
-				target_state = "Dash"
-			elif is_backdashing:
-				target_state = "Backdash"
-			elif dir_x != 0:
-				target_state = "Walk"
-		"ground_crouch":
-			target_state = "Crouch"
-		"air":
-			if anim_jump_dir > 0:
-				target_state = "Jump_F"
-			elif anim_jump_dir < 0:
-				target_state = "Jump_B"
-			else:
-				target_state = "Jump_V"
-		"wakeup":
-			target_state = "wakeup"
-		"block":
-			if not is_blocking:
-				if crouch_input and on_floor:
-					target_state = "Crouch"
-				elif dir_x != 0:
-					if dir_x * get_facing_multiplier() > 0:
-						target_state = "Dash" if is_dashing else "Walk"
-					else:
-						target_state = "Backdash" if is_backdashing else "Walk"
-				else:
-					target_state = "Walk"
-			else:
-				target_state = "cr_block" if is_crouch_blocking else "block"
-		"cr_block":
-			if not is_blocking:
-				if crouch_input and on_floor:
-					target_state = "Crouch"
-				elif dir_x != 0:
-					if dir_x * get_facing_multiplier() > 0:
-						target_state = "Dash" if is_dashing else "Walk"
-					else:
-						target_state = "Backdash" if is_backdashing else "Walk"
-				else:
-					target_state = "Walk"
-			else:
-				target_state = "cr_block" if is_crouch_blocking else "block"
-		"dash_lock":
-			if is_hit or is_knockfly:
-				target_state = "hit" if is_hit and is_on_floor() else "knockfly" if is_knockfly else "Jump_B"
-			else:
-				target_state = "Dash"
-		"backdash_lock":
-			if is_hit or is_knockfly:
-				target_state = "hit" if is_hit and is_on_floor() else "knockfly" if is_knockfly else "Jump_B"
-			else:
-				target_state = "Backdash"
-	if animation_tree and animation_state:
-		animation_tree.set("parameters/conditions/Walk", target_state == "Walk")
-		animation_tree.set("parameters/conditions/Crouch", target_state == "Crouch")
-		animation_tree.set("parameters/conditions/Dash", is_dashing)
-		animation_tree.set("parameters/conditions/Backdash", is_backdashing)
-		animation_tree.set("parameters/conditions/St_mp", target_state == "St_mp")
-		animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
-		animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
-		animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
-		animation_tree.set("parameters/conditions/hit", target_state == "hit")
-		animation_tree.set("parameters/conditions/knockfly", target_state == "knockfly")
-		animation_tree.set("parameters/conditions/block", is_blocking and not is_crouch_blocking)
-		animation_tree.set("parameters/conditions/cr_block", is_blocking and is_crouch_blocking)
-		animation_tree.set("parameters/conditions/powerkk", target_state == "powerkk" and player_id == "p1" and move_set and move_set.is_spmove)
-		animation_tree.set("parameters/conditions/spnk", target_state == "spnk" and player_id == "p2" and move_set and move_set.is_spmove)
-		animation_tree.set("parameters/conditions/landing", target_state == "landing")
-		animation_tree.set("parameters/conditions/wakeup", target_state == "wakeup")
-		if target_state == "Walk":
-			animation_tree.set("parameters/Walk/blend_position", anim_dir)
-		if curr_state != target_state:
-			animation_state.travel(target_state)
-	else:
-		pass
-
-func _on_animation_tree_finished(anim_name: String):
-	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
-	if anim_name == "knockfly" and is_knockfly:
-		if healthbar and healthbar.current_health <= 0:
-			return
-		is_knockfly = false
-		is_wakeup = true
-		velocity = Vector2.ZERO
-		animation_state.travel("wakeup")
-	elif anim_name == "wakeup" and is_wakeup:
-		is_wakeup = false
-		_update_animation_state(0, false)
-	elif anim_name == "landing" and is_landing:
+	if move_set and move_set.is_spmove and not is_hit and not is_knockfly:
+		current_mode = "attack"
+		var target_state = "powerkk" if player_id == "p1" else "spnk"
+		attack_type = target_state
 		is_landing = false
-		_update_animation_state(0, false)
-	elif anim_name == "St_mp":
-		is_animation_finished = false
-		update_facing_direction()
+		is_wakeup = false
+		if animation_tree and animation_state and curr_state != target_state:
+			animation_tree.set("parameters/conditions/powerkk", target_state == "powerkk" and player_id == "p1")
+			animation_tree.set("parameters/conditions/spnk", target_state == "spnk" and player_id == "p2")
+			animation_tree.set("parameters/conditions/Walk", false)
+			animation_tree.set("parameters/conditions/hit", false)
+			animation_tree.set("parameters/conditions/block", false)
+			animation_tree.set("parameters/conditions/cr_block", false)
+			animation_tree.set("parameters/conditions/wakeup", false)
+			animation_tree.set("parameters/conditions/landing", false)
+			animation_state.travel(target_state)
+		return
+	
+	if is_knockfly:
+		current_mode = "knockfly"
+		is_landing = false
+		is_wakeup = false
+		is_wakeup_locked = false
+	elif is_wakeup and is_wakeup_locked:
+		current_mode = "wakeup"
+		is_landing = false
+	elif is_landing and on_floor and not is_dashing and not is_backdashing:
+		current_mode = "landing"
+		is_wakeup = false
+		is_wakeup_locked = false
+	
+	super._update_animation_state(dir_x, crouch_input)
+	
+	var target_state = animation_state.get_current_node() if animation_state else "Walk"
+	if current_mode == "wakeup" and is_wakeup_locked:
+		target_state = "wakeup"
+	elif current_mode == "landing":
+		target_state = "landing"
+	
+	if animation_tree and animation_state and curr_state != target_state:
+		animation_tree.set("parameters/conditions/wakeup", target_state == "wakeup")
+		animation_tree.set("parameters/conditions/landing", target_state == "landing")
+		animation_state.travel(target_state)
 
 func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
@@ -379,8 +190,25 @@ func _on_hitbox_area_entered(area: Area2D):
 				velocity.x = -push_back_velocity * get_facing_multiplier()
 				velocity.y = 0
 
-func _on_animation_finished(_anim_name: String):
-	pass
+func _on_animation_tree_finished(anim_name: String):
+	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
+	if anim_name == "knockfly" and is_knockfly:
+		if healthbar and healthbar.current_health <= 0:
+			return
+		is_knockfly = false
+		is_wakeup = true
+		is_wakeup_locked = true
+		velocity = Vector2.ZERO
+		animation_state.travel("wakeup")
+	elif anim_name == "wakeup" and is_wakeup:
+		is_wakeup = false
+		is_wakeup_locked = false
+		_update_animation_state(0, false)
+	elif anim_name == "landing" and is_landing:
+		is_landing = false
+		_update_animation_state(0, false)
+	elif anim_name == "St_mp":
+		update_facing_direction()
 
 func get_facing_multiplier() -> float:
 	return super.get_facing_multiplier()

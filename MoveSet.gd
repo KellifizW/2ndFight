@@ -56,7 +56,7 @@ func stop_special_move():
 			var proxbox_pos = parent.get_node("Proximitybox").global_position
 			print("Debug: Special move stopped for %s, Proximitybox global_position: (%s, %s)" % [parent.name, proxbox_pos.x, proxbox_pos.y])
 		if hitbox:
-			hitbox.disabled = true  # 確保停止時禁用 Hitbox
+			hitbox.disabled = true
 			print("Debug: Hitbox disabled for %s after stopping special move" % parent.name)
 		print("Debug: Special move stopped for %s, final position: %s, sprite.scale.x=%s" % [parent.name, parent.global_position, sprite.scale.x])
 
@@ -86,7 +86,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				var prox_shape = parent.get_node("Proximitybox/ProxShape")
 				if prox_shape:
 					prox_shape.disabled = false
-			if hitbox:  # 顯式啟用 Hitbox
+			if hitbox:
 				hitbox.disabled = false
 				print("Debug: Hitbox enabled for %s during powerkk" % parent.name)
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
@@ -112,7 +112,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				var prox_shape = parent.get_node("Proximitybox/ProxShape")
 				if prox_shape:
 					prox_shape.disabled = false
-			if hitbox:  # 顯式啟用 Hitbox
+			if hitbox:
 				hitbox.disabled = false
 				print("Debug: Hitbox enabled for %s during spnk" % parent.name)
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
@@ -123,14 +123,11 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			return true
 	
 	if is_powerkk:
-		parent.velocity.x = 0
 		var move_speed = (powerkk_move_distance / powerkk_time) * powerkk_initial_facing
 		parent.global_position.x += move_speed * delta
-		parent.call_deferred("set", "scale/x", powerkk_initial_parent_scale_x)
-		sprite.call_deferred("set", "scale/x", powerkk_initial_sprite_scale_x)
 		if parent.has_node("Proximitybox"):
 			var proxbox_pos = parent.get_node("Proximitybox").global_position
-			print("Debug: Powerkk active for %s, Proximitybox global_position: (%s, %s)" % [parent.name, proxbox_pos.x, proxbox_pos.y])
+			print("Debug: Powerkk active for %s, position: %s, Proximitybox global_position: (%s, %s)" % [parent.name, parent.global_position.x, proxbox_pos.x, proxbox_pos.y])
 		powerkk_timer -= delta
 		if powerkk_timer <= 0:
 			is_powerkk = false
@@ -155,14 +152,11 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		return true
 
 	if is_spnk:
-		parent.velocity.x = 0
 		var move_speed = (spnk_move_distance / spnk_time) * spnk_initial_facing
 		parent.global_position.x += move_speed * delta
-		parent.call_deferred("set", "scale/x", spnk_initial_parent_scale_x)
-		sprite.call_deferred("set", "scale/x", spnk_initial_sprite_scale_x)
 		if parent.has_node("Proximitybox"):
 			var proxbox_pos = parent.get_node("Proximitybox").global_position
-			print("Debug: Spnk active for %s, Proximitybox global_position: (%s, %s)" % [parent.name, proxbox_pos.x, proxbox_pos.y])
+			print("Debug: Spnk active for %s, position: %s, Proximitybox global_position: (%s, %s)" % [parent.name, parent.global_position.x, proxbox_pos.x, proxbox_pos.y])
 		spnk_timer -= delta
 		if spnk_timer <= 0:
 			is_spnk = false

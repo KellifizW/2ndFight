@@ -1,4 +1,4 @@
-[gd_scene load_steps=67 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=68 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="2_yev3d"]
@@ -1342,6 +1342,10 @@ advance_condition = &"landing"
 advance_mode = 2
 advance_condition = &"landing"
 
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_c5mkm"]
+switch_mode = 2
+advance_mode = 2
+
 [sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_mbed6"]
 states/Backdash/node = SubResource("AnimationNodeAnimation_3h1ys")
 states/Backdash/position = Vector2(-14, 124)
@@ -1376,8 +1380,8 @@ states/powerkk/node = SubResource("AnimationNodeAnimation_64yue")
 states/powerkk/position = Vector2(746, 200)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-108, 193)
-transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "Backdash", SubResource("AnimationNodeStateMachineTransition_yev3d"), "Backdash", "Walk", SubResource("AnimationNodeStateMachineTransition_0e34t"), "Walk", "Dash", SubResource("AnimationNodeStateMachineTransition_6ev7e"), "Dash", "Walk", SubResource("AnimationNodeStateMachineTransition_aar5g"), "Jump_B", "landing", SubResource("AnimationNodeStateMachineTransition_3pafw"), "landing", "Walk", SubResource("AnimationNodeStateMachineTransition_3odsw"), "Jump_V", "landing", SubResource("AnimationNodeStateMachineTransition_woueq"), "Jump_F", "landing", SubResource("AnimationNodeStateMachineTransition_bjfdx"), "jump_mk", "landing", SubResource("AnimationNodeStateMachineTransition_hfcs4")]
-graph_offset = Vector2(-262, 33)
+transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "Backdash", SubResource("AnimationNodeStateMachineTransition_yev3d"), "Backdash", "Walk", SubResource("AnimationNodeStateMachineTransition_0e34t"), "Walk", "Dash", SubResource("AnimationNodeStateMachineTransition_6ev7e"), "Dash", "Walk", SubResource("AnimationNodeStateMachineTransition_aar5g"), "Jump_B", "landing", SubResource("AnimationNodeStateMachineTransition_3pafw"), "landing", "Walk", SubResource("AnimationNodeStateMachineTransition_3odsw"), "Jump_V", "landing", SubResource("AnimationNodeStateMachineTransition_woueq"), "Jump_F", "landing", SubResource("AnimationNodeStateMachineTransition_bjfdx"), "jump_mk", "landing", SubResource("AnimationNodeStateMachineTransition_hfcs4"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_c5mkm")]
+graph_offset = Vector2(-178, 45)
 
 [node name="Player1" type="CharacterBody2D"]
 collision_layer = 3
@@ -1416,7 +1420,6 @@ collision_layer = 2
 collision_mask = 8
 
 [node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
-position = Vector2(24, 1)
 debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="."]

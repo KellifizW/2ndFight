@@ -130,7 +130,6 @@ func reset_players():
 		player.is_jumping = false
 		player.is_crouching = false
 		player.is_landing = false
-		player.is_animation_finished = false
 		player.hit_timer = 0.0
 		player.block_timer = 0.0
 		player.knockfly_timer = 0.0
