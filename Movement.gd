@@ -31,20 +31,20 @@ var is_hit: bool = false
 var is_knockfly: bool = false
 var arena_left: float = 0.0
 var arena_right: float = ProjectSettings.get_setting("display/window/size/viewport_width")
-var hit_timer: float = 0.0
-var block_timer: float = 0.0
-var knockfly_timer: float = 0.0
+var hit_timer: float = 0.0  # 保持變數，但邏輯移走
+var block_timer: float = 0.0  # 保持變數，但邏輯移走
+var knockfly_timer: float = 0.0  # 保持變數，但邏輯移走
 @export var knockfly_duration: float = 0.75
 var knockfly_push_speed: float = 300.0
-var knockfly_velocity_x: float = 0.0
+var knockfly_velocity_x: float = 0.0  # 保持變數，但邏輯移走
 @export var block_push_distance: float = 20.0
-var block_push_timer: float = 0.0
-var initial_blockstun: float = 0.0
-var block_push_velocity: float = 0.0
+var block_push_timer: float = 0.0  # 保持變數，但邏輯移走
+var initial_blockstun: float = 0.0  # 保持變數，但邏輯移走
+var block_push_velocity: float = 0.0  # 保持變數，但邏輯移走
 @export var hit_push_distance: float = 20.0
-var hit_push_timer: float = 0.0
-var initial_hitstun: float = 0.0
-var hit_push_velocity: float = 0.0
+var hit_push_timer: float = 0.0  # 保持變數，但邏輯移走
+var initial_hitstun: float = 0.0  # 保持變數，但邏輯移走
+var hit_push_velocity: float = 0.0  # 保持變數，但邏輯移走
 var facing_direction: float = 1.0
 var dash_direction: float = 0.0
 var is_blocking: bool = false
@@ -57,11 +57,11 @@ var was_in_air: bool = false
 var air_hit_knockfly_distance: float = 10.0
 var is_air_hit_knockfly: bool = false
 var is_push_back: bool = false
-var push_back_timer: float = 0.0
-var initial_push_back: float = 0.0
-var push_back_velocity: float = 0.0
-var knockfly_accumulated_distance: float = 0.0
-var knockfly_max_distance: float = 150.0
+var push_back_timer: float = 0.0  # 保持變數，但邏輯移走
+var initial_push_back: float = 0.0  # 保持變數，但邏輯移走
+var push_back_velocity: float = 0.0  # 保持變數，但邏輯移走
+var knockfly_accumulated_distance: float = 0.0  # 保持變數，但邏輯移走
+var knockfly_max_distance: float = 150.0  # 保持變數，但邏輯移走
 
 signal block_detected(target: String, block_type: String)
 
@@ -84,17 +84,6 @@ func _ready():
 func _physics_process(delta):
 	var current_position = global_position
 	var is_landing = self is Player and get("is_landing") if is_class("Player") else false
-	if is_push_back:
-		if push_back_timer > 0:
-			if not is_landing:
-				update_facing_direction()
-			velocity.x = -push_back_velocity * facing_direction
-			push_back_timer -= delta
-			if push_back_timer <= 0:
-				is_push_back = false
-				push_back_velocity = 0.0
-				initial_push_back = 0.0
-				velocity.x = 0
 	if neutral_timer > 0:
 		neutral_timer -= delta
 	if attack_timer > 0:
@@ -102,49 +91,6 @@ func _physics_process(delta):
 		if attack_timer <= 0:
 			is_attacking = false
 			update_facing_direction()
-	if hit_timer > 0:
-		hit_timer -= delta
-		if hit_push_timer > 0:
-			velocity.x = -hit_push_velocity * facing_direction * (hit_push_timer / initial_hitstun)
-			hit_push_timer -= delta
-		if hit_timer <= 0:
-			is_hit = false
-			hit_push_timer = 0.0
-			hit_push_velocity = 0.0
-			initial_hitstun = 0.0
-	if block_timer > 0:
-		block_timer -= delta
-		if block_push_timer > 0:
-			velocity.x = -block_push_velocity * facing_direction * (block_push_timer / initial_blockstun)
-			block_push_timer -= delta
-		if block_timer <= 0:
-			is_blocking = false
-			is_crouch_blocking = false
-			block_type = "none"
-			block_push_timer = 0.0
-			block_push_velocity = 0.0
-			initial_blockstun = 0.0
-	if knockfly_timer > 0:
-		knockfly_timer -= delta
-		if is_air_hit_knockfly:
-			velocity.x = knockfly_velocity_x * (knockfly_timer / knockfly_duration)
-		else:
-			velocity.x = knockfly_velocity_x * pow(knockfly_timer / knockfly_duration, 2)
-		var delta_x = abs(global_position.x - current_position.x)
-		knockfly_accumulated_distance += delta_x
-		if knockfly_accumulated_distance >= knockfly_max_distance:
-			velocity.x = 0
-			knockfly_velocity_x = 0.0
-		if knockfly_timer <= 0 and is_knockfly:
-			var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
-			if healthbar and healthbar.current_health <= 0:
-				pass
-			else:
-				velocity.x = 0
-				knockfly_velocity_x = 0.0
-				knockfly_accumulated_distance = 0.0
-				if animation_player:
-					animation_player.speed_scale = 1.0
 	var input_data = get_input()
 	var input_dir = input_data["input_dir"]
 	var crouch_pressed = input_data["crouch_pressed"]
@@ -236,7 +182,6 @@ func _physics_process(delta):
 	if not is_on_floor():
 		velocity.y += 1800 * delta
 	move_and_slide()
-	global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
 	post_physics_process(delta)
 	if is_on_floor() and was_in_air and not is_landing and not (is_powerkk or is_spnk):
 		update_facing_direction()

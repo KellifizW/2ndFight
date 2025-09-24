@@ -1,9 +1,10 @@
-[gd_scene load_steps=68 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=69 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="2_yev3d"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://MoveSet.gd" id="3_0e34t"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai_behavior.gd" id="4_3pafw"]
+[ext_resource type="Script" uid="uid://bdnsffppy4t3a" path="res://PushHandler.gd" id="5_3odsw"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(20, 70)
@@ -1381,7 +1382,7 @@ states/powerkk/position = Vector2(746, 200)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-108, 193)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "Backdash", SubResource("AnimationNodeStateMachineTransition_yev3d"), "Backdash", "Walk", SubResource("AnimationNodeStateMachineTransition_0e34t"), "Walk", "Dash", SubResource("AnimationNodeStateMachineTransition_6ev7e"), "Dash", "Walk", SubResource("AnimationNodeStateMachineTransition_aar5g"), "Jump_B", "landing", SubResource("AnimationNodeStateMachineTransition_3pafw"), "landing", "Walk", SubResource("AnimationNodeStateMachineTransition_3odsw"), "Jump_V", "landing", SubResource("AnimationNodeStateMachineTransition_woueq"), "Jump_F", "landing", SubResource("AnimationNodeStateMachineTransition_bjfdx"), "jump_mk", "landing", SubResource("AnimationNodeStateMachineTransition_hfcs4"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_c5mkm")]
-graph_offset = Vector2(-178, 45)
+graph_offset = Vector2(-271, 57)
 
 [node name="Player1" type="CharacterBody2D"]
 collision_layer = 3
@@ -1445,3 +1446,6 @@ script = ExtResource("3_0e34t")
 
 [node name="AIBehavior" type="Node" parent="."]
 script = ExtResource("4_3pafw")
+
+[node name="PushHandler" type="Node" parent="."]
+script = ExtResource("5_3odsw")

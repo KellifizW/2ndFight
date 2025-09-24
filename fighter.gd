@@ -3,12 +3,6 @@ class_name Fighter extends Movement
 @onready var collision_shape = $Pushbox
 @onready var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 var is_being_pushed: bool = false
-var push_distance_multiplier: float = 0.5
-var PUSH_FRICTION: float = 66.0
-@export var ground_push_trigger_distance: float = 2.0
-@export var air_push_trigger_distance: float = 9.0
-@export var corner_y_trigger_distance: float = 26.0
-@export var collision_epsilon: float = 2.0
 var current_damage: float = 0.0
 var air_hit_knockfly_speed: float = 53.33
 
@@ -23,11 +17,6 @@ func _ready():
 	if not healthbar:
 		print("Warning: Healthbar not found for %s" % name)
 	add_to_group("players")
-
-func is_at_corner() -> bool:
-	var self_at_left = abs(global_position.x - (arena_left + colbox_half_width)) < collision_epsilon
-	var self_at_right = abs(global_position.x - (arena_right - colbox_half_width)) < collision_epsilon
-	return self_at_left or self_at_right
 
 func _physics_process(delta):
 	super._physics_process(delta)
@@ -49,89 +38,7 @@ func _physics_process(delta):
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func post_physics_process(delta):
-	is_being_pushed = false
-	
-	var all_players = get_tree().get_nodes_in_group("players")
-	
-	for other in all_players:
-		if other == self:
-			continue
-			
-		var sprite_offset = sprite.position
-		var other_sprite_offset = other.sprite.position
-		var leftA = global_position.x - colbox_half_width + sprite_offset.x
-		var rightA = global_position.x + colbox_half_width + sprite_offset.x
-		var upA = global_position.y - colbox_half_height + sprite_offset.y
-		var downA = global_position.y + colbox_half_height + sprite_offset.y
-		var leftB = other.global_position.x - other.colbox_half_width + other_sprite_offset.x
-		var rightB = other.global_position.x + other.colbox_half_width + other_sprite_offset.x
-		var upB = other.global_position.y - other.colbox_half_height + other_sprite_offset.y
-		var downB = other.global_position.y + other.colbox_half_height + other_sprite_offset.y
-		
-		var overlap_x = min(rightA - leftB, rightB - leftA)
-		var overlap_y = min(downA - upB, downB - upA)
-		var relative_pos_x = global_position.x - other.global_position.x
-		var push_distance = max(overlap_x, 12.0) * push_distance_multiplier
-		
-		var self_at_left = abs(global_position.x - (arena_left + colbox_half_width)) < collision_epsilon
-		var self_at_right = abs(global_position.x - (arena_right - colbox_half_width)) < collision_epsilon
-		var other_at_left = abs(other.global_position.x - (arena_left + other.colbox_half_width)) < collision_epsilon
-		var other_at_right = abs(other.global_position.x - (arena_right - other.colbox_half_width)) < collision_epsilon
-		var is_corner = self_at_left or self_at_right or other_at_left or other_at_right
-		
-		var x_trigger_distance = air_push_trigger_distance if (is_jumping or other.is_jumping) else ground_push_trigger_distance
-		var has_x_overlap = rightA >= leftB - x_trigger_distance and leftA <= rightB + x_trigger_distance
-		
-		var y_trigger_distance = ground_push_trigger_distance
-		if has_x_overlap:
-			if is_corner and (is_jumping or other.is_jumping):
-				y_trigger_distance = corner_y_trigger_distance
-			elif is_jumping or other.is_jumping:
-				y_trigger_distance = air_push_trigger_distance
-			else:
-				y_trigger_distance = ground_push_trigger_distance
-		
-		var is_overlapping = has_x_overlap and (downA >= upB - y_trigger_distance and upA <= downB + y_trigger_distance)
-		
-		if is_overlapping:
-			if is_jumping or other.is_jumping:
-				push_distance += PUSH_FRICTION * delta * 1.5
-			else:
-				push_distance += PUSH_FRICTION * delta
-			
-			var new_self_x = global_position.x
-			var new_other_x = other.global_position.x
-			
-			if other_at_right and relative_pos_x > 0:
-				new_self_x -= push_distance
-				new_other_x = arena_right - other.colbox_half_width
-			elif other_at_left and relative_pos_x < 0:
-				new_self_x += push_distance
-				new_other_x = arena_left + other.colbox_half_width
-			elif self_at_right and relative_pos_x < 0:
-				new_other_x += push_distance
-				new_self_x = arena_right - colbox_half_width
-			elif self_at_left and relative_pos_x > 0:
-				new_other_x -= push_distance
-				new_self_x = arena_left + colbox_half_width
-			else:
-				if relative_pos_x > 0:
-					new_self_x += push_distance * 0.5
-					new_other_x -= push_distance * 0.5
-				else:
-					new_self_x -= push_distance * 0.5
-					new_other_x += push_distance * 0.5
-				
-			new_self_x = clamp(new_self_x, arena_left + colbox_half_width, arena_right - colbox_half_width)
-			new_other_x = clamp(new_other_x, arena_left + other.colbox_half_width, arena_right - other.colbox_half_width)
-			
-			global_position.x = new_self_x
-			other.global_position.x = new_other_x
-			
-			is_being_pushed = true
-			other.is_being_pushed = true
-	
-	global_position.x = clamp(global_position.x, arena_left + colbox_half_width, arena_right - colbox_half_width)
+	pass
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	print("Debug: Fighter _update_animation_state called, dir_x=" + str(dir_x) + ", crouch_input=" + str(crouch_input) + ", is_blocking=" + str(is_blocking) + ", is_crouch_blocking=" + str(is_crouch_blocking))
