@@ -4,8 +4,9 @@ class_name SlowMoController
 
 # 時間縮放參數
 var normal_time_scale: float = 1.0
-var slowmo_time_scale: float = 0.02  # 慢動作速度（2%正常速度）
-var slowmo_enter_time: float = 0.3   # 進入慢動作的過渡時間（秒），僅用於手動切換
+var slowmo_time_scale: float = 0.4  # 慢動作速度（40%正常速度）
+var hit_slowmo_time_scale: float = 0.02  # 擊中慢動作速度（2%正常速度）
+var slowmo_enter_time: float = 0.1   # 進入慢動作的過渡時間（秒），僅用於手動切換
 var slowmo_exit_time: float = 0.15   # 退出慢動作的過渡時間（秒），僅用於手動切換
 var slowmo_active: bool = false      # 慢動作是否啟動（手動切換）
 var hit_slowmo_time: float = 0.09    # 擊中慢動作的持續時間（秒，真實時間）
@@ -51,16 +52,16 @@ func request_hit_freeze():
 	tween.set_trans(Tween.TRANS_LINEAR)
 	tween.set_ease(Tween.EASE_IN_OUT)
 	tween.set_ignore_time_scale(true)  # 使用真實時間計時
-	# 立即進入慢動作
-	Engine.time_scale = slowmo_time_scale
+	# 立即進入擊中慢動作
+	Engine.time_scale = hit_slowmo_time_scale
 	# 除錯：記錄開始真實時間
 	hit_start_time = Time.get_ticks_msec()
-	# 持續慢動作 0.15 秒（真實時間）
+	# 持續慢動作 0.09 秒（真實時間）
 	tween.tween_interval(hit_slowmo_time)
-	# 退出慢動作（0.15秒，真實時間）
+	# 退出慢動作（0.01秒，真實時間）
 	tween.tween_property(Engine, "time_scale", normal_time_scale, hit_slowmo_exit_time)
 	tween.tween_callback(_on_hit_slowmo_finished)
-	print("Debug: Hit slowmo triggered, set time_scale=%s instantly, sustaining for %s seconds, then transitioning to %s over %s seconds (real time)" % [slowmo_time_scale, hit_slowmo_time, normal_time_scale, hit_slowmo_exit_time])
+	print("Debug: Hit slowmo triggered, set time_scale=%s instantly, sustaining for %s seconds, then transitioning to %s over %s seconds (real time)" % [hit_slowmo_time_scale, hit_slowmo_time, normal_time_scale, hit_slowmo_exit_time])
 
 # 進入慢動作的動畫（手動切換）
 func enter_slowmo_animation():

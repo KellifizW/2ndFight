@@ -1321,7 +1321,6 @@ anim_player = NodePath("../AnimationPlayer")
 parameters/conditions/Backdash = false
 parameters/conditions/Crouch = false
 parameters/conditions/Dash = false
-parameters/conditions/St_mp = false
 parameters/conditions/Walk = false
 parameters/conditions/cr_block = false
 "parameters/conditions/healthbar.current_health > 0" = false

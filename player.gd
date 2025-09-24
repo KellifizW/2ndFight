@@ -12,6 +12,7 @@ var attack_type: String = "none"
 var is_landing: bool = false
 var is_wakeup: bool = false
 var is_wakeup_locked: bool = false  # 新增鎖定，避免 wakeup 重置
+var is_air_attacking: bool = false  # 新增：空中攻擊狀態
 
 func _ready():
 	super._ready()
@@ -82,14 +83,15 @@ func get_input() -> Dictionary:
 func _physics_process(delta):
 	super._physics_process(delta)
 	var input_data = get_input()
-	var is_valid_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
+	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
+	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup
 	var hit_shape = $Hitbox.get_node_or_null("HitShape") if has_node("Hitbox") else null
 	if hit_shape and hit_shape is CollisionShape2D:
 		if move_set and (move_set.is_powerkk or move_set.is_spnk) or is_attacking:
 			pass
-	if move_set and (player_id == "p1" or player_id == "p2") and move_set.process_move(delta, input_data, is_valid_state):
+	if move_set and (player_id == "p1" or player_id == "p2") and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
-	if input_data.attack_pressed and is_valid_state:
+	if input_data.attack_pressed and is_valid_ground_state:
 		current_damage = input_data.damage
 		is_attacking = true
 		attack_timer = attack_time
@@ -99,6 +101,12 @@ func _physics_process(delta):
 			$Hitbox/HitShape.disabled = false
 		if has_node("Proximitybox/ProxShape"):
 			$Proximitybox/ProxShape.disabled = false
+	elif input_data.attack_pressed and is_valid_air_state:
+		current_damage = input_data.damage
+		is_air_attacking = true
+		attack_type = "jump_mk"
+		if has_node("Hitbox/HitShape"):
+			$Hitbox/HitShape.disabled = false
 	if is_attacking and attack_timer <= 0:
 		is_attacking = false
 		if has_node("Hitbox/HitShape"):
@@ -106,7 +114,7 @@ func _physics_process(delta):
 		if has_node("Proximitybox/ProxShape"):
 			$Proximitybox/ProxShape.disabled = true
 		update_facing_direction()
-	if is_jumping and is_on_floor():
+	if is_jumping and is_on_floor() and not is_air_attacking:
 		is_jumping = false
 		is_landing = true
 		if input_data.input_dir != 0 or input_data.crouch_pressed:
@@ -118,6 +126,26 @@ func _physics_process(delta):
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var curr_state = animation_state.get_current_node() if animation_state else "none"
 	var on_floor = is_on_floor()
+	
+	if is_air_attacking and not is_hit and not is_knockfly:
+		current_mode = "air_attack"
+		var target_state = "jump_mk"
+		attack_type = target_state
+		is_landing = false
+		is_wakeup = false
+		if animation_tree and animation_state and curr_state != target_state:
+			animation_tree.set("parameters/conditions/jump_mk", true)
+			animation_tree.set("parameters/conditions/Walk", false)
+			animation_tree.set("parameters/conditions/hit", false)
+			animation_tree.set("parameters/conditions/block", false)
+			animation_tree.set("parameters/conditions/cr_block", false)
+			animation_tree.set("parameters/conditions/wakeup", false)
+			animation_tree.set("parameters/conditions/landing", false)
+			animation_tree.set("parameters/conditions/Jump_F", false)
+			animation_tree.set("parameters/conditions/Jump_B", false)
+			animation_tree.set("parameters/conditions/Jump_V", false)
+			animation_state.travel(target_state)
+		return
 	
 	if move_set and move_set.is_spmove and not is_hit and not is_knockfly:
 		current_mode = "attack"
@@ -221,6 +249,21 @@ func _on_animation_tree_finished(anim_name: String):
 		_update_animation_state(0, false)
 	elif anim_name == "St_mp":
 		update_facing_direction()
+	elif anim_name == "jump_mk" and is_air_attacking:
+		is_air_attacking = false
+		if has_node("Hitbox/HitShape"):
+			$Hitbox/HitShape.disabled = true
+		if is_on_floor():
+			var input_data = get_input()
+			is_landing = true
+			if input_data.input_dir != 0 or input_data.crouch_pressed:
+				is_landing = false
+			if is_landing:
+				animation_state.travel("landing")
+			else:
+				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+		else:
+			_update_animation_state(jump_dir, false)
 
 func get_facing_multiplier() -> float:
 	return super.get_facing_multiplier()

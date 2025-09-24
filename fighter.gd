@@ -89,6 +89,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	animation_tree.set("parameters/conditions/block", is_blocking and not is_crouch_blocking)
 	animation_tree.set("parameters/conditions/cr_block", is_blocking and is_crouch_blocking)
 	animation_tree.set("parameters/conditions/powerkk", false)
+	animation_tree.set("parameters/conditions/jump_mk", target_state == "jump_mk")  # 新增：支援跳踢條件
 
 	if curr_state != target_state and target_state != "Walk":
 		animation_state.travel(target_state)  # 使用 travel() 模擬 Immediate switch
