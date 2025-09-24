@@ -41,7 +41,6 @@ func post_physics_process(delta):
 	pass
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	print("Debug: Fighter _update_animation_state called, dir_x=" + str(dir_x) + ", crouch_input=" + str(crouch_input) + ", is_blocking=" + str(is_blocking) + ", is_crouch_blocking=" + str(is_crouch_blocking))
 	var curr_state = animation_state.get_current_node() if animation_state else ""
 	var on_floor = is_on_floor()
 	var target_state = "Walk"
@@ -91,9 +90,11 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	animation_tree.set("parameters/conditions/cr_block", is_blocking and is_crouch_blocking)
 	animation_tree.set("parameters/conditions/powerkk", false)
 
-	if curr_state != target_state:
+	if curr_state != target_state and target_state != "Walk":
 		animation_state.travel(target_state)
-		print("Debug: Animation switched to %s for %s" % [target_state, name])
+		print("Debug: Animation switched to %s for %s, dir_x=%.1f, crouch_input=%s, is_blocking=%s, is_crouch_blocking=%s" % [target_state, name, dir_x, crouch_input, is_blocking, is_crouch_blocking])
+	elif curr_state != target_state:
+		animation_state.travel(target_state)
 
 	if target_state == "Walk":
 		animation_tree.set("parameters/Walk/blend_position", anim_dir)

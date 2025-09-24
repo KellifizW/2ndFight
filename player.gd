@@ -171,7 +171,19 @@ func _on_hitbox_area_entered(area: Area2D):
 		var damage = current_damage
 		var hit_shape = $Hitbox.get_node_or_null("HitShape") if has_node("Hitbox") else null
 		if damage > 0:
-			var skip_target_push = target.get_node("PushHandler").is_at_corner()  # 修改為引用 PushHandler 的 is_at_corner()
+			# 觸發擊中慢動作效果
+			var world_node = get_tree().get_first_node_in_group("world")
+			if world_node:
+				var slowmo_controller = world_node.get_node_or_null("SlowMoController")
+				if slowmo_controller:
+					print("Debug: Instant hit slowmo requested for %s hitting %s, damage=%s, time_scale set to 0.02" % [name, target.name, damage])
+					slowmo_controller.request_hit_freeze()
+				else:
+					print("Warning: SlowMoController node not found in world node for %s" % name)
+			else:
+				print("Warning: World node not found in group 'world' for %s" % name)
+			
+			var skip_target_push = target.get_node("PushHandler").is_at_corner()
 			target.take_hit(blockstun_duration, damage, skip_target_push)
 			var is_blocked = target.is_blocking and target.block_type == "ordinary"
 			hit_detected.emit(target.name, blockstun_duration, is_blocked)

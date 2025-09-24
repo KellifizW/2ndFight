@@ -12,6 +12,7 @@ var initial_p2_pos: Vector2
 var slowmo_triggered: bool = false
 
 func _ready():
+	add_to_group("world")  # 確保 world 節點加入 "world" 組
 	player1.hit_detected.connect(_on_hit_detected)
 	player2.hit_detected.connect(_on_hit_detected)
 	player1.block_detected.connect(_on_block_detected)
@@ -137,6 +138,8 @@ func reset_players():
 		player.is_jumping = false
 		player.is_crouching = false
 		player.is_landing = false
+		player.is_wakeup = false
+		player.is_wakeup_locked = false
 		player.hit_timer = 0.0
 		player.block_timer = 0.0
 		player.knockfly_timer = 0.0
@@ -163,11 +166,13 @@ func reset_players():
 			player.get_node("AIBehavior").state_timer = 0.0
 			player.get_node("AIBehavior").last_action_time = 0.0
 	
-	# 重置慢動作
+	# 重置慢動作相關狀態，但保留擊中慢動作功能
 	if slowmo_controller:
 		slowmo_controller.exit_slowmo_animation()
+		slowmo_controller.is_hit_slowmo = false
 		slowmo_triggered = false
-		print("Debug: Slow motion reset during player reset")
+		Engine.time_scale = slowmo_controller.normal_time_scale
+		print("Debug: Slow motion and hit slowmo states reset, time_scale=%s" % Engine.time_scale)
 	
 	# 重置 AnimationLabel
 	if animation_label:
