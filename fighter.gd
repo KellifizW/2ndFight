@@ -80,7 +80,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	animation_tree.set("parameters/conditions/Crouch", target_state == "Crouch")
 	animation_tree.set("parameters/conditions/Dash", is_dashing)
 	animation_tree.set("parameters/conditions/Backdash", is_backdashing)
-	animation_tree.set("parameters/conditions/St_mp", is_attacking)
+	animation_tree.set("parameters/conditions/St_mp", is_attacking)  # 這裡確保條件 St_mp 只在攻擊時啟用
 	animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
 	animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
 	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
@@ -91,7 +91,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	animation_tree.set("parameters/conditions/powerkk", false)
 
 	if curr_state != target_state and target_state != "Walk":
-		animation_state.travel(target_state)
+		animation_state.travel(target_state)  # 使用 travel() 模擬 Immediate switch
 		print("Debug: Animation switched to %s for %s, dir_x=%.1f, crouch_input=%s, is_blocking=%s, is_crouch_blocking=%s" % [target_state, name, dir_x, crouch_input, is_blocking, is_crouch_blocking])
 	elif curr_state != target_state:
 		animation_state.travel(target_state)
