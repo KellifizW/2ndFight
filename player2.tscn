@@ -604,7 +604,7 @@ tracks/0/keys = {
 }
 
 [sub_resource type="Animation" id="Animation_x536s"]
-length = 0.6
+length = 0.5
 loop_mode = 1
 step = 0.05
 tracks/0/type = "value"
@@ -621,7 +621,7 @@ tracks/0/keys = {
 }
 
 [sub_resource type="Animation" id="Animation_md12c"]
-length = 0.6
+length = 0.5
 loop_mode = 1
 step = 0.05
 tracks/0/type = "value"
@@ -807,7 +807,7 @@ tracks/12/keys = {
 
 [sub_resource type="Animation" id="Animation_0e34t"]
 resource_name = "davis_jump_v"
-length = 0.6
+length = 0.5
 loop_mode = 1
 step = 0.05
 tracks/0/type = "value"
@@ -821,6 +821,18 @@ tracks/0/keys = {
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1),
 "update": 1,
 "values": [Vector2i(1, 6), Vector2i(2, 6), Vector2i(5, 6), Vector2i(6, 6), Vector2i(2, 6)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:offset")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0, -4)]
 }
 
 [sub_resource type="Animation" id="Animation_64yue"]
@@ -1244,16 +1256,16 @@ advance_condition = &"landing"
 advance_mode = 2
 advance_condition = &"landing"
 
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_8caby"]
-switch_mode = 2
-advance_mode = 2
-advance_condition = &"Walk"
-
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_61wwb"]
 advance_mode = 2
 advance_condition = &"landing"
 
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_2dedv"]
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_8caby"]
+switch_mode = 2
+advance_mode = 2
+advance_condition = &"Walk"
 
 [sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_mbed6"]
 states/Backdash/node = SubResource("AnimationNodeAnimation_3h1ys")
@@ -1284,13 +1296,13 @@ states/jump_mk/position = Vector2(567, 35)
 states/knockfly/node = SubResource("AnimationNodeAnimation_meopb")
 states/knockfly/position = Vector2(74, 211)
 states/landing/node = SubResource("AnimationNodeAnimation_tj0vx")
-states/landing/position = Vector2(335, 72)
+states/landing/position = Vector2(335, 56)
 states/spnk/node = SubResource("AnimationNodeAnimation_rihsh")
 states/spnk/position = Vector2(720, 227)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-52, 185)
-transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "Crouch", SubResource("AnimationNodeStateMachineTransition_ph7k6"), "Crouch", "Walk", SubResource("AnimationNodeStateMachineTransition_qr7ep"), "Walk", "Backdash", SubResource("AnimationNodeStateMachineTransition_yev3d"), "Backdash", "Walk", SubResource("AnimationNodeStateMachineTransition_0e34t"), "Walk", "Dash", SubResource("AnimationNodeStateMachineTransition_6ev7e"), "Dash", "Walk", SubResource("AnimationNodeStateMachineTransition_aar5g"), "Walk", "knockfly", SubResource("AnimationNodeStateMachineTransition_64yue"), "knockfly", "wakeup", SubResource("AnimationNodeStateMachineTransition_g4e5n"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_aiihl"), "Crouch", "cr_block", SubResource("AnimationNodeStateMachineTransition_hqspj"), "Walk", "cr_block", SubResource("AnimationNodeStateMachineTransition_tbhii"), "cr_block", "Crouch", SubResource("AnimationNodeStateMachineTransition_wcnsh"), "cr_block", "Walk", SubResource("AnimationNodeStateMachineTransition_4cyww"), "Jump_B", "landing", SubResource("AnimationNodeStateMachineTransition_tj0vx"), "Jump_V", "landing", SubResource("AnimationNodeStateMachineTransition_bhnal"), "Jump_F", "landing", SubResource("AnimationNodeStateMachineTransition_uqwy3"), "landing", "Walk", SubResource("AnimationNodeStateMachineTransition_8caby"), "jump_mk", "landing", SubResource("AnimationNodeStateMachineTransition_61wwb"), "Walk", "St_mp", SubResource("AnimationNodeStateMachineTransition_2dedv")]
-graph_offset = Vector2(-246, 19)
+transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "Crouch", SubResource("AnimationNodeStateMachineTransition_ph7k6"), "Crouch", "Walk", SubResource("AnimationNodeStateMachineTransition_qr7ep"), "Walk", "Backdash", SubResource("AnimationNodeStateMachineTransition_yev3d"), "Backdash", "Walk", SubResource("AnimationNodeStateMachineTransition_0e34t"), "Walk", "Dash", SubResource("AnimationNodeStateMachineTransition_6ev7e"), "Dash", "Walk", SubResource("AnimationNodeStateMachineTransition_aar5g"), "Walk", "knockfly", SubResource("AnimationNodeStateMachineTransition_64yue"), "knockfly", "wakeup", SubResource("AnimationNodeStateMachineTransition_g4e5n"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_aiihl"), "Crouch", "cr_block", SubResource("AnimationNodeStateMachineTransition_hqspj"), "Walk", "cr_block", SubResource("AnimationNodeStateMachineTransition_tbhii"), "cr_block", "Crouch", SubResource("AnimationNodeStateMachineTransition_wcnsh"), "cr_block", "Walk", SubResource("AnimationNodeStateMachineTransition_4cyww"), "Jump_B", "landing", SubResource("AnimationNodeStateMachineTransition_tj0vx"), "Jump_V", "landing", SubResource("AnimationNodeStateMachineTransition_bhnal"), "Jump_F", "landing", SubResource("AnimationNodeStateMachineTransition_uqwy3"), "jump_mk", "landing", SubResource("AnimationNodeStateMachineTransition_61wwb"), "Walk", "St_mp", SubResource("AnimationNodeStateMachineTransition_2dedv"), "landing", "Walk", SubResource("AnimationNodeStateMachineTransition_8caby")]
+graph_offset = Vector2(-220, -28)
 
 [node name="Player2" type="CharacterBody2D"]
 collision_layer = 3
@@ -1345,7 +1357,6 @@ shape = SubResource("RectangleShape2D_bhnal")
 debug_color = Color(1.44392e-06, 0.569045, 0.850655, 0.42)
 
 [node name="AttackHurtShape" type="CollisionShape2D" parent="Hurtbox"]
-position = Vector2(15, 10)
 debug_color = Color(0.9954062, 0, 0.21373373, 0.41960785)
 
 [node name="Proximitybox" type="Area2D" parent="."]

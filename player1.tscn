@@ -613,7 +613,7 @@ tracks/0/keys = {
 }
 
 [sub_resource type="Animation" id="Animation_x536s"]
-length = 0.6
+length = 0.5
 step = 0.0333
 tracks/0/type = "value"
 tracks/0/imported = false
@@ -629,8 +629,7 @@ tracks/0/keys = {
 }
 
 [sub_resource type="Animation" id="Animation_md12c"]
-length = 0.6
-loop_mode = 1
+length = 0.5
 step = 0.0333
 tracks/0/type = "value"
 tracks/0/imported = false
@@ -774,7 +773,7 @@ tracks/3/keys = {
 
 [sub_resource type="Animation" id="Animation_0e34t"]
 resource_name = "davis_jump_v"
-length = 0.6
+length = 0.5
 step = 0.0333
 tracks/0/type = "value"
 tracks/0/imported = false
