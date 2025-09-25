@@ -114,7 +114,6 @@ func _physics_process(delta):
 		if has_node("Proximitybox/ProxShape"):
 			$Proximitybox/ProxShape.disabled = true
 		update_facing_direction()
-	# 優化：著地時立即終止空中攻擊並檢查是否進入 landing
 	if is_jumping and is_on_floor():
 		is_jumping = false
 		if is_air_attacking:
@@ -136,8 +135,12 @@ func _physics_process(delta):
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var curr_state = animation_state.get_current_node() if animation_state else "none"
 	var on_floor = is_on_floor()
+	# 確保空中時不觸發 landing
+	if not on_floor and (is_jumping or is_air_attacking):
+		is_landing = false
+		if animation_tree:
+			animation_tree.set("parameters/conditions/landing", false)
 	
-	# 優化：將 is_landing 檢查移到前面，確保其優先於 is_air_attacking
 	if is_landing and on_floor and not is_dashing and not is_backdashing:
 		current_mode = "landing"
 		is_wakeup = false
@@ -155,6 +158,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			animation_tree.set("parameters/conditions/Jump_B", false)
 			animation_tree.set("parameters/conditions/Jump_V", false)
 			animation_state.travel(target_state)
+			print("Debug: Switching to landing animation")
 		return
 	
 	if is_air_attacking and not is_hit and not is_knockfly:
@@ -175,6 +179,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			animation_tree.set("parameters/conditions/Jump_B", false)
 			animation_tree.set("parameters/conditions/Jump_V", false)
 			animation_state.travel(target_state)
+			print("Debug: Switching to jump_mk animation")
 		return
 	
 	if move_set and move_set.is_spmove and not is_hit and not is_knockfly:
@@ -193,6 +198,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			animation_tree.set("parameters/conditions/wakeup", false)
 			animation_tree.set("parameters/conditions/landing", false)
 			animation_state.travel(target_state)
+			print("Debug: Switching to %s animation" % target_state)
 		return
 	
 	if is_knockfly:
@@ -211,6 +217,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			animation_tree.set("parameters/conditions/wakeup", false)
 			animation_tree.set("parameters/conditions/landing", false)
 			animation_state.travel(target_state)
+			print("Debug: Switching to knockfly animation")
 		return
 	elif is_wakeup and is_wakeup_locked:
 		current_mode = "wakeup"
@@ -221,6 +228,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			animation_tree.set("parameters/conditions/jump_mk", false)
 			animation_tree.set("parameters/conditions/landing", false)
 			animation_state.travel(target_state)
+			print("Debug: Switching to wakeup animation")
 		return
 	
 	super._update_animation_state(dir_x, crouch_input)
@@ -265,6 +273,7 @@ func _on_hitbox_area_entered(area: Area2D):
 
 func _on_animation_tree_finished(anim_name: String):
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
+	print("Debug: Animation %s finished, is_landing=%s, is_air_attacking=%s, is_jumping=%s, on_floor=%s" % [anim_name, is_landing, is_air_attacking, is_jumping, is_on_floor()])
 	if anim_name == "knockfly" and is_knockfly:
 		if healthbar and healthbar.current_health <= 0:
 			return
@@ -272,31 +281,45 @@ func _on_animation_tree_finished(anim_name: String):
 		is_wakeup = true
 		is_wakeup_locked = true
 		velocity = Vector2.ZERO
+		animation_tree.set("parameters/conditions/knockfly", false)
 		animation_state.travel("wakeup")
+		print("Debug: Switching to wakeup after knockfly")
 	elif anim_name == "wakeup" and is_wakeup:
 		is_wakeup = false
 		is_wakeup_locked = false
-		_update_animation_state(0, false)
-	elif anim_name == "landing" and is_landing:
 		is_landing = false
 		_update_animation_state(0, false)
+		print("Debug: Wakeup animation finished, resetting to default state")
+	elif anim_name == "landing" and is_landing:
+		is_landing = false
+		animation_tree.set("parameters/conditions/landing", false)
+		_update_animation_state(0, false)
+		print("Debug: Landing animation finished, resetting to default state")
 	elif anim_name == "St_mp":
 		update_facing_direction()
+		print("Debug: St_mp animation finished, updating facing direction")
 	elif anim_name == "jump_mk" and is_air_attacking:
 		is_air_attacking = false
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = true
+		if has_node("Proximitybox/ProxShape"):
+			$Proximitybox/ProxShape.disabled = true
+		animation_tree.set("parameters/conditions/jump_mk", false)
 		if is_on_floor():
 			var input_data = get_input()
 			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed:
 				is_landing = false
 				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+				print("Debug: jump_mk finished on ground, switching to input-based state")
 			else:
 				is_landing = true
-				animation_tree.set("parameters/conditions/jump_mk", false)
+				animation_tree.set("parameters/conditions/landing", true)
 				animation_state.travel("landing")
+				print("Debug: jump_mk finished on ground, switching to landing")
 		else:
-			_update_animation_state(jump_dir, false)
+			is_landing = false
+			_update_animation_state(0, false)
+			print("Debug: jump_mk finished in air, updating animation state")
 
 func get_facing_multiplier() -> float:
 	return super.get_facing_multiplier()

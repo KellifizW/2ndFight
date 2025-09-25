@@ -13,7 +13,7 @@ config_version=5
 config/name="2ndFight"
 run/main_scene="uid://c0j8o4o3jtun1"
 config/features=PackedStringArray("4.5", "Forward Plus")
-config/icon="res://icon.svg"
+config/icon="uid://1i85jxk02qj2"
 
 [display]
 
