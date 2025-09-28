@@ -1,10 +1,9 @@
-[gd_scene load_steps=70 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=69 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="2_yev3d"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://MoveSet.gd" id="3_0e34t"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai_behavior.gd" id="4_3pafw"]
-[ext_resource type="Script" uid="uid://bdnsffppy4t3a" path="res://PushHandler.gd" id="5_3odsw"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(20, 70)
@@ -1433,7 +1432,6 @@ collision_layer = 2
 collision_mask = 8
 
 [node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
-position = Vector2(24, 1)
 debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="."]
@@ -1459,6 +1457,3 @@ script = ExtResource("3_0e34t")
 
 [node name="AIBehavior" type="Node" parent="."]
 script = ExtResource("4_3pafw")
-
-[node name="PushHandler" type="Node" parent="."]
-script = ExtResource("5_3odsw")

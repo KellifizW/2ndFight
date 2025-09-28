@@ -252,7 +252,9 @@ func _on_hitbox_area_entered(area: Area2D):
 			else:
 				print("Warning: World node not found in group 'world' for %s" % name)
 			
-			var skip_target_push = target.get_node("PushHandler").is_at_corner()
+			# Modified line: Access PushManager to call is_at_corner
+			var push_manager = get_tree().get_first_node_in_group("push_manager")
+			var skip_target_push = push_manager.is_at_corner(target) if push_manager else false
 			target.take_hit(blockstun_duration, damage, skip_target_push)
 			var is_blocked = target.is_blocking and target.block_type == "ordinary"
 			hit_detected.emit(target.name, blockstun_duration, is_blocked)

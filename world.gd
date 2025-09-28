@@ -28,13 +28,6 @@ func _ready():
 	initial_p1_pos = player1.global_position
 	initial_p2_pos = player2.global_position
 	print("Debug: Initial positions stored - P1: %s, P2: %s" % [initial_p1_pos, initial_p2_pos])
-	
-	# 新增：為每個玩家動態添加 PushHandler，如果還沒有
-	for player in [player1, player2]:
-		if not player.has_node("PushHandler"):
-			var push_handler = PushHandler.new()
-			player.add_child(push_handler)
-			print("Debug: Added PushHandler to %s" % player.name)
 
 func _input(event):
 	if event is InputEventKey and event.pressed:
