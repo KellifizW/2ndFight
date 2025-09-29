@@ -3,18 +3,18 @@ class_name PushManager extends Node
 @export var push_distance_multiplier: float = 0.5  # 地面推開力
 @export var PUSH_FRICTION: float = 66.0          # 摩擦用於推開計算
 @export var ground_push_trigger_distance: float = 2.0  # 地面推開觸發距離
-@export var air_push_trigger_distance: float = 6.0     # 空中推開觸發距離
-@export var corner_y_trigger_distance: float = 26.0    # 邊角空中y觸發距離
-@export var collision_epsilon: float = 1.0             # 碰撞容差
+@export var air_push_trigger_distance: float = 11.0    # 空中推開觸發距離
+@export var corner_y_trigger_distance: float = 27.0    # 邊角空中y觸發距離
+@export var collision_epsilon: float = 1.0            # 碰撞容差
 
 var players: Array = []
 
 func _ready() -> void:
 	players = get_tree().get_nodes_in_group("players")
 	for player in players:
-		if not ("colbox_half_width" in player and "colbox_half_height" in player and "sprite" in player):
+		if not ("colbox_half_width" in player and "colbox_half_height" in player):
 			if OS.is_debug_build():
-				print("Warning: Player %s missing colbox_half_width, colbox_half_height, or sprite." % player.name)
+				print("Warning: Player %s missing colbox_half_width or colbox_half_height." % player.name)
 
 func _physics_process(delta: float) -> void:
 	players = get_tree().get_nodes_in_group("players")
@@ -79,7 +79,7 @@ func _physics_process(delta: float) -> void:
 					if player.animation_player:
 						player.animation_player.speed_scale = 1.0
 
-	# 中心化推開處理：模擬舊版循環邏輯
+	# 中心化推開處理：使用 Pushbox 作為碰撞計算基準
 	for i in range(players.size()):
 		var parent = players[i]
 		parent.is_being_pushed = false
@@ -88,16 +88,17 @@ func _physics_process(delta: float) -> void:
 			if parent.is_hit or other.is_hit or parent.is_knockfly or other.is_knockfly or parent.is_blocking or other.is_blocking:
 				continue  # 跳過禁用狀態，但允許attacking
 
-			var sprite_offset = parent.sprite.position if "sprite" in parent else Vector2.ZERO
-			var other_sprite_offset = other.sprite.position if "sprite" in other else Vector2.ZERO
-			var leftA = parent.global_position.x - parent.colbox_half_width + sprite_offset.x
-			var rightA = parent.global_position.x + parent.colbox_half_width + sprite_offset.x
-			var upA = parent.global_position.y - parent.colbox_half_height + sprite_offset.y
-			var downA = parent.global_position.y + parent.colbox_half_height + sprite_offset.y
-			var leftB = other.global_position.x - other.colbox_half_width + other_sprite_offset.x
-			var rightB = other.global_position.x + other.colbox_half_width + other_sprite_offset.x
-			var upB = other.global_position.y - other.colbox_half_height + other_sprite_offset.y
-			var downB = other.global_position.y + other.colbox_half_height + other_sprite_offset.y
+			# 使用 Pushbox 的位置作為基準，移除 Sprite2D 影響
+			var pushbox_offset = parent.get_node("Pushbox").position if parent.has_node("Pushbox") else Vector2.ZERO
+			var other_pushbox_offset = other.get_node("Pushbox").position if other.has_node("Pushbox") else Vector2.ZERO
+			var leftA = parent.global_position.x - parent.colbox_half_width + pushbox_offset.x
+			var rightA = parent.global_position.x + parent.colbox_half_width + pushbox_offset.x
+			var upA = parent.global_position.y - parent.colbox_half_height + pushbox_offset.y
+			var downA = parent.global_position.y + parent.colbox_half_height + pushbox_offset.y
+			var leftB = other.global_position.x - other.colbox_half_width + other_pushbox_offset.x
+			var rightB = other.global_position.x + other.colbox_half_width + other_pushbox_offset.x
+			var upB = other.global_position.y - other.colbox_half_height + other_pushbox_offset.y
+			var downB = other.global_position.y + other.colbox_half_height + other_pushbox_offset.y
 
 			# 修正重疊計算，確保非負
 			var overlap_x = max(0.0, min(rightA, rightB) - max(leftA, leftB))
@@ -151,17 +152,21 @@ func _physics_process(delta: float) -> void:
 						new_self_x -= push_distance * 0.5
 						new_other_x += push_distance * 0.5
 
-				new_self_x = clamp(new_self_x, parent.arena_left + parent.colbox_half_width, parent.arena_right - parent.colbox_half_width)
-				new_other_x = clamp(new_other_x, parent.arena_left + other.colbox_half_width, parent.arena_right - other.colbox_half_width)
-
-				parent.global_position.x = new_self_x
-				other.global_position.x = new_other_x
+				# 使用 move_and_collide 進行平滑移動
+				var self_velocity = Vector2(new_self_x - parent.global_position.x, 0.0)
+				var other_velocity = Vector2(new_other_x - other.global_position.x, 0.0)
+				var prev_velocity_y = parent.velocity.y
+				parent.move_and_collide(self_velocity, false, 0.0, false)
+				parent.velocity.y = prev_velocity_y
+				var other_prev_velocity_y = other.velocity.y
+				other.move_and_collide(other_velocity, false, 0.0, false)
+				other.velocity.y = other_prev_velocity_y
 				parent.is_being_pushed = true
 				other.is_being_pushed = true
 
 				if OS.is_debug_build():
-					print("Debug: Push applied - %s x=%s, %s x=%s, overlap_x=%s, overlap_y=%s, is_air=%s, relative_pos_x=%s" % 
-						  [parent.name, new_self_x, other.name, new_other_x, overlap_x, overlap_y, (parent.is_jumping or other.is_jumping), relative_pos_x])
+					print("Debug: Push applied - %s x=%s, %s x=%s, overlap_x=%s, overlap_y=%s, is_air=%s, relative_pos_x=%s, parent_velocity_y=%.2f, other_velocity_y=%.2f" % 
+						  [parent.name, new_self_x, other.name, new_other_x, overlap_x, overlap_y, (parent.is_jumping or other.is_jumping), relative_pos_x, prev_velocity_y, other_prev_velocity_y])
 
 	# 最終夾住所有玩家的位置
 	for player in players:
