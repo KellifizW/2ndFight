@@ -1,13 +1,43 @@
 class_name PushManager extends Node
 
-@export var push_distance_multiplier: float = 0.5  # 地面推開力
-@export var PUSH_FRICTION: float = 66.0          # 摩擦用於推開計算
-@export var ground_push_trigger_distance: float = 2.0  # 地面推開觸發距離
-@export var air_push_trigger_distance: float = 11.0    # 空中推開觸發距離
-@export var corner_y_trigger_distance: float = 27.0    # 邊角空中y觸發距離
+const SIMULATION_SCALE: float = 1000.0  # 與 world.gd 一致，避免不匹配
+
+@export var PUSH_FRICTION: float = 66.0          # 摩擦用於推開計算（但現在移除額外摩擦）
 @export var collision_epsilon: float = 1.0            # 碰撞容差
 
 var players: Array = []
+
+class Collider:
+	var center: Vector2i
+	var size: Vector2i
+	
+	func _init(c: Vector2i, s: Vector2i):
+		center = c
+		size = s
+	
+	func is_overlapping(other: Collider, x_trigger: int, y_trigger: int) -> bool:
+		var left_a = center.x - (size.x / 2)
+		var right_a = center.x + (size.x / 2)
+		var left_b = other.center.x - (other.size.x / 2)
+		var right_b = other.center.x + (other.size.x / 2)
+		var has_x_overlap = left_a <= right_b + x_trigger and right_a >= left_b - x_trigger
+		
+		var up_a = center.y - (size.y / 2)
+		var down_a = center.y + (size.y / 2)
+		var up_b = other.center.y - (other.size.y / 2)
+		var down_b = other.center.y + (other.size.y / 2)
+		var has_y_overlap = up_a <= down_b + y_trigger and down_a >= up_b - y_trigger
+		
+		return has_x_overlap and has_y_overlap
+
+func get_depth(a: Collider, b: Collider) -> Vector2i:
+	var length = a.center - b.center
+	var depth = (a.size + b.size) / 2
+	depth.x -= abs(length.x)
+	depth.y -= abs(length.y)
+	depth.x = max(0, depth.x)
+	depth.y = max(0, depth.y)
+	return depth
 
 func _ready() -> void:
 	players = get_tree().get_nodes_in_group("players")
@@ -79,7 +109,7 @@ func _physics_process(delta: float) -> void:
 					if player.animation_player:
 						player.animation_player.speed_scale = 1.0
 
-	# 中心化推開處理：使用 Pushbox 作為碰撞計算基準
+	# 中心化推開處理：移植 Sakuga 的邏輯，移除 trigger/min_push/friction/multiplier，使用精準 depth 推開
 	for i in range(players.size()):
 		var parent = players[i]
 		parent.is_being_pushed = false
@@ -88,91 +118,100 @@ func _physics_process(delta: float) -> void:
 			if parent.is_hit or other.is_hit or parent.is_knockfly or other.is_knockfly or parent.is_blocking or other.is_blocking:
 				continue  # 跳過禁用狀態，但允許attacking
 
-			# 使用 Pushbox 的位置作為基準，移除 Sprite2D 影響
-			var pushbox_offset = parent.get_node("Pushbox").position if parent.has_node("Pushbox") else Vector2.ZERO
-			var other_pushbox_offset = other.get_node("Pushbox").position if other.has_node("Pushbox") else Vector2.ZERO
-			var leftA = parent.global_position.x - parent.colbox_half_width + pushbox_offset.x
-			var rightA = parent.global_position.x + parent.colbox_half_width + pushbox_offset.x
-			var upA = parent.global_position.y - parent.colbox_half_height + pushbox_offset.y
-			var downA = parent.global_position.y + parent.colbox_half_height + pushbox_offset.y
-			var leftB = other.global_position.x - other.colbox_half_width + other_pushbox_offset.x
-			var rightB = other.global_position.x + other.colbox_half_width + other_pushbox_offset.x
-			var upB = other.global_position.y - other.colbox_half_height + other_pushbox_offset.y
-			var downB = other.global_position.y + other.colbox_half_height + other_pushbox_offset.y
-
-			# 修正重疊計算，確保非負
-			var overlap_x = max(0.0, min(rightA, rightB) - max(leftA, leftB))
-			var overlap_y = max(0.0, min(downA, downB) - max(upA, upB))
-			var relative_pos_x = parent.global_position.x - other.global_position.x
-			var push_distance = max(overlap_x, 12.0) * push_distance_multiplier
-
-			var self_at_left = abs(parent.global_position.x - (parent.arena_left + parent.colbox_half_width)) < collision_epsilon
-			var self_at_right = abs(parent.global_position.x - (parent.arena_right - parent.colbox_half_width)) < collision_epsilon
-			var other_at_left = abs(other.global_position.x - (parent.arena_left + other.colbox_half_width)) < collision_epsilon
-			var other_at_right = abs(other.global_position.x - (parent.arena_right - other.colbox_half_width)) < collision_epsilon
-			var is_corner = self_at_left or self_at_right or other_at_left or other_at_right
-
-			var x_trigger_distance = air_push_trigger_distance if (parent.is_jumping or other.is_jumping) else ground_push_trigger_distance
-			var has_x_overlap = rightA >= leftB - x_trigger_distance and leftA <= rightB + x_trigger_distance
-			var y_trigger_distance = ground_push_trigger_distance
-			if has_x_overlap:
-				if is_corner and (parent.is_jumping or other.is_jumping):
-					y_trigger_distance = corner_y_trigger_distance
-				elif parent.is_jumping or other.is_jumping:
-					y_trigger_distance = air_push_trigger_distance
+			# 計算fixed_position和offset
+			var fixed_position_a = Vector2i(round(parent.global_position.x * SIMULATION_SCALE), round(parent.global_position.y * SIMULATION_SCALE))
+			var fixed_position_b = Vector2i(round(other.global_position.x * SIMULATION_SCALE), round(other.global_position.y * SIMULATION_SCALE))
+			
+			var pushbox_offset_a = parent.get_node("Pushbox").position if parent.has_node("Pushbox") else Vector2.ZERO
+			var fixed_offset_a = Vector2i(round(pushbox_offset_a.x * SIMULATION_SCALE), round(pushbox_offset_a.y * SIMULATION_SCALE))
+			var pushbox_offset_b = other.get_node("Pushbox").position if other.has_node("Pushbox") else Vector2.ZERO
+			var fixed_offset_b = Vector2i(round(pushbox_offset_b.x * SIMULATION_SCALE), round(pushbox_offset_b.y * SIMULATION_SCALE))
+			
+			var side_a = Vector2i(int(parent.facing_direction), 1)
+			var side_b = Vector2i(int(other.facing_direction), 1)
+			
+			var center_a = fixed_position_a + fixed_offset_a * side_a
+			var size_a = Vector2i(round(parent.colbox_half_width * 2 * SIMULATION_SCALE), round(parent.colbox_half_height * 2 * SIMULATION_SCALE))
+			var collider_a = Collider.new(center_a, size_a)
+			
+			var center_b = fixed_position_b + fixed_offset_b * side_b
+			var size_b = Vector2i(round(other.colbox_half_width * 2 * SIMULATION_SCALE), round(other.colbox_half_height * 2 * SIMULATION_SCALE))
+			var collider_b = Collider.new(center_b, size_b)
+			
+			# 檢查是否重疊（無 trigger，移植 Sakuga 的精準檢測）
+			if collider_a.is_overlapping(collider_b, 0, 0):
+				# 計算實際 depth
+				var depth = get_depth(collider_a, collider_b)
+				var overlap_fixed_x = depth.x
+				var overlap_fixed_y = depth.y
+				
+				if overlap_fixed_x <= 0:
+					continue
+				
+				# 推開距離為 depth.x（精準分離，無額外添加）
+				var push_distance_fixed = overlap_fixed_x
+				
+				# 計算 normal_x
+				var normal_x: int
+				if fixed_position_a.x > fixed_position_b.x:
+					normal_x = -1
+				elif fixed_position_a.x < fixed_position_b.x:
+					normal_x = 1
 				else:
-					y_trigger_distance = ground_push_trigger_distance
-			var is_overlapping = has_x_overlap and (downA >= upB - y_trigger_distance and upA <= downB + y_trigger_distance)
-
-			if is_overlapping:
-				if parent.is_jumping or other.is_jumping:
-					push_distance += PUSH_FRICTION * delta * 1.5
-				else:
-					push_distance += PUSH_FRICTION * delta
-
-				var new_self_x = parent.global_position.x
-				var new_other_x = other.global_position.x
-				if other_at_right and relative_pos_x > 0:
-					new_self_x -= push_distance
-					new_other_x = parent.arena_right - other.colbox_half_width
-				elif other_at_left and relative_pos_x < 0:
-					new_self_x += push_distance
-					new_other_x = parent.arena_left + other.colbox_half_width
-				elif self_at_right and relative_pos_x < 0:
-					new_other_x += push_distance
-					new_self_x = parent.arena_right - parent.colbox_half_width
-				elif self_at_left and relative_pos_x > 0:
-					new_other_x -= push_distance
-					new_self_x = parent.arena_left + parent.colbox_half_width
-				else:
-					if relative_pos_x > 0:
-						new_self_x += push_distance * 0.5
-						new_other_x -= push_distance * 0.5
-					else:
-						new_self_x -= push_distance * 0.5
-						new_other_x += push_distance * 0.5
-
-				# 使用 move_and_collide 進行平滑移動
-				var self_velocity = Vector2(new_self_x - parent.global_position.x, 0.0)
-				var other_velocity = Vector2(new_other_x - other.global_position.x, 0.0)
-				var prev_velocity_y = parent.velocity.y
-				parent.move_and_collide(self_velocity, false, 0.0, false)
-				parent.velocity.y = prev_velocity_y
-				var other_prev_velocity_y = other.velocity.y
-				other.move_and_collide(other_velocity, false, 0.0, false)
-				other.velocity.y = other_prev_velocity_y
+					normal_x = 1 if is_at_corner(parent) else -1  # 罕見情況，使用角落或默認
+				
+				# 計算邊界
+				var epsilon_fixed = round(collision_epsilon * SIMULATION_SCALE)
+				var arena_left_fixed = round(parent.arena_left * SIMULATION_SCALE)
+				var arena_right_fixed = round(parent.arena_right * SIMULATION_SCALE)
+				
+				var half_a_fixed = size_a.x / 2
+				var half_b_fixed = size_b.x / 2
+				
+				var self_at_left = abs(fixed_position_a.x - (arena_left_fixed + half_a_fixed)) < epsilon_fixed
+				var self_at_right = abs(fixed_position_a.x - (arena_right_fixed - half_a_fixed)) < epsilon_fixed
+				var other_at_left = abs(fixed_position_b.x - (arena_left_fixed + half_b_fixed)) < epsilon_fixed
+				var other_at_right = abs(fixed_position_b.x - (arena_right_fixed - half_b_fixed)) < epsilon_fixed
+				
+				# 計算 unpushable（移植 Sakuga）
+				var unpush_self = (other_at_left and fixed_position_a.x >= fixed_position_b.x) or (other_at_right and fixed_position_a.x <= fixed_position_b.x)
+				var unpush_other = (self_at_left and fixed_position_b.x >= fixed_position_a.x) or (self_at_right and fixed_position_b.x <= fixed_position_a.x)
+				
+				# 計算推開量（修正：確保最小推開量以防止微小重疊）
+				var push_vec_self = normal_x * (push_distance_fixed / 2 + 1)  # 額外 +1 防止重疊
+				var push_vec_other = -normal_x * (push_distance_fixed / 2 + 1)
+				
+				if unpush_self:
+					push_vec_self = normal_x * (push_distance_fixed + 2)  # 額外 +2 確保分離
+				if unpush_other:
+					push_vec_other = -normal_x * (push_distance_fixed + 2)
+				
+				# 計算新位置
+				var new_self_fixed_x = fixed_position_a.x - push_vec_self
+				var new_other_fixed_x = fixed_position_b.x - push_vec_other
+				
+				# 直接更新 fixed_position 和 global_position（同步 fixed_position 防止 snap back）
+				parent.fixed_position.x = new_self_fixed_x
+				other.fixed_position.x = new_other_fixed_x
+				parent.global_position.x = new_self_fixed_x / SIMULATION_SCALE
+				other.global_position.x = new_other_fixed_x / SIMULATION_SCALE
 				parent.is_being_pushed = true
 				other.is_being_pushed = true
 
-				if OS.is_debug_build():
-					print("Debug: Push applied - %s x=%s, %s x=%s, overlap_x=%s, overlap_y=%s, is_air=%s, relative_pos_x=%s, parent_velocity_y=%.2f, other_velocity_y=%.2f" % 
-						  [parent.name, new_self_x, other.name, new_other_x, overlap_x, overlap_y, (parent.is_jumping or other.is_jumping), relative_pos_x, prev_velocity_y, other_prev_velocity_y])
-
-	# 最終夾住所有玩家的位置
+	# 最終夾住所有玩家的位置（使用 fixed_position 保持一致）
 	for player in players:
-		player.global_position.x = clamp(player.global_position.x, player.arena_left + player.colbox_half_width, player.arena_right - player.colbox_half_width)
+		var arena_left_fixed = round(player.arena_left * SIMULATION_SCALE)
+		var arena_right_fixed = round(player.arena_right * SIMULATION_SCALE)
+		var half_fixed = round(player.colbox_half_width * SIMULATION_SCALE)
+		player.fixed_position.x = clamp(player.fixed_position.x, arena_left_fixed + half_fixed, arena_right_fixed - half_fixed)
+		player.global_position.x = player.fixed_position.x / SIMULATION_SCALE
 
 func is_at_corner(player: Node) -> bool:
-	var self_at_left = abs(player.global_position.x - (player.arena_left + player.colbox_half_width)) < collision_epsilon
-	var self_at_right = abs(player.global_position.x - (player.arena_right - player.colbox_half_width)) < collision_epsilon
+	var epsilon_fixed = round(collision_epsilon * SIMULATION_SCALE)
+	var fixed_pos_x = round(player.global_position.x * SIMULATION_SCALE)
+	var half_fixed = round(player.colbox_half_width * SIMULATION_SCALE)
+	var arena_left_fixed = round(player.arena_left * SIMULATION_SCALE)
+	var arena_right_fixed = round(player.arena_right * SIMULATION_SCALE)
+	var self_at_left = abs(fixed_pos_x - (arena_left_fixed + half_fixed)) < epsilon_fixed
+	var self_at_right = abs(fixed_pos_x - (arena_right_fixed - half_fixed)) < epsilon_fixed
 	return self_at_left or self_at_right

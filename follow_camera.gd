@@ -61,7 +61,7 @@ func move():
 	# 根據方向調整縮減因子：向上（y_delta < 0，角色跳起）追蹤極少（0.05），向下追蹤正常（0.3）
 	var current_scale = y_move_scale
 	if y_delta < 0:
-		current_scale = 0.005  # 向上追蹤只有5%，允許角色部分超出頂部
+		current_scale = 0.01  # 向上追蹤只有5%，允許角色部分超出頂部
 	var scaled_y_delta = y_delta * current_scale
 	y_target_buffer += scaled_y_delta
 	target_position.y = y_target_buffer

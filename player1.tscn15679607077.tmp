@@ -1400,6 +1400,14 @@ graph_offset = Vector2(-314, -69)
 collision_layer = 3
 collision_mask = 2
 script = ExtResource("1_0e34t")
+player_id = null
+is_ai_controlled = null
+corner_push_distance = null
+air_knockback_horizontal_speed = null
+air_knockback_vertical_speed = null
+air_friction = null
+min_hitstun_duration = null
+knockfly_duration = null
 block_push_distance = 200.0
 hit_push_distance = 200.0
 

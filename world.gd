@@ -1,5 +1,13 @@
 extends Node2D
 
+# 移植 Global.cs 的常數，適配 480x240 視圖
+const TICKS_PER_SECOND: int = 60
+const SIMULATION_SCALE: int = 1000
+const WALL_LIMIT: int = 24000  # 480 * 1000 / 2
+const STARTING_POSITION: int = 7500  # 150 * 1000 / 2
+const FLOOR_Y: int = 200000  # 200 * SIMULATION_SCALE，地板高度
+const GRAVITY: int = 1800000  # 1800 * 0.375 * 1000
+
 @onready var hit_label = $HitLabel
 @onready var fps_label = $FPS
 @onready var player1 = $Player1
@@ -13,21 +21,27 @@ var slowmo_triggered: bool = false
 
 func _ready():
 	add_to_group("world")  # 確保 world 節點加入 "world" 組
+	if not is_in_group("world"):
+		print("Error: World failed to join 'world' group")
 	player1.hit_detected.connect(_on_hit_detected)
 	player2.hit_detected.connect(_on_hit_detected)
 	player1.block_detected.connect(_on_block_detected)
 	player2.block_detected.connect(_on_block_detected)
 	if not player1 or not player2:
-		print("Warning: Player1 or Player2 node not found in world")
+		print("Error: Player1 or Player2 node not found in world")
 	if not slowmo_controller:
 		print("Warning: SlowMoController node not found in world")
 	if not animation_label:
 		print("Warning: AnimationLabel node not found in world")
 	
-	# 儲存初始位置
-	initial_p1_pos = player1.global_position
-	initial_p2_pos = player2.global_position
-	print("Debug: Initial positions stored - P1: %s, P2: %s" % [initial_p1_pos, initial_p2_pos])
+	# 設置初始位置，y 坐標為地板高度
+	initial_p1_pos = Vector2(190.0, float(FLOOR_Y) / SIMULATION_SCALE)  # y=200
+	initial_p2_pos = Vector2(290.0, float(FLOOR_Y) / SIMULATION_SCALE)  # y=200
+	player1.fixed_position = Vector2i(int(190.0 * SIMULATION_SCALE), FLOOR_Y)
+	player2.fixed_position = Vector2i(int(290.0 * SIMULATION_SCALE), FLOOR_Y)
+	player1.global_position = to_scaled_vector2(player1.fixed_position)
+	player2.global_position = to_scaled_vector2(player2.fixed_position)
+	print("Debug: Initial positions set - P1: %s, P2: %s" % [player1.global_position, player2.global_position])
 
 func _input(event):
 	if event is InputEventKey and event.pressed:
@@ -54,7 +68,14 @@ func _process(delta):
 			slowmo_triggered = true
 			print("Debug: Slow motion triggered due to player health <= 0")
 
-# 新增：重置玩家動畫狀態的函數
+# 移植 Global.cs 的 to_scaled_vector2
+func to_scaled_vector2(vector: Vector2i) -> Vector2:
+	return Vector2(
+		float(vector.x) / SIMULATION_SCALE,
+		float(vector.y) / SIMULATION_SCALE
+	)
+
+# 重置玩家動畫狀態的函數
 func reset_player_animation(player: Node, target_state: String) -> void:
 	var animation_tree = player.get_node_or_null("AnimationTree")
 	var animation_state = animation_tree.get("parameters/playback") if animation_tree else null
@@ -106,9 +127,12 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 	print("Debug: %s animation reset to %s" % [player.name, target_state])
 
 func reset_players():
-	# 重置位置
 	player1.global_position = initial_p1_pos
 	player2.global_position = initial_p2_pos
+	player1.fixed_position = Vector2i(int(initial_p1_pos.x * SIMULATION_SCALE), FLOOR_Y)
+	player2.fixed_position = Vector2i(int(initial_p2_pos.x * SIMULATION_SCALE), FLOOR_Y)
+	player1.global_position = to_scaled_vector2(player1.fixed_position)
+	player2.global_position = to_scaled_vector2(player2.fixed_position)
 	
 	# 重置血量並即時更新 UI
 	for player in [player1, player2]:
@@ -159,7 +183,7 @@ func reset_players():
 			player.get_node("AIBehavior").state_timer = 0.0
 			player.get_node("AIBehavior").last_action_time = 0.0
 	
-	# 重置慢動作相關狀態，但保留擊中慢動作功能
+	# 重置慢動作相關狀態
 	if slowmo_controller:
 		slowmo_controller.exit_slowmo_animation()
 		slowmo_controller.is_hit_slowmo = false

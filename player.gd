@@ -82,6 +82,11 @@ func get_input() -> Dictionary:
 
 func _physics_process(delta):
 	super._physics_process(delta)
+	var world = get_tree().get_first_node_in_group("world")
+	if not world:
+		print("Warning: World node not found in group 'world' for %s" % name)
+		return
+	
 	var input_data = get_input()
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup
@@ -96,7 +101,7 @@ func _physics_process(delta):
 		is_attacking = true
 		attack_timer = attack_time
 		attack_type = input_data.attack_type
-		velocity.x = 0
+		fixed_velocity.x = 0  # 修正：替換 velocity.x
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = false
 		if has_node("Proximitybox/ProxShape"):
@@ -129,9 +134,10 @@ func _physics_process(delta):
 			is_landing = true
 			_update_animation_state(0, false)
 	if is_wakeup:
-		velocity = Vector2.ZERO
+		fixed_velocity = Vector2i.ZERO  # 修正：替換 velocity
 	_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
+# player.gd
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var curr_state = animation_state.get_current_node() if animation_state else "none"
 	var on_floor = is_on_floor()
@@ -140,7 +146,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		is_landing = false
 		if animation_tree:
 			animation_tree.set("parameters/conditions/landing", false)
-	
+
 	if is_landing and on_floor and not is_dashing and not is_backdashing:
 		current_mode = "landing"
 		is_wakeup = false
@@ -160,7 +166,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			animation_state.travel(target_state)
 			print("Debug: Switching to landing animation")
 		return
-	
+
 	if is_air_attacking and not is_hit and not is_knockfly:
 		current_mode = "air_attack"
 		var target_state = "jump_mk"
@@ -181,7 +187,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			animation_state.travel(target_state)
 			print("Debug: Switching to jump_mk animation")
 		return
-	
+
 	if move_set and move_set.is_spmove and not is_hit and not is_knockfly:
 		current_mode = "attack"
 		var target_state = "powerkk" if player_id == "p1" else "spnk"
@@ -200,7 +206,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			animation_state.travel(target_state)
 			print("Debug: Switching to %s animation" % target_state)
 		return
-	
+
 	if is_knockfly:
 		current_mode = "knockfly"
 		is_landing = false
@@ -227,10 +233,11 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			animation_tree.set("parameters/conditions/wakeup", true)
 			animation_tree.set("parameters/conditions/jump_mk", false)
 			animation_tree.set("parameters/conditions/landing", false)
+			animation_tree.set("parameters/conditions/Walk", false)
 			animation_state.travel(target_state)
 			print("Debug: Switching to wakeup animation")
 		return
-	
+
 	super._update_animation_state(dir_x, crouch_input)
 
 func _on_hitbox_area_entered(area: Area2D):
@@ -241,18 +248,17 @@ func _on_hitbox_area_entered(area: Area2D):
 		var damage = current_damage
 		var hit_shape = $Hitbox.get_node_or_null("HitShape") if has_node("Hitbox") else null
 		if damage > 0:
-			var world_node = get_tree().get_first_node_in_group("world")
-			if world_node:
-				var slowmo_controller = world_node.get_node_or_null("SlowMoController")
-				if slowmo_controller:
-					print("Debug: Instant hit slowmo requested for %s hitting %s, damage=%s, time_scale set to 0.02" % [name, target.name, damage])
-					slowmo_controller.request_hit_freeze()
-				else:
-					print("Warning: SlowMoController node not found in world node for %s" % name)
-			else:
+			var world = get_tree().get_first_node_in_group("world")
+			if not world:
 				print("Warning: World node not found in group 'world' for %s" % name)
+				return
+			var slowmo_controller = world.get_node_or_null("SlowMoController")
+			if slowmo_controller:
+				print("Debug: Instant hit slowmo requested for %s hitting %s, damage=%s, time_scale set to 0.02" % [name, target.name, damage])
+				slowmo_controller.request_hit_freeze()
+			else:
+				print("Warning: SlowMoController node not found in world node for %s" % name)
 			
-			# Modified line: Access PushManager to call is_at_corner
 			var push_manager = get_tree().get_first_node_in_group("push_manager")
 			var skip_target_push = push_manager.is_at_corner(target) if push_manager else false
 			target.take_hit(blockstun_duration, damage, skip_target_push)
@@ -266,12 +272,7 @@ func _on_hitbox_area_entered(area: Area2D):
 					push_duration = 0.267
 				else:
 					push_duration = 0.35
-				is_push_back = true
-				initial_push_back = push_duration
-				push_back_timer = push_duration
-				push_back_velocity = 2.0 * corner_push_distance / push_duration
-				velocity.x = -push_back_velocity * get_facing_multiplier()
-				velocity.y = 0
+				fixed_velocity.y = 0  # 修正：替換 velocity.y
 
 func _on_animation_tree_finished(anim_name: String):
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
@@ -282,7 +283,7 @@ func _on_animation_tree_finished(anim_name: String):
 		is_knockfly = false
 		is_wakeup = true
 		is_wakeup_locked = true
-		velocity = Vector2.ZERO
+		fixed_velocity = Vector2i.ZERO  # 修正：替換 velocity
 		animation_tree.set("parameters/conditions/knockfly", false)
 		animation_state.travel("wakeup")
 		print("Debug: Switching to wakeup after knockfly")

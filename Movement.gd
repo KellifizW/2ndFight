@@ -1,15 +1,19 @@
-class_name Movement extends CharacterBody2D
+class_name Movement extends Node2D
 
 @onready var animation_tree = $AnimationTree
 @onready var animation_state = animation_tree.get("parameters/playback")
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer if has_node("AnimationPlayer") else null
 
+# 移植 PhysicsBody 的物理變數
+var fixed_position: Vector2i = Vector2i.ZERO
+var fixed_velocity: Vector2i = Vector2i.ZERO
 var colbox_half_width: float = 0.0
 var colbox_half_height: float = 0.0
-var walk_speed: float = 120.0
-var back_speed: float = walk_speed * 0.75
-var jump_horizontal_speed: float = 130.0
+var walk_speed: float = 100.0  # 適配 20x70 角色
+var back_speed: float = walk_speed * 0.75  # 75.0
+var jump_vertical_speed: float = -650.0  # 跳躍垂直速度（像素/秒）
+var jump_horizontal_speed: float = 110.0  # 前跳/後跳水平速度
 var jump_dir: float = 0.0
 var is_jumping: bool = false
 var is_dashing: bool = false
@@ -30,21 +34,21 @@ var is_crouching: bool = false
 var is_hit: bool = false
 var is_knockfly: bool = false
 var arena_left: float = 0.0
-var arena_right: float = ProjectSettings.get_setting("display/window/size/viewport_width")
-var hit_timer: float = 0.0  # 保持變數，但邏輯移走
-var block_timer: float = 0.0  # 保持變數，但邏輯移走
-var knockfly_timer: float = 0.0  # 保持變數，但邏輯移走
+var arena_right: float = 480.0  # 適配 480x240 視圖
+var hit_timer: float = 0.0
+var block_timer: float = 0.0
+var knockfly_timer: float = 0.0
 @export var knockfly_duration: float = 0.75
 var knockfly_push_speed: float = 300.0
-var knockfly_velocity_x: float = 0.0  # 保持變數，但邏輯移走
+var knockfly_velocity_x: float = 0.0
 @export var block_push_distance: float = 20.0
-var block_push_timer: float = 0.0  # 保持變數，但邏輯移走
-var initial_blockstun: float = 0.0  # 保持變數，但邏輯移走
-var block_push_velocity: float = 0.0  # 保持變數，但邏輯移走
+var block_push_timer: float = 0.0
+var initial_blockstun: float = 0.0
+var block_push_velocity: float = 0.0
 @export var hit_push_distance: float = 20.0
-var hit_push_timer: float = 0.0  # 保持變數，但邏輯移走
-var initial_hitstun: float = 0.0  # 保持變數，但邏輯移走
-var hit_push_velocity: float = 0.0  # 保持變數，但邏輯移走
+var hit_push_timer: float = 0.0
+var initial_hitstun: float = 0.0
+var hit_push_velocity: float = 0.0
 var facing_direction: float = 1.0
 var dash_direction: float = 0.0
 var is_blocking: bool = false
@@ -57,11 +61,12 @@ var was_in_air: bool = false
 var air_hit_knockfly_distance: float = 10.0
 var is_air_hit_knockfly: bool = false
 var is_push_back: bool = false
-var push_back_timer: float = 0.0  # 保持變數，但邏輯移走
-var initial_push_back: float = 0.0  # 保持變數，但邏輯移走
-var push_back_velocity: float = 0.0  # 保持變數，但邏輯移走
-var knockfly_accumulated_distance: float = 0.0  # 保持變數，但邏輯移走
-var knockfly_max_distance: float = 150.0  # 保持變數，但邏輯移走
+var push_back_timer: float = 0.0
+var initial_push_back: float = 0.0
+var push_back_velocity: float = 0.0
+var knockfly_accumulated_distance: float = 0.0
+var knockfly_max_distance: float = 150.0
+var just_jumped: bool = false  # 防止過早落地
 
 signal block_detected(target: String, block_type: String)
 
@@ -79,11 +84,22 @@ func _ready():
 	if animation_player:
 		animation_player.speed_scale = 1.0
 	prev_position = global_position
-	update_facing_direction()
+	var world = get_tree().get_first_node_in_group("world")
+	if world:
+		fixed_position = Vector2i(int(global_position.x * world.SIMULATION_SCALE), world.FLOOR_Y)  # 設置初始 y 為地板高度
+	else:
+		print("Warning: World node not found in group 'world' for %s" % name)
 
 func _physics_process(delta):
+	var world = get_tree().get_first_node_in_group("world")
+	if not world:
+		print("Warning: World node not found in group 'world' for %s" % name)
+		return
+	
 	var current_position = global_position
 	var is_landing = self is Player and get("is_landing") if is_class("Player") else false
+	
+	# 更新計時器
 	if neutral_timer > 0:
 		neutral_timer -= delta
 	if attack_timer > 0:
@@ -91,6 +107,15 @@ func _physics_process(delta):
 		if attack_timer <= 0:
 			is_attacking = false
 			update_facing_direction()
+	if dash_timer > 0:
+		dash_timer -= delta
+		if dash_timer <= 0:
+			is_dashing = false
+			is_backdashing = false
+			fixed_velocity.x = 0
+			print("Debug: Dash/Backdash ended, resetting velocity for %s" % name)
+	
+	# 獲取輸入
 	var input_data = get_input()
 	var input_dir = input_data["input_dir"]
 	var crouch_pressed = input_data["crouch_pressed"]
@@ -99,7 +124,9 @@ func _physics_process(delta):
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_powerkk = move_set.is_powerkk if move_set else false
 	var is_spnk = move_set.is_spnk if move_set else false
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk:
+	
+	# 設置格擋狀態
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back):
 		if input_dir * facing_direction < 0:
 			is_holding_back = true
 		else:
@@ -112,86 +139,124 @@ func _physics_process(delta):
 		if not (is_hit or is_knockfly):
 			is_holding_back = false
 			is_crouch_blocking = false
-	var arena_left = 0.0
-	var arena_right = ProjectSettings.get_setting("display/window/size/viewport_width")
-	if is_class("Fighter"):
-		var arena_left_value = get("arena_left")
-		var arena_right_value = get("arena_right")
-		if arena_left_value != null:
-			arena_left = arena_left_value
-		if arena_right_value != null:
-			arena_right = arena_right_value
-	var is_disabled_state = is_hit or is_knockfly or is_blocking or is_push_back
-	if not is_disabled_state:
-		var current_input_dir = input_dir
-		if current_input_dir != last_input_dir:
-			if last_input_dir == 0 and current_input_dir != 0:
-				if pending_dash_dir == current_input_dir and neutral_timer > 0 and is_on_floor() and not is_crouching and not is_jumping and not is_attacking and not is_powerkk and not is_spnk:
-					if current_input_dir * facing_direction > 0:
-						is_dashing = true
-						dash_timer = dash_time
-						dash_direction = current_input_dir
-						velocity.x = 0
-					elif current_input_dir * facing_direction < 0:
-						is_backdashing = true
-						dash_timer = backdash_time
-						velocity.x = 0
-					pending_dash_dir = 0
-					neutral_timer = 0
-				else:
-					pending_dash_dir = current_input_dir
-					neutral_timer = 0
-			elif current_input_dir == 0 and last_input_dir != 0:
+	
+	# 雙擊檢測
+	if is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_jumping and not is_crouching and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back):
+		if neutral_timer > 0 and input_dir != 0 and input_dir == last_input_dir and pending_dash_dir == input_dir:
+			if input_dir * facing_direction > 0:
+				is_dashing = true
+				dash_timer = dash_time
+				fixed_velocity.x = int(dash_speed * world.SIMULATION_SCALE * input_dir)
+				print("Debug: Dash initiated, fixed_velocity.x=%s, input_dir=%s, facing_direction=%s" % [fixed_velocity.x, input_dir, facing_direction])
+			else:
+				is_backdashing = true
+				dash_timer = backdash_time
+				fixed_velocity.x = int(backdash_speed * world.SIMULATION_SCALE * input_dir)
+				print("Debug: Backdash initiated, fixed_velocity.x=%s, input_dir=%s, facing_direction=%s" % [fixed_velocity.x, input_dir, facing_direction])
+			neutral_timer = 0.0
+			pending_dash_dir = 0
+		elif input_dir != last_input_dir:
+			if last_input_dir != 0 and input_dir == 0:
 				neutral_timer = double_tap_timer
-			else:
-				pending_dash_dir = current_input_dir
-				neutral_timer = 0
-			last_input_dir = current_input_dir
-		if is_dashing:
-			velocity.x = dash_speed * dash_direction
-			dash_timer -= delta
-			if dash_timer <= 0:
-				is_dashing = false
-				velocity.x = 0
-				dash_direction = 0.0
-		elif is_backdashing:
-			velocity.x = backdash_speed * -facing_direction
-			dash_timer -= delta
-			if dash_timer <= 0:
-				is_backdashing = false
-				velocity.x = 0
+				pending_dash_dir = last_input_dir
+			last_input_dir = input_dir
+	
+	# 處理移動邏輯
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back):
+		if input_dir != 0:
+			var move_speed = walk_speed if input_dir * facing_direction > 0 else back_speed
+			fixed_velocity.x = int(move_speed * world.SIMULATION_SCALE * input_dir)
+			print("Debug: Moving, fixed_velocity.x=%s, input_dir=%s, facing_direction=%s" % [fixed_velocity.x, input_dir, facing_direction])
 		else:
-			if is_on_floor():
-				if is_crouching:
-					velocity.x = 0
-				elif not is_attacking and not is_powerkk and not is_spnk and input_dir != 0:
-					if input_dir * facing_direction > 0:
-						velocity.x = walk_speed * input_dir
-					else:
-						velocity.x = back_speed * input_dir
-				else:
-					velocity.x = 0
-					jump_dir = 0.0
-					is_jumping = false
-			else:
-				velocity.x = jump_dir * jump_horizontal_speed
-	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk and not is_disabled_state:
+			fixed_velocity.x = 0
+	else:
+		if not is_jumping and not is_dashing and not is_backdashing:
+			fixed_velocity.x = 0
+	
+	# 跳躍邏輯
+	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back):
 		jump_dir = input_dir
-		velocity.y = -600
+		fixed_velocity.y = int(jump_vertical_speed * world.SIMULATION_SCALE)
+		if jump_dir != 0:
+			var jump_speed = jump_horizontal_speed if jump_dir * facing_direction > 0 else jump_horizontal_speed * 0.75
+			fixed_velocity.x = int(jump_speed * world.SIMULATION_SCALE * jump_dir)
+		else:
+			fixed_velocity.x = 0
+		fixed_position.y = world.FLOOR_Y - 1000
 		is_jumping = true
+		just_jumped = true
+		print("Debug: Jump initiated, fixed_velocity.y=%s, fixed_velocity.x=%s, fixed_position.y=%s, jump_dir=%s" % [fixed_velocity.y, fixed_velocity.x, fixed_position.y, jump_dir])
+	
+	# 應用重力
 	if not is_on_floor():
-		velocity.y += 1800 * delta
-	move_and_slide()
-	post_physics_process(delta)
+		add_gravity(world.GRAVITY, delta)
+	else:
+		if not just_jumped:
+			fixed_velocity.y = 0
+			fixed_position.y = world.FLOOR_Y
+	
+	# 更新位置
+	fixed_position += Vector2i(round(fixed_velocity.x * delta), round(fixed_velocity.y * delta))
+	
+	# 地板限制
+	if not just_jumped and fixed_position.y >= world.FLOOR_Y:
+		fixed_position.y = world.FLOOR_Y
+		fixed_velocity.y = 0
+		if is_jumping:
+			is_jumping = false
+			fixed_velocity.x = 0
+			print("Debug: Landing, resetting is_jumping for %s" % name)
+	
+	# 設置顯示位置
+	global_position = world.to_scaled_vector2(fixed_position)
+	
+	# 重置 just_jumped 標誌
+	if just_jumped and fixed_velocity.y > 0:
+		just_jumped = false
+	
+	# 更新動畫和朝向
 	if is_on_floor() and was_in_air and not is_landing and not (is_powerkk or is_spnk):
 		update_facing_direction()
 	was_in_air = not is_on_floor()
 	if is_on_floor() and prev_position.x != global_position.x and not (is_powerkk or is_spnk) and not is_landing:
 		update_facing_direction()
 	prev_position = global_position
+	post_physics_process(delta)
+
+# 移植 PhysicsBody.AddGravity
+func add_gravity(gravity: int, delta: float) -> void:
+	var world = get_tree().get_first_node_in_group("world")
+	if not world:
+		print("Warning: World node not found in group 'world' for %s" % name)
+		return
+	fixed_velocity.y += int(gravity * delta)
+
+# 移植 PhysicsBody.IsOnGround
+func is_on_floor() -> bool:
+	var world = get_tree().get_first_node_in_group("world")
+	if not world:
+		return false
+	return fixed_position.y >= world.FLOOR_Y and not just_jumped
 
 func get_input() -> Dictionary:
-	return {}
+	var input_dir: int = 0
+	var crouch_pressed: bool = false
+	var jump_pressed: bool = false
+	
+	if Input.is_action_pressed("ui_right"):
+		input_dir += 1
+	if Input.is_action_pressed("ui_left"):
+		input_dir -= 1
+	if Input.is_action_pressed("ui_down"):
+		crouch_pressed = true
+	if Input.is_action_just_pressed("ui_up"):
+		jump_pressed = true
+	
+	return {
+		"input_dir": input_dir,
+		"crouch_pressed": crouch_pressed,
+		"jump_pressed": jump_pressed
+	}
 
 func update_hitbox_position():
 	pass
@@ -225,8 +290,8 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 			initial_blockstun = 0.1
 			block_timer = 0.1
 			block_type = "proximity"
-			velocity.x = 0
-			velocity.y = 0
+			fixed_velocity.x = 0
+			fixed_velocity.y = 0
 			block_detected.emit(name, block_type)
 			print("Debug: Proximity block triggered, is_holding_back=" + str(is_holding_back) + ", is_crouch_blocking=" + str(is_crouch_blocking))
 
@@ -247,12 +312,10 @@ func update_facing_direction():
 			other_player = player
 			break
 	if other_player:
-		var sprite_offset = sprite.position
-		var other_sprite_offset = other_player.sprite.position
-		var self_left = global_position.x - colbox_half_width + sprite_offset.x
-		var self_right = global_position.x + colbox_half_width + sprite_offset.x
-		var other_left = other_player.global_position.x - other_player.colbox_half_width + other_sprite_offset.x
-		var other_right = other_player.global_position.x + other_player.colbox_half_width + other_sprite_offset.x
+		var self_left = global_position.x - colbox_half_width
+		var self_right = global_position.x + colbox_half_width
+		var other_left = other_player.global_position.x - other_player.colbox_half_width
+		var other_right = other_player.global_position.x + other_player.colbox_half_width
 		if self_left > other_right:
 			facing_direction = -1.0
 			scale.x = -1
