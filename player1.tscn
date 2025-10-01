@@ -1438,7 +1438,7 @@ anim_player = NodePath("../AnimationPlayer")
 parameters/conditions/Backdash = false
 parameters/conditions/Dash = false
 parameters/conditions/St_mp = false
-parameters/Walk/blend_position = 0.00833333333333333
+parameters/Walk/blend_position = -0.1618452
 
 [node name="Hitbox" type="Area2D" parent="."]
 collision_layer = 2

@@ -271,7 +271,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			target_state = "Crouch"
 		else:
 			target_state = "Walk"
-			animation_tree.set("parameters/Walk/blend_position", dir_x)
+			animation_tree.set("parameters/Walk/blend_position", dir_x * facing_direction)  # 修正：使用相對方向，確保前進/後退動畫正確
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 			if debug_jump_sequence:
