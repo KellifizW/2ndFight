@@ -67,6 +67,7 @@ var push_back_velocity: float = 0.0
 var knockfly_accumulated_distance: float = 0.0
 var knockfly_max_distance: float = 150.0
 var just_jumped: bool = false  # 防止過早落地
+var landing_facing_lock: bool = false  # 鎖定跳躍面向，防止落地瞬間反轉
 
 signal block_detected(target: String, block_type: String)
 
@@ -98,7 +99,7 @@ func _physics_process(delta):
 		return
 	
 	var current_position = global_position
-	var is_landing = self is Player and get("is_landing") if is_class("Player") else false
+	var is_landing: bool = ("is_landing" in self and self.is_landing)
 	
 	# 更新計時器
 	if neutral_timer > 0:
@@ -189,6 +190,7 @@ func _physics_process(delta):
 		fixed_position.y = world.FLOOR_Y - 1000
 		is_jumping = true
 		just_jumped = true
+		landing_facing_lock = true  # 啟動面向鎖定，防止落地反轉
 		print("Debug: Jump initiated, fixed_velocity.y=%s, fixed_velocity.x=%s, fixed_position.y=%s, jump_dir=%s" % [fixed_velocity.y, fixed_velocity.x, fixed_position.y, jump_dir])
 	
 	# 應用重力
@@ -221,14 +223,14 @@ func _physics_process(delta):
 	# 更新面向（每幀檢查，但保留特定狀態限制）
 	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
 	var is_attacking_state = is_attacking and attack_timer > 0
-	if not (is_special_move or is_attacking_state or is_hit or is_knockfly or is_blocking or is_jumping):
+	if not (is_special_move or is_attacking_state or is_hit or is_knockfly or is_blocking or is_jumping or is_landing) and not landing_facing_lock:
 		update_facing_direction()
 	
 	# 更新動畫和朝向
-	if is_on_floor() and was_in_air and not is_landing and not (is_powerkk or is_spnk) and not is_jumping:
+	if is_on_floor() and was_in_air and not is_landing and not (is_powerkk or is_spnk) and not is_jumping and not landing_facing_lock:
 		update_facing_direction()
 	was_in_air = not is_on_floor()
-	if is_on_floor() and prev_position.x != global_position.x and not (is_powerkk or is_spnk) and not is_landing and not is_jumping:
+	if is_on_floor() and prev_position.x != global_position.x and not (is_powerkk or is_spnk) and not is_landing and not is_jumping and not landing_facing_lock:
 		update_facing_direction()
 	prev_position = global_position
 	post_physics_process(delta)
@@ -314,8 +316,8 @@ func update_facing_direction():
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
 	var is_attacking_state = is_attacking and attack_timer > 0
-	if is_special_move or is_attacking_state:
-		return
+	if is_special_move or is_attacking_state or landing_facing_lock:
+		return  # 鎖定時跳過更新
 	var players = get_tree().get_nodes_in_group("players")
 	var other_player = null
 	for player in players:

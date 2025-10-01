@@ -135,6 +135,8 @@ func _physics_process(delta):
 		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed:
 			is_landing = false
 			landing_lock_timer = 0.0
+			landing_facing_lock = false  # 釋放面向鎖定，允許立即轉向
+			update_facing_direction()  # 打斷時立即更新面向
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 			if debug_jump_sequence:
 				print("Debug Jump Seq [%s]: Landing interrupted by input, transitioning to '%s'." % [name, animation_state.get_current_node() if animation_state else "none"])
@@ -145,6 +147,8 @@ func _physics_process(delta):
 		if curr_state in ["Jump_V", "Jump_F", "Jump_B", "jump_mk"] and not is_wakeup and not is_hit and not is_knockfly:
 			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed:
 				is_landing = false
+				landing_facing_lock = false  # 釋放面向鎖定，允許立即轉向
+				update_facing_direction()  # 跳過landing時立即更新面向
 				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 				if debug_jump_sequence:
 					print("Debug Jump Seq [%s]: Input detected on landing, skipping 'landing' to '%s'." % [name, animation_state.get_current_node() if animation_state else "none"])
@@ -249,7 +253,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	# 恢復：檢查 landing_lock_timer，防止 landing 被 Walk 自動覆蓋（放在優先狀態後）
 	if is_landing and landing_lock_timer > 0:
 		if debug_jump_sequence:
-			print("Debug Jump Seq [%s]: Landing lock active (%.2f sec left), current state: %s." % [name, landing_lock_timer, curr_state])
+			print("Debug Jump Seq [%s]: Landing lock active (%.2f sec left), current state: %s, facing: %.1f." % [name, landing_lock_timer, curr_state, facing_direction])
 		return
 	if is_landing and on_floor and not is_dashing and not is_backdashing and not is_wakeup and not is_hit and not is_knockfly:
 		current_mode = "landing"
@@ -323,8 +327,10 @@ func _on_animation_tree_finished(anim_name: String):
 	elif anim_name == "landing" and is_landing:
 		is_landing = false
 		landing_lock_timer = 0.0
+		landing_facing_lock = false  # 釋放面向鎖定，允許正常更新
 		if debug_jump_sequence:
 			print("Debug Jump Seq [%s]: 'landing' animation finished, lock released, transitioning to default state." % [name])
+		update_facing_direction()
 		_update_animation_state(0, false)
 	elif anim_name == "St_mp":
 		is_attacking = false
@@ -357,6 +363,8 @@ func _on_animation_tree_finished(anim_name: String):
 		var input_data = get_input()
 		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed:
 			is_landing = false
+			landing_facing_lock = false  # 釋放面向鎖定，允許立即轉向
+			update_facing_direction()  # 跳過landing時立即更新面向
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 			if debug_jump_sequence:
 				print("Debug Jump Seq [%s]: Input detected on jump landing, skipping 'landing' to '%s'." % [name, animation_state.get_current_node() if animation_state else "none"])

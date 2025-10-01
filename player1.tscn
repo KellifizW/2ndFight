@@ -621,10 +621,22 @@ tracks/0/path = NodePath("Sprite2D:frame_coords")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.033333335, 0.1, 0.2),
-"transitions": PackedFloat32Array(1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.1, 0.2),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
 "update": 1,
-"values": [Vector2i(0, 6), Vector2i(4, 6), Vector2i(5, 6), Vector2i(4, 6)]
+"values": [Vector2i(3, 2), Vector2i(4, 2), Vector2i(4, 6), Vector2i(5, 6), Vector2i(4, 6)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:offset")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.10000001, 0.20000002),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
+"update": 1,
+"values": [Vector2(0, -3), Vector2(4, -3), Vector2(0, 0), Vector2(10, 0), Vector2(2, 0)]
 }
 
 [sub_resource type="Animation" id="Animation_md12c"]
@@ -637,10 +649,10 @@ tracks/0/path = NodePath("Sprite2D:frame_coords")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.03333334, 0.13333334, 0.3),
-"transitions": PackedFloat32Array(1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.13333334, 0.3),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
 "update": 1,
-"values": [Vector2i(1, 6), Vector2i(3, 6), Vector2i(5, 6), Vector2i(2, 6)]
+"values": [Vector2i(3, 2), Vector2i(4, 2), Vector2i(3, 6), Vector2i(5, 6), Vector2i(2, 6)]
 }
 tracks/1/type = "value"
 tracks/1/imported = false
@@ -661,10 +673,10 @@ tracks/2/path = NodePath("Pushbox:shape:size")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0, 0.033333335),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(20, 50), Vector2(20, 60)]
+"values": [Vector2(20, 50)]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
@@ -673,10 +685,10 @@ tracks/3/path = NodePath("Pushbox:position")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.033333335),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, 10), Vector2(0, -5)]
+"values": [Vector2(0, 10)]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -697,10 +709,10 @@ tracks/5/path = NodePath("Hurtbox/HurtShape:shape:size")
 tracks/5/interp = 1
 tracks/5/loop_wrap = true
 tracks/5/keys = {
-"times": PackedFloat32Array(0, 0.033333335),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(27, 50), Vector2(27, 60)]
+"values": [Vector2(27, 50)]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
@@ -709,10 +721,22 @@ tracks/6/path = NodePath("Hurtbox/HurtShape:position")
 tracks/6/interp = 1
 tracks/6/loop_wrap = true
 tracks/6/keys = {
-"times": PackedFloat32Array(0, 0.033333335),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, 10), Vector2(0, -5)]
+"values": [Vector2(0, 10)]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("Sprite2D:offset")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0, 0.06666667, 0.13333334, 0.3),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 1,
+"values": [Vector2(0, -3), Vector2(0, 4), Vector2(10, 4), Vector2(0, 8)]
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3odsw"]
@@ -781,10 +805,22 @@ tracks/0/path = NodePath("Sprite2D:frame_coords")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.033333335, 0.15, 0.2, 0.3),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.13333334, 0.2, 0.3),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [Vector2i(1, 6), Vector2i(2, 6), Vector2i(5, 6), Vector2i(6, 6), Vector2i(2, 6)]
+"values": [Vector2i(3, 2), Vector2i(4, 2), Vector2i(2, 6), Vector2i(5, 6), Vector2i(6, 6), Vector2i(2, 6)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:offset")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.13333334, 0.20000002, 0.3),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [Vector2(0, -3), Vector2(6, -3), Vector2(2, 8), Vector2(10, 0), Vector2(4, 15), Vector2(2, 8)]
 }
 
 [sub_resource type="Animation" id="Animation_64yue"]
