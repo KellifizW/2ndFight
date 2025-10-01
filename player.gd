@@ -13,6 +13,7 @@ var is_landing: bool = false
 var is_wakeup: bool = false
 var is_wakeup_locked: bool = false
 var is_air_attacking: bool = false
+var is_special_moving: bool = false  # 新增：特殊招式旗標，讓 PushManager 跳過 clamp
 
 func _ready():
 	super._ready()

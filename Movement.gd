@@ -107,6 +107,9 @@ func _physics_process(delta):
 		if attack_timer <= 0:
 			is_attacking = false
 			update_facing_direction()
+			if has_node("Proximitybox/ProxShape"):
+				$Proximitybox/ProxShape.disabled = true
+				print("Debug: ProximityBox disabled for %s" % name)
 	if dash_timer > 0:
 		dash_timer -= delta
 		if dash_timer <= 0:
@@ -125,18 +128,17 @@ func _physics_process(delta):
 	var is_powerkk = move_set.is_powerkk if move_set else false
 	var is_spnk = move_set.is_spnk if move_set else false
 	
-	# 設置格擋狀態
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back):
+	# 設置格擋狀態，確保蹲防持續檢測
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not (is_hit or is_knockfly):
 		if input_dir * facing_direction < 0:
 			is_holding_back = true
+			is_crouch_blocking = crouch_pressed and input_dir * facing_direction < 0
+			print("Debug: Block state updated, is_holding_back=%s, is_crouch_blocking=%s, input_dir=%s, crouch_pressed=%s" % [is_holding_back, is_crouch_blocking, input_dir, crouch_pressed])
 		else:
 			is_holding_back = false
-		if crouch_pressed:
-			is_crouch_blocking = (input_dir * facing_direction < 0)
-		else:
 			is_crouch_blocking = false
 	else:
-		if not (is_hit or is_knockfly):
+		if not (is_hit or is_knockfly or is_blocking):
 			is_holding_back = false
 			is_crouch_blocking = false
 	
@@ -161,8 +163,8 @@ func _physics_process(delta):
 				pending_dash_dir = last_input_dir
 			last_input_dir = input_dir
 	
-	# 處理移動邏輯
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back):
+	# 處理移動邏輯（僅在非受控狀態且非下蹲時處理輸入移動）
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back) and not is_crouching:
 		if input_dir != 0:
 			var move_speed = walk_speed if input_dir * facing_direction > 0 else back_speed
 			fixed_velocity.x = int(move_speed * world.SIMULATION_SCALE * input_dir)
@@ -170,7 +172,8 @@ func _physics_process(delta):
 		else:
 			fixed_velocity.x = 0
 	else:
-		if not is_jumping and not is_dashing and not is_backdashing:
+		# 移除無條件清零，允許 PushManager 控制 fixed_velocity.x
+		if not (is_jumping or is_dashing or is_backdashing or is_hit or is_knockfly or is_blocking or is_push_back or ("is_special_moving" in self and self.is_special_moving)):
 			fixed_velocity.x = 0
 	
 	# 跳躍邏輯
@@ -287,13 +290,14 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 		is_opponent_proximity = true
 		if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_blocking:
 			is_blocking = true
+			is_crouch_blocking = is_crouch_blocking or (get_input().crouch_pressed and get_input().input_dir * facing_direction < 0)
 			initial_blockstun = 0.1
 			block_timer = 0.1
 			block_type = "proximity"
 			fixed_velocity.x = 0
 			fixed_velocity.y = 0
 			block_detected.emit(name, block_type)
-			print("Debug: Proximity block triggered, is_holding_back=" + str(is_holding_back) + ", is_crouch_blocking=" + str(is_crouch_blocking))
+			print("Debug: Proximity block triggered, is_holding_back=%s, is_crouch_blocking=%s" % [is_holding_back, is_crouch_blocking])
 
 func _on_hurtbox_area_exited(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:

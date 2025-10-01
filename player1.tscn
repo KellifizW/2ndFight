@@ -1400,8 +1400,6 @@ graph_offset = Vector2(-314, -69)
 collision_layer = 3
 collision_mask = 2
 script = ExtResource("1_0e34t")
-block_push_distance = 200.0
-hit_push_distance = 200.0
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_yev3d")
@@ -1455,6 +1453,7 @@ debug_color = Color(0.62189, 0.533606, 0, 0.42)
 
 [node name="MoveSet" type="Node" parent="."]
 script = ExtResource("3_0e34t")
+is_powerkk_penetrable = false
 
 [node name="AIBehavior" type="Node" parent="."]
 script = ExtResource("4_3pafw")

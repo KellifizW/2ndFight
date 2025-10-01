@@ -1,5 +1,7 @@
 class_name MoveSet extends Node
 
+@export var is_powerkk_penetrable: bool = true  # 新增：Inspector中控制powerkk是否穿透
+@export var is_spnk_penetrable: bool = true     # 新增：Inspector中控制spnk是否穿透
 var is_powerkk: bool = false
 var is_spnk: bool = false
 var is_spmove: bool = false
@@ -9,8 +11,8 @@ var powerkk_timer: float = 0.0
 var spnk_timer: float = 0.0
 var powerkk_damage: float = 20.0
 var spnk_damage: float = 20.0
-var powerkk_move_distance: float = 150.0
-var spnk_move_distance: float = 150.0
+var powerkk_move_distance: float = 100.0
+var spnk_move_distance: float = 100.0
 var powerkk_initial_facing: float = 0.0
 var spnk_initial_facing: float = 0.0
 var powerkk_initial_parent_scale_x: float = 0.0
@@ -46,9 +48,18 @@ func stop_special_move():
 		var final_position = sprite.position
 		animation_player.stop()
 		sprite.position = Vector2.ZERO
-		parent.global_position.x += final_position.x
+		var world = get_tree().get_first_node_in_group("world")
+		if world:
+			parent.fixed_position.x += int(final_position.x * world.SIMULATION_SCALE)
+			parent.global_position = world.to_scaled_vector2(parent.fixed_position)
+		else:
+			print("Warning: World node not found, fallback to direct global_position update")
+			parent.global_position.x += final_position.x
 		sprite.scale.x = abs(sprite.scale.x) * sign(parent.facing_direction)
 		parent.update_facing_direction()
+		parent.fixed_velocity.x = 0
+		if "is_special_moving" in parent:
+			parent.is_special_moving = false
 		if parent.has_node("Proximitybox"):
 			var prox_shape = parent.get_node("Proximitybox/ProxShape")
 			if prox_shape:
@@ -70,17 +81,30 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		return false
 	
 	var player_id = parent.player_id if "player_id" in parent else "p1"
+	var world = get_tree().get_first_node_in_group("world")
+	if not world:
+		print("Warning: World node not found in group 'world' for %s" % parent.name)
+		return false
 	
 	if input_data.spm1_pressed and not parent.is_attacking:
 		if player_id == "p1" and not is_powerkk:
 			is_powerkk = true
 			is_spmove = true
+			if animation_player and animation_player.has_animation("powerkk"):
+				powerkk_time = animation_player.get_animation("powerkk").length
+				if powerkk_time <= 0:
+					powerkk_time = 0.933
+				print("Debug: Powerkk length detected: %.2fs" % powerkk_time)
+			else:
+				powerkk_time = 0.933
 			powerkk_timer = powerkk_time
 			parent.current_damage = powerkk_damage
-			parent.velocity.x = 0
+			parent.fixed_velocity.x = int((powerkk_move_distance / powerkk_time) * world.SIMULATION_SCALE * parent.facing_direction)
 			powerkk_initial_facing = parent.facing_direction
 			powerkk_initial_parent_scale_x = parent.scale.x
 			powerkk_initial_sprite_scale_x = sprite.scale.x
+			if "is_special_moving" in parent:
+				parent.is_special_moving = true
 			animation_player.play("powerkk")
 			if parent.has_node("Proximitybox"):
 				var prox_shape = parent.get_node("Proximitybox/ProxShape")
@@ -90,7 +114,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				hitbox.disabled = false
 				print("Debug: Hitbox enabled for %s during powerkk" % parent.name)
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
-			print("Debug: Powerkk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, Hitbox global_position: (%s, %s)" % [parent.name, powerkk_damage, powerkk_initial_facing, parent.scale.x, sprite.scale.x, hitbox_pos.x, hitbox_pos.y])
+			print("Debug: Powerkk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s)" % [parent.name, powerkk_damage, powerkk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y])
 			is_spmove_animation_playing = true
 			return true
 		elif player_id == "p2" and not is_spnk:
@@ -98,15 +122,19 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			is_spmove = true
 			if animation_player and animation_player.has_animation("spnk"):
 				spnk_time = animation_player.get_animation("spnk").length
-				spnk_timer = spnk_time
+				if spnk_time <= 0:
+					spnk_time = 1.2
 				print("Debug: Spnk length detected: %.2fs" % spnk_time)
 			else:
-				spnk_timer = 1.2
+				spnk_time = 1.2
+			spnk_timer = spnk_time
 			parent.current_damage = spnk_damage
-			parent.velocity.x = 0
+			parent.fixed_velocity.x = int((spnk_move_distance / spnk_time) * world.SIMULATION_SCALE * parent.facing_direction)
 			spnk_initial_facing = parent.facing_direction
 			spnk_initial_parent_scale_x = parent.scale.x
 			spnk_initial_sprite_scale_x = sprite.scale.x
+			if "is_special_moving" in parent:
+				parent.is_special_moving = true
 			animation_player.play("spnk")
 			if parent.has_node("Proximitybox"):
 				var prox_shape = parent.get_node("Proximitybox/ProxShape")
@@ -116,68 +144,50 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				hitbox.disabled = false
 				print("Debug: Hitbox enabled for %s during spnk" % parent.name)
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
-			print("Debug: Spnk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, Hitbox global_position: (%s, %s)" % [parent.name, spnk_damage, spnk_initial_facing, parent.scale.x, sprite.scale.x, hitbox_pos.x, hitbox_pos.y])
+			print("Debug: Spnk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s)" % [parent.name, spnk_damage, spnk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y])
 			if not animation_player.animation_finished.is_connected(_on_spmove_animation_finished):
 				animation_player.animation_finished.connect(_on_spmove_animation_finished)
 			is_spmove_animation_playing = true
 			return true
 	
 	if is_powerkk:
-		var move_speed = (powerkk_move_distance / powerkk_time) * powerkk_initial_facing
-		parent.global_position.x += move_speed * delta
+		if parent.fixed_position.y < world.FLOOR_Y:
+			parent.fixed_velocity.y += int(world.GRAVITY * delta)
+			if parent.fixed_position.y >= world.FLOOR_Y:
+				parent.fixed_position.y = world.FLOOR_Y
+				parent.fixed_velocity.y = 0
+		var delta_move = int(parent.fixed_velocity.x * delta)
+		print("Debug: Delta move = %s, before fixed_x = %s" % [delta_move, parent.fixed_position.x])
+		parent.fixed_position.x += delta_move
+		print("Debug: After add, fixed_x = %s" % parent.fixed_position.x)
+		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		if parent.has_node("Proximitybox"):
 			var proxbox_pos = parent.get_node("Proximitybox").global_position
-			print("Debug: Powerkk active for %s, position: %s, Proximitybox global_position: (%s, %s)" % [parent.name, parent.global_position.x, proxbox_pos.x, proxbox_pos.y])
+			print("Debug: Powerkk active for %s, fixed_position.x=%s, global_position.x=%s, Proximitybox global_position: (%s, %s)" % [parent.name, parent.fixed_position.x, parent.global_position.x, proxbox_pos.x, proxbox_pos.y])
 		powerkk_timer -= delta
 		if powerkk_timer <= 0:
-			is_powerkk = false
-			is_spmove = false
-			is_spmove_animation_playing = false
-			if parent.has_node("Proximitybox"):
-				var prox_shape = parent.get_node("Proximitybox/ProxShape")
-				if prox_shape:
-					prox_shape.disabled = true
-				var proxbox_pos = parent.get_node("Proximitybox").global_position
-				print("Debug: Powerkk ended for %s, Proximitybox final global_position: (%s, %s)" % [parent.name, proxbox_pos.x, proxbox_pos.y])
-			if hitbox:
-				hitbox.disabled = true
-				print("Debug: Hitbox disabled for %s after powerkk" % parent.name)
-			var final_position = sprite.position
-			animation_player.stop()
-			sprite.position = Vector2.ZERO
-			parent.global_position.x += final_position.x
-			sprite.scale.x = abs(sprite.scale.x) * sign(powerkk_initial_facing)
-			parent.update_facing_direction()
-			print("Debug: Powerkk ended for %s, final position: %s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s" % [parent.name, parent.global_position, powerkk_initial_facing, parent.scale.x, sprite.scale.x])
+			stop_special_move()
+			print("Debug: Powerkk timer ended for %s" % parent.name)
 		return true
 
 	if is_spnk:
-		var move_speed = (spnk_move_distance / spnk_time) * spnk_initial_facing
-		parent.global_position.x += move_speed * delta
+		if parent.fixed_position.y < world.FLOOR_Y:
+			parent.fixed_velocity.y += int(world.GRAVITY * delta)
+			if parent.fixed_position.y >= world.FLOOR_Y:
+				parent.fixed_position.y = world.FLOOR_Y
+				parent.fixed_velocity.y = 0
+		var delta_move = int(parent.fixed_velocity.x * delta)
+		print("Debug: Delta move = %s, before fixed_x = %s" % [delta_move, parent.fixed_position.x])
+		parent.fixed_position.x += delta_move
+		print("Debug: After add, fixed_x = %s" % parent.fixed_position.x)
+		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		if parent.has_node("Proximitybox"):
 			var proxbox_pos = parent.get_node("Proximitybox").global_position
-			print("Debug: Spnk active for %s, position: %s, Proximitybox global_position: (%s, %s)" % [parent.name, parent.global_position.x, proxbox_pos.x, proxbox_pos.y])
+			print("Debug: Spnk active for %s, fixed_position.x=%s, global_position.x=%s, Proximitybox global_position: (%s, %s)" % [parent.name, parent.fixed_position.x, parent.global_position.x, proxbox_pos.x, proxbox_pos.y])
 		spnk_timer -= delta
 		if spnk_timer <= 0:
-			is_spnk = false
-			is_spmove = false
-			is_spmove_animation_playing = false
-			if parent.has_node("Proximitybox"):
-				var prox_shape = parent.get_node("Proximitybox/ProxShape")
-				if prox_shape:
-					prox_shape.disabled = true
-				var proxbox_pos = parent.get_node("Proximitybox").global_position
-				print("Debug: Spnk ended for %s, Proximitybox final global_position: (%s, %s)" % [parent.name, proxbox_pos.x, proxbox_pos.y])
-			if hitbox:
-				hitbox.disabled = true
-				print("Debug: Hitbox disabled for %s after spnk" % parent.name)
-			var final_position = sprite.position
-			animation_player.stop()
-			sprite.position = Vector2.ZERO
-			parent.global_position.x += final_position.x
-			sprite.scale.x = abs(sprite.scale.x) * sign(spnk_initial_facing)
-			parent.update_facing_direction()
-			print("Debug: Spnk ended for %s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s" % [parent.name, spnk_initial_facing, parent.scale.x, sprite.scale.x])
+			stop_special_move()
+			print("Debug: Spnk timer ended for %s" % parent.name)
 		return true
 	
 	return false
@@ -194,6 +204,9 @@ func _on_spmove_animation_finished(anim_name: String):
 		if hitbox:
 			hitbox.disabled = true
 			print("Debug: Hitbox disabled for %s after %s animation finished" % [parent.name, anim_name])
+		if "is_special_moving" in parent:
+			parent.is_special_moving = false
+		stop_special_move()
 
 func _process(delta: float):
 	if not is_spmove_animation_playing or not animation_player or not animation_player.is_playing():
