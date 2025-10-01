@@ -1,4 +1,4 @@
-[gd_scene load_steps=69 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=64 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="2_yev3d"]
@@ -1320,38 +1320,10 @@ animation = &"wakeup"
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_meopb"]
 advance_mode = 2
 
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_yev3d"]
-advance_condition = &"Backdash"
-
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_0e34t"]
-advance_condition = &"Walk"
-
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_6ev7e"]
-advance_condition = &"Dash"
-
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_aar5g"]
-advance_condition = &"Walk"
-
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_3pafw"]
-advance_mode = 2
-advance_expression = "landing == true"
-
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_3odsw"]
 switch_mode = 2
 advance_mode = 2
 advance_condition = &"Walk"
-
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_woueq"]
-advance_mode = 2
-advance_condition = &"landing"
-
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_bjfdx"]
-advance_mode = 2
-advance_condition = &"landing"
-
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_hfcs4"]
-advance_mode = 2
-advance_condition = &"landing"
 
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_c5mkm"]
 switch_mode = 2
@@ -1359,19 +1331,31 @@ advance_mode = 2
 
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_sl0af"]
 
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_s33xd"]
+advance_mode = 2
+advance_condition = &"St_mp"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_lyl3y"]
+advance_mode = 2
+advance_condition = &"Dash"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_ak627"]
+advance_mode = 2
+advance_condition = &"Backdash"
+
 [sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_mbed6"]
 states/Backdash/node = SubResource("AnimationNodeAnimation_3h1ys")
 states/Backdash/position = Vector2(-14, 124)
 states/Crouch/node = SubResource("AnimationNodeAnimation_yev3d")
 states/Crouch/position = Vector2(449, 215)
 states/Dash/node = SubResource("AnimationNodeAnimation_46qut")
-states/Dash/position = Vector2(615, 134)
+states/Dash/position = Vector2(636, 149)
 states/Jump_B/node = SubResource("AnimationNodeAnimation_md12c")
 states/Jump_B/position = Vector2(226, -26)
 states/Jump_F/node = SubResource("AnimationNodeAnimation_x536s")
 states/Jump_F/position = Vector2(477, -11)
 states/Jump_V/node = SubResource("AnimationNodeAnimation_kcguo")
-states/Jump_V/position = Vector2(347, -26)
+states/Jump_V/position = Vector2(371, -31)
 states/St_mp/node = SubResource("AnimationNodeAnimation_3ch2m")
 states/St_mp/position = Vector2(731, 75)
 states/Start/position = Vector2(-84, -73)
@@ -1384,17 +1368,17 @@ states/cr_block/position = Vector2(334, 315)
 states/hit/node = SubResource("AnimationNodeAnimation_idi7q")
 states/hit/position = Vector2(180, 266)
 states/jump_mk/node = SubResource("AnimationNodeAnimation_3odsw")
-states/jump_mk/position = Vector2(529, 46)
+states/jump_mk/position = Vector2(570, 11)
 states/knockfly/node = SubResource("AnimationNodeAnimation_meopb")
 states/knockfly/position = Vector2(33, 256)
 states/landing/node = SubResource("AnimationNodeAnimation_3pafw")
-states/landing/position = Vector2(339, 61)
+states/landing/position = Vector2(339, 52)
 states/powerkk/node = SubResource("AnimationNodeAnimation_64yue")
 states/powerkk/position = Vector2(746, 200)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-108, 193)
-transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "Backdash", SubResource("AnimationNodeStateMachineTransition_yev3d"), "Backdash", "Walk", SubResource("AnimationNodeStateMachineTransition_0e34t"), "Walk", "Dash", SubResource("AnimationNodeStateMachineTransition_6ev7e"), "Dash", "Walk", SubResource("AnimationNodeStateMachineTransition_aar5g"), "Jump_B", "landing", SubResource("AnimationNodeStateMachineTransition_3pafw"), "landing", "Walk", SubResource("AnimationNodeStateMachineTransition_3odsw"), "Jump_V", "landing", SubResource("AnimationNodeStateMachineTransition_woueq"), "Jump_F", "landing", SubResource("AnimationNodeStateMachineTransition_bjfdx"), "jump_mk", "landing", SubResource("AnimationNodeStateMachineTransition_hfcs4"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_c5mkm"), "Walk", "St_mp", SubResource("AnimationNodeStateMachineTransition_sl0af")]
-graph_offset = Vector2(-314, -69)
+transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "landing", "Walk", SubResource("AnimationNodeStateMachineTransition_3odsw"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_c5mkm"), "Walk", "St_mp", SubResource("AnimationNodeStateMachineTransition_sl0af"), "landing", "St_mp", SubResource("AnimationNodeStateMachineTransition_s33xd"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627")]
+graph_offset = Vector2(-133, -72)
 
 [node name="Player1" type="CharacterBody2D"]
 collision_layer = 3
@@ -1422,9 +1406,10 @@ advance_expression_base_node = NodePath("..")
 anim_player = NodePath("../AnimationPlayer")
 parameters/conditions/Backdash = false
 parameters/conditions/Dash = false
+parameters/conditions/St_mp = false
 parameters/conditions/Walk = false
 parameters/conditions/landing = false
-parameters/Walk/blend_position = 0.000833988
+parameters/Walk/blend_position = 0.004127666667198465
 
 [node name="Hitbox" type="Area2D" parent="."]
 collision_layer = 2
