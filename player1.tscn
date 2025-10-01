@@ -1,4 +1,4 @@
-[gd_scene load_steps=64 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=63 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="2_yev3d"]
@@ -1320,11 +1320,6 @@ animation = &"wakeup"
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_meopb"]
 advance_mode = 2
 
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_3odsw"]
-switch_mode = 2
-advance_mode = 2
-advance_condition = &"Walk"
-
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_c5mkm"]
 switch_mode = 2
 advance_mode = 2
@@ -1377,8 +1372,8 @@ states/powerkk/node = SubResource("AnimationNodeAnimation_64yue")
 states/powerkk/position = Vector2(746, 200)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-108, 193)
-transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "landing", "Walk", SubResource("AnimationNodeStateMachineTransition_3odsw"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_c5mkm"), "Walk", "St_mp", SubResource("AnimationNodeStateMachineTransition_sl0af"), "landing", "St_mp", SubResource("AnimationNodeStateMachineTransition_s33xd"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627")]
-graph_offset = Vector2(-133, -72)
+transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_c5mkm"), "Walk", "St_mp", SubResource("AnimationNodeStateMachineTransition_sl0af"), "landing", "St_mp", SubResource("AnimationNodeStateMachineTransition_s33xd"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627")]
+graph_offset = Vector2(-173, -57)
 
 [node name="Player1" type="CharacterBody2D"]
 collision_layer = 3
@@ -1407,9 +1402,7 @@ anim_player = NodePath("../AnimationPlayer")
 parameters/conditions/Backdash = false
 parameters/conditions/Dash = false
 parameters/conditions/St_mp = false
-parameters/conditions/Walk = false
-parameters/conditions/landing = false
-parameters/Walk/blend_position = 0.004127666667198465
+parameters/Walk/blend_position = 0.00833333333333333
 
 [node name="Hitbox" type="Area2D" parent="."]
 collision_layer = 2
