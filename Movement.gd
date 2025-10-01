@@ -87,6 +87,7 @@ func _ready():
 	var world = get_tree().get_first_node_in_group("world")
 	if world:
 		fixed_position = Vector2i(int(global_position.x * world.SIMULATION_SCALE), world.FLOOR_Y)  # 設置初始 y 為地板高度
+		update_facing_direction()  # 初始化面向
 	else:
 		print("Warning: World node not found in group 'world' for %s" % name)
 
@@ -217,11 +218,17 @@ func _physics_process(delta):
 	if just_jumped and fixed_velocity.y > 0:
 		just_jumped = false
 	
+	# 更新面向（每幀檢查，但保留特定狀態限制）
+	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
+	var is_attacking_state = is_attacking and attack_timer > 0
+	if not (is_special_move or is_attacking_state or is_hit or is_knockfly or is_blocking or is_jumping):
+		update_facing_direction()
+	
 	# 更新動畫和朝向
-	if is_on_floor() and was_in_air and not is_landing and not (is_powerkk or is_spnk):
+	if is_on_floor() and was_in_air and not is_landing and not (is_powerkk or is_spnk) and not is_jumping:
 		update_facing_direction()
 	was_in_air = not is_on_floor()
-	if is_on_floor() and prev_position.x != global_position.x and not (is_powerkk or is_spnk) and not is_landing:
+	if is_on_floor() and prev_position.x != global_position.x and not (is_powerkk or is_spnk) and not is_landing and not is_jumping:
 		update_facing_direction()
 	prev_position = global_position
 	post_physics_process(delta)
