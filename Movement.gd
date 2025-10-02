@@ -69,6 +69,10 @@ var knockfly_max_distance: float = 150.0
 var just_jumped: bool = false  # 防止過早落地
 var landing_facing_lock: bool = false  # 鎖定跳躍面向，防止落地瞬間反轉
 
+# 新增：跳躍延遲計時器（僅延遲垂直物理）
+var jump_delay_timer: float = 0.0
+@export var jump_delay_duration: float = 0.1  # 可在 Inspector 調整延遲時間
+
 signal block_detected(target: String, block_type: String)
 
 func _ready():
@@ -119,6 +123,15 @@ func _physics_process(delta):
 			is_backdashing = false
 			fixed_velocity.x = 0
 			print("Debug: Dash/Backdash ended, resetting velocity for %s" % name)
+	
+	# 更新跳躍延遲計時器
+	if jump_delay_timer > 0:
+		jump_delay_timer -= delta
+		if jump_delay_timer <= 0:
+			# 延遲結束：啟動垂直上升
+			fixed_velocity.y = int(jump_vertical_speed * world.SIMULATION_SCALE)
+			just_jumped = true  # 啟動防止過早落地的標誌
+			print("Debug: Jump vertical physics activated after delay, fixed_velocity.y=%s" % fixed_velocity.y)
 	
 	# 獲取輸入
 	var input_data = get_input()
@@ -174,27 +187,27 @@ func _physics_process(delta):
 		else:
 			fixed_velocity.x = 0
 	else:
-		# 移除無條件清零，允許 PushManager 控制 fixed_velocity.x
-		if not (is_jumping or is_dashing or is_backdashing or is_hit or is_knockfly or is_blocking or is_push_back or ("is_special_moving" in self and self.is_special_moving)):
+		# 移除無條件清零，允許 PushManager 控制 fixed_velocity.x；保護跳躍延遲期 x
+		if not (is_jumping or is_dashing or is_backdashing or is_hit or is_knockfly or is_blocking or is_push_back or jump_delay_timer > 0 or ("is_special_moving" in self and self.is_special_moving)):
 			fixed_velocity.x = 0
 	
-	# 跳躍邏輯
-	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back):
+	# 跳躍邏輯（修改：立即水平 + 旗標 + 位置微調，垂直延遲）
+	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back) and jump_delay_timer <= 0:
 		jump_dir = input_dir
-		fixed_velocity.y = int(jump_vertical_speed * world.SIMULATION_SCALE)
+		is_jumping = true
+		landing_facing_lock = true  # 啟動面向鎖定，防止落地反轉
+		jump_delay_timer = jump_delay_duration  # 啟動垂直延遲
+		fixed_position.y = world.FLOOR_Y - 1  # 微調位置，讓 is_on_floor() 視為空中，觸發動畫
+		fixed_velocity.y = 0  # 垂直暫停
 		if jump_dir != 0:
 			var jump_speed = jump_horizontal_speed if jump_dir * facing_direction > 0 else jump_horizontal_speed * 0.75
-			fixed_velocity.x = int(jump_speed * world.SIMULATION_SCALE * jump_dir)
+			fixed_velocity.x = int(jump_speed * world.SIMULATION_SCALE * jump_dir)  # 立即啟動水平，確保距離完整
 		else:
 			fixed_velocity.x = 0
-		fixed_position.y = world.FLOOR_Y - 1000
-		is_jumping = true
-		just_jumped = true
-		landing_facing_lock = true  # 啟動面向鎖定，防止落地反轉
-		print("Debug: Jump initiated, fixed_velocity.y=%s, fixed_velocity.x=%s, fixed_position.y=%s, jump_dir=%s" % [fixed_velocity.y, fixed_velocity.x, fixed_position.y, jump_dir])
+		print("Debug: Jump initiated with delay, fixed_velocity.x=%s, fixed_position.y=%s, jump_dir=%s, timer=%.2fs" % [fixed_velocity.x, fixed_position.y, jump_dir, jump_delay_duration])
 	
-	# 應用重力
-	if not is_on_floor():
+	# 應用重力（只在延遲結束且非地板時套用，保護延遲期 y 不變）
+	if jump_delay_timer <= 0 and not is_on_floor():
 		add_gravity(world.GRAVITY, delta)
 	else:
 		if not just_jumped:
@@ -204,8 +217,8 @@ func _physics_process(delta):
 	# 更新位置
 	fixed_position += Vector2i(round(fixed_velocity.x * delta), round(fixed_velocity.y * delta))
 	
-	# 地板限制
-	if not just_jumped and fixed_position.y >= world.FLOOR_Y:
+	# 地板限制（保護延遲期不觸發）
+	if not just_jumped and fixed_position.y >= world.FLOOR_Y and jump_delay_timer <= 0:
 		fixed_position.y = world.FLOOR_Y
 		fixed_velocity.y = 0
 		if is_jumping:
@@ -243,11 +256,13 @@ func add_gravity(gravity: int, delta: float) -> void:
 		return
 	fixed_velocity.y += int(gravity * delta)
 
-# 移植 PhysicsBody.IsOnGround
+# 移植 PhysicsBody.IsOnGround（調整：延遲期視為空中，確保動畫觸發）
 func is_on_floor() -> bool:
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
 		return false
+	if jump_delay_timer > 0:
+		return false  # 延遲期視為空中，讓動畫切換到 Jump 狀態
 	return fixed_position.y >= world.FLOOR_Y and not just_jumped
 
 func get_input() -> Dictionary:

@@ -93,6 +93,15 @@ func _physics_process(delta):
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
 	
+	# 新增：安全重置空中攻擊狀態，防止殘留到下次跳躍
+	if is_air_attacking and is_on_floor():
+		is_air_attacking = false
+		if has_node("Hitbox/HitShape"):
+			$Hitbox/HitShape.disabled = true
+		if has_node("Proximitybox/ProxShape"):
+			$Proximitybox/ProxShape.disabled = true
+		print("Debug: Air attack reset on ground for %s" % name)
+	
 	var input_data = get_input()
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup
