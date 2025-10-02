@@ -245,7 +245,7 @@ func get_ai_input() -> Dictionary:
 	var is_cornered = parent.is_at_corner() if "is_at_corner" in parent else false
 	var opponent_stun_remaining = max(opponent.hit_timer, opponent.block_timer) if opponent else 0.0
 	var opponent_recovery_time = opponent.attack_timer if opponent else 0.0
-	var opponent_jumping = opponent.is_jumping  # 新：追蹤對手跳躍
+	var opponent_jumping = opponent.is_jumping
 	
 	# 被擊中或擊飛時強制後退並嘗試格擋（縮短持續）
 	if parent.is_hit or parent.is_knockfly or block_timer > 0:
@@ -341,6 +341,13 @@ func get_ai_input() -> Dictionary:
 				damage = 10.0
 				attack_type = "attack"
 				print("Debug: Proactive jump attack in approach for AI")
+			# 新增：approach 中隨機觸發招式（中遠距離 >50，機率 30%）
+			elif distance > 50.0 and opponent_stun_remaining > 0.0 and randf() < 0.3:
+				spm1_pressed = true
+				damage = 20.0
+				attack_pressed = false
+				attack_type = "none"
+				print("Debug: Special move in approach for AI (mid-range)")
 		if is_cornered:
 			input_dir = -last_input_dir
 			if randf() > 0.5:  # 增加逃角機率
@@ -353,25 +360,26 @@ func get_ai_input() -> Dictionary:
 		if distance < 50.0 and time_since_last > 0.4 and distance < 45.0:  # 新增：嚴格距離檢查才觸發攻擊
 			# 優化：新增動作選擇邏輯，增加多元性（40%普通、30%跳攻、20%招式、10%其他）
 			var action_roll = randf()
-			if (opponent_stun_remaining > 0.05 or randf() < 0.15) and distance < 40.0 and action_roll < 0.2:  # 新：降低硬直門檻到0.05，或隨機15%用招式
+			# 修正：放寬招式觸發，不限近距離；提高機率到 40%（action_roll < 0.4），並在對手硬直或隨機時觸發
+			if (opponent_stun_remaining > 0.05 or randf() < 0.3) and action_roll < 0.4:
 				spm1_pressed = true
 				damage = 20.0
 				attack_pressed = false
 				attack_type = "none"
 				print("Debug: Random special poke triggered for AI")
-			elif opponent_recovery_time < 0.1 and distance < 40.0 and action_roll < 0.2:  # 懲罰招式
+			elif opponent_recovery_time < 0.1 and action_roll < 0.4:
 				spm1_pressed = true
 				damage = 20.0
 				attack_pressed = false
 				attack_type = "none"
 				print("Debug: Punish special move triggered for AI")
-			elif opponent_jumping and distance < 50.0 and can_attack and action_roll < 0.5:  # 修正：50%機率跳攻，綁定can_attack
+			elif opponent_jumping and distance < 50.0 and can_attack and action_roll < 0.5:
 				jump_pressed = true
 				attack_pressed = true
 				damage = 10.0
 				attack_type = "attack"
 				print("Debug: Jump attack in attack state for AI")
-			elif distance > 40.0 and distance < 50.0 and action_roll < 0.5:  # 新：中距離跳攻
+			elif distance > 40.0 and distance < 50.0 and action_roll < 0.5:
 				jump_pressed = true
 				attack_pressed = true
 				damage = 10.0
@@ -390,6 +398,13 @@ func get_ai_input() -> Dictionary:
 			if randf() > 0.98 and distance > 50.0:  # 減少暫停
 				input_dir = 0
 				print("Debug: Neutral pause after attack for AI")
+			# 新增：attack 中遠距離隨機招式（>50，機率 20%）
+			elif distance > 50.0 and randf() < 0.2:
+				spm1_pressed = true
+				damage = 20.0
+				attack_pressed = false
+				attack_type = "none"
+				print("Debug: Special move in attack for AI (long-range)")
 	elif current_state == "jump":
 		jump_pressed = true
 		crouch_pressed = false
@@ -407,7 +422,7 @@ func get_ai_input() -> Dictionary:
 	if parent_health < 50.0:
 		if randf() > 0.3:  # 增加從0.4到0.3，更積極
 			attack_pressed = true if can_attack and distance < 45.0 else false  # 新增：嚴格距離檢查
-			spm1_pressed = true if distance < 30 and randf() > 0.4 else false
+			spm1_pressed = true if distance > 30 and randf() > 0.4 else false
 	
 	# 跟跳攻擊（修正：縮小範圍到<50，並綁定can_attack，避免無限觸發）
 	if opponent_jumping and distance < 50.0 and can_attack and randf() > 0.4:  # 提高門檻到0.4（60%機率），並綁定can_attack

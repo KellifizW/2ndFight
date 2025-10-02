@@ -640,7 +640,7 @@ size = Vector2(50, 20)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_8caby"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_61wwb"]
-size = Vector2(40, 20)
+size = Vector2(50, 20)
 
 [sub_resource type="Animation" id="Animation_ph7k6"]
 resource_name = "davis_jump_atk"
@@ -1275,10 +1275,8 @@ libraries = {
 tree_root = SubResource("AnimationNodeStateMachine_mbed6")
 advance_expression_base_node = NodePath("..")
 anim_player = NodePath("../AnimationPlayer")
-parameters/conditions/Walk = false
 "parameters/conditions/healthbar.current_health > 0" = false
 parameters/conditions/knockfly = false
-parameters/conditions/landing = false
 parameters/Walk/blend_position = 0.000833988
 
 [node name="Hitbox" type="Area2D" parent="."]
@@ -1298,6 +1296,7 @@ shape = SubResource("RectangleShape2D_bhnal")
 debug_color = Color(1.44392e-06, 0.569045, 0.850655, 0.42)
 
 [node name="AttackHurtShape" type="CollisionShape2D" parent="Hurtbox"]
+position = Vector2(25, 10)
 debug_color = Color(0.9954062, 0, 0.21373373, 0.41960785)
 
 [node name="Proximitybox" type="Area2D" parent="."]

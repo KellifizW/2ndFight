@@ -17,6 +17,7 @@ var is_air_attacking: bool = false
 var is_special_moving: bool = false
 var debug_jump_sequence: bool = true  # 控制跳躍序列除錯
 var landing_lock_timer: float = 0.0  # 鎖定過渡計時器，防止 Walk 自動覆蓋
+var has_air_attacked: bool = false  # 追蹤空中是否已攻擊過
 
 func _ready():
 	super._ready()
@@ -93,9 +94,10 @@ func _physics_process(delta):
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
 	
-	# 新增：安全重置空中攻擊狀態，防止殘留到下次跳躍
+	# 安全重置空中攻擊狀態，防止殘留到下次跳躍
 	if is_air_attacking and is_on_floor():
 		is_air_attacking = false
+		has_air_attacked = false  # 重置空中攻擊旗標
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = true
 		if has_node("Proximitybox/ProxShape"):
@@ -104,7 +106,7 @@ func _physics_process(delta):
 	
 	var input_data = get_input()
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
-	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup
+	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked
 	var hit_shape = $Hitbox.get_node_or_null("HitShape") if has_node("Hitbox") else null
 	if hit_shape and hit_shape is CollisionShape2D:
 		if move_set and (move_set.is_powerkk or move_set.is_spnk) or is_attacking:
@@ -124,6 +126,7 @@ func _physics_process(delta):
 	elif input_data.attack_pressed and is_valid_air_state:
 		current_damage = input_data.damage
 		is_air_attacking = true
+		has_air_attacked = true  # 標記已空中攻擊過
 		attack_type = "jump_mk"
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = false
@@ -139,7 +142,7 @@ func _physics_process(delta):
 		landing_lock_timer -= delta
 		if debug_jump_sequence:
 			print("Debug Jump Seq [%s]: Landing locked (remaining: %.2f sec)." % [name, landing_lock_timer])
-	# 新增：檢查 landing 動畫期間的輸入以打斷
+	# 檢查 landing 動畫期間的輸入以打斷
 	if is_landing and landing_lock_timer > 0:
 		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed:
 			is_landing = false
@@ -168,7 +171,7 @@ func _physics_process(delta):
 				if debug_jump_sequence:
 					print("Debug Jump Seq [%s]: Landing detected, transitioning to 'landing' state (lock: %.2f sec)." % [name, landing_duration])
 			return
-		# 修改：當 curr_state == "landing" 時，不設 is_landing = false，讓它繼續播放
+		# 當 curr_state == "landing" 時，不設 is_landing = false，讓它繼續播放
 		elif curr_state == "landing":
 			return  # 防止干擾 landing 播放
 		else:
@@ -182,40 +185,15 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var curr_state = animation_state.get_current_node() if animation_state else "none"
 	var on_floor = is_on_floor()
 	var relative_jump_dir = jump_dir * facing_direction
-	# 先檢查優先狀態（如 hit, knockfly, attacking 等），允許它們打斷 landing
-	if not on_floor and (is_jumping or is_air_attacking):
-		is_landing = false
-		if is_air_attacking:
-			var target_state = "jump_mk"
-			if curr_state != "jump_mk":
-				animation_state.travel("jump_mk")
-				if debug_jump_sequence:
-					print("Debug Jump Seq [%s]: Air attack, transitioning to 'jump_mk'." % name)
-			return
-		if is_jumping and relative_jump_dir == 0 and curr_state != "Jump_V":
-			animation_state.travel("Jump_V")
-			if debug_jump_sequence:
-				print("Debug Jump Seq [%s]: Neutral jump, transitioning to 'Jump_V'." % name)
-		elif is_jumping and relative_jump_dir > 0 and curr_state != "Jump_F":
-			animation_state.travel("Jump_F")
-			if debug_jump_sequence:
-				print("Debug Jump Seq [%s]: Forward jump, transitioning to 'Jump_F'." % name)
-		elif is_jumping and relative_jump_dir < 0 and curr_state != "Jump_B":
-			animation_state.travel("Jump_B")
-			if debug_jump_sequence:
-				print("Debug Jump Seq [%s]: Backward jump, transitioning to 'Jump_B'." % name)
-		return
-	if move_set and move_set.is_spmove and not is_hit and not is_knockfly:
-		current_mode = "attack"
-		var target_state = "powerkk" if player_id == "p1" else "spnk"
-		attack_type = target_state
-		is_landing = false
-		is_wakeup = false
+	# 先檢查擊中狀態，確保空中低傷害擊中播放 Jump_B
+	if is_hit:
+		var target_state = "hit" if on_floor else "Jump_B"
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 			if debug_jump_sequence:
-				print("Debug Jump Seq [%s]: Special move, transitioning to '%s'." % [name, target_state])
+				print("Debug Jump Seq [%s]: Hit detected, transitioning to '%s'." % [name, target_state])
 		return
+	# 其他優先狀態
 	if is_knockfly:
 		current_mode = "knockfly"
 		is_landing = false
@@ -255,11 +233,18 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		if curr_state != block_target:
 			animation_state.travel(block_target)
 		return
-	if is_hit and on_floor:
-		if curr_state != "hit":
-			animation_state.travel("hit")
+	if move_set and move_set.is_spmove and not is_hit and not is_knockfly:
+		current_mode = "attack"
+		var target_state = "powerkk" if player_id == "p1" else "spnk"
+		attack_type = target_state
+		is_landing = false
+		is_wakeup = false
+		if curr_state != target_state:
+			animation_state.travel(target_state)
+			if debug_jump_sequence:
+				print("Debug Jump Seq [%s]: Special move, transitioning to '%s'." % [name, target_state])
 		return
-	# 恢復：檢查 landing_lock_timer，防止 landing 被 Walk 自動覆蓋（放在優先狀態後）
+	# 檢查 landing_lock_timer，防止 landing 被 Walk 自動覆蓋
 	if is_landing and landing_lock_timer > 0:
 		if debug_jump_sequence:
 			print("Debug Jump Seq [%s]: Landing lock active (%.2f sec left), current state: %s, facing: %.1f." % [name, landing_lock_timer, curr_state, facing_direction])
@@ -274,13 +259,36 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			if debug_jump_sequence:
 				print("Debug Jump Seq [%s]: Entering 'landing' state from current: %s." % [name, curr_state])
 		return
+	# 空中狀態：優先檢查空中攻擊，維持 jump_mk 直到落地或被擊中
+	if not on_floor and (is_jumping or is_air_attacking):
+		is_landing = false
+		if is_air_attacking or has_air_attacked:
+			var target_state = "jump_mk"
+			if curr_state != target_state:
+				animation_state.travel(target_state)
+				if debug_jump_sequence:
+					print("Debug Jump Seq [%s]: Air attack active or completed, maintaining 'jump_mk'." % [name])
+			return
+		if is_jumping and relative_jump_dir == 0 and curr_state != "Jump_V":
+			animation_state.travel("Jump_V")
+			if debug_jump_sequence:
+				print("Debug Jump Seq [%s]: Neutral jump, transitioning to 'Jump_V'." % [name])
+		elif is_jumping and relative_jump_dir > 0 and curr_state != "Jump_F":
+			animation_state.travel("Jump_F")
+			if debug_jump_sequence:
+				print("Debug Jump Seq [%s]: Forward jump, transitioning to 'Jump_F'." % [name])
+		elif is_jumping and relative_jump_dir < 0 and curr_state != "Jump_B":
+			animation_state.travel("Jump_B")
+			if debug_jump_sequence:
+				print("Debug Jump Seq [%s]: Backward jump, transitioning to 'Jump_B'." % [name])
+		return
 	if on_floor and not is_landing and not is_knockfly and not is_wakeup and not is_air_attacking and not (move_set and move_set.is_spmove) and not is_hit and not is_blocking and not is_attacking and not is_dashing and not is_backdashing:
 		var target_state = ""
 		if crouch_input:
 			target_state = "Crouch"
 		else:
 			target_state = "Walk"
-			animation_tree.set("parameters/Walk/blend_position", dir_x * facing_direction)  # 修正：使用相對方向，確保前進/後退動畫正確
+			animation_tree.set("parameters/Walk/blend_position", dir_x * facing_direction)
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 			if debug_jump_sequence:
@@ -346,12 +354,13 @@ func _on_animation_tree_finished(anim_name: String):
 		update_facing_direction()
 		_update_animation_state(0, false)
 	elif anim_name == "jump_mk" and is_air_attacking:
-		is_air_attacking = false
-		if has_node("Hitbox/HitShape"):
-			$Hitbox/HitShape.disabled = true
-		if has_node("Proximitybox/ProxShape"):
-			$Proximitybox/ProxShape.disabled = true
 		if is_on_floor():
+			is_air_attacking = false
+			has_air_attacked = false  # 重置空中攻擊旗標
+			if has_node("Hitbox/HitShape"):
+				$Hitbox/HitShape.disabled = true
+			if has_node("Proximitybox/ProxShape"):
+				$Proximitybox/ProxShape.disabled = true
 			var input_data = get_input()
 			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed:
 				is_landing = false
@@ -365,8 +374,9 @@ func _on_animation_tree_finished(anim_name: String):
 				if debug_jump_sequence:
 					print("Debug Jump Seq [%s]: Jump attack landed, transitioning to 'landing' (lock: %.2f sec)." % [name, landing_duration])
 		else:
-			is_landing = false
-			_update_animation_state(0, false)
+			# 空中攻擊結束，維持最後一幀
+			if debug_jump_sequence:
+				print("Debug Jump Seq [%s]: Air attack animation finished in air, maintaining last frame." % [name])
 	elif anim_name in ["jump_v", "Jump_V", "Jump_F", "Jump_B"] and is_on_floor():
 		is_jumping = false
 		var input_data = get_input()

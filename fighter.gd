@@ -176,7 +176,7 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 			healthbar.take_damage(damage)
 			var facing_mult = get_facing_multiplier()
 
-			if damage >= 20.0:
+			if damage > 10.0:
 				is_knockfly = true
 				knockfly_timer = max(knockfly_duration, min_hitstun_duration)
 				if not skip_push:
