@@ -1,7 +1,7 @@
 class_name MoveSet extends Node
 
-@export var is_powerkk_penetrable: bool = true  # 新增：Inspector中控制powerkk是否穿透
-@export var is_spnk_penetrable: bool = true     # 新增：Inspector中控制spnk是否穿透
+@export var is_powerkk_penetrable: bool = true  # Inspector中控制powerkk是否穿透
+@export var is_spnk_penetrable: bool = true     # Inspector中控制spnk是否穿透
 var is_powerkk: bool = false
 var is_spnk: bool = false
 var is_spmove: bool = false
@@ -12,7 +12,7 @@ var spnk_timer: float = 0.0
 var powerkk_damage: float = 20.0
 var spnk_damage: float = 20.0
 var powerkk_move_distance: float = 100.0
-var spnk_move_distance: float = 100.0
+var spnk_move_distance: float = 90.0
 var powerkk_initial_facing: float = 0.0
 var spnk_initial_facing: float = 0.0
 var powerkk_initial_parent_scale_x: float = 0.0
@@ -38,6 +38,8 @@ func _ready():
 					if track_path.get_subname_count() > 0 and track_path.get_subname(0) == "Sprite2D:transform/scale.x":
 						print("Warning: Animation '%s' modifies Sprite2D:transform/scale.x, which may override sprite.scale.x in %s. Consider removing this track." % [anim_name, parent.name])
 		animation_player.animation_finished.connect(_on_spmove_animation_finished)
+	if parent and parent.has_signal("hit_detected"):
+		parent.hit_detected.connect(_on_hit_detected)
 
 func stop_special_move():
 	if is_powerkk or is_spnk:
@@ -217,29 +219,50 @@ func _process(delta: float):
 	if anim != "spnk" and anim != "powerkk":
 		return
 	
-	var hitbox_track_index = 9
-	if animation_player.has_animation(anim) and hitbox_track_index < animation_player.get_animation(anim).get_track_count():
-		var track = animation_player.get_animation(anim).track_get_path(hitbox_track_index)
-		if str(track) == "NodePath(Hitbox/HitShape:disabled)":
-			var keys_times = animation_player.get_animation(anim).track_get_key_times(hitbox_track_index)
-			var keys_values = []
-			for i in range(animation_player.get_animation(anim).track_get_key_count(hitbox_track_index)):
-				keys_values.append(animation_player.get_animation(anim).track_get_key_value(hitbox_track_index, i))
-			
-			var should_enable = false
-			for i in range(keys_times.size()):
-				if abs(current_time - keys_times[i]) < 0.01:
-					should_enable = not keys_values[i]
-					break
-			
-			if hitbox:
-				hitbox.disabled = not should_enable
-				var shape_status = "enabled" if not hitbox.disabled else "disabled"
-				var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
-				print("Debug: %s time %.2f for %s, Hitbox global_position: (%s, %s), shape: %s" % [anim, current_time, parent.name, hitbox_pos.x, hitbox_pos.y, shape_status])
-			if parent.has_node("Proximitybox"):
-				var proxbox_pos = parent.get_node("Proximitybox").global_position
-				print("Debug: %s time %.2f for %s, Proximitybox global_position: (%s, %s)" % [anim, current_time, parent.name, proxbox_pos.x, proxbox_pos.y])
+	# 動態查找 hitbox disabled track，僅用於 debug 和驗證
+	var hitbox_track_index = -1
+	if animation_player.has_animation(anim):
+		var anim_obj = animation_player.get_animation(anim)
+		for track_idx in range(anim_obj.get_track_count()):
+			var track_path = anim_obj.track_get_path(track_idx)
+			if str(track_path) == "Hitbox/HitShape:disabled":
+				hitbox_track_index = track_idx
+				break
+	
+	if hitbox_track_index != -1:
+		var anim_obj = animation_player.get_animation(anim)
+		var key_count = anim_obj.track_get_key_count(hitbox_track_index)
+		var keys_times = []
+		var keys_values = []
+		for i in range(key_count):
+			keys_times.append(anim_obj.track_get_key_time(hitbox_track_index, i))
+			keys_values.append(anim_obj.track_get_key_value(hitbox_track_index, i))
+		
+		# 僅用於 debug，檢查動畫的 hitbox 狀態
+		var current_hitbox_state = hitbox.disabled if hitbox else true
+		for i in range(keys_times.size()):
+			if abs(current_time - keys_times[i]) < 0.01:
+				current_hitbox_state = keys_values[i]
+				break
+		
+		var shape_status = "enabled" if not current_hitbox_state else "disabled"
+		var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
+		print("Debug: %s time %.2f for %s, Hitbox global_position: (%s, %s), shape: %s" % [anim, current_time, parent.name, hitbox_pos.x, hitbox_pos.y, shape_status])
+		if parent.has_node("Proximitybox"):
+			var proxbox_pos = parent.get_node("Proximitybox").global_position
+			print("Debug: %s time %.2f for %s, Proximitybox global_position: (%s, %s)" % [anim, current_time, parent.name, proxbox_pos.x, proxbox_pos.y])
+	else:
+		print("Debug: No Hitbox/HitShape:disabled track found for %s in %s" % [anim, parent.name])
+
+func _on_hit_detected(target: String, blockstun_duration: float, is_blocked: bool):
+	var player_id = parent.player_id if "player_id" in parent else "p1"
+	if player_id == "p2" and is_spnk:
+		if is_blocked:
+			is_spnk_penetrable = false
+			print("Debug: Spnk hit blocked by %s, is_spnk_penetrable=false" % target)
+		else:
+			is_spnk_penetrable = true
+			print("Debug: Spnk hit %s (not blocked), is_spnk_penetrable=true" % target)
 
 func get_special_damage() -> float:
 	var player_id = parent.player_id if "player_id" in parent else "p1"

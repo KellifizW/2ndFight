@@ -4,7 +4,7 @@ signal hit_detected(target: String, blockstun_duration: float, is_blocked: bool)
 
 @export var player_id: String = "p1"
 @export var is_ai_controlled: bool = false
-@export var corner_push_distance: float = 20.0
+@export var corner_push_distance: float = 50.0  # 增加到50.0，使推開更明顯
 @export var landing_duration: float = 0.2  # 落地動畫持續時間
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 
@@ -17,7 +17,7 @@ var is_air_attacking: bool = false
 var is_special_moving: bool = false
 var landing_lock_timer: float = 0.0  # 鎖定過渡計時器，防止 Walk 自動覆蓋
 var has_air_attacked: bool = false  # 追蹤空中是否已攻擊過
-var debug_corner_push: bool = true  # 控制 corner push 除錯
+var skip_pushbox: bool = false  # 臨時禁用pushbox推開
 
 func _ready():
 	super._ready()
@@ -91,7 +91,6 @@ func _physics_process(delta):
 	super._physics_process(delta)
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
-		print("Warning: World node not found in group 'world' for %s" % name)
 		return
 	
 	# 安全重置空中攻擊狀態，防止殘留到下次跳躍
@@ -102,10 +101,6 @@ func _physics_process(delta):
 			$Hitbox/HitShape.disabled = true
 		if has_node("Proximitybox/ProxShape"):
 			$Proximitybox/ProxShape.disabled = true
-		print("Debug: Air attack reset on ground for %s" % name)
-	
-	if debug_corner_push and is_push_back:
-		print("Debug Corner Push [%s]: push_back active, velocity.x=%s, timer=%.2f" % [name, fixed_velocity.x, push_back_timer])
 	
 	var input_data = get_input()
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
@@ -209,19 +204,16 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		var target_state = "St_mp"
 		if curr_state != target_state:
 			animation_state.travel(target_state)
-			print("Debug: Transition to attack %s for %s" % [target_state, name])
 		return
 	if is_dashing and on_floor:
 		var target_state = "Dash"
 		if curr_state != target_state:
 			animation_state.travel(target_state)
-			print("Debug: Transition to Dash for %s" % name)
 		return
 	if is_backdashing and on_floor:
 		var target_state = "Backdash"
 		if curr_state != target_state:
 			animation_state.travel(target_state)
-			print("Debug: Transition to Backdash for %s" % name)
 		return
 	if is_blocking and on_floor:
 		var block_target = "cr_block" if crouch_input else "block"
@@ -285,13 +277,21 @@ func _on_hitbox_area_entered(area: Area2D):
 		if damage > 0:
 			var world = get_tree().get_first_node_in_group("world")
 			if not world:
-				print("Warning: World node not found in group 'world' for %s" % name)
 				return
 			var slowmo_controller = world.get_node_or_null("SlowMoController")
 			if slowmo_controller:
 				slowmo_controller.request_hit_freeze()
-			var push_manager = get_tree().get_first_node_in_group("push_manager")
-			var skip_target_push = push_manager.is_at_corner(target) if push_manager else false
+			var epsilon_fixed = round(5.0 * world.SIMULATION_SCALE)
+			var fixed_pos_x = target.fixed_position.x
+			var half_fixed = round(target.colbox_half_width * world.SIMULATION_SCALE)
+			var arena_left_fixed = round(0.0 * world.SIMULATION_SCALE)
+			var arena_right_fixed = round(480.0 * world.SIMULATION_SCALE)
+			var left_target = arena_left_fixed + half_fixed
+			var right_target = arena_right_fixed - half_fixed
+			var diff_left = abs(fixed_pos_x - left_target)
+			var diff_right = abs(fixed_pos_x - right_target)
+			var skip_target_push = diff_left < epsilon_fixed or diff_right < epsilon_fixed
+			target.skip_pushbox = skip_target_push  # 設置臨時禁用pushbox
 			target.take_hit(blockstun_duration, damage, skip_target_push)
 			var is_blocked = target.is_blocking and target.block_type == "ordinary"
 			hit_detected.emit(target.name, blockstun_duration, is_blocked)
@@ -309,8 +309,6 @@ func _on_hitbox_area_entered(area: Area2D):
 				push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
 				var facing_mult = get_facing_multiplier()
 				fixed_velocity.x = int(-push_back_velocity * facing_mult)
-				if debug_corner_push:
-					print("Debug Corner Push [%s]: Corner push initiated - timer=%.2f, velocity=%.2f, facing_mult=%.1f" % [name, push_duration, fixed_velocity.x, facing_mult])
 
 func _on_animation_tree_finished(anim_name: String):
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null

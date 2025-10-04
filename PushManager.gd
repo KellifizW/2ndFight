@@ -2,10 +2,10 @@ class_name PushManager extends Node
 
 const SIMULATION_SCALE: float = 1000.0  # 與 world.gd 一致，避免不匹配
 
-@export var PUSH_FRICTION: float = 66.0          # 摩擦用於推開計算（但現在移除額外摩擦）
-@export var collision_epsilon: float = 1.0       # 碰撞容差
-@export var arena_left: float = 0.0             # 場地左邊界
-@export var arena_right: float = 480.0          # 場地右邊界
+@export var PUSH_FRICTION: float = 66.0  # 摩擦用於推開計算（但現在移除額外摩擦）
+@export var collision_epsilon: float = 5.0  # 增加到5.0，更寬容角落檢測，避免微小偏移誤判
+@export var arena_left: float = 0.0  # 場地左邊界
+@export var arena_right: float = 480.0  # 場地右邊界
 
 var players: Array = []
 
@@ -43,10 +43,6 @@ func get_depth(a: Collider, b: Collider) -> Vector2i:
 
 func _ready() -> void:
 	players = get_tree().get_nodes_in_group("players")
-	for player in players:
-		if not ("colbox_half_width" in player and "colbox_half_height" in player):
-			if OS.is_debug_build():
-				print("Warning: Player %s missing colbox_half_width or colbox_half_height." % player.name)
 
 func _physics_process(delta: float) -> void:
 	players = get_tree().get_nodes_in_group("players")
@@ -55,8 +51,6 @@ func _physics_process(delta: float) -> void:
 
 	# 處理所有玩家的hit/block/push_back/knockfly計時器
 	for player in players:
-		if is_at_corner(player):
-			print("Debug Corner: Player %s is at corner - pos_x=%.2f, fixed_pos_x=%s" % [player.name, player.global_position.x, player.fixed_position.x])
 		if player.is_push_back:
 			if player.push_back_timer > 0:
 				player.fixed_velocity.x = int(-player.push_back_velocity * player.facing_direction * (player.push_back_timer / player.initial_push_back))
@@ -123,7 +117,7 @@ func _physics_process(delta: float) -> void:
 			is_penetrable = (player_id == "p1" and move_set.is_powerkk and move_set.is_powerkk_penetrable) or \
 							(player_id == "p2" and move_set.is_spnk and move_set.is_spnk_penetrable)
 		parent.is_being_pushed = false
-		if is_penetrable:
+		if is_penetrable or parent.skip_pushbox:
 			continue
 		for j in range(i + 1, players.size()):
 			var other = players[j]
@@ -133,7 +127,7 @@ func _physics_process(delta: float) -> void:
 				var other_player_id = other.player_id if "player_id" in other else "p1"
 				other_is_penetrable = (other_player_id == "p1" and other_move_set.is_powerkk and other_move_set.is_powerkk_penetrable) or \
 									  (other_player_id == "p2" and other_move_set.is_spnk and other_move_set.is_spnk_penetrable)
-			if other_is_penetrable:
+			if other_is_penetrable or other.skip_pushbox:
 				continue
 
 			var fixed_position_a = Vector2i(round(parent.global_position.x * SIMULATION_SCALE), round(parent.global_position.y * SIMULATION_SCALE))
@@ -212,15 +206,18 @@ func _physics_process(delta: float) -> void:
 		var half_fixed = round(player.colbox_half_width * SIMULATION_SCALE)
 		player.fixed_position.x = clampi(player.fixed_position.x, arena_left_fixed + half_fixed, arena_right_fixed - half_fixed)
 		player.global_position.x = player.fixed_position.x / SIMULATION_SCALE
+		player.skip_pushbox = false  # 重置pushbox標誌
 
 func is_at_corner(player: Node) -> bool:
 	var epsilon_fixed = round(collision_epsilon * SIMULATION_SCALE)
-	var fixed_pos_x = round(player.global_position.x * SIMULATION_SCALE)
+	var fixed_pos_x = player.fixed_position.x
 	var half_fixed = round(player.colbox_half_width * SIMULATION_SCALE)
 	var arena_left_fixed = round(arena_left * SIMULATION_SCALE)
 	var arena_right_fixed = round(arena_right * SIMULATION_SCALE)
-	var self_at_left = abs(fixed_pos_x - (arena_left_fixed + half_fixed)) < epsilon_fixed
-	var self_at_right = abs(fixed_pos_x - (arena_right_fixed - half_fixed)) < epsilon_fixed
-	if self_at_left or self_at_right:
-		print("Debug Corner Detection: Player %s is at corner: left=%s, right=%s, pos_x=%.2f, fixed_pos_x=%s, half_fixed=%s" % [player.name, self_at_left, self_at_right, player.global_position.x, fixed_pos_x, half_fixed])
+	var left_target = arena_left_fixed + half_fixed
+	var right_target = arena_right_fixed - half_fixed
+	var diff_left = abs(fixed_pos_x - left_target)
+	var diff_right = abs(fixed_pos_x - right_target)
+	var self_at_left = diff_left < epsilon_fixed
+	var self_at_right = diff_right < epsilon_fixed
 	return self_at_left or self_at_right

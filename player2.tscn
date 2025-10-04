@@ -1309,6 +1309,7 @@ debug_color = Color(0.607617, 0.540146, 0, 0.42)
 [node name="MoveSet" type="Node" parent="."]
 script = ExtResource("3_vop8p")
 is_powerkk_penetrable = false
+is_spnk_penetrable = false
 
 [node name="AIBehavior" type="Node" parent="."]
 script = ExtResource("4_tj0vx")
