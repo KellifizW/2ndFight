@@ -55,9 +55,11 @@ func _physics_process(delta: float) -> void:
 
 	# 處理所有玩家的hit/block/push_back/knockfly計時器
 	for player in players:
+		if is_at_corner(player):
+			print("Debug Corner: Player %s is at corner - pos_x=%.2f, fixed_pos_x=%s" % [player.name, player.global_position.x, player.fixed_position.x])
 		if player.is_push_back:
 			if player.push_back_timer > 0:
-				player.fixed_velocity.x = int(-player.push_back_velocity * player.facing_direction)
+				player.fixed_velocity.x = int(-player.push_back_velocity * player.facing_direction * (player.push_back_timer / player.initial_push_back))
 				player.push_back_timer -= delta
 				if player.push_back_timer <= 0:
 					player.is_push_back = false
@@ -219,4 +221,6 @@ func is_at_corner(player: Node) -> bool:
 	var arena_right_fixed = round(arena_right * SIMULATION_SCALE)
 	var self_at_left = abs(fixed_pos_x - (arena_left_fixed + half_fixed)) < epsilon_fixed
 	var self_at_right = abs(fixed_pos_x - (arena_right_fixed - half_fixed)) < epsilon_fixed
+	if self_at_left or self_at_right:
+		print("Debug Corner Detection: Player %s is at corner: left=%s, right=%s, pos_x=%.2f, fixed_pos_x=%s, half_fixed=%s" % [player.name, self_at_left, self_at_right, player.global_position.x, fixed_pos_x, half_fixed])
 	return self_at_left or self_at_right
