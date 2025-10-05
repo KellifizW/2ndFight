@@ -19,8 +19,6 @@ var is_jumping: bool = false
 var is_dashing: bool = false
 var is_backdashing: bool = false
 var is_attacking: bool = false
-var attack_time: float = 0.4
-var attack_timer: float = 0.0
 var dash_speed: float = 160.0
 var backdash_speed: float = 130.0
 var dash_time: float = 0.35
@@ -88,6 +86,9 @@ func _ready():
 		$Hurtbox.area_exited.connect(_on_hurtbox_area_exited)
 	if animation_player:
 		animation_player.speed_scale = 1.0
+		# 連接到動畫結束信號
+		if not animation_player.animation_finished.is_connected(_on_animation_player_finished):
+			animation_player.animation_finished.connect(_on_animation_player_finished)
 	prev_position = global_position
 	var world = get_tree().get_first_node_in_group("world")
 	if world:
@@ -108,14 +109,6 @@ func _physics_process(delta):
 	# 更新計時器
 	if neutral_timer > 0:
 		neutral_timer -= delta
-	if attack_timer > 0:
-		attack_timer -= delta
-		if attack_timer <= 0:
-			is_attacking = false
-			update_facing_direction()
-			if has_node("Proximitybox/ProxShape"):
-				$Proximitybox/ProxShape.disabled = true
-				print("Debug: ProximityBox disabled for %s" % name)
 	if dash_timer > 0:
 		dash_timer -= delta
 		if dash_timer <= 0:
@@ -235,7 +228,7 @@ func _physics_process(delta):
 	
 	# 更新面向（每幀檢查，但保留特定狀態限制）
 	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
-	var is_attacking_state = is_attacking and attack_timer > 0
+	var is_attacking_state = is_attacking
 	if not (is_special_move or is_attacking_state or is_hit or is_knockfly or is_blocking or is_jumping or is_landing) and not landing_facing_lock:
 		update_facing_direction()
 	
@@ -247,6 +240,18 @@ func _physics_process(delta):
 		update_facing_direction()
 	prev_position = global_position
 	post_physics_process(delta)
+
+# 處理動畫結束
+func _on_animation_player_finished(anim_name: String) -> void:
+	if anim_name == "st_mp" and is_attacking:
+		is_attacking = false
+		update_facing_direction()
+		if has_node("Proximitybox/ProxShape"):
+			$Proximitybox/ProxShape.disabled = true
+			print("Debug: ProximityBox disabled for %s" % name)
+		if has_node("Hitbox/HitShape"):
+			$Hitbox/HitShape.disabled = true
+		print("Debug: Attack animation 'st_mp' finished, resetting is_attacking for %s" % name)
 
 # 移植 PhysicsBody.AddGravity
 func add_gravity(gravity: int, delta: float) -> void:
@@ -330,7 +335,7 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 func update_facing_direction():
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
-	var is_attacking_state = is_attacking and attack_timer > 0
+	var is_attacking_state = is_attacking
 	if is_special_move or is_attacking_state or landing_facing_lock:
 		return  # 鎖定時跳過更新
 	var players = get_tree().get_nodes_in_group("players")

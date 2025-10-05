@@ -49,11 +49,9 @@ func _physics_process(delta):
 	if is_hit or is_knockfly or is_blocking:
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 	else:
-		if input_data.attack_pressed and is_valid_state:
+		if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_state:
 			current_damage = input_data.damage
 			is_attacking = true
-			attack_timer = attack_time
-			fixed_velocity.x = 0
 			if has_node("Proximitybox/ProxShape"):
 				$Proximitybox/ProxShape.disabled = false
 			print("Debug: ProximityBox enabled during attack for %s" % name)
@@ -87,7 +85,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		else:
 			target_state = "block"
 	elif is_attacking:
-		target_state = "St_mp"
+		target_state = "st_mp" if get("attack_type") == "st_mp" else "st_mk" if get("attack_type") == "st_mk" else "st_mp"
 	elif is_dashing:
 		target_state = "Dash"
 	elif is_backdashing:
@@ -102,11 +100,13 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		else:
 			target_state = "Jump_V"
 
+	# AnimationTree 條件設置
 	animation_tree.set("parameters/conditions/Walk", target_state == "Walk" and on_floor and not crouch_input)
 	animation_tree.set("parameters/conditions/Crouch", target_state == "Crouch")
 	animation_tree.set("parameters/conditions/Dash", is_dashing)
 	animation_tree.set("parameters/conditions/Backdash", is_backdashing)
-	animation_tree.set("parameters/conditions/St_mp", is_attacking)
+	animation_tree.set("parameters/conditions/st_mp", is_attacking and target_state == "st_mp")
+	animation_tree.set("parameters/conditions/st_mk", is_attacking and target_state == "st_mk")
 	animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
 	animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
 	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
@@ -115,7 +115,8 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	animation_tree.set("parameters/conditions/block", is_blocking and not is_crouch_blocking)
 	animation_tree.set("parameters/conditions/cr_block", is_blocking and is_crouch_blocking and crouch_input)
 	animation_tree.set("parameters/conditions/powerkk", false)
-	animation_tree.set("parameters/conditions/jump_mk", target_state == "jump_mk")
+	animation_tree.set("parameters/conditions/jump_mk", is_attacking and get("attack_type") == "jump_mk")
+	animation_tree.set("parameters/conditions/jump_mp", is_attacking and get("attack_type") == "jump_mp") # 新增 jump_mp 條件
 
 	if curr_state != target_state:
 		animation_state.travel(target_state)
@@ -142,7 +143,6 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 	if not is_hit and not is_knockfly:
 		if is_attacking:
 			is_attacking = false
-			attack_timer = 0.0
 			print("Debug: Attack interrupted by hit for %s" % name)
 		if is_spmove:
 			move_set.stop_special_move()

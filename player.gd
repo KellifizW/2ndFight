@@ -38,7 +38,8 @@ func get_input() -> Dictionary:
 			"input_dir": 0,
 			"crouch_pressed": false,
 			"jump_pressed": false,
-			"attack_pressed": false,
+			"st_mp_pressed": false,
+			"st_mk_pressed": false,
 			"attack_type": "none",
 			"blockstun_duration": 0.2,
 			"damage": 0.0,
@@ -52,7 +53,8 @@ func get_input() -> Dictionary:
 	var input_dir = 0
 	var crouch_pressed = Input.is_action_pressed("crouch" + ("_p2" if player_id == "p2" else ""))
 	var jump_pressed = Input.is_action_pressed("jump" + ("_p2" if player_id == "p2" else ""))
-	var attack_pressed = Input.is_action_just_pressed("attack" + ("_p2" if player_id == "p2" else ""))
+	var st_mp_pressed = Input.is_action_just_pressed("st_mp" + ("_p2" if player_id == "p2" else ""))
+	var st_mk_pressed = Input.is_action_just_pressed("st_mk" + ("_p2" if player_id == "p2" else ""))
 	var right_pressed = Input.is_action_pressed("move_right" + ("_p2" if player_id == "p2" else ""))
 	var left_pressed = Input.is_action_pressed("move_left" + ("_p2" if player_id == "p2" else ""))
 	var spm1_pressed = Input.is_action_just_pressed("spmove1" + ("_p2" if player_id == "p2" else ""))
@@ -63,14 +65,15 @@ func get_input() -> Dictionary:
 		input_dir = 1
 	elif left_pressed:
 		input_dir = -1
-	var attack_type = "attack" if attack_pressed else "none"
+	var attack_type = "st_mp" if st_mp_pressed else "st_mk" if st_mk_pressed else "none"
 	var blockstun_duration = 0.4 if move_set and ((move_set.is_powerkk and player_id == "p1") or (move_set.is_spnk and player_id == "p2")) else 0.3 if move_set and move_set.is_fireball else 0.2
-	var damage = move_set.get_special_damage() if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball) else (10.0 if attack_pressed else 0.0)
+	var damage = move_set.get_special_damage() if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball) else (10.0 if (st_mp_pressed or st_mk_pressed) else 0.0)
 	var input_dict = {
 		"input_dir": input_dir,
 		"crouch_pressed": crouch_pressed,
 		"jump_pressed": jump_pressed,
-		"attack_pressed": attack_pressed,
+		"st_mp_pressed": st_mp_pressed,
+		"st_mk_pressed": st_mk_pressed,
 		"attack_type": attack_type,
 		"blockstun_duration": blockstun_duration,
 		"damage": damage,
@@ -82,7 +85,8 @@ func get_input() -> Dictionary:
 			"input_dir": 0,
 			"crouch_pressed": false,
 			"jump_pressed": false,
-			"attack_pressed": false,
+			"st_mp_pressed": false,
+			"st_mk_pressed": false,
 			"attack_type": "none",
 			"blockstun_duration": 0.2,
 			"damage": 0.0,
@@ -115,10 +119,9 @@ func _physics_process(delta):
 			pass
 	if move_set and (player_id == "p1" or player_id == "p2") and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
-	if input_data.attack_pressed and is_valid_ground_state:
+	if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_ground_state:
 		current_damage = input_data.damage
 		is_attacking = true
-		attack_timer = attack_time
 		attack_type = input_data.attack_type
 		if not is_push_back:
 			fixed_velocity.x = 0
@@ -126,26 +129,26 @@ func _physics_process(delta):
 			$Hitbox/HitShape.disabled = false
 		if has_node("Proximitybox/ProxShape"):
 			$Proximitybox/ProxShape.disabled = false
-	elif input_data.attack_pressed and is_valid_air_state:
+	elif input_data.st_mp_pressed and is_valid_air_state:
+		current_damage = input_data.damage
+		is_air_attacking = true
+		has_air_attacked = true
+		attack_type = "jump_mp"
+		if has_node("Hitbox/HitShape"):
+			$Hitbox/HitShape.disabled = false
+	elif input_data.st_mk_pressed and is_valid_air_state:
 		current_damage = input_data.damage
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mk"
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = false
-	if is_attacking and attack_timer <= 0:
-		is_attacking = false
-		if has_node("Hitbox/HitShape"):
-			$Hitbox/HitShape.disabled = true
-		if has_node("Proximitybox/ProxShape"):
-			$Proximitybox/ProxShape.disabled = true
-		update_facing_direction()
 	# 更新 landing_lock_timer
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
 	# 檢查 landing 動畫期間的輸入以打斷
 	if is_landing and landing_lock_timer > 0:
-		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
+		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 			is_landing = false
 			landing_lock_timer = 0.0
 			landing_facing_lock = false
@@ -155,8 +158,8 @@ func _physics_process(delta):
 	# 檢查落地邏輯
 	if not is_jumping and is_on_floor():
 		var curr_state = animation_state.get_current_node() if animation_state else "none"
-		if curr_state in ["Jump_V", "Jump_F", "Jump_B", "jump_mk"] and not is_wakeup and not is_hit and not is_knockfly:
-			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
+		if curr_state in ["Jump_V", "Jump_F", "Jump_B", "jump_mk", "jump_mp"] and not is_wakeup and not is_hit and not is_knockfly:
+			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 				is_landing = false
 				landing_facing_lock = false
 				update_facing_direction()
@@ -204,8 +207,8 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 		return
-	if is_attacking and on_floor and attack_timer > 0:
-		var target_state = "St_mp"
+	if is_attacking and on_floor:
+		var target_state = attack_type # 使用 attack_type 動態選擇 st_mp 或 st_mk
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 		return
@@ -244,11 +247,11 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 		return
-	# 空中狀態：優先檢查空中攻擊，維持 jump_mk 直到落地或被擊中
+	# 空中狀態：優先檢查空中攻擊，維持 jump_mp 或 jump_mk 直到落地或被擊中
 	if not on_floor and (is_jumping or is_air_attacking):
 		is_landing = false
 		if is_air_attacking or has_air_attacked:
-			var target_state = "jump_mk"
+			var target_state = attack_type # 使用 attack_type 選擇 jump_mp 或 jump_mk
 			if curr_state != target_state:
 				animation_state.travel(target_state)
 			return
@@ -335,11 +338,15 @@ func _on_animation_tree_finished(anim_name: String):
 		landing_facing_lock = false
 		update_facing_direction()
 		_update_animation_state(0, false)
-	elif anim_name == "St_mp":
+	elif anim_name in ["st_mp", "st_mk"] and is_attacking:
 		is_attacking = false
+		if has_node("Hitbox/HitShape"):
+			$Hitbox/HitShape.disabled = true
+		if has_node("Proximitybox/ProxShape"):
+			$Proximitybox/ProxShape.disabled = true
 		update_facing_direction()
 		_update_animation_state(0, false)
-	elif anim_name == "jump_mk" and is_air_attacking:
+	elif anim_name in ["jump_mp", "jump_mk"] and is_air_attacking:
 		if is_on_floor():
 			is_air_attacking = false
 			has_air_attacked = false
@@ -348,7 +355,7 @@ func _on_animation_tree_finished(anim_name: String):
 			if has_node("Proximitybox/ProxShape"):
 				$Proximitybox/ProxShape.disabled = true
 			var input_data = get_input()
-			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
+			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 				is_landing = false
 				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 			else:
@@ -361,7 +368,7 @@ func _on_animation_tree_finished(anim_name: String):
 	elif anim_name in ["jump_v", "Jump_V", "Jump_F", "Jump_B"] and is_on_floor():
 		is_jumping = false
 		var input_data = get_input()
-		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
+		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 			is_landing = false
 			landing_facing_lock = false
 			update_facing_direction()

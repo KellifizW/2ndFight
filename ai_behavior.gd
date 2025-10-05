@@ -1,724 +1,364 @@
-extends Node
+class_name AIBehavior extends Node
 
-enum AIState {
-	IDLE,
-	APPROACH,
-	ATTACK,
-	DEFEND,
-	JUMP
-}
+# 定義 AI 輸入類型，模擬 AIBrain.cs 的 AIInput，改為 Resource 以支持導出
+class AIInput extends Resource:
+	@export var direction: int = 0  # -1: left, 0: neutral, 1: right (相對於面向)
+	@export var crouch: bool = false
+	@export var jump: bool = false
+	@export var attack: bool = false
+	@export var spm1: bool = false
+	@export var spm2: bool = false
 
-@onready var parent: Node = get_parent()  # 抓Player父節點
+# 定義 AI 動作，類似 AIAction
+class AIAction extends Resource:
+	@export var inputs: Array[Resource] = []  # AIInput Resource 陣列
+	@export var auto_advance: bool = false  # 是否自動推進到下一個命令
 
-# AI控制相關
-var ai_enabled: bool = false  # AI開關（從CPUController傳來）
-var current_state: AIState = AIState.IDLE  # AI狀態機
+# 定義 AI 條件，類似 AICondition
+class AICondition extends Resource:
+	@export var use_on_ground: bool = true
+	@export var use_on_air: bool = false
+	@export var distance: Vector2i = Vector2i(0, 0)  # x: 水平距離, y: 垂直距離 (以 SIMULATION_SCALE 單位)
+	@export var probability: int = 5  # 0-10
+	@export var action_mode: String = "neutral"  # "aggressive", "defensive", "neutral"
+	@export var actions_list: Array[int] = []  # 動作索引陣列
 
-# 計時器
-var state_timer := 0.0
-var action_timer := 0.0
-var block_timer := 0.0
-var attack_timer := 0.0
-var special_timer := 0.0
-var is_crouching := false
-var timers := {
-	"input_dir": 0.0,   # 輸入方向穩定計時器
-	"dash": 0.0,        # dash 冷卻計時器
-	"recovery": 0.0,    # 被擊中後恢復計時器
-	"block": 0.0,       # 格擋持續計時器
-	"crouch": 0.0,      # 蹲下持續計時器
-	"special": 0.0,     # 特殊招式冷卻計時器
-	"attack": 0.0,      # 普通攻擊冷卻計時器
-	"jump_attack": 0.0  # 跳攻冷卻計時器
-}
+# 定義 AI 動作包，類似 AIActionPack
+class AIActionPack extends Resource:
+	@export var horizontal_distance: int = 0  # 以 SIMULATION_SCALE 單位
+	@export var conditions: Array[Resource] = []  # AICondition Resource 陣列
 
-# 技能冷卻時間設定
-@export var normal_attack_cooldown: float = 1.8  # 普通攻擊冷卻時間
-@export var special_attack_cooldown: float = 3.0  # 特殊招式冷卻時間
-@export var jump_attack_cooldown: float = 2.0  # 跳攻冷卻時間
+# 定義 AI 行為，類似 AIBehavior
+@export_category("Behaviors")
+@export var decision_rate_free: Vector2i = Vector2i(5, 15)  # 空閒時決策幀範圍
+@export var decision_rate_busy: Vector2i = Vector2i(10, 20)  # 忙碌時決策幀範圍
+@export var input_randomness: Vector2i = Vector2i(1, 3)  # 輸入隨機等待幀
+@export var blocking_rate: int = 7  # 0-10，阻擋概率
+@export var prediction_quality: int = 5  # 0-10，反擊預測品質
+@export var low_health_threshold: float = 30.0  # 低血量門檻，切換模式
 
-# 距離閾值
-@export var attack_range: float = 45.0  # 攻擊範圍
-@export var approach_range: float = 40.0  # 接近範圍
-@export var danger_range: float = 30.0  # 危險範圍
+@export var actions: Array[Resource] = []  # AIAction Resource 陣列
+@export var near_actions: Resource = AIActionPack.new()
+@export var mid_actions: Resource = AIActionPack.new()
+@export var far_actions: Resource = AIActionPack.new()
+@export var distant_actions: Resource = AIActionPack.new()
 
-# 輸入緩衝系統
-var last_input: Dictionary = {}  # 上一次的輸入
-var last_input_dir: Vector2 = Vector2.ZERO  # 上一次的輸入方向
-var input_buffer_time: float = 0.1  # 輸入緩衝時間
+@export var block_action: int = -1  # 阻擋動作索引 (遊戲中無 high/low 分類)
 
-# 狀態數據
-var state_data: Dictionary = {}  # 用於存儲當前狀態的額外數據
+var ai_owner: Node  # 擁有者，通常是 Player
+var opponent: Node  # 對手
+var mode: String = "aggressive"  # "aggressive", "defensive"
+var tick: int = 0
+var tick_limit: int = 10
+var input_tick: int = 0
+var input_tick_limit: int = 1
+var current_command_list: Array[int] = []
+var current_command: int = 0
+var current_input_index: int = 0
+var can_advance: bool = false
+var input_finished: bool = true
+var blocking: bool = false
+var ai_enabled: bool = false
+var current_state: String = "idle"  # 新增：匹配 world.gd 重置邏輯
+var state_timer: float = 0.0  # 新增：匹配 world.gd 重置邏輯
+var last_action_time: float = 0.0  # 新增：匹配 world.gd 重置邏輯
 
-# 戰鬥狀態變量
-var in_danger := false
-var can_attack := false
-var is_cornered := false
-var opponent_attacking := false
-var distance := 0.0
-var last_action_time := 0.0
-var last_attack_time := 0.0
-var last_jump_attack_time := 0.0
-var last_special_move_time := 0.0
-var input_dir := 0
-var input_dir_timer := 0.0
-var crouch_timer := 0.0
-var recovery_timer := 0.0
-var attack_choice := 0.0
-var corner_pressure := 0.0
-
-# 輸入相關變量
-var crouch_pressed := false
-var jump_pressed := false
-var attack_pressed := false
-var spm1_pressed := false
-var dash_pressed := false
-var attack_type := "none"
-var blockstun_duration := 0.2
-var damage := 0.0
-
-func build_input_dict(dir: int, crouch: bool, jump: bool, attack: bool, atk_type: String, 
-					blockstun: float, dmg: float, special: bool, dash: bool) -> Dictionary:
-	return {
-		"input_dir": dir,
-		"crouch_pressed": crouch,
-		"jump_pressed": jump,
-		"attack_pressed": attack,
-		"attack_type": atk_type,
-		"blockstun_duration": blockstun,
-		"damage": dmg,
-		"spm1_pressed": special,
-		"dash_pressed": dash
-	}
-
-func get_strategy() -> Dictionary:
-	if not parent or not parent.healthbar:
-		return {"aggressive": false, "defensive": false, "special": false, "cornered": false}
-	
-	var opponent = get_opponent()
-	if not opponent or not opponent.healthbar:
-		return {"aggressive": false, "defensive": false, "special": false, "cornered": false}
-	
-	var my_health = parent.healthbar.current_health / parent.healthbar.max_health
-	var opp_health = opponent.healthbar.current_health / opponent.healthbar.max_health
-	
-	return {
-		"aggressive": my_health < 0.5 and opp_health > 0.7,
-		"defensive": my_health < opp_health,
-		"special": my_health < 0.5 and opp_health > 0.7,
-		"cornered": is_cornered
-	}
-
-func check_hitbox_interaction(attacker: Node, target: Node, is_range_check := false) -> bool:
-	if not target:
-		return false
-	
-	var distance_val: float = abs(attacker.global_position.x - target.global_position.x)
-	if is_range_check:
-		return distance_val < attack_range
-		
-	if not attacker.has_node("Hitbox") or not target.has_node("Hurtbox"):
-		return false
-		
-	var hitbox := attacker.get_node("Hitbox") as Area2D
-	var hurtbox := target.get_node("Hurtbox") as Area2D
-	
-	for area in hitbox.get_overlapping_areas():
-		if area == hurtbox and area.get_parent() != attacker:
-			return true
-	return false
-
-func is_opponent_vulnerable_in_air(opponent: Node) -> bool:
-	if not opponent:
-		return false
-	return not opponent.is_on_floor() and opponent.fixed_velocity.y > 0 and not opponent.is_air_attacking
-
-# 追蹤對手硬直（參考 fighter.gd 的 timer 值）
-var opponent_recovery_time: float = 0.0  # 對手攻擊剩餘時間
-var opponent_stun_remaining: float = 0.0  # 對手 stun/block 剩餘
 func _ready():
-	if not parent:
-		print("Warning: No parent Player found for AIBehavior")
-	if parent:
-		print("Debug: AIBehavior ready for %s!" % parent.name)
-		# 隨機初始state_timer，打破對稱
-		state_timer = randf() * 0.3 + 0.3  # 縮短初始：0.3-0.6秒，更快啟動
-	else:
-		print("Debug: AIBehavior ready for unknown!")
+	ai_owner = get_parent()
+	if not ai_owner or not ai_owner is Fighter:
+		print("Error: AIBehavior must be child of Fighter-derived node")
+	opponent = get_opponent()
+	if not opponent:
+		print("Warning: Opponent not found for AIBehavior")
+	print("Debug: AIBehavior initialized, ai_enabled=", ai_enabled)
 
 func set_ai_enabled(enabled: bool):
 	ai_enabled = enabled
-	if enabled:
-		current_state = AIState.APPROACH if randf() > 0.2 else AIState.IDLE  # 80%機率初始為approach，更積極
-		state_timer = randf() * 0.3 + 0.3  # 縮短初始計時器
-	if parent:
-		print("Debug: AI %s for %s" % ["enabled" if enabled else "disabled", parent.name])
-	else:
-		print("Debug: AI %s for unknown" % ["enabled" if enabled else "disabled"])
+	print("Debug: AI enabled set to ", ai_enabled)
+	if not enabled:
+		reset()
 
-func _physics_process(delta):
-	if not ai_enabled:
-		return
-	# 檢查雙方血量，停止行為如果任一方血量為 0
-	var opponent = get_opponent()
-	var parent_health = parent.healthbar.current_health if parent and parent.healthbar else 100.0
-	var opponent_health = opponent.healthbar.current_health if opponent and opponent.healthbar else 100.0
-	if parent_health <= 0.0 or opponent_health <= 0.0:
-		return  # 停止 AI 行為
-	
-	# 更新所有計時器
-	update_timers(delta)  # 統一更新所有計時器
-	update_ai_state(delta)
-
-func update_ai_state(delta: float):
-	var opponent = get_opponent()
-	if not opponent:
-		return
-
-	# 更新狀態
-	action_timer += delta
-	state_timer -= delta
-	if state_timer <= 0:
-		choose_next_state(opponent)
-
-	# 更新對手狀態
-	distance = abs(parent.global_position.x - opponent.global_position.x)
-	can_attack = check_hitbox_interaction(parent, opponent, true)
-	in_danger = check_hitbox_interaction(opponent, parent, false)
-
-	# 強制狀態轉換
-	if parent.is_hit or parent.is_knockfly:
-		current_state = AIState.DEFEND
-		state_timer = 0.5
-		return
-	
-	# 獲取戰略信息
-	var strategy = get_strategy()
-	
-	# 被擊中或擊飛時強制進入防禦狀態
-	if parent.is_hit or parent.is_knockfly:
-		current_state = AIState.DEFEND
-		set_timer("recovery", 0.5)
-		set_timer("block", 0.5)
-		set_timer("state", 0.5)
-		state_data["forced_defense"] = true
-		print("Debug: AI hit or knockfly, entering defend state for %s" % parent.name)
-		return
-	
-	# 重置輸入變數
-	input_dir = 0
-	crouch_pressed = false
-	jump_pressed = false
-	attack_pressed = false
-	spm1_pressed = false
-	attack_type = "none"
-	damage = 0.0
-
-	# 狀態轉換邏輯
-	match current_state:
-		AIState.IDLE:
-			if get_timer("action") > 0.6:  # 增加反應時間，讓AI更冷靜
-				var action_choice = randf()  # 統一使用一個隨機值來決定行動
-				
-				# 優先處理防禦情況
-				if in_danger or (opponent_attacking and distance < 50.0):
-					current_state = AIState.DEFEND
-					set_timer("block", 0.5)
-					set_timer("state", 0.5)
-				# 距離控制
-				elif distance > 80.0 or (distance > 40.0 and action_choice < 0.7):
-					current_state = AIState.APPROACH
-					state_timer = 0.4
-				# 攻擊判斷
-				elif can_attack and distance < attack_range:
-					if action_choice < 0.4:  # 40%普通攻擊
-						current_state = AIState.ATTACK
-						state_data["normal_attack"] = true
-					elif action_choice < 0.5 and should_use_special_move(opponent, distance):  # 10%特殊攻擊
-						current_state = AIState.ATTACK
-						state_data["use_special"] = true
-					elif action_choice < 0.6 and check_opponent_air_status(opponent):  # 10%空中攻擊
-						current_state = AIState.JUMP
-						state_data["air_punish"] = true
-				# 其他情況
-				elif is_cornered and strategy.corner_pressure > 0.7 and action_choice < 0.8:
-					current_state = AIState.JUMP
-					set_timer("state", 0.4)
-					state_data["corner_escape"] = true
-				elif state_timer <= 0:
-					current_state = AIState.IDLE  # 保持觀望
-					state_timer = randf() * 0.5 + 0.5  # 更長的觀望時間
-
-		AIState.APPROACH:
-			if last_action_time > 0.4:
-				# 優先處理防禦情況
-				if in_danger or (opponent_attacking and distance < danger_range):
-					current_state = AIState.DEFEND
-					block_timer = 0.5
-					state_timer = 0.5
-					print("Debug: Defend triggered from approach")
-				# 如果在角落且有壓力，優先考慮跳躍
-				elif is_cornered and strategy.corner_pressure > 0.7:
-					current_state = AIState.JUMP
-					state_timer = 0.4
-					state_data["corner_escape"] = true
-					print("Debug: Corner jump escape triggered for AI")
-				# 直接執行攻擊，而不是只改變狀態
-				elif can_attack and distance < attack_range and get_timer("attack") <= 0 and randf() < 0.6:
-					current_state = AIState.ATTACK
-					attack_pressed = true
-					damage = 10.0
-					attack_type = "attack"
-					set_timer("attack", normal_attack_cooldown)
-					print("Debug: Executing attack from approach")
-				# 特殊攻擊檢查
-				elif should_use_special_move(opponent, distance) and get_timer("special") <= 0:
-					current_state = AIState.ATTACK
-					spm1_pressed = true
-					damage = 20.0
-					set_timer("special", special_attack_cooldown)
-					print("Debug: Executing special move from approach")
-				elif get_timer("state") <= 0:
-					if distance > approach_range:
-						current_state = AIState.APPROACH
-						set_timer("state", randf() * 0.3 + 0.3)
-					else:
-						current_state = AIState.IDLE
-						set_timer("state", randf() * 0.4 + 0.2)  # 縮短觀察時間
-
-		AIState.ATTACK:
-			# 優先檢查防禦需求
-			if in_danger or (opponent_attacking and distance < danger_range):
-				current_state = AIState.DEFEND
-				block_timer = 0.5
-				state_timer = 0.5
-				print("Debug: Defend triggered from attack")
-				return
-			
-			# 檢查距離是否合適
-			if distance > attack_range:
-				current_state = AIState.APPROACH
-				state_timer = randf() * 0.3 + 0.3
-				print("Debug: Distance too far in attack, switching to approach for AI")
-				return
-			
-			# 檢查是否可以繼續連擊
-			if opponent_stun_remaining > 0.15 and distance < 40.0 and last_attack_time <= 0 and randf() > 0.3:
-				attack_pressed = true
-				damage = 10.0
-				attack_type = "attack"
-				last_attack_time = normal_attack_cooldown
-				state_timer = 0.3
-				state_data["continue_combo"] = true
-				print("Debug: Executing combo attack")
-				return
-			elif check_opponent_air_status(opponent) and randf() < 0.4:  # 固定40%的跳攻機率
-				state_timer = 0.5
-				state_data["air_punish"] = true
-				print("Debug: Air punish in attack state for AI")
-			# 如果沒有執行任何攻擊，或者state_timer結束，轉換到其他狀態
-			elif state_timer <= 0 or (not attack_pressed and not spm1_pressed and not jump_pressed):
-				if distance > approach_range:
-					current_state = AIState.APPROACH
-					state_timer = randf() * 0.3 + 0.3
-				else:
-					current_state = AIState.IDLE
-					state_timer = randf() * 0.5 + 0.3
-				print("Debug: No attack executed, changing state to %s" % current_state)
-
-		AIState.DEFEND:
-			if recovery_timer > 0 or block_timer > 0:
-				return
-			if not in_danger and (not opponent_attacking or distance > danger_range):
-				if should_use_special_move(opponent, distance):
-					current_state = AIState.ATTACK
-					state_data["use_special"] = true
-					print("Debug: Special move after defend for AI")
-				elif can_attack and distance < attack_range and randf() > 0.3:
-					current_state = AIState.ATTACK
-					print("Debug: Counter attack after defend for AI")
-				else:
-					current_state = AIState.APPROACH if distance > approach_range else AIState.IDLE
-					state_timer = randf() * 0.3 + 0.3
-			elif opponent_stun_remaining > 0.1 and randf() > 0.1:
-				current_state = AIState.ATTACK
-				state_data["counter_hit"] = true
-				print("Debug: Counterattack after stun for AI")
-
-		AIState.JUMP:
-			if state_timer <= 0 or opponent.is_jumping:
-				current_state = AIState.APPROACH
-				state_timer = randf() * 0.3 + 0.3
-			elif in_danger or (opponent_attacking and distance < danger_range):
-				current_state = AIState.DEFEND
-				block_timer = 0.5
-				state_timer = 0.5
-				print("Debug: Defend triggered from jump")
-			elif is_cornered and strategy.corner_pressure > 0.7:
-				state_timer = 0.4
-				state_data["extend_escape"] = true
-	
-	set_timer("action", get_timer("action") + delta)
-	if parent:
-		if OS.is_debug_build():
-			print("Debug: AI state for %s: %s, can_attack=%s, in_danger=%s, opponent_stun=%s, is_cornered=%s, distance=%.1f" % [parent.name, current_state, can_attack, in_danger, opponent_stun_remaining, is_cornered, distance])
-	else:
-		if OS.is_debug_build():
-			print("Debug: AI state for unknown: %s, can_attack=%s, in_danger=%s, opponent_stun=%s, is_cornered=%s, distance=%.1f" % [current_state, can_attack, in_danger, opponent_stun_remaining, is_cornered, distance])
-
-func get_ai_input() -> Dictionary:
-	# 基本檢查
-	if not ai_enabled or not parent or not parent.healthbar:
-		return make_input()
-	
-	var opponent = get_opponent()
-	if not opponent or parent.healthbar.current_health <= 0 or opponent.healthbar.current_health <= 0:
-		return make_input()
-	
-	distance = abs(parent.global_position.x - opponent.global_position.x)
-	var strat = get_strategy()
-	var input = make_input()
-	
-	# 基本檢查
-	if not opponent:
-		input_dir = 1
-		return build_input_dict(input_dir, crouch_pressed, jump_pressed, attack_pressed, attack_type, blockstun_duration, damage, spm1_pressed, dash_pressed)
-	
-	# 更新狀態檢查
-	opponent_attacking = opponent.is_attacking or opponent.is_dashing
-	last_action_time = action_timer
-	can_attack = check_hitbox_interaction(parent, opponent, true)
-	in_danger = check_hitbox_interaction(opponent, parent)
-		# 檢查對手空中狀態
-	is_cornered = parent.is_at_corner() if "is_at_corner" in parent else false
-	# 檢查對手跳躍和空中狀態只在需要時再檢查
-	if state_data.get("air_punish", false):
-		is_cornered = parent.is_at_corner() if "is_at_corner" in parent else false
-
-	# 更新對手狀態追踪
-	if opponent:
-		opponent_recovery_time = opponent.attack_timer
-		opponent_stun_remaining = max(opponent.hit_timer, opponent.block_timer)
-	else:
-		opponent_recovery_time = 0.0
-		opponent_stun_remaining = 0.0
-	
-	# 獲取健康狀態策略
-	var strategy = get_strategy()
-	
-	# 被擊中或擊飛時強制後退並嘗試格擋（縮短持續）
-	if parent.is_hit or parent.is_knockfly or block_timer > 0:
-		input_dir = -1 if parent.global_position.x < opponent.global_position.x else 1
-		if crouch_timer > 0:
-			crouch_pressed = is_crouching
-		else:
-			crouch_pressed = (opponent.is_crouching and opponent_attacking and randf() > 0.8) or (parent.is_hit and randf() > 0.8)  # 增加蹲擋機率
-			if crouch_pressed:
-				crouch_timer = 0.2  # 縮短從0.3到0.2
-				is_crouching = true
-				print("Debug: AI crouch block triggered for %s" % parent.name)
-			else:
-				is_crouching = false
-				print("Debug: AI standing block triggered for %s" % parent.name)
-		return build_input_dict(input_dir, crouch_pressed, false, false, "none", 0.2, 0.0, false, false)
-	
-	# 移動邏輯（縮減遲滯範圍為35-40像素，更緊湊；減少後退）
-	if distance > 100.0:
-		input_dir = 1 if parent.global_position.x < opponent.global_position.x else -1
-	elif distance > 40.0:
-		input_dir = 1 if parent.global_position.x < opponent.global_position.x else -1
-	elif distance < 35.0:
-		if can_attack:
-			input_dir = 0  # 近距離靜止攻擊，避免後退
-		else:
-			input_dir = -1 if parent.global_position.x < opponent.global_position.x else 1
-	else:
-		input_dir = 0  # 35-40像素間靜止
-	
-	# 只在真正危險時後退（新：in_danger且距離<30）
-	if in_danger and distance < 30.0:
-		input_dir = -1 if parent.global_position.x < opponent.global_position.x else 1
-	
-	# 穩定輸入方向
-	if input_dir_timer <= 0:
-		last_input_dir = Vector2(input_dir, 0)  # 將 int 轉換為 Vector2
-		input_dir_timer = 0.5  # 縮短從0.7到0.5，更靈活轉向
-	
-	# 檢查輸入緩衝
-	var buffered_input = state_data.get("buffered_input", {})
-	if not buffered_input.is_empty():
-		var should_use_buffer = false
-		
-		# 根據場景決定是否使用緩衝輸入，並檢查冷卻時間
-		if state_data.get("continue_combo", false) and buffered_input.get("attack_pressed", false) and last_attack_time <= 0:
-			should_use_buffer = true
-		elif state_data.get("air_punish", false) and buffered_input.get("jump_pressed", false) and last_jump_attack_time <= 0:
-			should_use_buffer = true
-		elif state_data.get("use_special", false) and buffered_input.get("spm1_pressed", false) and last_special_move_time <= 0:
-			should_use_buffer = true
-			
-		if should_use_buffer:
-			print("Debug: Using buffered input for AI")
-			state_data.erase("buffered_input")  # 使用後清除緩存
-			return buffered_input
-	
-	# 根據狀態生成輸入
-	match current_state:
-		AIState.DEFEND:
-			input.input_dir = -1 if parent.global_position.x < opponent.global_position.x else 1
-			if opponent.is_crouching:
-				input.crouch_pressed = true
-			elif strat.cornered and randf() > 0.7:
-				input.jump_pressed = true
-			
-		AIState.APPROACH:
-			input.input_dir = 1 if parent.global_position.x < opponent.global_position.x else -1
-			if distance > 80.0 and action_timer > 0.3:
-				input.dash_pressed = true
-				action_timer = 0
-				
-				# 特殊情況處理
-				if should_use_special_move(opponent, distance):
-					spm1_pressed = true
-					damage = 20.0
-					print("Debug: Approach special move opportunity")
-				elif check_opponent_air_status(opponent):
-					jump_pressed = true
-					attack_pressed = true
-					damage = 10.0
-					attack_type = "attack"
-					print("Debug: Air punish from approach")
-			
-			# 角落處理
-			if is_cornered and strategy.corner_pressure > 0.6:
-				input_dir *= -1
-				if randf() > 0.4:
-					jump_pressed = true
-		
-		AIState.ATTACK:
-			if not check_combat_status(parent, opponent, "range"):
-				current_state = AIState.APPROACH
-				state_timer = 0.4
-				return make_input()
-			
-			if check_combat_status(opponent, parent, "air") and randf() > 0.4:
-				return make_input(0, "jump_attack")
-			elif attack_timer <= 0:
-				attack_timer = normal_attack_cooldown
-				return make_input(0, "attack")
-			# 普通攻擊邏輯
-			elif last_attack_time <= 0 and attack_choice < 0.6:  # 60%普通攻擊
-				attack_pressed = true
-				damage = 10.0
-				attack_type = "attack"
-				last_attack_time = normal_attack_cooldown
-				print("Debug: Executing normal attack")
-			# 特殊攻擊邏輯
-			elif last_special_move_time <= 0 and attack_choice < 0.8 and state_data.get("use_special", false):  # 20%特殊攻擊
-				spm1_pressed = true
-				damage = 20.0
-				attack_type = "none"
-				last_special_move_time = special_attack_cooldown
-				print("Debug: Executing special attack")
-			# 跳攻邏輯
-			elif last_jump_attack_time <= 0 and attack_choice < 0.9:  # 10%跳攻
-				jump_pressed = true
-				attack_pressed = true
-				damage = 10.0
-				attack_type = "attack"
-				last_jump_attack_time = jump_attack_cooldown
-				print("Debug: Executing jump attack")
-				
-				# 追擊判定
-				if opponent_stun_remaining > 0.15 and distance < 40.0:
-					state_data["continue_combo"] = true
-			
-			# 攻擊時的位置調整
-			if distance > approach_range:
-				input_dir = 1 if parent.global_position.x < opponent.global_position.x else -1
-		
-		AIState.JUMP:
-			jump_pressed = true
-			input_dir = -1 if state_data.get("corner_escape", false) else 1
-			
-			# 空中攻擊判定
-			if is_opponent_vulnerable_in_air(opponent) and randf() < 0.4:  # 固定40%的跳攻機率
-				attack_pressed = true
-				damage = 10.0
-				attack_type = "attack"
-	
-	# 根據血量調整策略
-	if strategy.aggressive:  # 更激進的攻擊策略
-		if can_attack and distance < attack_range:
-			attack_pressed = true
-		elif distance > 30 and should_use_special_move(opponent, distance):
-			spm1_pressed = true
-	
-	# 跟跳攻擊機會
-	if check_opponent_air_status(opponent) and can_attack and randf() > 0.4:
-		jump_pressed = true
-		attack_pressed = true
-		damage = 10.0
-		attack_type = "attack"
-		crouch_pressed = false
-		crouch_timer = 0.0
-		is_crouching = false
-		print("Debug: Air punish opportunity taken")
-	
-	# 創建當前輸入
-	var current_input = build_input_dict(input_dir, crouch_pressed, jump_pressed, attack_pressed, 
-		attack_type, blockstun_duration, damage, spm1_pressed, dash_pressed)
-	
-	# 緩存重要輸入用於下一幀
-	if attack_pressed or jump_pressed or spm1_pressed:
-		state_data["buffered_input"] = current_input.duplicate()
-		state_data["buffer_time"] = input_buffer_time
-	elif state_data.get("buffer_time", 0.0) > 0:
-		state_data["buffer_time"] -= get_physics_process_delta_time()
-		if state_data["buffer_time"] <= 0:
-			state_data.erase("buffered_input")
-	
-	# 除錯輸出
-	if OS.is_debug_build():
-		var debug_msg = "AI input for %s: state=%s, dir=%s, attack=%s, crouch=%s, jump=%s, dash=%s, corner=%.2f, buffer=%s" % [
-			str(parent.name) if parent else "unknown",
-			current_state,
-			input_dir,
-			attack_pressed,
-			crouch_pressed,
-			jump_pressed,
-			dash_pressed,
-			corner_pressure,
-			"active" if state_data.has("buffered_input") else "none"
-		]
-		print(debug_msg)
-	
-	return current_input
-
-# 輔助函數：戰鬥狀態檢查
-func check_combat_status(attacker: Node, target: Node, check_type: String = "") -> bool:
-	if not target:
-		return false
-	match check_type:
-		"hitbox":
-			if not attacker.has_node("Hitbox") or not target.has_node("Hurtbox"):
-				return false
-			var hitbox = attacker.get_node("Hitbox") as Area2D
-			var hurtbox = target.get_node("Hurtbox") as Area2D
-			for area in hitbox.get_overlapping_areas():
-				if area == hurtbox and area.get_parent() != attacker:
-					return true
-			return false
-		"range":
-			return abs(attacker.global_position.x - target.global_position.x) < attack_range
-		"air":
-			return not target.is_on_floor() and not target.is_air_attacking and target.fixed_velocity.y > 0
-		"landing":
-			return target.is_landing and target.landing_lock_timer > 0
-		_:
-			return false
-
-# 輔助函數：特殊招式相關
-func can_use_special_move() -> bool:
-	if not parent or not parent.move_set:
-		return false
-	return get_timer("special") <= 0 and not parent.is_special_moving
-
-func should_use_special_move(opponent: Node, dist_to_target: float) -> bool:
-	if not can_use_special_move() or last_special_move_time > 0:
-		return false
-		
-	var strategy = get_strategy()
-	
-	# 檢查對手狀態
-	var opponent_vulnerable = opponent.is_hit or opponent.is_knockfly or opponent.is_landing
-	opponent_attacking = opponent.is_attacking or opponent.is_air_attacking
-	
-	# 進一步降低特殊招式使用頻率，統一行為邏輯
-	return (
-		(opponent_vulnerable and dist_to_target < 60.0 and randf() > 0.85) or  # 15%機率在對手受傷時使用
-		(opponent_attacking and dist_to_target < 50.0 and strategy.aggressive) or  # 積極策略下使用
-		(strategy.special and dist_to_target < 80.0 and randf() > 0.8) or  # 血量策略下20%機率使用
-		(dist_to_target < attack_range and randf() > 0.95)  # 近距離只有5%機率使用特殊招式
-	) and randf() > 0.7  # 額外30%的抑制機率
-
-# 輔助函數：檢查對手空中狀態和著陸機會
-func check_opponent_air_status(opponent: Node, check_landing: bool = false) -> bool:
-	if not opponent:
-		return false
-	if check_landing:
-		return opponent.is_landing and opponent.landing_lock_timer > 0
-	return not opponent.is_on_floor() and not opponent.is_air_attacking and opponent.fixed_velocity.y > 0
-
-# 輔助函數：輸入緩衝
-func buffer_input(input: Dictionary) -> void:
-	last_input = input
-	state_data["input_buffered"] = true
-	await get_tree().create_timer(input_buffer_time).timeout
-	if last_input == input:
-		last_input = {}
-		state_data["input_buffered"] = false
-
-# 根據情況選擇下一個狀態
-func choose_next_state(opponent: Node) -> void:
-	distance = abs(parent.global_position.x - opponent.global_position.x)
-	var strat = get_strategy()
-	
-	if check_combat_status(opponent, parent, "hitbox"):
-		current_state = AIState.DEFEND
-		state_timer = 0.5
-	elif distance > attack_range:
-		current_state = AIState.APPROACH
-		state_timer = 0.4
-	elif check_combat_status(opponent, parent, "air"):
-		current_state = AIState.ATTACK
-		state_timer = 0.3
-	elif strat.aggressive and attack_timer <= 0:
-		current_state = AIState.ATTACK
-		state_timer = 0.3
-	else:
-		current_state = AIState.IDLE
-		state_timer = 0.5
-
-# 輔助函數：計時器管理
-func update_timers(delta: float) -> void:
-	for key in timers.keys():
-		timers[key] = max(0.0, timers[key] - delta)
-
-func set_timer(timer_name: String, duration: float) -> void:
-	if timer_name in timers:
-		timers[timer_name] = duration
-
-func get_timer(timer_name: String) -> float:
-	return timers.get(timer_name, 0.0)
-
-# 輔助函數：生成輸入
-func make_input(dir := 0, action := "") -> Dictionary:
-	var input = {
-		"input_dir": dir,
-		"crouch_pressed": false,
-		"jump_pressed": false,
-		"attack_pressed": false,
-		"attack_type": "none",
-		"blockstun_duration": 0.2,
-		"damage": 0.0,
-		"spm1_pressed": false,
-		"dash_pressed": false
-	}
-	
-	match action:
-		"attack": input.attack_pressed = true
-		"jump": input.jump_pressed = true
-		"crouch": input.crouch_pressed = true
-		"special": input.spm1_pressed = true
-		"dash": input.dash_pressed = true
-	
-	return input
-
-# 輔助函數：抓對手
 func get_opponent() -> Node:
-	var all_players = get_tree().get_nodes_in_group("players")
-	for p in all_players:
-		if p != parent:
+	var players = get_tree().get_nodes_in_group("players")
+	for p in players:
+		if p != ai_owner:
 			return p
 	return null
+
+func reset():
+	current_command_list = []
+	blocking = false
+	current_command = 0
+	current_input_index = 0
+	can_advance = false
+	input_finished = true
+	current_state = "idle"  # 新增：重置狀態
+	state_timer = 0.0  # 新增：重置計時器
+	last_action_time = 0.0  # 新增：重置最後動作時間
+	print("Debug: AI reset, current_command_list=", current_command_list)
+
+func get_ai_input() -> Dictionary:
+	print("Debug: get_ai_input called, ai_enabled=", ai_enabled)
+	if not ai_enabled:
+		print("Debug: AI disabled, returning default input")
+		return {
+			"input_dir": 0,
+			"crouch_pressed": false,
+			"jump_pressed": false,
+			"attack_pressed": false,
+			"attack_type": "none",
+			"blockstun_duration": 0.2,
+			"damage": 0.0,
+			"spm1_pressed": false,
+			"spm2_pressed": false
+		}
+	
+	select_command()
+	update_command()
+	
+	var ai_input_inst = generate_input()
+	var result = {
+		"input_dir": ai_input_inst.direction,
+		"crouch_pressed": ai_input_inst.crouch,
+		"jump_pressed": ai_input_inst.jump,
+		"attack_pressed": ai_input_inst.attack,
+		"attack_type": "attack" if ai_input_inst.attack else "none",
+		"blockstun_duration": 0.2,  # 預設值，根據動作調整若需要
+		"damage": 10.0 if ai_input_inst.attack else 0.0,  # 預設攻擊傷害
+		"spm1_pressed": ai_input_inst.spm1,
+		"spm2_pressed": ai_input_inst.spm2
+	}
+	print("Debug: get_ai_input returning ", result)
+	return result
+
+func select_command():
+	print("Debug: select_command called, ai_owner state: is_hit=", ai_owner.is_hit, ", is_knockfly=", ai_owner.is_knockfly, ", is_wakeup=", ai_owner.is_wakeup)
+	if ai_owner.is_hit or ai_owner.is_knockfly or ai_owner.is_wakeup:
+		print("Debug: AI in invalid state, skipping command selection")
+		return
+	
+	if current_command > 0 or (current_input_index > 0 and not can_advance):
+		print("Debug: Command in progress, resetting. current_command=", current_command, ", current_input_index=", current_input_index)
+		reset()
+	
+	var move_ended = (current_command == 0 or current_command >= current_command_list.size()) and current_input_index == 0
+	if not move_ended:
+		print("Debug: Move not ended, tick reset, current_command=", current_command, ", current_input_index=", current_input_index)
+		tick = 0
+		return
+	
+	# 如果忙碌，重置
+	if ai_owner.is_attacking or ai_owner.is_special_moving or ai_owner.is_blocking:
+		print("Debug: AI busy (attacking=", ai_owner.is_attacking, ", special_moving=", ai_owner.is_special_moving, ", blocking=", ai_owner.is_blocking, "), resetting")
+		reset()
+		tick = 0
+		return
+	
+	# 如果被近距離阻擋，嘗試阻擋
+	if ai_owner.has_node("Proximitybox") and ai_owner.get_node("Proximitybox").monitoring:
+		print("Debug: Proximitybox detected, blocking=", blocking, ", block_action=", block_action)
+		if not blocking:
+			reset()
+			var rnd = randi() % 10
+			if rnd < blocking_rate and block_action >= 0:
+				current_command_list = [block_action]
+				print("Debug: Block action selected, current_command_list=", current_command_list)
+			else:
+				print("Debug: Block not triggered, rnd=", rnd, ", blocking_rate=", blocking_rate)
+			blocking = true
+		tick = 0
+		input_tick = 0
+		return
+	
+	# 推進決策 tick
+	tick += 1
+	if tick <= tick_limit:
+		print("Debug: Waiting for tick limit, tick=", tick, ", tick_limit=", tick_limit)
+		return
+	else:
+		tick_limit = update_decision_rate()
+		tick = 0
+		print("Debug: Tick limit reached, new tick_limit=", tick_limit)
+	
+	# 儲存先前值
+	var previous_command_list = current_command_list.duplicate()
+	var previous_command = current_command
+	var previous_input_index = current_input_index
+	
+	reset()
+	
+	# 計算距離 (使用 fixed_position)
+	var world = get_tree().get_first_node_in_group("world")
+	if not world:
+		print("Debug: World node not found, skipping command selection")
+		return
+	var distance = Vector2i(
+		abs(ai_owner.fixed_position.x - opponent.fixed_position.x),
+		abs(ai_owner.fixed_position.y - opponent.fixed_position.y)
+	)
+	print("Debug: Distance to opponent: x=", distance.x, ", y=", distance.y)
+	
+	# 根據距離選擇動作包
+	var selected_pack: AIActionPack = near_actions
+	if distance.x > near_actions.horizontal_distance and distance.x <= mid_actions.horizontal_distance:
+		selected_pack = mid_actions
+		print("Debug: Selected mid_actions, horizontal_distance=", mid_actions.horizontal_distance)
+	elif distance.x > mid_actions.horizontal_distance and distance.x <= far_actions.horizontal_distance:
+		selected_pack = far_actions
+		print("Debug: Selected far_actions, horizontal_distance=", far_actions.horizontal_distance)
+	elif distance.x > far_actions.horizontal_distance:
+		selected_pack = distant_actions
+		print("Debug: Selected distant_actions, horizontal_distance=", distant_actions.horizontal_distance)
+	else:
+		print("Debug: Selected near_actions, horizontal_distance=", near_actions.horizontal_distance)
+	
+	# 根據健康切換模式
+	var healthbar = ai_owner.healthbar if "healthbar" in ai_owner else null
+	if healthbar and healthbar.current_health < low_health_threshold:
+		mode = "defensive"
+		print("Debug: Mode switched to defensive, current_health=", healthbar.current_health)
+	else:
+		mode = "aggressive"
+		print("Debug: Mode set to aggressive, current_health=", healthbar.current_health if healthbar else "N/A")
+	
+	# 選擇命令
+	if selected_pack.conditions.size() == 0:
+		print("Debug: No conditions in selected_pack, skipping command selection")
+		return
+	if selected_pack.conditions.size() == 1:
+		current_command_list = selected_pack.conditions[0].actions_list.duplicate()
+		print("Debug: Single condition, selected actions_list=", current_command_list)
+	else:
+		var prev_dist_x = 0
+		var prev_dist_y = 0
+		for cond in selected_pack.conditions:
+			# 檢查表面
+			var correct_surface = (cond.use_on_ground and ai_owner.is_on_floor()) or \
+								  (cond.use_on_air and not ai_owner.is_on_floor()) or \
+								  (cond.use_on_ground and cond.use_on_air)
+			if not correct_surface:
+				print("Debug: Condition skipped, correct_surface=", correct_surface, ", use_on_ground=", cond.use_on_ground, ", use_on_air=", cond.use_on_air, ", is_on_floor=", ai_owner.is_on_floor())
+				continue
+			
+			# 檢查距離
+			var is_same_x = cond.distance.x == prev_dist_x
+			var ignore_y = cond.distance.y == 0
+			var check_far = (is_same_x or distance.x > prev_dist_x) and (ignore_y or distance.y >= prev_dist_y)
+			var check_close = distance.x <= cond.distance.x and (ignore_y or distance.y <= cond.distance.y)
+			if not check_far or not check_close:
+				print("Debug: Condition skipped, distance check failed: distance.x=", distance.x, ", cond.distance.x=", cond.distance.x, ", distance.y=", distance.y, ", cond.distance.y=", cond.distance.y)
+				continue
+			
+			# 隨機選擇
+			var prob = variable_probability(cond)
+			var rnd = randi() % 10
+			if rnd > prob - 1:
+				print("Debug: Condition skipped, probability check failed: rnd=", rnd, ", prob=", prob)
+				continue
+			
+			current_command_list = cond.actions_list.duplicate()
+			prev_dist_x = cond.distance.x
+			prev_dist_y = cond.distance.y
+			print("Debug: Condition selected, actions_list=", current_command_list)
+	
+	if current_command_list.is_empty():
+		print("Debug: No valid command list selected")
+	
+	# 如果新命令與先前相同，繼續
+	if compare_commands(current_command_list, previous_command_list):
+		current_command = previous_command
+		current_input_index = previous_input_index
+		print("Debug: Restored previous command, current_command=", current_command, ", current_input_index=", current_input_index)
+	
+	input_tick = 0
+	input_tick_limit = set_input_random_wait_time()
+	print("Debug: Input tick reset, input_tick_limit=", input_tick_limit)
+
+func update_decision_rate() -> int:
+	var rate = randi_range(decision_rate_free.x, decision_rate_free.y) if not (ai_owner.is_attacking or ai_owner.is_special_moving) else randi_range(decision_rate_busy.x, decision_rate_busy.y)
+	print("Debug: Decision rate updated, rate=", rate, ", is_busy=", ai_owner.is_attacking or ai_owner.is_special_moving)
+	return rate
+
+func set_input_random_wait_time() -> int:
+	var wait = randi_range(input_randomness.x, input_randomness.y)
+	print("Debug: Input random wait time set to ", wait)
+	return wait
+
+func variable_probability(cond: AICondition) -> int:
+	var prob = cond.probability
+	match mode:
+		"aggressive":
+			match cond.action_mode:
+				"aggressive": prob += 1
+				"defensive": prob -= 2
+		"defensive":
+			match cond.action_mode:
+				"aggressive": prob -= 2
+				"defensive": prob += 1
+	prob = clamp(prob, 0, 10)
+	print("Debug: Probability calculated for mode=", mode, ", action_mode=", cond.action_mode, ", prob=", prob)
+	return prob
+
+func compare_commands(c1: Array[int], c2: Array[int]) -> bool:
+	if c1.size() != c2.size():
+		print("Debug: Command lists differ in size, c1=", c1.size(), ", c2=", c2.size())
+		return false
+	for i in range(c1.size()):
+		if c1[i] != c2[i]:
+			print("Debug: Command lists differ at index ", i, ": c1=", c1[i], ", c2=", c2[i])
+			return false
+	print("Debug: Command lists are identical")
+	return true
+
+func update_command():
+	print("Debug: update_command called, current_command_list=", current_command_list, ", current_command=", current_command)
+	if current_command_list.is_empty() or current_command >= current_command_list.size():
+		print("Debug: Invalid command list or index, skipping")
+		return
+	
+	var curr = current_command_list[current_command]
+	if curr < 0 or curr >= actions.size():
+		print("Debug: Invalid action index: curr=", curr, ", actions.size()=", actions.size())
+		return
+	
+	input_tick += 1
+	input_finished = current_input_index >= (actions[curr] as AIAction).inputs.size() - 1
+	print("Debug: input_tick=", input_tick, ", input_finished=", input_finished, ", current_input_index=", current_input_index, ", inputs_size=", (actions[curr] as AIAction).inputs.size())
+	
+	if input_tick <= input_tick_limit:
+		print("Debug: Waiting for input tick limit, input_tick=", input_tick, ", input_tick_limit=", input_tick_limit)
+		return
+	else:
+		input_tick_limit = set_input_random_wait_time()
+		input_tick = 0
+	
+	current_input_index += 1
+	current_input_index = clamp(current_input_index, 0, (actions[curr] as AIAction).inputs.size() - 1)
+	print("Debug: Advanced to input_index=", current_input_index)
+	
+	if input_finished and (can_advance or (actions[curr] as AIAction).auto_advance) and current_command < current_command_list.size():
+		current_command += 1
+		current_input_index = 0
+		can_advance = false
+		print("Debug: Advanced to next command, current_command=", current_command)
+
+func generate_input() -> AIInput:
+	var ai_input_inst = AIInput.new()
+	print("Debug: generate_input called, current_command=", current_command, ", current_input_index=", current_input_index)
+	if current_command >= current_command_list.size() or current_input_index >= (actions[current_command_list[current_command]] as AIAction).inputs.size():
+		print("Debug: Invalid command or input index, returning default AIInput")
+		return ai_input_inst
+	
+	var input_data = (actions[current_command_list[current_command]] as AIAction).inputs[current_input_index] as AIInput
+	
+	# 根據面向調整方向
+	var side = 1 if ai_owner.facing_direction > 0 else -1  # facing_direction 為 1 或 -1
+	ai_input_inst.direction = input_data.direction * side
+	ai_input_inst.crouch = input_data.crouch
+	ai_input_inst.jump = input_data.jump
+	ai_input_inst.attack = input_data.attack
+	ai_input_inst.spm1 = input_data.spm1
+	ai_input_inst.spm2 = input_data.spm2
+	
+	print("Debug: Generated AIInput: direction=", ai_input_inst.direction, ", crouch=", ai_input_inst.crouch, ", jump=", ai_input_inst.jump, ", attack=", ai_input_inst.attack, ", spm1=", ai_input_inst.spm1, ", spm2=", ai_input_inst.spm2)
+	return ai_input_inst

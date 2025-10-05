@@ -160,7 +160,6 @@ func reset_players():
 		player.hit_timer = 0.0
 		player.block_timer = 0.0
 		player.knockfly_timer = 0.0
-		player.attack_timer = 0.0
 		player.dash_timer = 0.0
 		player.velocity = Vector2.ZERO
 		player.current_mode = "ground_stand"
