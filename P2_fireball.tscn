@@ -1,6 +1,6 @@
 [gd_scene load_steps=12 format=3 uid="uid://dttoxyilvki3"]
 
-[ext_resource type="Script" uid="uid://2srsoq8uppfe" path="res://p_1_fireball.gd" id="1_pr2rl"]
+[ext_resource type="Script" uid="uid://2srsoq8uppfe" path="res://fireball.gd" id="1_pr2rl"]
 [ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="2_pr2rl"]
 
 [sub_resource type="Animation" id="Animation_pr2rl"]
@@ -153,12 +153,12 @@ _data = {
 size = Vector2(30, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_kcguo"]
-size = Vector2(27, 70)
+size = Vector2(27, 30)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_twj7m"]
 size = Vector2(40, 20)
 
-[node name="P1Fireball" type="Node2D"]
+[node name="P2Fireball" type="Area2D"]
 script = ExtResource("1_pr2rl")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
@@ -166,7 +166,7 @@ texture = ExtResource("2_pr2rl")
 offset = Vector2(-8, -1)
 hframes = 10
 vframes = 22
-frame = 184
+frame = 183
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="."]
 libraries = {
@@ -179,21 +179,17 @@ shape = SubResource("RectangleShape2D_imvl6")
 
 [node name="Hitbox" type="Area2D" parent="."]
 collision_layer = 2
-collision_mask = 8
+collision_mask = 32
 
 [node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
 debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="."]
-visible = false
 collision_layer = 8
 collision_mask = 18
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]
 shape = SubResource("RectangleShape2D_kcguo")
-
-[node name="AttackHurtShape" type="CollisionShape2D" parent="Hurtbox"]
-debug_color = Color(0.9878623, 0.092036285, 0.1464591, 0.41960785)
 
 [node name="Proximitybox" type="Area2D" parent="."]
 collision_layer = 16

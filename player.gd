@@ -4,8 +4,8 @@ signal hit_detected(target: String, blockstun_duration: float, is_blocked: bool)
 
 @export var player_id: String = "p1"
 @export var is_ai_controlled: bool = false
-@export var corner_push_distance: float = 50.0  # 增加到50.0，使推開更明顯
-@export var landing_duration: float = 0.2  # 落地動畫持續時間
+@export var corner_push_distance: float = 50.0
+@export var landing_duration: float = 0.2
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 
 var current_mode: String = "ground_stand"
@@ -15,9 +15,9 @@ var is_wakeup: bool = false
 var is_wakeup_locked: bool = false
 var is_air_attacking: bool = false
 var is_special_moving: bool = false
-var landing_lock_timer: float = 0.0  # 鎖定過渡計時器，防止 Walk 自動覆蓋
-var has_air_attacked: bool = false  # 追蹤空中是否已攻擊過
-var skip_pushbox: bool = false  # 臨時禁用pushbox推開
+var landing_lock_timer: float = 0.0
+var has_air_attacked: bool = false
+var skip_pushbox: bool = false
 
 func _ready():
 	super._ready()
@@ -42,7 +42,8 @@ func get_input() -> Dictionary:
 			"attack_type": "none",
 			"blockstun_duration": 0.2,
 			"damage": 0.0,
-			"spm1_pressed": false
+			"spm1_pressed": false,
+			"spm2_pressed": false
 		}
 	if is_ai_controlled:
 		var ai_behavior = $AIBehavior if has_node("AIBehavior") else null
@@ -55,6 +56,7 @@ func get_input() -> Dictionary:
 	var right_pressed = Input.is_action_pressed("move_right" + ("_p2" if player_id == "p2" else ""))
 	var left_pressed = Input.is_action_pressed("move_left" + ("_p2" if player_id == "p2" else ""))
 	var spm1_pressed = Input.is_action_just_pressed("spmove1" + ("_p2" if player_id == "p2" else ""))
+	var spm2_pressed = Input.is_action_just_pressed("spmove2" + ("_p2" if player_id == "p2" else ""))
 	if right_pressed and left_pressed:
 		input_dir = 0
 	elif right_pressed:
@@ -62,8 +64,8 @@ func get_input() -> Dictionary:
 	elif left_pressed:
 		input_dir = -1
 	var attack_type = "attack" if attack_pressed else "none"
-	var blockstun_duration = 0.4 if move_set and ((move_set.is_powerkk and player_id == "p1") or (move_set.is_spnk and player_id == "p2")) else 0.2
-	var damage = move_set.get_special_damage() if move_set and ((move_set.is_powerkk and player_id == "p1") or (move_set.is_spnk and player_id == "p2")) else (10.0 if attack_pressed else 0.0)
+	var blockstun_duration = 0.4 if move_set and ((move_set.is_powerkk and player_id == "p1") or (move_set.is_spnk and player_id == "p2")) else 0.3 if move_set and move_set.is_fireball else 0.2
+	var damage = move_set.get_special_damage() if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball) else (10.0 if attack_pressed else 0.0)
 	var input_dict = {
 		"input_dir": input_dir,
 		"crouch_pressed": crouch_pressed,
@@ -72,7 +74,8 @@ func get_input() -> Dictionary:
 		"attack_type": attack_type,
 		"blockstun_duration": blockstun_duration,
 		"damage": damage,
-		"spm1_pressed": spm1_pressed
+		"spm1_pressed": spm1_pressed,
+		"spm2_pressed": spm2_pressed
 	}
 	if move_set and move_set.is_spmove:
 		return {
@@ -83,7 +86,8 @@ func get_input() -> Dictionary:
 			"attack_type": "none",
 			"blockstun_duration": 0.2,
 			"damage": 0.0,
-			"spm1_pressed": false
+			"spm1_pressed": false,
+			"spm2_pressed": false
 		}
 	return input_dict
 
@@ -96,7 +100,7 @@ func _physics_process(delta):
 	# 安全重置空中攻擊狀態，防止殘留到下次跳躍
 	if is_air_attacking and is_on_floor():
 		is_air_attacking = false
-		has_air_attacked = false  # 重置空中攻擊旗標
+		has_air_attacked = false
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = true
 		if has_node("Proximitybox/ProxShape"):
@@ -107,7 +111,7 @@ func _physics_process(delta):
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked
 	var hit_shape = $Hitbox.get_node_or_null("HitShape") if has_node("Hitbox") else null
 	if hit_shape and hit_shape is CollisionShape2D:
-		if move_set and (move_set.is_powerkk or move_set.is_spnk) or is_attacking:
+		if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball) or is_attacking:
 			pass
 	if move_set and (player_id == "p1" or player_id == "p2") and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
@@ -125,7 +129,7 @@ func _physics_process(delta):
 	elif input_data.attack_pressed and is_valid_air_state:
 		current_damage = input_data.damage
 		is_air_attacking = true
-		has_air_attacked = true  # 標記已空中攻擊過
+		has_air_attacked = true
 		attack_type = "jump_mk"
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = false
@@ -141,21 +145,21 @@ func _physics_process(delta):
 		landing_lock_timer -= delta
 	# 檢查 landing 動畫期間的輸入以打斷
 	if is_landing and landing_lock_timer > 0:
-		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed:
+		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 			is_landing = false
 			landing_lock_timer = 0.0
-			landing_facing_lock = false  # 釋放面向鎖定，允許立即轉向
-			update_facing_direction()  # 打斷時立即更新面向
+			landing_facing_lock = false
+			update_facing_direction()
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 			return
 	# 檢查落地邏輯
 	if not is_jumping and is_on_floor():
 		var curr_state = animation_state.get_current_node() if animation_state else "none"
 		if curr_state in ["Jump_V", "Jump_F", "Jump_B", "jump_mk"] and not is_wakeup and not is_hit and not is_knockfly:
-			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed:
+			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 				is_landing = false
-				landing_facing_lock = false  # 釋放面向鎖定，允許立即轉向
-				update_facing_direction()  # 跳過landing時立即更新面向
+				landing_facing_lock = false
+				update_facing_direction()
 				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 			else:
 				is_landing = true
@@ -164,7 +168,7 @@ func _physics_process(delta):
 			return
 		# 當 curr_state == "landing" 時，不設 is_landing = false，讓它繼續播放
 		elif curr_state == "landing":
-			return  # 防止干擾 landing 播放
+			return
 		else:
 			is_landing = false
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
@@ -222,7 +226,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		return
 	if move_set and move_set.is_spmove and not is_hit and not is_knockfly:
 		current_mode = "attack"
-		var target_state = "powerkk" if player_id == "p1" else "spnk"
+		var target_state = "fireball" if move_set.is_fireball else "powerkk" if player_id == "p1" and move_set.is_powerkk else "spnk" if player_id == "p2" and move_set.is_spnk else "none"
 		attack_type = target_state
 		is_landing = false
 		is_wakeup = false
@@ -291,7 +295,7 @@ func _on_hitbox_area_entered(area: Area2D):
 			var diff_left = abs(fixed_pos_x - left_target)
 			var diff_right = abs(fixed_pos_x - right_target)
 			var skip_target_push = diff_left < epsilon_fixed or diff_right < epsilon_fixed
-			target.skip_pushbox = skip_target_push  # 設置臨時禁用pushbox
+			target.skip_pushbox = skip_target_push
 			target.take_hit(blockstun_duration, damage, skip_target_push)
 			var is_blocked = target.is_blocking and target.block_type == "ordinary"
 			hit_detected.emit(target.name, blockstun_duration, is_blocked)
@@ -328,7 +332,7 @@ func _on_animation_tree_finished(anim_name: String):
 	elif anim_name == "landing" and is_landing:
 		is_landing = false
 		landing_lock_timer = 0.0
-		landing_facing_lock = false  # 釋放面向鎖定，允許正常更新
+		landing_facing_lock = false
 		update_facing_direction()
 		_update_animation_state(0, false)
 	elif anim_name == "St_mp":
@@ -338,13 +342,13 @@ func _on_animation_tree_finished(anim_name: String):
 	elif anim_name == "jump_mk" and is_air_attacking:
 		if is_on_floor():
 			is_air_attacking = false
-			has_air_attacked = false  # 重置空中攻擊旗標
+			has_air_attacked = false
 			if has_node("Hitbox/HitShape"):
 				$Hitbox/HitShape.disabled = true
 			if has_node("Proximitybox/ProxShape"):
 				$Proximitybox/ProxShape.disabled = true
 			var input_data = get_input()
-			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed:
+			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 				is_landing = false
 				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 			else:
@@ -357,10 +361,10 @@ func _on_animation_tree_finished(anim_name: String):
 	elif anim_name in ["jump_v", "Jump_V", "Jump_F", "Jump_B"] and is_on_floor():
 		is_jumping = false
 		var input_data = get_input()
-		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed:
+		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.attack_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 			is_landing = false
-			landing_facing_lock = false  # 釋放面向鎖定，允許立即轉向
-			update_facing_direction()  # 跳過landing時立即更新面向
+			landing_facing_lock = false
+			update_facing_direction()
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 		else:
 			is_landing = true
@@ -370,6 +374,10 @@ func _on_animation_tree_finished(anim_name: String):
 		is_dashing = false
 		is_backdashing = false
 		_update_animation_state(0, false)
+	elif anim_name == "fireball":
+		if move_set and move_set.is_fireball:
+			move_set.stop_special_move()
+			_update_animation_state(0, false)
 
 func get_facing_multiplier() -> float:
 	return super.get_facing_multiplier()

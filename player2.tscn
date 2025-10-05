@@ -1,4 +1,4 @@
-[gd_scene load_steps=62 format=3 uid="uid://jla54h8ttkct"]
+[gd_scene load_steps=63 format=3 uid="uid://jla54h8ttkct"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_tdckb"]
 [ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="2_tdckb"]
@@ -565,6 +565,18 @@ tracks/0/keys = {
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [Vector2i(0, 14), Vector2i(1, 14), Vector2i(2, 14), Vector2i(3, 14), Vector2i(4, 14), Vector2i(5, 14), Vector2i(6, 14)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:offset")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0, -5)]
 }
 
 [sub_resource type="Animation" id="Animation_5b203"]
@@ -1177,6 +1189,9 @@ animation = &"block"
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_5b203"]
 animation = &"cr_block"
 
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_uqwy3"]
+animation = &"fireball"
+
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_idi7q"]
 animation = &"hit"
 
@@ -1234,6 +1249,8 @@ states/block/node = SubResource("AnimationNodeAnimation_qr7ep")
 states/block/position = Vector2(-65, 134)
 states/cr_block/node = SubResource("AnimationNodeAnimation_5b203")
 states/cr_block/position = Vector2(335, 285)
+states/fireball/node = SubResource("AnimationNodeAnimation_uqwy3")
+states/fireball/position = Vector2(744, 20)
 states/hit/node = SubResource("AnimationNodeAnimation_idi7q")
 states/hit/position = Vector2(194, 246)
 states/jump_mk/node = SubResource("AnimationNodeAnimation_bhnal")
@@ -1288,7 +1305,7 @@ position = Vector2(20, 10)
 debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="."]
-collision_layer = 8
+collision_layer = 40
 collision_mask = 18
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]

@@ -1,4 +1,4 @@
-[gd_scene load_steps=63 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=64 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="2_yev3d"]
@@ -548,9 +548,9 @@ tracks/1/keys = {
 
 [sub_resource type="Animation" id="Animation_aar5g"]
 resource_name = "davis_fireball"
-length = 0.7
+length = 0.8
 loop_mode = 1
-step = 0.1
+step = 0.0333
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
@@ -558,7 +558,7 @@ tracks/0/path = NodePath("Sprite2D:frame_coords")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6),
+"times": PackedFloat32Array(0, 0.06666667, 0.16666667, 0.26666668, 0.33333334, 0.46666667, 0.6333333),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [Vector2i(0, 14), Vector2i(1, 14), Vector2i(2, 14), Vector2i(3, 14), Vector2i(4, 14), Vector2i(5, 14), Vector2i(6, 14)]
@@ -570,7 +570,7 @@ tracks/1/path = NodePath("Sprite2D:offset")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
-"times": PackedFloat32Array(0.2, 0.4, 0.5),
+"times": PackedFloat32Array(0.13333334, 0.33333334, 0.46666667),
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
 "values": [Vector2(-5, -3), Vector2(5, -3), Vector2(0, -3)]
@@ -1347,6 +1347,9 @@ animation = &"block"
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_5b203"]
 animation = &"cr_block"
 
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_woueq"]
+animation = &"fireball"
+
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_idi7q"]
 animation = &"hit"
 
@@ -1408,6 +1411,8 @@ states/block/node = SubResource("AnimationNodeAnimation_qr7ep")
 states/block/position = Vector2(-150, 112)
 states/cr_block/node = SubResource("AnimationNodeAnimation_5b203")
 states/cr_block/position = Vector2(334, 315)
+states/fireball/node = SubResource("AnimationNodeAnimation_woueq")
+states/fireball/position = Vector2(744, -5)
 states/hit/node = SubResource("AnimationNodeAnimation_idi7q")
 states/hit/position = Vector2(180, 266)
 states/jump_mk/node = SubResource("AnimationNodeAnimation_3odsw")
@@ -1421,11 +1426,10 @@ states/powerkk/position = Vector2(746, 200)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-108, 193)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_c5mkm"), "Walk", "St_mp", SubResource("AnimationNodeStateMachineTransition_sl0af"), "landing", "St_mp", SubResource("AnimationNodeStateMachineTransition_s33xd"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627")]
-graph_offset = Vector2(-173, -57)
+graph_offset = Vector2(-213, -77)
 
 [node name="Player1" type="CharacterBody2D"]
-collision_layer = 3
-collision_mask = 2
+collision_mask = 0
 script = ExtResource("1_0e34t")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]

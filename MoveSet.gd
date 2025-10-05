@@ -1,24 +1,37 @@
 class_name MoveSet extends Node
 
-@export var is_powerkk_penetrable: bool = true  # Inspector中控制powerkk是否穿透
-@export var is_spnk_penetrable: bool = true     # Inspector中控制spnk是否穿透
+@export var is_powerkk_penetrable: bool = true
+@export var is_spnk_penetrable: bool = true
+@export var is_fireball_penetrable: bool = true  # 控制 fireball 是否穿透
+@export var fireball_y_offset: float = 0.0  # 火球 Y 軸偏移，負值表示向上
+@export var fireball_x_offset: float = 15.0   # 火球 X 軸偏移，控制生成點離角色的距離
+@export var fireball_spawn_delay: float = 0.2667  # 火球生成延遲（秒）
 var is_powerkk: bool = false
 var is_spnk: bool = false
+var is_fireball: bool = false  # 火球狀態
 var is_spmove: bool = false
 var powerkk_time: float = 0.933
 var spnk_time: float = 0.0
+var fireball_time: float = 0.3  # 火球施放動畫時間
 var powerkk_timer: float = 0.0
 var spnk_timer: float = 0.0
+var fireball_timer: float = 0.0  # 火球計時器
+var fireball_spawn_timer: float = 0.0  # 火球生成計時器
 var powerkk_damage: float = 20.0
 var spnk_damage: float = 20.0
+var fireball_damage: float = 15.0  # 火球傷害，稍低於 powerkk
 var powerkk_move_distance: float = 100.0
 var spnk_move_distance: float = 90.0
+var fireball_move_distance: float = 0.0  # 火球不移動施放者
 var powerkk_initial_facing: float = 0.0
 var spnk_initial_facing: float = 0.0
+var fireball_initial_facing: float = 0.0  # 火球初始面向
 var powerkk_initial_parent_scale_x: float = 0.0
 var powerkk_initial_sprite_scale_x: float = 0.0
 var spnk_initial_parent_scale_x: float = 0.0
 var spnk_initial_sprite_scale_x: float = 0.0
+var fireball_initial_parent_scale_x: float = 0.0
+var fireball_initial_sprite_scale_x: float = 0.0
 var is_spmove_animation_playing: bool = false
 @onready var parent = get_parent()
 @onready var hitbox = parent.get_node("Hitbox/HitShape") if parent.has_node("Hitbox/HitShape") else null
@@ -29,7 +42,7 @@ func _ready():
 	if not parent or not hitbox or not animation_player or not sprite:
 		print("Warning: MoveSet initialization failed. Missing parent, Hitbox, AnimationPlayer, or Sprite2D")
 	if animation_player:
-		for anim_name in ["powerkk", "spnk"]:
+		for anim_name in ["powerkk", "spnk", "fireball"]:
 			if animation_player.has_animation(anim_name):
 				var anim = animation_player.get_animation(anim_name)
 				var track_count = anim.get_track_count()
@@ -42,11 +55,13 @@ func _ready():
 		parent.hit_detected.connect(_on_hit_detected)
 
 func stop_special_move():
-	if is_powerkk or is_spnk:
+	if is_powerkk or is_spnk or is_fireball:
 		is_powerkk = false
 		is_spnk = false
+		is_fireball = false
 		is_spmove = false
 		is_spmove_animation_playing = false
+		fireball_spawn_timer = 0.0  # 重置火球生成計時器
 		var final_position = sprite.position
 		animation_player.stop()
 		sprite.position = Vector2.ZERO
@@ -87,6 +102,54 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if not world:
 		print("Warning: World node not found in group 'world' for %s" % parent.name)
 		return false
+	
+	if input_data.spm2_pressed and not parent.is_attacking and not is_fireball:
+		is_fireball = true
+		is_spmove = true
+		if animation_player and animation_player.has_animation("fireball"):
+			fireball_time = animation_player.get_animation("fireball").length
+			if fireball_time <= 0:
+				fireball_time = 0.3
+			print("Debug: Fireball length detected: %.2fs" % fireball_time)
+		else:
+			fireball_time = 0.3
+		fireball_timer = fireball_time
+		fireball_spawn_timer = fireball_spawn_delay  # 設置火球生成延遲
+		parent.current_damage = fireball_damage
+		fireball_initial_facing = parent.facing_direction
+		fireball_initial_parent_scale_x = parent.scale.x
+		fireball_initial_sprite_scale_x = sprite.scale.x
+		if "is_special_moving" in parent:
+			parent.is_special_moving = false  # 火球施放不移動角色
+		animation_player.play("fireball")
+		if parent.has_node("Proximitybox"):
+			var prox_shape = parent.get_node("Proximitybox/ProxShape")
+			if prox_shape:
+				prox_shape.disabled = false
+		if hitbox:
+			hitbox.disabled = true  # 火球施放期間禁用角色自身 Hitbox
+			print("Debug: Hitbox disabled for %s during fireball" % parent.name)
+		print("Debug: Fireball triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, spawn delay=%.2fs" % [parent.name, fireball_damage, fireball_initial_facing, parent.scale.x, sprite.scale.x, fireball_spawn_delay])
+		is_spmove_animation_playing = true
+		return true
+	
+	if is_fireball:
+		fireball_timer -= delta
+		fireball_spawn_timer -= delta  # 更新火球生成計時器
+		if fireball_spawn_timer <= 0 and fireball_spawn_timer > -delta:  # 確保只生成一次
+			# 根據 player_id 選擇火球場景
+			var fireball_scene = load("res://P1_fireball.tscn" if player_id == "p1" else "res://P2_fireball.tscn")
+			var fireball = fireball_scene.instantiate()
+			fireball.direction = parent.facing_direction
+			fireball.owner_id = player_id  # 設置火球的發射者
+			fireball.global_position = parent.global_position + Vector2(fireball_x_offset * parent.facing_direction, fireball_y_offset)
+			get_tree().current_scene.add_child(fireball)
+			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
+			print("Debug: Fireball spawned for %s at: (%s, %s), Hitbox global_position: (%s, %s), owner_id: %s" % [parent.name, fireball.global_position.x, fireball.global_position.y, hitbox_pos.x, hitbox_pos.y, player_id])
+		if fireball_timer <= 0:
+			stop_special_move()
+			print("Debug: Fireball timer ended for %s" % parent.name)
+		return true
 	
 	if input_data.spm1_pressed and not parent.is_attacking:
 		if player_id == "p1" and not is_powerkk:
@@ -195,7 +258,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	return false
 
 func _on_spmove_animation_finished(anim_name: String):
-	if (anim_name == "spnk" or anim_name == "powerkk") and is_spmove_animation_playing:
+	if (anim_name == "spnk" or anim_name == "powerkk" or anim_name == "fireball") and is_spmove_animation_playing:
 		is_spmove_animation_playing = false
 		if parent.has_node("Proximitybox"):
 			var prox_shape = parent.get_node("Proximitybox/ProxShape")
@@ -216,7 +279,7 @@ func _process(delta: float):
 	
 	var current_time = animation_player.get_current_animation_position()
 	var anim = animation_player.get_current_animation()
-	if anim != "spnk" and anim != "powerkk":
+	if anim != "spnk" and anim != "powerkk" and anim != "fireball":
 		return
 	
 	# 動態查找 hitbox disabled track，僅用於 debug 和驗證
@@ -263,6 +326,13 @@ func _on_hit_detected(target: String, blockstun_duration: float, is_blocked: boo
 		else:
 			is_spnk_penetrable = true
 			print("Debug: Spnk hit %s (not blocked), is_spnk_penetrable=true" % target)
+	elif is_fireball:
+		if is_blocked:
+			is_fireball_penetrable = false
+			print("Debug: Fireball hit blocked by %s, is_fireball_penetrable=false" % target)
+		else:
+			is_fireball_penetrable = true
+			print("Debug: Fireball hit %s (not blocked), is_fireball_penetrable=true" % target)
 
 func get_special_damage() -> float:
 	var player_id = parent.player_id if "player_id" in parent else "p1"
@@ -270,4 +340,6 @@ func get_special_damage() -> float:
 		return powerkk_damage
 	elif player_id == "p2" and is_spnk:
 		return spnk_damage
+	elif is_fireball:
+		return fireball_damage
 	return 0.0
