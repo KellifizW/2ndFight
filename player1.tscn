@@ -1457,15 +1457,14 @@ parameters/conditions/St_mp = false
 parameters/Walk/blend_position = -0.1618452
 
 [node name="Hitbox" type="Area2D" parent="."]
-collision_layer = 2
-collision_mask = 8
+collision_layer = 4
+collision_mask = 2
 
 [node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
 debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="."]
-collision_layer = 8
-collision_mask = 18
+collision_mask = 8
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]
 shape = SubResource("RectangleShape2D_kcguo")
@@ -1474,7 +1473,7 @@ shape = SubResource("RectangleShape2D_kcguo")
 debug_color = Color(0.9878623, 0.092036285, 0.1464591, 0.41960785)
 
 [node name="Proximitybox" type="Area2D" parent="."]
-collision_layer = 16
+collision_layer = 64
 collision_mask = 0
 
 [node name="ProxShape" type="CollisionShape2D" parent="Proximitybox"]

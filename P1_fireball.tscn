@@ -141,7 +141,7 @@ size = Vector2(27, 30)
 size = Vector2(40, 20)
 
 [node name="P1Fireball" type="Area2D"]
-collision_layer = 2
+collision_layer = 4
 collision_mask = 0
 script = ExtResource("1_twj7m")
 
@@ -161,23 +161,23 @@ libraries = {
 shape = SubResource("RectangleShape2D_imvl6")
 
 [node name="Hitbox" type="Area2D" parent="."]
-collision_layer = 2
-collision_mask = 32
+collision_layer = 4
+collision_mask = 34
 
 [node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
 shape = SubResource("RectangleShape2D_258ym")
 debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="."]
-collision_layer = 2
-collision_mask = 2
+collision_layer = 16
+collision_mask = 8
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]
 shape = SubResource("RectangleShape2D_kcguo")
 
 [node name="Proximitybox" type="Area2D" parent="."]
-collision_layer = 16
-collision_mask = 0
+collision_layer = 0
+collision_mask = 64
 
 [node name="ProxShape" type="CollisionShape2D" parent="Proximitybox"]
 shape = SubResource("RectangleShape2D_twj7m")

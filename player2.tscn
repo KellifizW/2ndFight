@@ -1267,8 +1267,8 @@ transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition
 graph_offset = Vector2(-160, -30)
 
 [node name="Player2" type="CharacterBody2D"]
-collision_layer = 3
-collision_mask = 2
+collision_layer = 2
+collision_mask = 0
 script = ExtResource("1_tdckb")
 player_id = "p2"
 
@@ -1297,16 +1297,15 @@ parameters/conditions/knockfly = false
 parameters/Walk/blend_position = 0.000833988
 
 [node name="Hitbox" type="Area2D" parent="."]
-collision_layer = 2
-collision_mask = 8
+collision_layer = 8
 
 [node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
 position = Vector2(20, 10)
 debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="."]
-collision_layer = 40
-collision_mask = 18
+collision_layer = 2
+collision_mask = 4
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]
 shape = SubResource("RectangleShape2D_bhnal")
@@ -1316,7 +1315,7 @@ debug_color = Color(1.44392e-06, 0.569045, 0.850655, 0.42)
 debug_color = Color(0.9954062, 0, 0.21373373, 0.41960785)
 
 [node name="Proximitybox" type="Area2D" parent="."]
-collision_layer = 16
+collision_layer = 64
 collision_mask = 0
 
 [node name="ProxShape" type="CollisionShape2D" parent="Proximitybox"]

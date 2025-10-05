@@ -5,7 +5,7 @@ var direction: int = 1
 var damage: float = 15.0  # 預設傷害（Player1）
 var blockstun_duration: float = 0.3  # 格擋硬直時間，稍短於 powerkk 的 0.4
 var is_active: bool = true  # 控制火球是否仍可造成傷害
-var owner_id: String = "p1"  # 新增：識別火球的發射者（p1 或 p2）
+var owner_id: String = "p1"  # 識別火球的發射者（p1 或 p2）
 
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer
@@ -14,18 +14,27 @@ var owner_id: String = "p1"  # 新增：識別火球的發射者（p1 或 p2）
 @onready var prox_shape = $Proximitybox/ProxShape
 
 func _ready():
+	# 為火球添加組以便識別
+	add_to_group("fireball")
+	
 	# 根據 owner_id 設置火球參數
 	if owner_id == "p1":
 		speed = 300.0
 		damage = 15.0
 	elif owner_id == "p2":
-		speed = 250.0
+		speed = 200.0
 		damage = 11.0
 	
 	if sprite == null:
 		print("Error: Sprite2D node not found in Fireball!")
 	else:
-		sprite.flip_h = direction < 0
+		# 使用場景反轉，與 Movement.gd 一致
+		scale.x = direction
+		scale.y = 1
+		sprite.scale.x = 1.0  # 保持 sprite 不被場景反轉影響
+		# 為 P2 調整 offset 以適應場景反轉
+		if owner_id == "p2":
+			sprite.offset.x = abs(sprite.offset.x)  # 確保 offset.x 為正，與 P1 對齊
 	if animation_player == null:
 		print("Error: AnimationPlayer node not found in Fireball!")
 	else:
@@ -39,7 +48,7 @@ func _ready():
 		prox_shape.get_parent().area_entered.connect(_on_proximitybox_area_entered)  # 添加 Proximitybox 信號
 	monitoring = true
 	monitorable = true
-	print("Fireball initialized, owner_id: %s, speed: %s, damage: %s, collision_layer: %s, collision_mask: %s, direction: %s" % [owner_id, speed, damage, collision_layer, collision_mask, direction])
+	print("Fireball initialized, owner_id: %s, speed: %s, damage: %s, collision_layer: %s, collision_mask: %s, direction: %s, sprite.offset: %s, scale.x: %s" % [owner_id, speed, damage, collision_layer, collision_mask, direction, sprite.offset, scale.x])
 
 func _physics_process(delta):
 	if is_active:
@@ -73,14 +82,19 @@ func _on_hitbox_area_entered(area: Area2D):
 func _on_hurtbox_area_entered(area: Area2D):
 	if not is_active:
 		return
-	if area.name == "Hitbox" and area.get_parent().is_in_group("players"):
+	# 檢查是否與玩家的 Hitbox 或另一顆火球的 Hitbox 碰撞
+	if area.name == "Hitbox" and (area.get_parent().is_in_group("players") or area.get_parent().is_in_group("fireball")):
 		is_active = false
 		if hitbox:
 			hitbox.monitoring = false
 		if prox_shape:
 			prox_shape.disabled = true
 		animation_player.play("fireball/ball_impact")  # 使用動畫庫路徑
-		print("Fireball hit by %s's Hitbox, playing impact and destroying, owner_id: %s" % [area.get_parent().name, owner_id])
+		if area.get_parent().is_in_group("fireball"):
+			# 確保對方火球也銷毀（由對方火球的 Hurtbox 處理）
+			print("Fireball collided with another fireball, playing impact and destroying, owner_id: %s" % owner_id)
+		else:
+			print("Fireball hit by %s's Hitbox, playing impact and destroying, owner_id: %s" % [area.get_parent().name, owner_id])
 
 func _on_proximitybox_area_entered(area: Area2D):
 	if not is_active:
