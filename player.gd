@@ -175,6 +175,10 @@ func _physics_process(delta):
 		else:
 			is_landing = false
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+	# 新增：確保proximity block每幀更新動畫
+	if is_blocking and is_opponent_proximity:
+		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+		return
 	if is_wakeup:
 		if not is_push_back:
 			fixed_velocity = Vector2i.ZERO
@@ -184,13 +188,21 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var curr_state = animation_state.get_current_node() if animation_state else "none"
 	var on_floor = is_on_floor()
 	var relative_jump_dir = jump_dir * facing_direction
-	# 先檢查擊中狀態，確保空中低傷害擊中播放 Jump_B
+	
+	# 優先檢查格擋狀態，確保proximity block持續顯示
+	if is_blocking and on_floor and is_opponent_proximity:
+		var block_target = "cr_block" if is_crouch_blocking and crouch_input else "block"
+		if curr_state != block_target:
+			animation_state.travel(block_target)
+			print("Debug: Animation switched to %s for %s (proximity block), is_crouch_blocking=%s, crouch_input=%s, is_opponent_proximity=%s" % [block_target, name, is_crouch_blocking, crouch_input, is_opponent_proximity])
+		return
+	
+	# 原有邏輯：檢查其他狀態
 	if is_hit:
 		var target_state = "hit" if on_floor else "Jump_B"
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 		return
-	# 其他優先狀態
 	if is_knockfly:
 		current_mode = "knockfly"
 		is_landing = false
@@ -200,7 +212,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 		return
-	elif is_wakeup and is_wakeup_locked:
+	if is_wakeup and is_wakeup_locked:
 		current_mode = "wakeup"
 		is_landing = false
 		var target_state = "wakeup"
@@ -208,7 +220,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			animation_state.travel(target_state)
 		return
 	if is_attacking and on_floor:
-		var target_state = attack_type # 使用 attack_type 動態選擇 st_mp 或 st_mk
+		var target_state = attack_type
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 		return
@@ -222,11 +234,6 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 		return
-	if is_blocking and on_floor:
-		var block_target = "cr_block" if crouch_input else "block"
-		if curr_state != block_target:
-			animation_state.travel(block_target)
-		return
 	if move_set and move_set.is_spmove and not is_hit and not is_knockfly:
 		current_mode = "attack"
 		var target_state = "fireball" if move_set.is_fireball else "powerkk" if player_id == "p1" and move_set.is_powerkk else "spnk" if player_id == "p2" and move_set.is_spnk else "none"
@@ -236,7 +243,6 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 		return
-	# 檢查 landing_lock_timer，防止 landing 被 Walk 自動覆蓋
 	if is_landing and landing_lock_timer > 0:
 		return
 	if is_landing and on_floor and not is_dashing and not is_backdashing and not is_wakeup and not is_hit and not is_knockfly:
@@ -247,11 +253,10 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 		return
-	# 空中狀態：優先檢查空中攻擊，維持 jump_mp 或 jump_mk 直到落地或被擊中
 	if not on_floor and (is_jumping or is_air_attacking):
 		is_landing = false
 		if is_air_attacking or has_air_attacked:
-			var target_state = attack_type # 使用 attack_type 選擇 jump_mp 或 jump_mk
+			var target_state = attack_type
 			if curr_state != target_state:
 				animation_state.travel(target_state)
 			return
