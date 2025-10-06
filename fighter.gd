@@ -153,16 +153,17 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 		if is_blocking or ((is_holding_back or is_crouch_blocking) and is_on_floor() and not is_spmove):
 			is_blocking = true
 			is_crouch_blocking = input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0 # 修正：明確設置蹲防狀態
+			# 修正：take_hit 總是 ordinary block，強制應用 stun/push 並設 block_type = "ordinary"（覆寫 proximity）
 			initial_blockstun = 0.4 if damage >= 20.0 else 0.267
 			block_timer = initial_blockstun
-			block_type = "ordinary" if block_type != "proximity" else block_type
+			block_type = "ordinary"  # 強制設為 ordinary，無論先前狀態
 			fixed_velocity.x = 0
 			fixed_velocity.y = 0
 			if not skip_push:
 				block_push_timer = initial_blockstun
 				block_push_velocity = 2.0 * block_push_distance * world.SIMULATION_SCALE / initial_blockstun
 				print("Debug: Block push set - timer=%.2f, velocity=%.2f, skip_push=%s" % [block_push_timer, block_push_velocity, skip_push])
-			print("Debug: Block successful, blockstun duration %s for %s, crouch_blocking=%s, block_type=%s" % [initial_blockstun, name, is_crouch_blocking, block_type])
+			print("Debug: Ordinary block successful (from hit), blockstun duration %s for %s, crouch_blocking=%s" % [initial_blockstun, name, is_crouch_blocking])
 			block_detected.emit(name, block_type)
 			_update_animation_state(0, input_data.crouch_pressed)
 			return # 格擋時不扣血，直接返回

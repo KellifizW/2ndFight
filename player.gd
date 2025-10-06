@@ -107,8 +107,6 @@ func _physics_process(delta):
 		has_air_attacked = false
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = true
-		if has_node("Proximitybox/ProxShape"):
-			$Proximitybox/ProxShape.disabled = true
 	
 	var input_data = get_input()
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
@@ -136,6 +134,8 @@ func _physics_process(delta):
 		attack_type = "jump_mp"
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = false
+		if has_node("Proximitybox/ProxShape"):  # 新增：空中攻擊時啟用 Proximity Box
+			$Proximitybox/ProxShape.disabled = false
 	elif input_data.st_mk_pressed and is_valid_air_state:
 		current_damage = input_data.damage
 		is_air_attacking = true
@@ -143,6 +143,8 @@ func _physics_process(delta):
 		attack_type = "jump_mk"
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = false
+		if has_node("Proximitybox/ProxShape"):  # 新增：空中攻擊時啟用 Proximity Box
+			$Proximitybox/ProxShape.disabled = false
 	# 更新 landing_lock_timer
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
@@ -347,8 +349,6 @@ func _on_animation_tree_finished(anim_name: String):
 		is_attacking = false
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = true
-		if has_node("Proximitybox/ProxShape"):
-			$Proximitybox/ProxShape.disabled = true
 		update_facing_direction()
 		_update_animation_state(0, false)
 	elif anim_name in ["jump_mp", "jump_mk"] and is_air_attacking:
@@ -357,8 +357,6 @@ func _on_animation_tree_finished(anim_name: String):
 			has_air_attacked = false
 			if has_node("Hitbox/HitShape"):
 				$Hitbox/HitShape.disabled = true
-			if has_node("Proximitybox/ProxShape"):
-				$Proximitybox/ProxShape.disabled = true
 			var input_data = get_input()
 			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 				is_landing = false
