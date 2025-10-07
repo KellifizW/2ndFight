@@ -19,10 +19,10 @@ var is_jumping: bool = false
 var is_dashing: bool = false
 var is_backdashing: bool = false
 var is_attacking: bool = false
-var dash_speed: float = 160.0
-var backdash_speed: float = 130.0
+var dash_speed: float = 170.0
+var backdash_speed: float = 140.0
 var dash_time: float = 0.35
-var backdash_time: float = 0.4
+var backdash_time: float = 0.35
 var dash_timer: float = 0.0
 var double_tap_timer: float = 0.3
 var last_input_dir: int = 0
@@ -217,15 +217,17 @@ func _physics_process(delta):
 	# 更新位置
 	fixed_position += Vector2i(round(fixed_velocity.x * delta), round(fixed_velocity.y * delta))
 	
-	# 地板限制（保護延遲期不觸發）
+# 地板限制（保護延遲期不觸發）
 	if not just_jumped and fixed_position.y >= world.FLOOR_Y and jump_delay_timer <= 0:
 		fixed_position.y = world.FLOOR_Y
 		fixed_velocity.y = 0
 		if is_jumping:
 			is_jumping = false
 			fixed_velocity.x = 0
-			print("Debug: Landing, resetting is_jumping for %s" % name)
-	
+			neutral_timer = 0.0
+			pending_dash_dir = 0
+			last_input_dir = 0
+			print("Debug: Landing, resetting is_jumping and dash detection vars for %s" % name)
 	# 設置顯示位置
 	global_position = world.to_scaled_vector2(fixed_position)
 	
