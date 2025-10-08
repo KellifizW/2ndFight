@@ -1,11 +1,11 @@
 class_name PushManager extends Node
 
-const SIMULATION_SCALE: float = 1000.0  # 與 world.gd 一致，避免不匹配
+const SIMULATION_SCALE: float = 1000.0
 
-@export var PUSH_FRICTION: float = 66.0  # 摩擦用於推開計算（但現在移除額外摩擦）
-@export var collision_epsilon: float = 5.0  # 增加到5.0，更寬容角落檢測，避免微小偏移誤判
-@export var arena_left: float = 0.0  # 場地左邊界
-@export var arena_right: float = 480.0  # 場地右邊界
+@export var PUSH_FRICTION: float = 66.0
+@export var collision_epsilon: float = 5.0
+@export var arena_left: float = 0.0
+@export var arena_right: float = 480.0
 
 var players: Array = []
 
@@ -43,13 +43,14 @@ func get_depth(a: Collider, b: Collider) -> Vector2i:
 
 func _ready() -> void:
 	players = get_tree().get_nodes_in_group("players")
+	add_to_group("push_manager")
 
 func _physics_process(delta: float) -> void:
 	players = get_tree().get_nodes_in_group("players")
 	if players.size() < 2:
 		return
 
-	# 處理所有玩家的hit/block/push_back/knockfly計時器
+	# 處理計時器
 	for player in players:
 		if player.is_push_back:
 			if player.push_back_timer > 0:
@@ -107,7 +108,7 @@ func _physics_process(delta: float) -> void:
 					if player.animation_player:
 						player.animation_player.speed_scale = 1.0
 
-	# 中心化推開處理：僅依賴穿透旗標
+	# 推開處理
 	for i in range(players.size()):
 		var parent = players[i]
 		var move_set = parent.get_node_or_null("MoveSet")
@@ -150,6 +151,7 @@ func _physics_process(delta: float) -> void:
 			var collider_b = Collider.new(center_b, size_b)
 			
 			if collider_a.is_overlapping(collider_b, 0, 0):
+				print("Debug: Overlap detected for %s and %s, depth_x=%s, depth_y=%s" % [parent.name, other.name, get_depth(collider_a, collider_b).x, get_depth(collider_a, collider_b).y])
 				var depth = get_depth(collider_a, collider_b)
 				var overlap_fixed_x = depth.x
 				var overlap_fixed_y = depth.y
@@ -178,35 +180,58 @@ func _physics_process(delta: float) -> void:
 				var other_at_left = abs(fixed_position_b.x - (arena_left_fixed + half_b_fixed)) < epsilon_fixed
 				var other_at_right = abs(fixed_position_b.x - (arena_right_fixed - half_b_fixed)) < epsilon_fixed
 				
-				var unpush_self = (other_at_left and fixed_position_a.x >= fixed_position_b.x) or (other_at_right and fixed_position_a.x <= fixed_position_b.x)
-				var unpush_other = (self_at_left and fixed_position_b.x >= fixed_position_a.x) or (self_at_right and fixed_position_b.x <= fixed_position_a.x)
+				var unpush_self = (self_at_left and fixed_position_a.x >= fixed_position_b.x) or \
+								  (self_at_right and fixed_position_a.x <= fixed_position_b.x)
+				var unpush_other = (other_at_left and fixed_position_b.x >= fixed_position_a.x) or \
+								   (other_at_right and fixed_position_b.x <= fixed_position_a.x)
 				
-				var push_vec_self = normal_x * (push_distance_fixed / 2 + 1)
-				var push_vec_other = -normal_x * (push_distance_fixed / 2 + 1)
+				var push_vec_self = 0
+				var push_vec_other = 0
 				
-				if unpush_self:
-					push_vec_self = normal_x * (push_distance_fixed + 2)
-				if unpush_other:
-					push_vec_other = -normal_x * (push_distance_fixed + 2)
+				if unpush_self and overlap_fixed_y > 0:
+					push_vec_self = 0  # 角落角色不動
+					push_vec_other = -normal_x * push_distance_fixed * 1.2  # 跳躍者推開更多
+				elif unpush_other and overlap_fixed_y > 0:
+					push_vec_self = normal_x * push_distance_fixed * 1.2
+					push_vec_other = 0  # 角落角色不動
+				else:
+					push_vec_self = normal_x * (push_distance_fixed * 0.6 + 1)
+					push_vec_other = -normal_x * (push_distance_fixed * 0.6 + 1)
+				
+				if parent.just_jumped or parent.is_landing or other.just_jumped or other.is_landing:
+					push_vec_self *= 1.5
+					push_vec_other *= 1.5
 				
 				var new_self_fixed_x = fixed_position_a.x - push_vec_self
 				var new_other_fixed_x = fixed_position_b.x - push_vec_other
+				
+				# Y 軸同步
+				if overlap_fixed_y > 0:
+					var world = get_tree().get_first_node_in_group("world")
+					if world:
+						if abs(parent.fixed_position.y - world.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE):
+							parent.fixed_position.y = world.FLOOR_Y
+							parent.fixed_velocity.y = 0
+						if abs(other.fixed_position.y - world.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE):
+							other.fixed_position.y = world.FLOOR_Y
+							other.fixed_velocity.y = 0
+						print("Debug: Y synchronized to FLOOR_Y for %s and %s" % [parent.name, other.name])
 				
 				parent.fixed_position.x = new_self_fixed_x
 				other.fixed_position.x = new_other_fixed_x
 				parent.global_position.x = new_self_fixed_x / SIMULATION_SCALE
 				other.global_position.x = new_other_fixed_x / SIMULATION_SCALE
-				parent.is_being_pushed = true
-				other.is_being_pushed = true
+				parent.is_being_pushed = push_vec_self != 0
+				other.is_being_pushed = push_vec_other != 0
 
-	# 對所有玩家應用邊界限制
+	# 邊界限制
 	for player in players:
 		var arena_left_fixed = round(arena_left * SIMULATION_SCALE)
 		var arena_right_fixed = round(arena_right * SIMULATION_SCALE)
 		var half_fixed = round(player.colbox_half_width * SIMULATION_SCALE)
 		player.fixed_position.x = clampi(player.fixed_position.x, arena_left_fixed + half_fixed, arena_right_fixed - half_fixed)
 		player.global_position.x = player.fixed_position.x / SIMULATION_SCALE
-		player.skip_pushbox = false  # 重置pushbox標誌
+		player.skip_pushbox = false
 
 func is_at_corner(player: Node) -> bool:
 	var epsilon_fixed = round(collision_epsilon * SIMULATION_SCALE)

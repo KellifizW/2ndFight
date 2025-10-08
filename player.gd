@@ -18,6 +18,7 @@ var is_special_moving: bool = false
 var landing_lock_timer: float = 0.0
 var has_air_attacked: bool = false
 var skip_pushbox: bool = false
+var relative_jump_dir: float = 0.0  # 記錄跳躍的相對方向
 
 func _ready():
 	super._ready()
@@ -101,12 +102,14 @@ func _physics_process(delta):
 	if not world:
 		return
 	
-	# 安全重置空中攻擊狀態，防止殘留到下次跳躍
+	# 安全重置空中攻擊狀態，防止殞留到下次跳躍
 	if is_air_attacking and is_on_floor():
 		is_air_attacking = false
 		has_air_attacked = false
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = true
+		if has_node("Proximitybox/ProxShape"):
+			$Proximitybox/ProxShape.disabled = true
 	
 	var input_data = get_input()
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
@@ -134,7 +137,7 @@ func _physics_process(delta):
 		attack_type = "jump_mp"
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = false
-		if has_node("Proximitybox/ProxShape"):  # 新增：空中攻擊時啟用 Proximity Box
+		if has_node("Proximitybox/ProxShape"):
 			$Proximitybox/ProxShape.disabled = false
 	elif input_data.st_mk_pressed and is_valid_air_state:
 		current_damage = input_data.damage
@@ -143,7 +146,7 @@ func _physics_process(delta):
 		attack_type = "jump_mk"
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = false
-		if has_node("Proximitybox/ProxShape"):  # 新增：空中攻擊時啟用 Proximity Box
+		if has_node("Proximitybox/ProxShape"):
 			$Proximitybox/ProxShape.disabled = false
 	# 更新 landing_lock_timer
 	if landing_lock_timer > 0:
@@ -170,47 +173,27 @@ func _physics_process(delta):
 				is_landing = true
 				animation_state.travel("landing")
 				landing_lock_timer = landing_duration
-			return
-		# 當 curr_state == "landing" 時，不設 is_landing = false，讓它繼續播放
-		elif curr_state == "landing":
-			return
-		else:
-			is_landing = false
-			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-	# 新增：確保proximity block每幀更新動畫
-	if is_blocking and is_opponent_proximity:
-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-		return
-	if is_wakeup:
-		if not is_push_back:
-			fixed_velocity = Vector2i.ZERO
+	# 更新動畫狀態
 	_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
-func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
+func _update_animation_state(dir_x: float, crouch_input: bool):
 	var curr_state = animation_state.get_current_node() if animation_state else "none"
 	var on_floor = is_on_floor()
-	var relative_jump_dir = jump_dir * facing_direction
-	
-	# 優先檢查格擋狀態，確保proximity block持續顯示
-	if is_blocking and on_floor and is_opponent_proximity:
-		var block_target = "cr_block" if is_crouch_blocking and crouch_input else "block"
-		if curr_state != block_target:
-			animation_state.travel(block_target)
-			print("Debug: Animation switched to %s for %s (proximity block), is_crouch_blocking=%s, crouch_input=%s, is_opponent_proximity=%s" % [block_target, name, is_crouch_blocking, crouch_input, is_opponent_proximity])
-		return
-	
-	# 原有邏輯：檢查其他狀態
 	if is_hit:
+		current_mode = "hit"
 		var target_state = "hit" if on_floor else "Jump_B"
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 		return
 	if is_knockfly:
 		current_mode = "knockfly"
-		is_landing = false
-		is_wakeup = false
-		is_wakeup_locked = false
 		var target_state = "knockfly"
+		if curr_state != target_state:
+			animation_state.travel(target_state)
+		return
+	if is_blocking:
+		current_mode = "block"
+		var target_state = "cr_block" if is_crouch_blocking else "block"
 		if curr_state != target_state:
 			animation_state.travel(target_state)
 		return
@@ -295,34 +278,22 @@ func _on_hitbox_area_entered(area: Area2D):
 			var slowmo_controller = world.get_node_or_null("SlowMoController")
 			if slowmo_controller:
 				slowmo_controller.request_hit_freeze()
-			var epsilon_fixed = round(5.0 * world.SIMULATION_SCALE)
-			var fixed_pos_x = target.fixed_position.x
-			var half_fixed = round(target.colbox_half_width * world.SIMULATION_SCALE)
-			var arena_left_fixed = round(0.0 * world.SIMULATION_SCALE)
-			var arena_right_fixed = round(480.0 * world.SIMULATION_SCALE)
-			var left_target = arena_left_fixed + half_fixed
-			var right_target = arena_right_fixed - half_fixed
-			var diff_left = abs(fixed_pos_x - left_target)
-			var diff_right = abs(fixed_pos_x - right_target)
-			var skip_target_push = diff_left < epsilon_fixed or diff_right < epsilon_fixed
-			target.skip_pushbox = skip_target_push
-			target.take_hit(blockstun_duration, damage, skip_target_push)
+			target.take_hit(blockstun_duration, damage, false)
 			var is_blocked = target.is_blocking and target.block_type == "ordinary"
 			hit_detected.emit(target.name, blockstun_duration, is_blocked)
-			if skip_target_push:
-				var push_duration: float
-				if damage >= 20.0:
-					push_duration = 0.4
-				elif is_blocked:
-					push_duration = 0.267
-				else:
-					push_duration = 0.35
-				is_push_back = true
-				push_back_timer = push_duration
-				initial_push_back = push_duration
-				push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
-				var facing_mult = get_facing_multiplier()
-				fixed_velocity.x = int(-push_back_velocity * facing_mult)
+			var push_duration: float
+			if damage >= 20.0:
+				push_duration = 0.4
+			elif is_blocked:
+				push_duration = 0.267
+			else:
+				push_duration = 0.35
+			is_push_back = true
+			push_back_timer = push_duration
+			initial_push_back = push_duration
+			push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
+			var facing_mult = get_facing_multiplier()
+			fixed_velocity.x = int(-push_back_velocity * facing_mult)
 
 func _on_animation_tree_finished(anim_name: String):
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
@@ -349,6 +320,8 @@ func _on_animation_tree_finished(anim_name: String):
 		is_attacking = false
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = true
+		if has_node("Proximitybox/ProxShape"):
+			$Proximitybox/ProxShape.disabled = true
 		update_facing_direction()
 		_update_animation_state(0, false)
 	elif anim_name in ["jump_mp", "jump_mk"] and is_air_attacking:
@@ -357,6 +330,8 @@ func _on_animation_tree_finished(anim_name: String):
 			has_air_attacked = false
 			if has_node("Hitbox/HitShape"):
 				$Hitbox/HitShape.disabled = true
+			if has_node("Proximitybox/ProxShape"):
+				$Proximitybox/ProxShape.disabled = true
 			var input_data = get_input()
 			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 				is_landing = false
@@ -391,3 +366,19 @@ func _on_animation_tree_finished(anim_name: String):
 
 func get_facing_multiplier() -> float:
 	return super.get_facing_multiplier()
+
+func _physics_process_jump(delta: float):
+	var input_data = get_input()
+	if input_data.jump_pressed and is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_hit and not is_knockfly and not is_blocking:
+		relative_jump_dir = input_data.input_dir * facing_direction
+		is_jumping = true
+		landing_facing_lock = true
+		var world = get_tree().get_first_node_in_group("world")
+		if world:
+			fixed_position.y = world.FLOOR_Y - 1
+			fixed_velocity.y = 0
+			if input_data.input_dir != 0:
+				var jump_speed = jump_horizontal_speed if input_data.input_dir * facing_direction > 0 else jump_horizontal_speed * 0.75
+				fixed_velocity.x = int(jump_speed * world.SIMULATION_SCALE * input_data.input_dir)
+			else:
+				fixed_velocity.x = 0

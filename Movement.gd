@@ -86,14 +86,13 @@ func _ready():
 		$Hurtbox.area_exited.connect(_on_hurtbox_area_exited)
 	if animation_player:
 		animation_player.speed_scale = 1.0
-		# 連接到動畫結束信號
 		if not animation_player.animation_finished.is_connected(_on_animation_player_finished):
 			animation_player.animation_finished.connect(_on_animation_player_finished)
 	prev_position = global_position
 	var world = get_tree().get_first_node_in_group("world")
 	if world:
-		fixed_position = Vector2i(int(global_position.x * world.SIMULATION_SCALE), world.FLOOR_Y)  # 設置初始 y 為地板高度
-		update_facing_direction()  # 初始化面向
+		fixed_position = Vector2i(int(global_position.x * world.SIMULATION_SCALE), world.FLOOR_Y)
+		update_facing_direction()
 	else:
 		print("Warning: World node not found in group 'world' for %s" % name)
 
@@ -121,9 +120,9 @@ func _physics_process(delta):
 	if jump_delay_timer > 0:
 		jump_delay_timer -= delta
 		if jump_delay_timer <= 0:
-			# 延遲結束：啟動垂直上升
 			fixed_velocity.y = int(jump_vertical_speed * world.SIMULATION_SCALE)
-			just_jumped = true  # 啟動防止過早落地的標誌
+			just_jumped = true
+			fixed_position.y = world.FLOOR_Y - 1  # 確保空中狀態
 			print("Debug: Jump vertical physics activated after delay, fixed_velocity.y=%s" % fixed_velocity.y)
 	
 	# 獲取輸入
@@ -136,7 +135,7 @@ func _physics_process(delta):
 	var is_powerkk = move_set.is_powerkk if move_set else false
 	var is_spnk = move_set.is_spnk if move_set else false
 	
-	# 設置格擋狀態，確保蹲防持續檢測
+	# 設置格擋狀態
 	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not (is_hit or is_knockfly):
 		if input_dir * facing_direction < 0:
 			is_holding_back = true
@@ -150,7 +149,7 @@ func _physics_process(delta):
 			is_holding_back = false
 			is_crouch_blocking = false
 	
-	# 雙擊檢測（在 proximity block 時限制後退）
+	# 雙擊檢測
 	if is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_jumping and not is_crouching and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back):
 		if neutral_timer > 0 and input_dir != 0 and input_dir == last_input_dir and pending_dash_dir == input_dir:
 			if input_dir * facing_direction > 0:
@@ -159,7 +158,7 @@ func _physics_process(delta):
 				fixed_velocity.x = int(dash_speed * world.SIMULATION_SCALE * input_dir)
 				print("Debug: Dash initiated, fixed_velocity.x=%s, input_dir=%s, facing_direction=%s" % [fixed_velocity.x, input_dir, facing_direction])
 			else:
-				if not (is_blocking and is_opponent_proximity and block_type == "proximity"):  # 僅在 proximity block 時禁止後退（backdash）
+				if not (is_blocking and is_opponent_proximity and block_type == "proximity"):
 					is_backdashing = true
 					dash_timer = backdash_time
 					fixed_velocity.x = int(backdash_speed * world.SIMULATION_SCALE * input_dir)
@@ -174,11 +173,11 @@ func _physics_process(delta):
 				pending_dash_dir = last_input_dir
 			last_input_dir = input_dir
 	
-	# 處理移動邏輯（僅在非受控狀態且非下蹲時處理輸入移動，限制後退）
+	# 處理移動邏輯
 	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back) and not is_crouching:
 		if input_dir != 0:
 			if input_dir * facing_direction < 0 and is_blocking and is_opponent_proximity and block_type == "proximity":
-				fixed_velocity.x = 0  # 僅在 proximity block 時禁止後退移動
+				fixed_velocity.x = 0
 				print("Debug: Backward movement blocked due to proximity block for %s" % name)
 			else:
 				var move_speed = walk_speed if input_dir * facing_direction > 0 else back_speed
@@ -187,26 +186,25 @@ func _physics_process(delta):
 		else:
 			fixed_velocity.x = 0
 	else:
-		# 移除無條件清零，允許 PushManager 控制 fixed_velocity.x；保護跳躍延遲期 x
 		if not (is_jumping or is_dashing or is_backdashing or is_hit or is_knockfly or is_blocking or is_push_back or jump_delay_timer > 0 or ("is_special_moving" in self and self.is_special_moving)):
 			fixed_velocity.x = 0
 	
-	# 跳躍邏輯（允許在 proximity block 時跳躍）
+	# 跳躍邏輯
 	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back) and jump_delay_timer <= 0:
 		jump_dir = input_dir
 		is_jumping = true
-		landing_facing_lock = true  # 啟動面向鎖定，防止落地反轉
-		jump_delay_timer = jump_delay_duration  # 啟動垂直延遲
-		fixed_position.y = world.FLOOR_Y - 1  # 微調位置，讓 is_on_floor() 視為空中，觸發動畫
-		fixed_velocity.y = 0  # 垂直暫停
+		landing_facing_lock = true
+		jump_delay_timer = jump_delay_duration
+		fixed_position.y = world.FLOOR_Y - 1
+		fixed_velocity.y = 0
 		if jump_dir != 0:
 			var jump_speed = jump_horizontal_speed if jump_dir * facing_direction > 0 else jump_horizontal_speed * 0.75
-			fixed_velocity.x = int(jump_speed * world.SIMULATION_SCALE * jump_dir)  # 立即啟動水平，確保距離完整
+			fixed_velocity.x = int(jump_speed * world.SIMULATION_SCALE * jump_dir)
 		else:
 			fixed_velocity.x = 0
 		print("Debug: Jump initiated with delay, fixed_velocity.x=%s, fixed_position.y=%s, jump_dir=%s, timer=%.2fs" % [fixed_velocity.x, fixed_position.y, jump_dir, jump_delay_duration])
 	
-	# 應用重力（只在延遲結束且非地板時套用，保護延遲期 y 不變）
+	# 應用重力
 	if jump_delay_timer <= 0 and not is_on_floor():
 		add_gravity(world.GRAVITY, delta)
 	else:
@@ -217,25 +215,33 @@ func _physics_process(delta):
 	# 更新位置
 	fixed_position += Vector2i(round(fixed_velocity.x * delta), round(fixed_velocity.y * delta))
 	
-# 地板限制（保護延遲期不觸發）
-	if not just_jumped and fixed_position.y >= world.FLOOR_Y and jump_delay_timer <= 0:
+	# 地板限制
+	if not just_jumped and fixed_position.y >= world.FLOOR_Y and jump_delay_timer <= 0 and fixed_velocity.y >= 0 and is_jumping:  # 修改：增加 is_jumping 檢查
 		fixed_position.y = world.FLOOR_Y
 		fixed_velocity.y = 0
-		if is_jumping:
-			is_jumping = false
-			fixed_velocity.x = 0
-			neutral_timer = 0.0
-			pending_dash_dir = 0
-			last_input_dir = 0
-			print("Debug: Landing, resetting is_jumping and dash detection vars for %s" % name)
+		is_jumping = false
+		just_jumped = false
+		fixed_velocity.x = 0
+		neutral_timer = 0.0
+		pending_dash_dir = 0
+		last_input_dir = 0
+		landing_facing_lock = false  # 新增：落地時解除面向鎖定
+		print("Debug: Landing, resetting is_jumping and dash detection vars for %s" % name)
+		
+		# 強制觸發推開檢查
+		var push_manager = get_tree().get_first_node_in_group("push_manager")
+		if push_manager:
+			push_manager._physics_process(delta)
+			print("Debug: Forced PushManager check on landing for %s" % name)
+	
 	# 設置顯示位置
 	global_position = world.to_scaled_vector2(fixed_position)
 	
-	# 重置 just_jumped 標誌
+	# 重置 just_jumped
 	if just_jumped and fixed_velocity.y > 0:
 		just_jumped = false
 	
-	# 更新面向（每幀檢查，但保留特定狀態限制）
+	# 更新面向
 	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
 	var is_attacking_state = is_attacking
 	if not (is_special_move or is_attacking_state or is_hit or is_knockfly or is_blocking or is_jumping or is_landing) and not landing_facing_lock:
@@ -250,7 +256,6 @@ func _physics_process(delta):
 	prev_position = global_position
 	post_physics_process(delta)
 
-# 處理動畫結束
 func _on_animation_player_finished(anim_name: String) -> void:
 	if anim_name == "st_mp" and is_attacking:
 		is_attacking = false
@@ -259,7 +264,6 @@ func _on_animation_player_finished(anim_name: String) -> void:
 			$Hitbox/HitShape.disabled = true
 		print("Debug: Attack animation 'st_mp' finished, resetting is_attacking for %s" % name)
 
-# 移植 PhysicsBody.AddGravity
 func add_gravity(gravity: int, delta: float) -> void:
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
@@ -267,14 +271,13 @@ func add_gravity(gravity: int, delta: float) -> void:
 		return
 	fixed_velocity.y += int(gravity * delta)
 
-# 移植 PhysicsBody.IsOnGround（調整：延遲期視為空中，確保動畫觸發）
 func is_on_floor() -> bool:
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
 		return false
-	if jump_delay_timer > 0:
-		return false  # 延遲期視為空中，讓動畫切換到 Jump 狀態
-	return fixed_position.y >= world.FLOOR_Y and not just_jumped
+	if jump_delay_timer > 0 or just_jumped:
+		return false
+	return fixed_position.y >= world.FLOOR_Y
 
 func get_input() -> Dictionary:
 	var input_dir: int = 0
@@ -323,7 +326,7 @@ func get_is_knockfly() -> bool:
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = true
-		if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_blocking:  # 修正：僅在非 blocking 時觸發 proximity，避免重複
+		if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_blocking:
 			is_blocking = true
 			is_crouch_blocking = get_input().crouch_pressed and get_input().input_dir * facing_direction < 0
 			block_type = "proximity"
@@ -346,7 +349,7 @@ func update_facing_direction():
 	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
 	var is_attacking_state = is_attacking
 	if is_special_move or is_attacking_state or landing_facing_lock:
-		return  # 鎖定時跳過更新
+		return
 	var players = get_tree().get_nodes_in_group("players")
 	var other_player = null
 	for player in players:
