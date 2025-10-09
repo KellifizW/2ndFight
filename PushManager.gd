@@ -151,7 +151,7 @@ func _physics_process(delta: float) -> void:
 			var collider_b = Collider.new(center_b, size_b)
 			
 			if collider_a.is_overlapping(collider_b, 0, 0):
-				print("Debug: Overlap detected for %s and %s, depth_x=%s, depth_y=%s" % [parent.name, other.name, get_depth(collider_a, collider_b).x, get_depth(collider_a, collider_b).y])
+				print("Debug: Overlap detected for %s and %s, depth_x=%s, depth_y=%s, parent_x=%s, other_x=%s" % [parent.name, other.name, get_depth(collider_a, collider_b).x, get_depth(collider_a, collider_b).y, fixed_position_a.x, fixed_position_b.x])
 				var depth = get_depth(collider_a, collider_b)
 				var overlap_fixed_x = depth.x
 				var overlap_fixed_y = depth.y
@@ -167,6 +167,7 @@ func _physics_process(delta: float) -> void:
 					normal_x = 1
 				else:
 					normal_x = 1 if is_at_corner(parent) else -1
+				print("Debug: normal_x calculated as %s for %s (parent) vs %s (other)" % [normal_x, parent.name, other.name])
 				
 				var epsilon_fixed = round(collision_epsilon * SIMULATION_SCALE)
 				var arena_left_fixed = round(arena_left * SIMULATION_SCALE)
@@ -179,28 +180,45 @@ func _physics_process(delta: float) -> void:
 				var self_at_right = abs(fixed_position_a.x - (arena_right_fixed - half_a_fixed)) < epsilon_fixed
 				var other_at_left = abs(fixed_position_b.x - (arena_left_fixed + half_b_fixed)) < epsilon_fixed
 				var other_at_right = abs(fixed_position_b.x - (arena_right_fixed - half_b_fixed)) < epsilon_fixed
+				print("Debug: Boundary checks - self_at_left=%s, self_at_right=%s, other_at_left=%s, other_at_right=%s" % [self_at_left, self_at_right, other_at_left, other_at_right])
 				
 				var unpush_self = (self_at_left and fixed_position_a.x >= fixed_position_b.x) or \
 								  (self_at_right and fixed_position_a.x <= fixed_position_b.x)
 				var unpush_other = (other_at_left and fixed_position_b.x >= fixed_position_a.x) or \
 								   (other_at_right and fixed_position_b.x <= fixed_position_a.x)
+				print("Debug: Unpush flags - unpush_self=%s, unpush_other=%s" % [unpush_self, unpush_other])
 				
 				var push_vec_self = 0
 				var push_vec_other = 0
 				
 				if unpush_self and overlap_fixed_y > 0:
-					push_vec_self = 0  # 角落角色不動
-					push_vec_other = -normal_x * push_distance_fixed * 1.2  # 跳躍者推開更多
+					push_vec_self = 0  # 角落玩家不動
+					# 明確基於角落位置設定推開方向（遠離角落）
+					var push_amount = push_distance_fixed * 1.2 + 1
+					if self_at_left:
+						push_vec_other = -push_amount  # 負值：推other向右（new_other = x - 負 = +）
+					elif self_at_right:
+						push_vec_other = push_amount   # 正值：推other向左（new_other = x - 正 = -）
 				elif unpush_other and overlap_fixed_y > 0:
-					push_vec_self = normal_x * push_distance_fixed * 1.2
-					push_vec_other = 0  # 角落角色不動
+					push_vec_other = 0  # 角落玩家不動
+					# 明確基於角落位置設定推開方向（遠離角落）
+					var push_amount = push_distance_fixed * 1.2 + 1
+					if other_at_left:
+						push_vec_self = -push_amount  # 負值：推self向右
+					elif other_at_right:
+						push_vec_self = push_amount   # 正值：推self向左
 				else:
-					push_vec_self = normal_x * (push_distance_fixed * 0.6 + 1)
-					push_vec_other = -normal_x * (push_distance_fixed * 0.6 + 1)
+					# 原有雙推邏輯，保留但增加方向檢查以防交叉
+					var push_amount = push_distance_fixed * 0.6 + 1
+					push_vec_self = normal_x * push_amount
+					push_vec_other = -normal_x * push_amount
 				
+				# 應用額外推力（如果跳躍或落地）
 				if parent.just_jumped or parent.is_landing or other.just_jumped or other.is_landing:
 					push_vec_self *= 1.5
 					push_vec_other *= 1.5
+				
+				print("Debug: Push vec calculated - self=%s, other=%s, push_amount=%s" % [push_vec_self, push_vec_other, push_distance_fixed * 1.2 + 1 if unpush_self or unpush_other else push_distance_fixed * 0.6 + 1])
 				
 				var new_self_fixed_x = fixed_position_a.x - push_vec_self
 				var new_other_fixed_x = fixed_position_b.x - push_vec_other
@@ -223,6 +241,7 @@ func _physics_process(delta: float) -> void:
 				other.global_position.x = new_other_fixed_x / SIMULATION_SCALE
 				parent.is_being_pushed = push_vec_self != 0
 				other.is_being_pushed = push_vec_other != 0
+				print("Debug: Positions updated - %s x=%s, %s x=%s" % [parent.name, parent.global_position.x, other.name, other.global_position.x])
 
 	# 邊界限制
 	for player in players:
@@ -245,4 +264,5 @@ func is_at_corner(player: Node) -> bool:
 	var diff_right = abs(fixed_pos_x - right_target)
 	var self_at_left = diff_left < epsilon_fixed
 	var self_at_right = diff_right < epsilon_fixed
+	print("Debug: is_at_corner check for %s - at_left=%s, at_right=%s" % [player.name, self_at_left, self_at_right])
 	return self_at_left or self_at_right
