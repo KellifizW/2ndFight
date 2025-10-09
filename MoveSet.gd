@@ -177,9 +177,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 					prox_shape.disabled = false
 			if hitbox:
 				hitbox.disabled = false
-				print("Debug: Hitbox enabled for %s during powerkk" % parent.name)
+				print("Debug: Hitbox enabled for %s during powerkk, is_crouching=%s" % [parent.name, parent.is_crouching])
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
-			print("Debug: Powerkk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s)" % [parent.name, powerkk_damage, powerkk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y])
+			print("Debug: Powerkk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, powerkk_damage, powerkk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
 			is_spmove_animation_playing = true
 			return true
 		elif player_id == "p2" and not is_spnk:
@@ -207,9 +207,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 					prox_shape.disabled = false
 			if hitbox:
 				hitbox.disabled = false
-				print("Debug: Hitbox enabled for %s during spnk" % parent.name)
+				print("Debug: Hitbox enabled for %s during spnk, is_crouching=%s" % [parent.name, parent.is_crouching])
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
-			print("Debug: Spnk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s)" % [parent.name, spnk_damage, spnk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y])
+			print("Debug: Spnk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, spnk_damage, spnk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
 			if not animation_player.animation_finished.is_connected(_on_spmove_animation_finished):
 				animation_player.animation_finished.connect(_on_spmove_animation_finished)
 			is_spmove_animation_playing = true
@@ -222,9 +222,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				parent.fixed_position.y = world.FLOOR_Y
 				parent.fixed_velocity.y = 0
 		var delta_move = int(parent.fixed_velocity.x * delta)
-		print("Debug: Delta move = %s, before fixed_x = %s" % [delta_move, parent.fixed_position.x])
+		print("Debug: Powerkk delta move = %s, before fixed_x = %s" % [delta_move, parent.fixed_position.x])
 		parent.fixed_position.x += delta_move
-		print("Debug: After add, fixed_x = %s" % parent.fixed_position.x)
+		print("Debug: Powerkk after add, fixed_x = %s" % parent.fixed_position.x)
 		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		if parent.has_node("Proximitybox"):
 			var proxbox_pos = parent.get_node("Proximitybox").global_position
@@ -242,9 +242,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				parent.fixed_position.y = world.FLOOR_Y
 				parent.fixed_velocity.y = 0
 		var delta_move = int(parent.fixed_velocity.x * delta)
-		print("Debug: Delta move = %s, before fixed_x = %s" % [delta_move, parent.fixed_position.x])
+		print("Debug: Spnk delta move = %s, before fixed_x = %s" % [delta_move, parent.fixed_position.x])
 		parent.fixed_position.x += delta_move
-		print("Debug: After add, fixed_x = %s" % parent.fixed_position.x)
+		print("Debug: Spnk after add, fixed_x = %s" % parent.fixed_position.x)
 		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		if parent.has_node("Proximitybox"):
 			var proxbox_pos = parent.get_node("Proximitybox").global_position

@@ -112,7 +112,7 @@ func _physics_process(delta):
 			$Proximitybox/ProxShape.disabled = true
 	
 	var input_data = get_input()
-	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
+	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked
 	var hit_shape = $Hitbox.get_node_or_null("HitShape") if has_node("Hitbox") else null
 	if hit_shape and hit_shape is CollisionShape2D:
@@ -147,7 +147,7 @@ func _physics_process(delta):
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = false
 		if has_node("Proximitybox/ProxShape"):
-			$Proximitybox/ProxShape.disabled = false
+			$Proximitybox/ProxShape.disabled = true
 	# 更新 landing_lock_timer
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
@@ -281,19 +281,30 @@ func _on_hitbox_area_entered(area: Area2D):
 			target.take_hit(blockstun_duration, damage, false)
 			var is_blocked = target.is_blocking and target.block_type == "ordinary"
 			hit_detected.emit(target.name, blockstun_duration, is_blocked)
-			var push_duration: float
-			if damage >= 20.0:
-				push_duration = 0.4
-			elif is_blocked:
-				push_duration = 0.267
+			# 檢查是否為特殊招式（spnk 或 powerkk），如果是則跳過推回
+			if move_set and (move_set.is_spnk or move_set.is_powerkk):
+				print("Debug: Special move hit detected, skipping push back for %s" % name)
+				return
+			# 檢查防守者是否在角落
+			var push_manager = get_tree().get_first_node_in_group("push_manager")
+			var is_target_at_corner = push_manager.is_at_corner(target) if push_manager else false
+			if is_target_at_corner:
+				var push_duration: float
+				if damage >= 20.0:
+					push_duration = 0.4
+				elif is_blocked:
+					push_duration = 0.267
+				else:
+					push_duration = 0.35
+				is_push_back = true
+				push_back_timer = push_duration
+				initial_push_back = push_duration
+				push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
+				var facing_mult = get_facing_multiplier()
+				fixed_velocity.x = int(-push_back_velocity * facing_mult)
+				print("Debug: Attacker pushed back due to defender at corner, push_duration=%.2f, velocity=%.2f" % [push_duration, push_back_velocity])
 			else:
-				push_duration = 0.35
-			is_push_back = true
-			push_back_timer = push_duration
-			initial_push_back = push_duration
-			push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
-			var facing_mult = get_facing_multiplier()
-			fixed_velocity.x = int(-push_back_velocity * facing_mult)
+				print("Debug: No push back for attacker, defender not at corner for %s" % name)
 
 func _on_animation_tree_finished(anim_name: String):
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
@@ -346,7 +357,7 @@ func _on_animation_tree_finished(anim_name: String):
 	elif anim_name in ["jump_v", "Jump_V", "Jump_F", "Jump_B"] and is_on_floor():
 		is_jumping = false
 		var input_data = get_input()
-		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
+		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 			is_landing = false
 			landing_facing_lock = false
 			update_facing_direction()

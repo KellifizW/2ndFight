@@ -1,19 +1,19 @@
 class_name Movement extends Node2D
 
 @onready var animation_tree = $AnimationTree
-@onready var animation_state = animation_tree.get("parameters/playback")
+@onready var animation_state = animation_tree.get("parameters/playback") if animation_tree else null
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer if has_node("AnimationPlayer") else null
 
-# 移植 PhysicsBody 的物理變數
+# Physics variables
 var fixed_position: Vector2i = Vector2i.ZERO
 var fixed_velocity: Vector2i = Vector2i.ZERO
 var colbox_half_width: float = 0.0
 var colbox_half_height: float = 0.0
-var walk_speed: float = 100.0  # 適配 20x70 角色
-var back_speed: float = walk_speed * 0.75  # 75.0
-var jump_vertical_speed: float = -650.0  # 跳躍垂直速度（像素/秒）
-var jump_horizontal_speed: float = 110.0  # 前跳/後跳水平速度
+var walk_speed: float = 100.0
+var back_speed: float = walk_speed * 0.75
+var jump_vertical_speed: float = -650.0
+var jump_horizontal_speed: float = 110.0
 var jump_dir: float = 0.0
 var is_jumping: bool = false
 var is_dashing: bool = false
@@ -32,7 +32,7 @@ var is_crouching: bool = false
 var is_hit: bool = false
 var is_knockfly: bool = false
 var arena_left: float = 0.0
-var arena_right: float = 480.0  # 適配 480x240 視圖
+var arena_right: float = 480.0
 var hit_timer: float = 0.0
 var block_timer: float = 0.0
 var knockfly_timer: float = 0.0
@@ -64,19 +64,18 @@ var initial_push_back: float = 0.0
 var push_back_velocity: float = 0.0
 var knockfly_accumulated_distance: float = 0.0
 var knockfly_max_distance: float = 150.0
-var just_jumped: bool = false  # 防止過早落地
-var landing_facing_lock: bool = false  # 鎖定跳躍面向，防止落地瞬間反轉
-
-# 新增：跳躍延遲計時器（僅延遲垂直物理）
+var just_jumped: bool = false
+var landing_facing_lock: bool = false
 var jump_delay_timer: float = 0.0
-@export var jump_delay_duration: float = 0.1  # 可在 Inspector 調整延遲時間
+@export var jump_delay_duration: float = 0.1
 
 signal block_detected(target: String, block_type: String)
 
 func _ready():
 	if animation_tree:
 		animation_tree.active = true
-		animation_state.travel("Walk")
+		if animation_state:
+			animation_state.travel("Walk")
 	if has_node("Pushbox") and $Pushbox.shape is RectangleShape2D:
 		var collision_scale = $Pushbox.scale
 		colbox_half_width = $Pushbox.shape.size.x * collision_scale.x / 2.0
@@ -89,23 +88,36 @@ func _ready():
 		if not animation_player.animation_finished.is_connected(_on_animation_player_finished):
 			animation_player.animation_finished.connect(_on_animation_player_finished)
 	prev_position = global_position
+	# Defer world-dependent initialization
+	call_deferred("_initialize_world")
+
+func _initialize_world():
 	var world = get_tree().get_first_node_in_group("world")
 	if world:
 		fixed_position = Vector2i(int(global_position.x * world.SIMULATION_SCALE), world.FLOOR_Y)
 		update_facing_direction()
 	else:
-		print("Warning: World node not found in group 'world' for %s" % name)
+		print("Error: World node not found in group 'world' for %s during deferred initialization" % name)
+		# Fallback: Set default position
+		fixed_position = Vector2i(int(global_position.x * 1000), 200000)
 
 func _physics_process(delta):
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
-		print("Warning: World node not found in group 'world' for %s" % name)
+		# Log warning only once per frame to avoid spam
+		if not has_meta("world_warning_logged"):
+			print("Warning: World node not found in group 'world' for %s" % name)
+			set_meta("world_warning_logged", true)
 		return
+	
+	# Reset warning flag for next frame
+	if has_meta("world_warning_logged"):
+		remove_meta("world_warning_logged")
 	
 	var current_position = global_position
 	var is_landing: bool = ("is_landing" in self and self.is_landing)
 	
-	# 更新計時器
+	# Update timers
 	if neutral_timer > 0:
 		neutral_timer -= delta
 	if dash_timer > 0:
@@ -116,16 +128,16 @@ func _physics_process(delta):
 			fixed_velocity.x = 0
 			print("Debug: Dash/Backdash ended, resetting velocity for %s" % name)
 	
-	# 更新跳躍延遲計時器
+	# Update jump delay timer
 	if jump_delay_timer > 0:
 		jump_delay_timer -= delta
 		if jump_delay_timer <= 0:
 			fixed_velocity.y = int(jump_vertical_speed * world.SIMULATION_SCALE)
 			just_jumped = true
-			fixed_position.y = world.FLOOR_Y - 1  # 確保空中狀態
+			fixed_position.y = world.FLOOR_Y - 1
 			print("Debug: Jump vertical physics activated after delay, fixed_velocity.y=%s" % fixed_velocity.y)
 	
-	# 獲取輸入
+	# Get input
 	var input_data = get_input()
 	var input_dir = input_data["input_dir"]
 	var crouch_pressed = input_data["crouch_pressed"]
@@ -135,7 +147,7 @@ func _physics_process(delta):
 	var is_powerkk = move_set.is_powerkk if move_set else false
 	var is_spnk = move_set.is_spnk if move_set else false
 	
-	# 設置格擋狀態
+	# Set blocking state
 	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not (is_hit or is_knockfly):
 		if input_dir * facing_direction < 0:
 			is_holding_back = true
@@ -149,7 +161,7 @@ func _physics_process(delta):
 			is_holding_back = false
 			is_crouch_blocking = false
 	
-	# 雙擊檢測
+	# Double-tap detection
 	if is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_jumping and not is_crouching and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back):
 		if neutral_timer > 0 and input_dir != 0 and input_dir == last_input_dir and pending_dash_dir == input_dir:
 			if input_dir * facing_direction > 0:
@@ -173,7 +185,7 @@ func _physics_process(delta):
 				pending_dash_dir = last_input_dir
 			last_input_dir = input_dir
 	
-	# 處理移動邏輯
+	# Process movement logic
 	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back) and not is_crouching:
 		if input_dir != 0:
 			if input_dir * facing_direction < 0 and is_blocking and is_opponent_proximity and block_type == "proximity":
@@ -189,7 +201,7 @@ func _physics_process(delta):
 		if not (is_jumping or is_dashing or is_backdashing or is_hit or is_knockfly or is_blocking or is_push_back or jump_delay_timer > 0 or ("is_special_moving" in self and self.is_special_moving)):
 			fixed_velocity.x = 0
 	
-	# 跳躍邏輯
+	# Jump logic
 	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back) and jump_delay_timer <= 0:
 		jump_dir = input_dir
 		is_jumping = true
@@ -204,7 +216,7 @@ func _physics_process(delta):
 			fixed_velocity.x = 0
 		print("Debug: Jump initiated with delay, fixed_velocity.x=%s, fixed_position.y=%s, jump_dir=%s, timer=%.2fs" % [fixed_velocity.x, fixed_position.y, jump_dir, jump_delay_duration])
 	
-	# 應用重力
+	# Apply gravity
 	if jump_delay_timer <= 0 and not is_on_floor():
 		add_gravity(world.GRAVITY, delta)
 	else:
@@ -212,11 +224,11 @@ func _physics_process(delta):
 			fixed_velocity.y = 0
 			fixed_position.y = world.FLOOR_Y
 	
-	# 更新位置
+	# Update position
 	fixed_position += Vector2i(round(fixed_velocity.x * delta), round(fixed_velocity.y * delta))
 	
-	# 地板限制
-	if not just_jumped and fixed_position.y >= world.FLOOR_Y and jump_delay_timer <= 0 and fixed_velocity.y >= 0 and is_jumping:  # 修改：增加 is_jumping 檢查
+	# Floor constraint
+	if not just_jumped and fixed_position.y >= world.FLOOR_Y and jump_delay_timer <= 0 and fixed_velocity.y >= 0 and is_jumping:
 		fixed_position.y = world.FLOOR_Y
 		fixed_velocity.y = 0
 		is_jumping = false
@@ -225,29 +237,29 @@ func _physics_process(delta):
 		neutral_timer = 0.0
 		pending_dash_dir = 0
 		last_input_dir = 0
-		landing_facing_lock = false  # 新增：落地時解除面向鎖定
+		landing_facing_lock = false
 		print("Debug: Landing, resetting is_jumping and dash detection vars for %s" % name)
 		
-		# 強制觸發推開檢查
+		# Force push check on landing
 		var push_manager = get_tree().get_first_node_in_group("push_manager")
 		if push_manager:
 			push_manager._physics_process(delta)
 			print("Debug: Forced PushManager check on landing for %s" % name)
 	
-	# 設置顯示位置
+	# Set display position
 	global_position = world.to_scaled_vector2(fixed_position)
 	
-	# 重置 just_jumped
+	# Reset just_jumped
 	if just_jumped and fixed_velocity.y > 0:
 		just_jumped = false
 	
-	# 更新面向
+	# Update facing
 	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
 	var is_attacking_state = is_attacking
 	if not (is_special_move or is_attacking_state or is_hit or is_knockfly or is_blocking or is_jumping or is_landing) and not landing_facing_lock:
 		update_facing_direction()
 	
-	# 更新動畫和朝向
+	# Update animation and facing
 	if is_on_floor() and was_in_air and not is_landing and not (is_powerkk or is_spnk) and not is_jumping and not landing_facing_lock:
 		update_facing_direction()
 	was_in_air = not is_on_floor()

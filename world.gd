@@ -21,6 +21,7 @@ var slowmo_triggered: bool = false
 
 func _ready():
 	add_to_group("world")  # 確保 world 節點加入 "world" 組
+	print("Debug: World added to group 'world'. Group members: ", get_tree().get_nodes_in_group("world"))
 	if not is_in_group("world"):
 		print("Error: World failed to join 'world' group")
 	player1.hit_detected.connect(_on_hit_detected)
