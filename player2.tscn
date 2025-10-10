@@ -1,9 +1,10 @@
-[gd_scene load_steps=67 format=3 uid="uid://jla54h8ttkct"]
+[gd_scene load_steps=68 format=3 uid="uid://jla54h8ttkct"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_tdckb"]
 [ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="2_tdckb"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://MoveSet.gd" id="3_vop8p"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai_behavior.gd" id="4_tj0vx"]
+[ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://PlayerController.gd" id="5_bhnal"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(20, 70)
@@ -489,10 +490,22 @@ tracks/0/path = NodePath("Sprite2D:frame_coords")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.05, 0.1, 0.15, 0.45),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.05, 0.1, 0.35),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": [Vector2i(0, 6), Vector2i(4, 6), Vector2i(5, 6), Vector2i(4, 6), Vector2i(2, 6)]
+"values": [Vector2i(0, 6), Vector2i(4, 6), Vector2i(5, 6), Vector2i(4, 6)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D:offset")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0, -5)]
 }
 
 [sub_resource type="Animation" id="Animation_md12c"]
@@ -783,7 +796,7 @@ tracks/0/path = NodePath("Sprite2D:frame_coords")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.05, 0.15, 0.2, 0.3),
+"times": PackedFloat32Array(0, 0.05, 0.15, 0.2, 0.35),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1),
 "update": 1,
 "values": [Vector2i(1, 6), Vector2i(2, 6), Vector2i(5, 6), Vector2i(6, 6), Vector2i(2, 6)]
@@ -1527,3 +1540,6 @@ is_spnk_penetrable = false
 
 [node name="AIBehavior" type="Node" parent="."]
 script = ExtResource("4_tj0vx")
+
+[node name="PlayerController" type="Node" parent="."]
+script = ExtResource("5_bhnal")

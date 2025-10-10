@@ -1,9 +1,10 @@
-[gd_scene load_steps=66 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=67 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="2_yev3d"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://MoveSet.gd" id="3_0e34t"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai_behavior.gd" id="4_3pafw"]
+[ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://PlayerController.gd" id="5_3odsw"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(20, 70)
@@ -536,7 +537,7 @@ tracks/0/path = NodePath("Sprite2D:frame_coords")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.033333335, 0.1, 0.13333334, 0.2),
+"times": PackedFloat32Array(0, 0.033333335, 0.1, 0.13333334, 0.3),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1),
 "update": 1,
 "values": [Vector2i(3, 2), Vector2i(4, 2), Vector2i(4, 6), Vector2i(5, 6), Vector2i(4, 6)]
@@ -548,7 +549,7 @@ tracks/1/path = NodePath("Sprite2D:offset")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
-"times": PackedFloat32Array(0, 0.033333335, 0.1, 0.13333334, 0.20000002),
+"times": PackedFloat32Array(0, 0.033333335, 0.1, 0.13333334, 0.3),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1),
 "update": 1,
 "values": [Vector2(0, -3), Vector2(4, -3), Vector2(0, 0), Vector2(10, 0), Vector2(2, 0)]
@@ -567,7 +568,7 @@ tracks/0/keys = {
 "times": PackedFloat32Array(0, 0.033333335, 0.1, 0.16666667, 0.3),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1),
 "update": 1,
-"values": [Vector2i(3, 2), Vector2i(4, 2), Vector2i(3, 6), Vector2i(5, 6), Vector2i(2, 6)]
+"values": [Vector2i(3, 2), Vector2i(4, 2), Vector2i(3, 6), Vector2i(5, 6), Vector2i(3, 6)]
 }
 tracks/1/type = "value"
 tracks/1/imported = false
@@ -1629,3 +1630,6 @@ is_spnk_penetrable = false
 
 [node name="AIBehavior" type="Node" parent="."]
 script = ExtResource("4_3pafw")
+
+[node name="PlayerController" type="Node" parent="."]
+script = ExtResource("5_3odsw")
