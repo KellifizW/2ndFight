@@ -77,15 +77,6 @@ func stop_special_move():
 		parent.fixed_velocity.x = 0
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false
-		if parent.has_node("Proximitybox"):
-			var prox_shape = parent.get_node("Proximitybox/ProxShape")
-			if prox_shape:
-				prox_shape.disabled = true
-			var proxbox_pos = parent.get_node("Proximitybox").global_position
-			print("Debug: Special move stopped for %s, Proximitybox global_position: (%s, %s)" % [parent.name, proxbox_pos.x, proxbox_pos.y])
-		if hitbox:
-			hitbox.disabled = true
-			print("Debug: Hitbox disabled for %s after stopping special move" % parent.name)
 		print("Debug: Special move stopped for %s, final position: %s, sprite.scale.x=%s" % [parent.name, parent.global_position, sprite.scale.x])
 
 func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) -> bool:
@@ -122,13 +113,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false  # 火球施放不移動角色
 		animation_player.play("fireball")
-		if parent.has_node("Proximitybox"):
-			var prox_shape = parent.get_node("Proximitybox/ProxShape")
-			if prox_shape:
-				prox_shape.disabled = false
-		if hitbox:
-			hitbox.disabled = true  # 火球施放期間禁用角色自身 Hitbox
-			print("Debug: Hitbox disabled for %s during fireball" % parent.name)
 		print("Debug: Fireball triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, spawn delay=%.2fs" % [parent.name, fireball_damage, fireball_initial_facing, parent.scale.x, sprite.scale.x, fireball_spawn_delay])
 		is_spmove_animation_playing = true
 		return true
@@ -171,10 +155,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			if "is_special_moving" in parent:
 				parent.is_special_moving = true
 			animation_player.play("powerkk")
-			if parent.has_node("Proximitybox"):
-				var prox_shape = parent.get_node("Proximitybox/ProxShape")
-				if prox_shape:
-					prox_shape.disabled = false
 			if hitbox:
 				hitbox.disabled = false
 				print("Debug: Hitbox enabled for %s during powerkk, is_crouching=%s" % [parent.name, parent.is_crouching])
@@ -201,10 +181,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			if "is_special_moving" in parent:
 				parent.is_special_moving = true
 			animation_player.play("spnk")
-			if parent.has_node("Proximitybox"):
-				var prox_shape = parent.get_node("Proximitybox/ProxShape")
-				if prox_shape:
-					prox_shape.disabled = false
 			if hitbox:
 				hitbox.disabled = false
 				print("Debug: Hitbox enabled for %s during spnk, is_crouching=%s" % [parent.name, parent.is_crouching])
@@ -226,9 +202,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		parent.fixed_position.x += delta_move
 		print("Debug: Powerkk after add, fixed_x = %s" % parent.fixed_position.x)
 		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
-		if parent.has_node("Proximitybox"):
-			var proxbox_pos = parent.get_node("Proximitybox").global_position
-			print("Debug: Powerkk active for %s, fixed_position.x=%s, global_position.x=%s, Proximitybox global_position: (%s, %s)" % [parent.name, parent.fixed_position.x, parent.global_position.x, proxbox_pos.x, proxbox_pos.y])
 		powerkk_timer -= delta
 		if powerkk_timer <= 0:
 			stop_special_move()
@@ -246,9 +219,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		parent.fixed_position.x += delta_move
 		print("Debug: Spnk after add, fixed_x = %s" % parent.fixed_position.x)
 		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
-		if parent.has_node("Proximitybox"):
-			var proxbox_pos = parent.get_node("Proximitybox").global_position
-			print("Debug: Spnk active for %s, fixed_position.x=%s, global_position.x=%s, Proximitybox global_position: (%s, %s)" % [parent.name, parent.fixed_position.x, parent.global_position.x, proxbox_pos.x, proxbox_pos.y])
 		spnk_timer -= delta
 		if spnk_timer <= 0:
 			stop_special_move()
@@ -260,15 +230,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 func _on_spmove_animation_finished(anim_name: String):
 	if (anim_name == "spnk" or anim_name == "powerkk" or anim_name == "fireball") and is_spmove_animation_playing:
 		is_spmove_animation_playing = false
-		if parent.has_node("Proximitybox"):
-			var prox_shape = parent.get_node("Proximitybox/ProxShape")
-			if prox_shape:
-				prox_shape.disabled = true
-			var proxbox_pos = parent.get_node("Proximitybox").global_position
-			print("Debug: %s animation finished for %s, Proximitybox global_position: (%s, %s)" % [anim_name, parent.name, proxbox_pos.x, proxbox_pos.y])
-		if hitbox:
-			hitbox.disabled = true
-			print("Debug: Hitbox disabled for %s after %s animation finished" % [parent.name, anim_name])
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false
 		stop_special_move()
@@ -282,41 +243,6 @@ func _process(delta: float):
 	if anim != "spnk" and anim != "powerkk" and anim != "fireball":
 		return
 	
-	# 動態查找 hitbox disabled track，僅用於 debug 和驗證
-	var hitbox_track_index = -1
-	if animation_player.has_animation(anim):
-		var anim_obj = animation_player.get_animation(anim)
-		for track_idx in range(anim_obj.get_track_count()):
-			var track_path = anim_obj.track_get_path(track_idx)
-			if str(track_path) == "Hitbox/HitShape:disabled":
-				hitbox_track_index = track_idx
-				break
-	
-	if hitbox_track_index != -1:
-		var anim_obj = animation_player.get_animation(anim)
-		var key_count = anim_obj.track_get_key_count(hitbox_track_index)
-		var keys_times = []
-		var keys_values = []
-		for i in range(key_count):
-			keys_times.append(anim_obj.track_get_key_time(hitbox_track_index, i))
-			keys_values.append(anim_obj.track_get_key_value(hitbox_track_index, i))
-		
-		# 僅用於 debug，檢查動畫的 hitbox 狀態
-		var current_hitbox_state = hitbox.disabled if hitbox else true
-		for i in range(keys_times.size()):
-			if abs(current_time - keys_times[i]) < 0.01:
-				current_hitbox_state = keys_values[i]
-				break
-		
-		var shape_status = "enabled" if not current_hitbox_state else "disabled"
-		var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
-		print("Debug: %s time %.2f for %s, Hitbox global_position: (%s, %s), shape: %s" % [anim, current_time, parent.name, hitbox_pos.x, hitbox_pos.y, shape_status])
-		if parent.has_node("Proximitybox"):
-			var proxbox_pos = parent.get_node("Proximitybox").global_position
-			print("Debug: %s time %.2f for %s, Proximitybox global_position: (%s, %s)" % [anim, current_time, parent.name, proxbox_pos.x, proxbox_pos.y])
-	else:
-		print("Debug: No Hitbox/HitShape:disabled track found for %s in %s" % [anim, parent.name])
-
 func _on_hit_detected(target: String, blockstun_duration: float, is_blocked: bool):
 	var player_id = parent.player_id if "player_id" in parent else "p1"
 	if player_id == "p2" and is_spnk:

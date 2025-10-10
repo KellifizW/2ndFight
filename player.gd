@@ -155,64 +155,39 @@ func _physics_process(delta):
 	# 更新動畫狀態
 	_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
-func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	var curr_state = animation_state.get_current_node() if animation_state else ""
-	var on_floor = is_on_floor()
-	var target_state = "Walk"
-	var anim_dir = dir_x * facing_direction
-	
-	# 計算 target_state（整合所有狀態）
+func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
+	# Player 特定優先檢查
 	if is_wakeup_locked:
-		target_state = "wakeup"
-	elif is_knockfly:
-		target_state = "knockfly"
-	elif is_hit:
-		target_state = "hit" if on_floor else "Jump_B"
-	elif is_blocking:
-		target_state = "cr_block" if is_crouch_blocking and crouch_input else "block"
+		return "wakeup"
 	elif move_set and move_set.is_spmove:
-		target_state = "powerkk" if player_id == "p1" and move_set.is_powerkk else "spnk" if player_id == "p2" and move_set.is_spnk else "fireball" if move_set.is_fireball else "Walk"
-		attack_type = target_state
+		if player_id == "p1" and move_set.is_powerkk:
+			return "powerkk"
+		elif player_id == "p2" and move_set.is_spnk:
+			return "spnk"
+		elif move_set.is_fireball:
+			return "fireball"
 	elif is_landing and landing_lock_timer > 0:
-		target_state = "landing"
+		return "landing"
 	elif is_landing and on_floor and not is_dashing and not is_backdashing and not is_wakeup and not is_hit and not is_knockfly:
-		target_state = "landing"
+		return "landing"
 	elif not on_floor and (is_jumping or is_air_attacking):
 		if is_air_attacking or has_air_attacked:
-			target_state = attack_type
+			return attack_type  # "jump_mp" 或 "jump_mk"
 		else:
-			var jump_direction = jump_dir * facing_direction
-			if jump_direction > 0:
-				target_state = "Jump_F"
-				print("Debug: Selecting Jump_F, jump_dir = %.1f, facing_direction = %.1f" % [jump_dir, facing_direction])
-			elif jump_direction < 0:
-				target_state = "Jump_B"
-				print("Debug: Selecting Jump_B, jump_dir = %.1f, facing_direction = %.1f" % [jump_dir, facing_direction])
+			if anim_jump_dir > 0:
+				return "Jump_F"
+			elif anim_jump_dir < 0:
+				return "Jump_B"
 			else:
-				target_state = "Jump_V"
-				print("Debug: Selecting Jump_V, jump_dir = %.1f, facing_direction = %.1f" % [jump_dir, facing_direction])
-	elif is_attacking:
-		target_state = "st_mp" if attack_type == "st_mp" else "st_mk" if attack_type == "st_mk" else "st_mp"
-	elif is_dashing:
-		target_state = "Dash"
-	elif is_backdashing:
-		target_state = "Backdash"
-	elif crouch_input and on_floor and not is_blocking:
-		target_state = "Crouch"
-	elif on_floor and not is_landing and not is_knockfly and not is_wakeup and not is_air_attacking and not (move_set and move_set.is_spmove) and not is_hit and not is_blocking and not is_attacking and not is_dashing and not is_backdashing:
-		target_state = "Walk"
+				return "Jump_V"
 	
-	# 使用基類的統一模組設定條件
-	super._set_animation_conditions(target_state, on_floor, crouch_input)
-	
-	# 只在狀態變化時 travel，避免重置動畫
-	if curr_state != target_state:
-		animation_state.travel(target_state)
-		print("Debug: Animation switched to %s for %s, dir_x=%.1f, crouch_input=%s, is_blocking=%s, is_crouch_blocking=%s, jump_dir=%.1f" % [target_state, name, dir_x, crouch_input, is_blocking, is_crouch_blocking, jump_dir])
-	
-	if target_state == "Walk":
-		animation_tree.set("parameters/Walk/blend_position", anim_dir)
+	# 若無特定狀態，呼叫基類通用邏輯
+	return super._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
 
+func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
+	# 直接呼叫基類，處理計算、設定條件、切換等（無需重複 if-elif）
+	super._update_animation_state(dir_x, crouch_input)
+	
 func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
 		var target = area.get_parent()

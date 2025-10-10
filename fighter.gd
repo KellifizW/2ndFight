@@ -60,60 +60,6 @@ func _physics_process(delta):
 func post_physics_process(delta):
 	pass
 
-func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	# 新增：檢查子類的 landing_lock_timer，尊重鎖定避免閃爍
-	if has_method("get") and get("landing_lock_timer") and get("landing_lock_timer") > 0:
-		print("Debug: Fighter animation update skipped due to landing lock (%.2f sec left) for %s" % [get("landing_lock_timer"), name])
-		return
-
-	var curr_state = animation_state.get_current_node() if animation_state else ""
-	var on_floor = is_on_floor()
-	var target_state = "Walk"
-	var anim_dir = dir_x * facing_direction
-	var anim_jump_dir = jump_dir * facing_direction
-
-	if is_knockfly:
-		target_state = "knockfly"
-	elif is_hit:
-		if is_on_floor():
-			target_state = "hit"
-		else:
-			target_state = "Jump_B" # 空中普通攻擊使用Jump_B動畫
-	elif is_blocking:
-		if is_crouch_blocking and crouch_input: # 修正：確保蹲防動畫優先
-			target_state = "cr_block"
-		else:
-			target_state = "block"
-	elif is_attacking:
-		target_state = "st_mp" if get("attack_type") == "st_mp" else "st_mk" if get("attack_type") == "st_mk" else "st_mp"
-	elif is_dashing:
-		target_state = "Dash"
-	elif is_backdashing:
-		target_state = "Backdash"
-	elif crouch_input and on_floor and not is_blocking:
-		target_state = "Crouch"
-	elif not on_floor and is_jumping:
-		if anim_jump_dir > 0:
-			target_state = "Jump_F"
-		elif anim_jump_dir < 0:
-			target_state = "Jump_B"
-		else:
-			target_state = "Jump_V"
-
-	# 使用基類的統一模組設定條件
-	super._set_animation_conditions(target_state, on_floor, crouch_input)
-
-	if curr_state != target_state:
-		animation_state.travel(target_state)
-		print("Debug: Animation switched to %s for %s, dir_x=%.1f, crouch_input=%s, is_blocking=%s, is_crouch_blocking=%s" % [target_state, name, dir_x, crouch_input, is_blocking, is_crouch_blocking])
-
-	if target_state == "Walk":
-		animation_tree.set("parameters/Walk/blend_position", anim_dir)
-
-	if is_jumping and on_floor:
-		is_jumping = false
-		print("Debug: Landing, resetting is_jumping for %s" % name)
-
 func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: bool = false):
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
