@@ -2,6 +2,8 @@ class_name Fighter extends Movement
 
 @onready var collision_shape = $Pushbox
 @onready var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
+@onready var hitbox = $Hitbox/HitShape if has_node("Hitbox/HitShape") else null
+@onready var proximitybox = $Proximitybox/ProxShape if has_node("Proximitybox/ProxShape") else null
 
 var is_being_pushed: bool = false
 var current_damage: float = 0.0
@@ -52,9 +54,6 @@ func _physics_process(delta):
 		if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_state:
 			current_damage = input_data.damage
 			is_attacking = true
-			if has_node("Proximitybox/ProxShape"):
-				$Proximitybox/ProxShape.disabled = false
-			print("Debug: ProximityBox enabled during attack for %s" % name)
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func post_physics_process(delta):

@@ -24,9 +24,6 @@ func _ready():
 	super._ready()
 	if has_node("Hitbox"):
 		$Hitbox.area_entered.connect(_on_hitbox_area_entered)
-		var hit_shape = $Hitbox.get_node_or_null("HitShape")
-		if hit_shape and hit_shape is CollisionShape2D:
-			hit_shape.disabled = true
 	if animation_tree and not animation_tree.animation_finished.is_connected(_on_animation_tree_finished):
 		animation_tree.animation_finished.connect(_on_animation_tree_finished)
 		animation_tree.active = true
@@ -86,18 +83,10 @@ func _physics_process(delta):
 	if is_air_attacking and is_on_floor():
 		is_air_attacking = false
 		has_air_attacked = false
-		if has_node("Hitbox/HitShape"):
-			$Hitbox/HitShape.disabled = true
-		if has_node("Proximitybox/ProxShape"):
-			$Proximitybox/ProxShape.disabled = true
 	
 	var input_data = get_input()
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked
-	var hit_shape = $Hitbox.get_node_or_null("HitShape") if has_node("Hitbox") else null
-	if hit_shape and hit_shape is CollisionShape2D:
-		if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball) or is_attacking:
-			pass
 	if move_set and (player_id == "p1" or player_id == "p2") and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
 	if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_ground_state:
@@ -106,28 +95,16 @@ func _physics_process(delta):
 		attack_type = input_data.attack_type
 		if not is_push_back:
 			fixed_velocity.x = 0
-		if has_node("Hitbox/HitShape"):
-			$Hitbox/HitShape.disabled = false
-		if has_node("Proximitybox/ProxShape"):
-			$Proximitybox/ProxShape.disabled = false
 	elif input_data.st_mp_pressed and is_valid_air_state:
 		current_damage = input_data.damage
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mp"
-		if has_node("Hitbox/HitShape"):
-			$Hitbox/HitShape.disabled = false
-		if has_node("Proximitybox/ProxShape"):
-			$Proximitybox/ProxShape.disabled = false
 	elif input_data.st_mk_pressed and is_valid_air_state:
 		current_damage = input_data.damage
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mk"
-		if has_node("Hitbox/HitShape"):
-			$Hitbox/HitShape.disabled = false
-		if has_node("Proximitybox/ProxShape"):
-			$Proximitybox/ProxShape.disabled = true
 	# 更新 landing_lock_timer
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
@@ -194,7 +171,6 @@ func _on_hitbox_area_entered(area: Area2D):
 		var input_data = get_input()
 		var blockstun_duration = input_data.blockstun_duration
 		var damage = current_damage
-		var hit_shape = $Hitbox.get_node_or_null("HitShape") if has_node("Hitbox") else null
 		if damage > 0:
 			var world = get_tree().get_first_node_in_group("world")
 			if not world:
@@ -253,20 +229,12 @@ func _on_animation_tree_finished(anim_name: String):
 		_update_animation_state(0, false)
 	elif anim_name in ["st_mp", "st_mk"] and is_attacking:
 		is_attacking = false
-		if has_node("Hitbox/HitShape"):
-			$Hitbox/HitShape.disabled = true
-		if has_node("Proximitybox/ProxShape"):
-			$Proximitybox/ProxShape.disabled = true
 		update_facing_direction()
 		_update_animation_state(0, false)
 	elif anim_name in ["jump_mp", "jump_mk"] and is_air_attacking:
 		if is_on_floor():
 			is_air_attacking = false
 			has_air_attacked = false
-			if has_node("Hitbox/HitShape"):
-				$Hitbox/HitShape.disabled = true
-			if has_node("Proximitybox/ProxShape"):
-				$Proximitybox/ProxShape.disabled = true
 			var input_data = get_input()
 			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 				is_landing = false

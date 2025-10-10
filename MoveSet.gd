@@ -155,9 +155,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			if "is_special_moving" in parent:
 				parent.is_special_moving = true
 			animation_player.play("powerkk")
-			if hitbox:
-				hitbox.disabled = false
-				print("Debug: Hitbox enabled for %s during powerkk, is_crouching=%s" % [parent.name, parent.is_crouching])
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
 			print("Debug: Powerkk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, powerkk_damage, powerkk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
 			is_spmove_animation_playing = true
@@ -181,9 +178,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			if "is_special_moving" in parent:
 				parent.is_special_moving = true
 			animation_player.play("spnk")
-			if hitbox:
-				hitbox.disabled = false
-				print("Debug: Hitbox enabled for %s during spnk, is_crouching=%s" % [parent.name, parent.is_crouching])
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
 			print("Debug: Spnk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, spnk_damage, spnk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
 			if not animation_player.animation_finished.is_connected(_on_spmove_animation_finished):
@@ -220,7 +214,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		print("Debug: Spnk after add, fixed_x = %s" % parent.fixed_position.x)
 		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		spnk_timer -= delta
-		if spnk_timer <= 0:
+		if powerkk_timer <= 0:
 			stop_special_move()
 			print("Debug: Spnk timer ended for %s" % parent.name)
 		return true
