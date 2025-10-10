@@ -6,6 +6,7 @@ signal hit_detected(target: String, blockstun_duration: float, is_blocked: bool)
 @export var is_ai_controlled: bool = false
 @export var corner_push_distance: float = 50.0
 @export var landing_duration: float = 0.2
+@export var cancel_window_duration: float = 0.3
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 @onready var player_controller = $PlayerController if has_node("PlayerController") else null
 
@@ -19,6 +20,7 @@ var is_special_moving: bool = false
 var landing_lock_timer: float = 0.0
 var has_air_attacked: bool = false
 var skip_pushbox: bool = false
+var cancel_window_timer: float = 0.0
 
 func _ready():
 	super._ready()
@@ -33,6 +35,7 @@ func _ready():
 		player_controller.player_id = player_id
 	else:
 		print("Warning: PlayerController not found for %s" % name)
+	hit_detected.connect(_on_hit_detected)
 
 func get_input() -> Dictionary:
 	if is_knockfly or is_wakeup or is_hit:
@@ -75,18 +78,29 @@ func _physics_process(delta):
 	if not world:
 		return
 	
-	# 除錯：檢查空中時的 jump_dir
 	if is_jumping and not is_on_floor():
 		print("Debug: In air, jump_dir = %.1f, facing_direction = %.1f" % [jump_dir, facing_direction])
 	
-	# 安全重置空中攻擊狀態，防止殞留到下次跳躍
 	if is_air_attacking and is_on_floor():
 		is_air_attacking = false
 		has_air_attacked = false
 	
+	if cancel_window_timer > 0:
+		cancel_window_timer -= delta
+		if cancel_window_timer <= 0:
+			cancel_window_timer = 0.0
+			print("Debug: Cancel window closed for %s" % name)
+	
 	var input_data = get_input()
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
-	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked
+	
+	if player_id == "p1" and is_attacking and attack_type == "st_mp" and cancel_window_timer > 0 and input_data.spm1_pressed:
+		stop_attack()
+		is_attacking = false
+		attack_type = "none"
+		_update_animation_state(0, false)
+		print("Debug: st_mp canceled to powerkk for %s" % name)
+	
 	if move_set and (player_id == "p1" or player_id == "p2") and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
 	if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_ground_state:
@@ -95,7 +109,8 @@ func _physics_process(delta):
 		attack_type = input_data.attack_type
 		if not is_push_back:
 			fixed_velocity.x = 0
-	elif input_data.st_mp_pressed and is_valid_air_state:
+	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked
+	if input_data.st_mp_pressed and is_valid_air_state:
 		current_damage = input_data.damage
 		is_air_attacking = true
 		has_air_attacked = true
@@ -105,10 +120,8 @@ func _physics_process(delta):
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mk"
-	# 更新 landing_lock_timer
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
-	# 檢查 landing 動畫期間的輸入以打斷
 	if is_landing and landing_lock_timer > 0:
 		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
 			is_landing = false
@@ -117,7 +130,6 @@ func _physics_process(delta):
 			update_facing_direction()
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 			return
-	# 檢查落地邏輯
 	if not is_jumping and is_on_floor():
 		var curr_state = animation_state.get_current_node() if animation_state else "none"
 		if curr_state in ["Jump_V", "Jump_F", "Jump_B", "jump_mk", "jump_mp"] and not is_wakeup and not is_hit and not is_knockfly:
@@ -129,11 +141,9 @@ func _physics_process(delta):
 			else:
 				is_landing = true
 				landing_lock_timer = landing_duration
-	# 更新動畫狀態
 	_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
-	# Player 特定優先檢查
 	if is_wakeup_locked:
 		return "wakeup"
 	elif move_set and move_set.is_spmove:
@@ -149,7 +159,7 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 		return "landing"
 	elif not on_floor and (is_jumping or is_air_attacking):
 		if is_air_attacking or has_air_attacked:
-			return attack_type  # "jump_mp" 或 "jump_mk"
+			return attack_type
 		else:
 			if anim_jump_dir > 0:
 				return "Jump_F"
@@ -157,14 +167,11 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 				return "Jump_B"
 			else:
 				return "Jump_V"
-	
-	# 若無特定狀態，呼叫基類通用邏輯
 	return super._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	# 直接呼叫基類，處理計算、設定條件、切換等（無需重複 if-elif）
 	super._update_animation_state(dir_x, crouch_input)
-	
+
 func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
 		var target = area.get_parent()
@@ -181,11 +188,9 @@ func _on_hitbox_area_entered(area: Area2D):
 			target.take_hit(blockstun_duration, damage, false)
 			var is_blocked = target.is_blocking and target.block_type == "ordinary"
 			hit_detected.emit(target.name, blockstun_duration, is_blocked)
-			# 檢查是否為特殊招式（spnk 或 powerkk），如果是則跳過推回
 			if move_set and (move_set.is_spnk or move_set.is_powerkk):
 				print("Debug: Special move hit detected, skipping push back for %s" % name)
 				return
-			# 檢查防守者是否在角落
 			var push_manager = get_tree().get_first_node_in_group("push_manager")
 			var is_target_at_corner = push_manager.is_at_corner(target) if push_manager else false
 			if is_target_at_corner:
@@ -205,6 +210,11 @@ func _on_hitbox_area_entered(area: Area2D):
 				print("Debug: Attacker pushed back due to defender at corner, push_duration=%.2f, velocity=%.2f" % [push_duration, push_back_velocity])
 			else:
 				print("Debug: No push back for attacker, defender not at corner for %s" % name)
+
+func _on_hit_detected(target: String, blockstun_duration: float, is_blocked: bool):
+	if player_id == "p1" and attack_type == "st_mp" and is_attacking:
+		cancel_window_timer = cancel_window_duration
+		print("Debug: Cancel window opened for powerkk (%.2f sec) for %s" % [cancel_window_duration, name])
 
 func _on_animation_tree_finished(anim_name: String):
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
@@ -229,6 +239,8 @@ func _on_animation_tree_finished(anim_name: String):
 		_update_animation_state(0, false)
 	elif anim_name in ["st_mp", "st_mk"] and is_attacking:
 		is_attacking = false
+		attack_type = "none"
+		cancel_window_timer = 0.0
 		update_facing_direction()
 		_update_animation_state(0, false)
 	elif anim_name in ["jump_mp", "jump_mk"] and is_air_attacking:
@@ -243,7 +255,6 @@ func _on_animation_tree_finished(anim_name: String):
 				is_landing = true
 				landing_lock_timer = landing_duration
 		else:
-			# 空中攻擊結束，維持最後一幀
 			pass
 	elif anim_name in ["jump_v", "Jump_V", "Jump_F", "Jump_B"] and is_on_floor():
 		is_jumping = false
@@ -268,6 +279,15 @@ func _on_animation_tree_finished(anim_name: String):
 		if move_set and (move_set.is_powerkk or move_set.is_spnk):
 			move_set.stop_special_move()
 			_update_animation_state(0, false)
+
+func stop_attack():
+	is_attacking = false
+	attack_type = "none"
+	if animation_player:
+		animation_player.stop()
+	update_facing_direction()
+	_update_animation_state(0, false)
+	print("Debug: Attack stopped for %s" % name)
 
 func get_facing_multiplier() -> float:
 	return super.get_facing_multiplier()
