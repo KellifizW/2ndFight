@@ -139,9 +139,10 @@ func _physics_process(delta):
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_powerkk = move_set.is_powerkk if move_set else false
 	var is_spnk = move_set.is_spnk if move_set else false
+	var is_fireball = move_set.is_fireball if move_set else false
 	
 	# Set blocking state
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not (is_hit or is_knockfly):
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not is_fireball and not (is_hit or is_knockfly):
 		if input_dir * facing_direction < 0:
 			is_holding_back = true
 			is_crouch_blocking = crouch_pressed and input_dir * facing_direction < 0
@@ -154,7 +155,7 @@ func _physics_process(delta):
 			is_crouch_blocking = false
 	
 	# Double-tap detection
-	if is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_jumping and not is_crouching and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back):
+	if is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_jumping and not is_crouching and not is_powerkk and not is_spnk and not is_fireball and not (is_hit or is_knockfly or is_blocking or is_push_back):
 		if neutral_timer > 0 and input_dir != 0 and pending_dash_dir == input_dir:
 			if input_dir * facing_direction > 0:
 				is_dashing = true
@@ -186,7 +187,7 @@ func _physics_process(delta):
 			last_input_dir = input_dir
 	
 	# Process movement logic
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back) and not is_crouching:
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not is_fireball and not (is_hit or is_knockfly or is_blocking or is_push_back) and not is_crouching:
 		if input_dir != 0:
 			if input_dir * facing_direction < 0 and is_blocking and is_opponent_proximity and block_type == "proximity":
 				fixed_velocity.x = 0
@@ -199,8 +200,14 @@ func _physics_process(delta):
 	else:
 		if not (is_jumping or is_dashing or is_backdashing or is_hit or is_knockfly or is_blocking or is_push_back or jump_delay_timer > 0 or ("is_special_moving" in self and self.is_special_moving)):
 			fixed_velocity.x = 0
+			# Explicitly lock position during fireball to mimic attacking behavior
+			if is_fireball:
+				fixed_velocity.x = 0
+				fixed_velocity.y = 0
+				print("Debug: Fireball active, locking fixed_velocity to (0, 0) for %s" % name)
+	
 	# Jump logic
-	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back) and jump_delay_timer <= 0:
+	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk and not is_fireball and not (is_hit or is_knockfly or is_blocking or is_push_back) and jump_delay_timer <= 0:
 		print("Debug: Jump logic triggered")  # 添加除錯，檢查跳躍是否進來
 		jump_dir = input_dir
 		is_jumping = true
@@ -216,13 +223,13 @@ func _physics_process(delta):
 		print("Debug: Jump initiated with delay, fixed_velocity.x=%s, fixed_position.y=%s, jump_dir=%s, timer=%.2fs" % [fixed_velocity.x, fixed_position.y, jump_dir, jump_delay_duration])
 	else:
 		if jump_pressed:
-			print("Debug: Jump skipped, reasons: on_floor=%s, crouching=%s, dashing=%s, backdashing=%s, attacking=%s, powerkk=%s, spnk=%s, hit=%s, knockfly=%s, blocking=%s, push_back=%s, jump_delay=%s" % [is_on_floor(), is_crouching, is_dashing, is_backdashing, is_attacking, is_powerkk, is_spnk, is_hit, is_knockfly, is_blocking, is_push_back, jump_delay_timer > 0])  # 添加除錯，檢查為何跳躍跳過
+			print("Debug: Jump skipped, reasons: on_floor=%s, crouching=%s, dashing=%s, backdashing=%s, attacking=%s, powerkk=%s, spnk=%s, fireball=%s, hit=%s, knockfly=%s, blocking=%s, push_back=%s, jump_delay=%s" % [is_on_floor(), is_crouching, is_dashing, is_backdashing, is_attacking, is_powerkk, is_spnk, is_fireball, is_hit, is_knockfly, is_blocking, is_push_back, jump_delay_timer > 0])  # 添加除錯，檢查為何跳躍跳過
 	
 	# Apply gravity
 	if jump_delay_timer <= 0 and not is_on_floor():
 		add_gravity((self.world.GRAVITY if self.world else 1800000), delta)
 	else:
-		if not just_jumped:
+		if not just_jumped and not is_fireball:
 			fixed_velocity.y = 0
 			fixed_position.y = (self.world.FLOOR_Y if self.world else 200000)
 	

@@ -50,7 +50,9 @@ func _ready():
 					var track_path = anim.track_get_path(track_idx)
 					if track_path.get_subname_count() > 0 and track_path.get_subname(0) == "Sprite2D:transform/scale.x":
 						print("Warning: Animation '%s' modifies Sprite2D:transform/scale.x, which may override sprite.scale.x in %s. Consider removing this track." % [anim_name, parent.name])
-		animation_player.animation_finished.connect(_on_spmove_animation_finished)
+		# 在 _ready 中統一連接 animation_finished 信號，避免動態連接
+		if not animation_player.animation_finished.is_connected(_on_spmove_animation_finished):
+			animation_player.animation_finished.connect(_on_spmove_animation_finished)
 	if parent and parent.has_signal("hit_detected"):
 		parent.hit_detected.connect(_on_hit_detected)
 
@@ -180,8 +182,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			animation_player.play("spnk")
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
 			print("Debug: Spnk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, spnk_damage, spnk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
-			if not animation_player.animation_finished.is_connected(_on_spmove_animation_finished):
-				animation_player.animation_finished.connect(_on_spmove_animation_finished)
 			is_spmove_animation_playing = true
 			return true
 	
@@ -214,7 +214,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		print("Debug: Spnk after add, fixed_x = %s" % parent.fixed_position.x)
 		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		spnk_timer -= delta
-		if powerkk_timer <= 0:
+		if spnk_timer <= 0:
 			stop_special_move()
 			print("Debug: Spnk timer ended for %s" % parent.name)
 		return true
@@ -226,7 +226,12 @@ func _on_spmove_animation_finished(anim_name: String):
 		is_spmove_animation_playing = false
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false
+		# 僅在計時器未結束時停止特殊招式，避免動畫提前結束
+		if (anim_name == "spnk" and spnk_timer > 0) or (anim_name == "powerkk" and powerkk_timer > 0) or (anim_name == "fireball" and fireball_timer > 0):
+			print("Debug: Animation %s finished but timer still active for %s, skipping stop_special_move" % [anim_name, parent.name])
+			return
 		stop_special_move()
+		print("Debug: Animation %s finished, stopping special move for %s" % [anim_name, parent.name])
 
 func _process(delta: float):
 	if not is_spmove_animation_playing or not animation_player or not animation_player.is_playing():
