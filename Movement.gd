@@ -120,13 +120,20 @@ func _physics_process(delta):
 	# Update timers
 	if neutral_timer > 0:
 		neutral_timer -= delta
+		if neutral_timer <= 0:
+			neutral_timer = 0.0
+			pending_dash_dir = 0  # Reset pending to avoid stale input
 	if dash_timer > 0:
 		dash_timer -= delta
 		if dash_timer <= 0:
 			is_dashing = false
 			is_backdashing = false
 			fixed_velocity.x = 0
-			print("Debug: Dash/Backdash ended, resetting velocity for %s" % name)
+			# Reset double-tap variables to ensure next dash requires full double-tap
+			neutral_timer = 0.0
+			pending_dash_dir = 0
+			last_input_dir = 0
+			print("Debug: Dash/Backdash ended, resetting velocity and double-tap vars for %s" % name)
 	
 	# Update jump delay timer
 	if jump_delay_timer > 0:
@@ -163,26 +170,34 @@ func _physics_process(delta):
 	
 	# Double-tap detection
 	if is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_jumping and not is_crouching and not is_powerkk and not is_spnk and not (is_hit or is_knockfly or is_blocking or is_push_back):
-		if neutral_timer > 0 and input_dir != 0 and input_dir == last_input_dir and pending_dash_dir == input_dir:
+		if neutral_timer > 0 and input_dir != 0 and pending_dash_dir == input_dir:
 			if input_dir * facing_direction > 0:
 				is_dashing = true
 				dash_timer = dash_time
 				fixed_velocity.x = int(dash_speed * world.SIMULATION_SCALE * input_dir)
-				print("Debug: Dash initiated, fixed_velocity.x=%s, input_dir=%s, facing_direction=%s" % [fixed_velocity.x, input_dir, facing_direction])
+				neutral_timer = 0.0
+				pending_dash_dir = 0
+				last_input_dir = 0
+				print("Debug: Dash initiated, fixed_velocity.x=%s, input_dir=%s, facing_direction=%s, double-tap vars reset" % [fixed_velocity.x, input_dir, facing_direction])
 			else:
 				if not (is_blocking and is_opponent_proximity and block_type == "proximity"):
 					is_backdashing = true
 					dash_timer = backdash_time
 					fixed_velocity.x = int(backdash_speed * world.SIMULATION_SCALE * input_dir)
-					print("Debug: Backdash initiated, fixed_velocity.x=%s, input_dir=%s, facing_direction=%s" % [fixed_velocity.x, input_dir, facing_direction])
+					neutral_timer = 0.0
+					pending_dash_dir = 0
+					last_input_dir = 0
+					print("Debug: Backdash initiated, fixed_velocity.x=%s, input_dir=%s, facing_direction=%s, double-tap vars reset" % [fixed_velocity.x, input_dir, facing_direction])
 				else:
 					print("Debug: Backdash blocked due to proximity block for %s" % name)
 			neutral_timer = 0.0
 			pending_dash_dir = 0
+			last_input_dir = 0
 		elif input_dir != last_input_dir:
 			if last_input_dir != 0 and input_dir == 0:
 				neutral_timer = double_tap_timer
 				pending_dash_dir = last_input_dir
+				print("Debug: Neutral input detected, neutral_timer=%s, pending_dash_dir=%s" % [neutral_timer, pending_dash_dir])
 			last_input_dir = input_dir
 	
 	# Process movement logic
@@ -392,6 +407,29 @@ func update_facing_direction():
 		scale.y = 1
 		sprite.scale.x = 1.0
 		rotation_degrees = 0
+
+# 新增的統一模組函數：設定所有可能的動畫條件
+func _set_animation_conditions(target_state: String, on_floor: bool, crouch_input: bool) -> void:
+	animation_tree.set("parameters/conditions/Walk", target_state == "Walk" and on_floor and not crouch_input)
+	animation_tree.set("parameters/conditions/Crouch", target_state == "Crouch")
+	animation_tree.set("parameters/conditions/Dash", target_state == "Dash")
+	animation_tree.set("parameters/conditions/Backdash", target_state == "Backdash")
+	animation_tree.set("parameters/conditions/st_mp", target_state == "st_mp")
+	animation_tree.set("parameters/conditions/st_mk", target_state == "st_mk")
+	animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
+	animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
+	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
+	animation_tree.set("parameters/conditions/hit", target_state == "hit")
+	animation_tree.set("parameters/conditions/knockfly", target_state == "knockfly")
+	animation_tree.set("parameters/conditions/block", target_state == "block")
+	animation_tree.set("parameters/conditions/cr_block", target_state == "cr_block")
+	animation_tree.set("parameters/conditions/powerkk", target_state == "powerkk")
+	animation_tree.set("parameters/conditions/spnk", target_state == "spnk")
+	animation_tree.set("parameters/conditions/fireball", target_state == "fireball")
+	animation_tree.set("parameters/conditions/jump_mp", target_state == "jump_mp")
+	animation_tree.set("parameters/conditions/jump_mk", target_state == "jump_mk")
+	animation_tree.set("parameters/conditions/landing", target_state == "landing")
+	animation_tree.set("parameters/conditions/wakeup", target_state == "wakeup")
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	pass

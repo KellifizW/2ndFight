@@ -202,27 +202,8 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	elif on_floor and not is_landing and not is_knockfly and not is_wakeup and not is_air_attacking and not (move_set and move_set.is_spmove) and not is_hit and not is_blocking and not is_attacking and not is_dashing and not is_backdashing:
 		target_state = "Walk"
 	
-	# 設置 AnimationTree 條件
-	animation_tree.set("parameters/conditions/Walk", target_state == "Walk" and on_floor and not crouch_input)
-	animation_tree.set("parameters/conditions/Crouch", target_state == "Crouch")
-	animation_tree.set("parameters/conditions/Dash", target_state == "Dash")
-	animation_tree.set("parameters/conditions/Backdash", target_state == "Backdash")
-	animation_tree.set("parameters/conditions/st_mp", target_state == "st_mp")
-	animation_tree.set("parameters/conditions/st_mk", target_state == "st_mk")
-	animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
-	animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
-	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
-	animation_tree.set("parameters/conditions/hit", target_state == "hit")
-	animation_tree.set("parameters/conditions/knockfly", target_state == "knockfly")
-	animation_tree.set("parameters/conditions/block", target_state == "block")
-	animation_tree.set("parameters/conditions/cr_block", target_state == "cr_block")
-	animation_tree.set("parameters/conditions/powerkk", target_state == "powerkk")
-	animation_tree.set("parameters/conditions/spnk", target_state == "spnk")
-	animation_tree.set("parameters/conditions/fireball", target_state == "fireball")
-	animation_tree.set("parameters/conditions/jump_mp", target_state == "jump_mp")
-	animation_tree.set("parameters/conditions/jump_mk", target_state == "jump_mk")
-	animation_tree.set("parameters/conditions/landing", target_state == "landing")
-	animation_tree.set("parameters/conditions/wakeup", target_state == "wakeup")
+	# 使用基類的統一模組設定條件
+	super._set_animation_conditions(target_state, on_floor, crouch_input)
 	
 	# 只在狀態變化時 travel，避免重置動畫
 	if curr_state != target_state:

@@ -100,23 +100,8 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		else:
 			target_state = "Jump_V"
 
-	# AnimationTree 條件設置
-	animation_tree.set("parameters/conditions/Walk", target_state == "Walk" and on_floor and not crouch_input)
-	animation_tree.set("parameters/conditions/Crouch", target_state == "Crouch")
-	animation_tree.set("parameters/conditions/Dash", is_dashing)
-	animation_tree.set("parameters/conditions/Backdash", is_backdashing)
-	animation_tree.set("parameters/conditions/st_mp", is_attacking and target_state == "st_mp")
-	animation_tree.set("parameters/conditions/st_mk", is_attacking and target_state == "st_mk")
-	animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
-	animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
-	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
-	animation_tree.set("parameters/conditions/hit", target_state == "hit")
-	animation_tree.set("parameters/conditions/knockfly", is_knockfly)
-	animation_tree.set("parameters/conditions/block", is_blocking and not is_crouch_blocking)
-	animation_tree.set("parameters/conditions/cr_block", is_blocking and is_crouch_blocking and crouch_input)
-	animation_tree.set("parameters/conditions/powerkk", false)
-	animation_tree.set("parameters/conditions/jump_mk", is_attacking and get("attack_type") == "jump_mk")
-	animation_tree.set("parameters/conditions/jump_mp", is_attacking and get("attack_type") == "jump_mp") # 新增 jump_mp 條件
+	# 使用基類的統一模組設定條件
+	super._set_animation_conditions(target_state, on_floor, crouch_input)
 
 	if curr_state != target_state:
 		animation_state.travel(target_state)
