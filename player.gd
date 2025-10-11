@@ -5,8 +5,8 @@ signal hit_detected(target: String, blockstun_duration: float, is_blocked: bool)
 @export var player_id: String = "p1"
 @export var is_ai_controlled: bool = false
 @export var corner_push_distance: float = 50.0
-@export var landing_duration: float = 0.2
 @export var cancel_window_duration: float = 0.3
+
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 @onready var player_controller = $PlayerController if has_node("PlayerController") else null
 
@@ -94,17 +94,14 @@ func _physics_process(delta):
 	var input_data = get_input()
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
 	
-	# 除錯：檢查當前輸入和攻擊狀態
 	print("Debug: Input check - is_attacking=%s, attack_type=%s, st_mp_pressed=%s, st_mk_pressed=%s, spm1_pressed=%s for %s" % [is_attacking, attack_type, input_data.st_mp_pressed, input_data.st_mk_pressed, input_data.spm1_pressed, name])
 	
-	# 修正：當正在攻擊且動畫未完成，忽略新的 st_mp 和 st_mk 輸入，防止互換
 	if is_attacking and animation_state.get_current_node() in ["st_mp", "st_mk"]:
 		if input_data.st_mp_pressed or input_data.st_mk_pressed:
 			print("Debug: Ignoring st_mp_pressed=%s, st_mk_pressed=%s during attack animation %s for %s" % [input_data.st_mp_pressed, input_data.st_mk_pressed, animation_state.get_current_node(), name])
 			input_data.st_mp_pressed = false
 			input_data.st_mk_pressed = false
 	
-	# 僅允許 st_mp 取消到 powerkk（命中時）
 	if player_id == "p1" and is_attacking and attack_type == "st_mp" and cancel_window_timer > 0 and input_data.spm1_pressed:
 		stop_attack()
 		print("Debug: st_mp canceled to powerkk for %s, cancel_window_timer=%.2f" % [name, cancel_window_timer])
@@ -112,7 +109,6 @@ func _physics_process(delta):
 	if move_set and (player_id == "p1" or player_id == "p2") and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
 	
-	# 修正：取消窗口開啟時，忽略 st_mp 和 st_mk 輸入
 	if cancel_window_timer > 0:
 		print("Debug: Cancel window active (%.2f sec left), ignoring st_mp_pressed=%s, st_mk_pressed=%s for %s" % [cancel_window_timer, input_data.st_mp_pressed, input_data.st_mk_pressed, name])
 		input_data.st_mp_pressed = false
@@ -138,28 +134,18 @@ func _physics_process(delta):
 		has_air_attacked = true
 		attack_type = "jump_mk"
 		print("Debug: Air attack triggered, type=jump_mk for %s" % name)
+	
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
-	if is_landing and landing_lock_timer > 0:
-		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
+		if is_landing and (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed):
 			is_landing = false
 			landing_lock_timer = 0.0
 			landing_facing_lock = false
 			update_facing_direction()
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-			return
-	if not is_jumping and is_on_floor():
-		var curr_state = animation_state.get_current_node() if animation_state else "none"
-		if curr_state in ["Jump_V", "Jump_F", "Jump_B", "jump_mk", "jump_mp"] and not is_wakeup and not is_hit and not is_knockfly:
-			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed:
-				is_landing = false
-				landing_facing_lock = false
-				update_facing_direction()
-				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-			else:
-				is_landing = true
-				landing_lock_timer = landing_duration
-	_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+	
+	if not ("landing_lock_timer" in self and self.landing_lock_timer > 0):
+		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	if is_wakeup_locked:
@@ -172,8 +158,6 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 		elif move_set.is_fireball:
 			return "fireball"
 	elif is_landing and landing_lock_timer > 0:
-		return "landing"
-	elif is_landing and on_floor and not is_dashing and not is_backdashing and not is_wakeup and not is_hit and not is_knockfly:
 		return "landing"
 	elif not on_floor and (is_jumping or is_air_attacking):
 		if is_air_attacking or has_air_attacked:
