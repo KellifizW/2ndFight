@@ -1,6 +1,6 @@
 class_name Player extends Fighter
 
-signal hit_detected(target: String, blockstun_duration: float, is_blocked: bool)
+signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool)
 
 @export var player_id: String = "p1"
 @export var is_ai_controlled: bool = false
@@ -193,17 +193,19 @@ func _on_hitbox_area_entered(area: Area2D):
 			var hitstun = st_mp_hitstun if attack_type == "st_mp" else st_mk_hitstun if attack_type == "st_mk" else 0.35
 			var blockstun = st_mp_blockstun if attack_type == "st_mp" else st_mk_blockstun if attack_type == "st_mk" else 0.267
 			
+			var was_in_stun = target.is_hit or target.is_knockfly
 			target.take_hit(hitstun, blockstun, damage, false)
 			
 			var is_blocked = target.is_blocking and target.block_type == "ordinary"
-			hit_detected.emit(target.name, blockstun, is_blocked)
+			var stun_duration = blockstun if is_blocked else hitstun
+			hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
 			if move_set and (move_set.is_spnk or move_set.is_powerkk):
 				print("Debug: Special move hit detected, skipping push back for %s" % name)
 				return
 			var push_manager = get_tree().get_first_node_in_group("push_manager")
 			var is_target_at_corner = push_manager.is_at_corner(target) if push_manager else false
 			if is_target_at_corner:
-				var push_duration: float = blockstun if is_blocked else hitstun
+				var push_duration: float = stun_duration
 				is_push_back = true
 				push_back_timer = push_duration
 				initial_push_back = push_duration
@@ -214,7 +216,7 @@ func _on_hitbox_area_entered(area: Area2D):
 			else:
 				print("Debug: No push back for attacker, defender not at corner for %s" % name)
 
-func _on_hit_detected(target: String, blockstun_duration: float, is_blocked: bool):
+func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
 	if player_id == "p1" and attack_type == "st_mp" and is_attacking:
 		cancel_window_timer = cancel_window_duration
 		print("Debug: Cancel window opened for powerkk (%.2f sec) for %s" % [cancel_window_duration, name])

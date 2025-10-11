@@ -59,35 +59,48 @@ metadata/_edit_group_ = true
 position = Vector2(0, 4)
 shape = SubResource("WorldBoundaryShape2D_036b0")
 
-[node name="HitLabel" type="Label" parent="."]
-offset_left = 117.0
-offset_top = 211.0
-offset_right = 249.0
-offset_bottom = 234.0
+[node name="UI" type="CanvasLayer" parent="." groups=["ui"]]
+
+[node name="ComboLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.129
+anchor_top = 0.72
+anchor_right = 0.129
+anchor_bottom = 0.72
+offset_left = -25.919998
+offset_top = -46.800003
+offset_right = 74.08
+offset_bottom = -23.800003
+grow_vertical = 0
+pivot_offset = Vector2(20, 10)
+theme_override_font_sizes/font_size = 24
+
+[node name="HitLabel" type="Label" parent="UI"]
+offset_left = 275.0
+offset_top = 28.0
+offset_right = 407.0
+offset_bottom = 51.0
 label_settings = SubResource("LabelSettings_aqk2v")
 horizontal_alignment = 1
 
-[node name="FPS" type="Label" parent="."]
-offset_left = 338.0
-offset_top = 210.0
-offset_right = 416.0
-offset_bottom = 233.0
-label_settings = SubResource("LabelSettings_aqk2v")
-
-[node name="AnimationLabel" type="Label" parent="."]
-visible = false
+[node name="AnimationLabel" type="Label" parent="UI"]
 layout_direction = 1
 anchors_preset = 4
 anchor_top = 0.5
 anchor_bottom = 0.5
-offset_left = 150.0
-offset_top = 102.0
-offset_right = 235.0
-offset_bottom = 125.0
+offset_left = 60.0
+offset_top = -92.0
+offset_right = 145.0
+offset_bottom = -69.0
 grow_vertical = 2
 text = "Ani:"
 
-[node name="UI" type="CanvasLayer" parent="." groups=["ui"]]
+[node name="FPS" type="Label" parent="UI"]
+offset_left = 421.0
+offset_top = 213.0
+offset_right = 499.0
+offset_bottom = 236.0
+label_settings = SubResource("LabelSettings_aqk2v")
 
 [node name="Player2Healthbar" parent="UI" instance=ExtResource("4_036b0")]
 offset_left = 266.0

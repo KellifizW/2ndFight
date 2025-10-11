@@ -109,4 +109,4 @@ func _process(delta):
 	new_position.y = lerp(new_position.y, target_position.y, y_smooth_speed * delta)
 	position = new_position
 	# 除錯顯示：縮放和角色間距離
-	get_node("../HitLabel").text = "Zoom: %.3f, Dist: %.1f" % [zoom.x, (max(players[0].global_position.x, players[1].global_position.x) - min(players[0].global_position.x, players[1].global_position.x))]
+	get_node("../UI/HitLabel").text = "Zoom: %.3f, Dist: %.1f" % [zoom.x, (max(players[0].global_position.x, players[1].global_position.x) - min(players[0].global_position.x, players[1].global_position.x))]

@@ -8,16 +8,21 @@ const STARTING_POSITION: int = 7500  # 150 * 1000 / 2
 const FLOOR_Y: int = 200000  # 200 * SIMULATION_SCALE，地板高度
 const GRAVITY: int = 1800000  # 1800 * 0.375 * 1000
 
-@onready var hit_label = $HitLabel
-@onready var fps_label = $FPS
+@onready var hit_label = $UI/HitLabel
+@onready var fps_label = $UI/FPS
 @onready var player1 = $Player1
 @onready var player2 = $Player2
 @onready var slowmo_controller = $SlowMoController
-@onready var animation_label = $AnimationLabel
+@onready var animation_label = $UI/AnimationLabel
+@onready var combo_label = $UI/ComboLabel
 
 var initial_p1_pos: Vector2
 var initial_p2_pos: Vector2
 var slowmo_triggered: bool = false
+var current_combo: int = 0
+var combo_target: String = ""
+var combo_reset_timer: float = 0.0
+const COMBO_BUFFER: float = 0.2  # 緩衝時間，避免嚴格計時
 
 func _ready():
 	add_to_group("world")  # 確保 world 節點加入 "world" 組
@@ -34,6 +39,10 @@ func _ready():
 		print("Warning: SlowMoController node not found in world")
 	if not animation_label:
 		print("Warning: AnimationLabel node not found in world")
+	if not combo_label:
+		print("Warning: ComboLabel node not found in world")
+	else:
+		combo_label.text = ""
 	
 	# 設置初始位置，y 坐標為地板高度
 	initial_p1_pos = Vector2(190.0, float(FLOOR_Y) / SIMULATION_SCALE)  # y=200
@@ -68,6 +77,12 @@ func _process(delta):
 			slowmo_controller.request_slowmo_change()
 			slowmo_triggered = true
 			print("Debug: Slow motion triggered due to player health <= 0")
+
+func _physics_process(delta):
+	if combo_reset_timer > 0:
+		combo_reset_timer -= delta
+		if combo_reset_timer <= 0:
+			reset_combo()
 
 # 移植 Global.cs 的 to_scaled_vector2
 func to_scaled_vector2(vector: Vector2i) -> Vector2:
@@ -195,17 +210,42 @@ func reset_players():
 	if animation_label:
 		animation_label.text = "P1: Walk, P2: Walk"
 	
+	# 重置combo
+	reset_combo()
+	
 	print("Debug: Players reset! Positions, health, animations, and slow motion restored.")
 
-func _on_hit_detected(target: String, blockstun_duration: float, is_blocked: bool):
+func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
 	if not is_blocked:
 		hit_label.text = "Hits: " + target + " was hit!"
 		print("Debug: %s was hit, updating HitLabel" % target)
+		
+		# combo邏輯
+		if was_in_stun and combo_target == target and current_combo > 0:
+			current_combo += 1
+		else:
+			current_combo = 1
+			combo_target = target
+		combo_reset_timer = stun_duration + COMBO_BUFFER
+		update_combo_label()
 	else:
-		hit_label.text = target + " blocked! Blockstun: " + str(blockstun_duration)
-		print("Debug: %s blocked with blockstun duration %s, updating HitLabel" % [target, blockstun_duration])
+		hit_label.text = target + " blocked! Stun: " + str(stun_duration)
+		print("Debug: %s blocked with stun duration %s, updating HitLabel" % [target, stun_duration])
+		reset_combo()
 
 func _on_block_detected(target: String, block_type: String):
 	if block_type == "proximity":
 		hit_label.text = target + " blocked (proximity)!"
 		print("Debug: %s triggered proximity block, updating HitLabel" % target)
+	reset_combo()
+
+func update_combo_label():
+	if current_combo >= 2:
+		combo_label.text = str(current_combo) + " Hit !"
+	else:
+		combo_label.text = ""
+
+func reset_combo():
+	current_combo = 0
+	combo_target = ""
+	update_combo_label()
