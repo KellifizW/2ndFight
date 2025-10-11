@@ -94,32 +94,50 @@ func _physics_process(delta):
 	var input_data = get_input()
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
 	
+	# 除錯：檢查當前輸入和攻擊狀態
+	print("Debug: Input check - is_attacking=%s, attack_type=%s, st_mp_pressed=%s, st_mk_pressed=%s, spm1_pressed=%s for %s" % [is_attacking, attack_type, input_data.st_mp_pressed, input_data.st_mk_pressed, input_data.spm1_pressed, name])
+	
+	# 修正：當正在攻擊且動畫未完成，忽略新的 st_mp 和 st_mk 輸入，防止互換
+	if is_attacking and animation_state.get_current_node() in ["st_mp", "st_mk"]:
+		if input_data.st_mp_pressed or input_data.st_mk_pressed:
+			print("Debug: Ignoring st_mp_pressed=%s, st_mk_pressed=%s during attack animation %s for %s" % [input_data.st_mp_pressed, input_data.st_mk_pressed, animation_state.get_current_node(), name])
+			input_data.st_mp_pressed = false
+			input_data.st_mk_pressed = false
+	
+	# 僅允許 st_mp 取消到 powerkk（命中時）
 	if player_id == "p1" and is_attacking and attack_type == "st_mp" and cancel_window_timer > 0 and input_data.spm1_pressed:
 		stop_attack()
-		is_attacking = false
-		attack_type = "none"
-		_update_animation_state(0, false)
-		print("Debug: st_mp canceled to powerkk for %s" % name)
+		print("Debug: st_mp canceled to powerkk for %s, cancel_window_timer=%.2f" % [name, cancel_window_timer])
 	
 	if move_set and (player_id == "p1" or player_id == "p2") and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
+	
+	# 修正：取消窗口開啟時，忽略 st_mp 和 st_mk 輸入
+	if cancel_window_timer > 0:
+		print("Debug: Cancel window active (%.2f sec left), ignoring st_mp_pressed=%s, st_mk_pressed=%s for %s" % [cancel_window_timer, input_data.st_mp_pressed, input_data.st_mk_pressed, name])
+		input_data.st_mp_pressed = false
+		input_data.st_mk_pressed = false
+	
 	if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_ground_state:
 		current_damage = input_data.damage
 		is_attacking = true
 		attack_type = input_data.attack_type
 		if not is_push_back:
 			fixed_velocity.x = 0
+		print("Debug: Attack triggered, type=%s, st_mp_pressed=%s, st_mk_pressed=%s for %s" % [attack_type, input_data.st_mp_pressed, input_data.st_mk_pressed, name])
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked
 	if input_data.st_mp_pressed and is_valid_air_state:
 		current_damage = input_data.damage
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mp"
+		print("Debug: Air attack triggered, type=jump_mp for %s" % name)
 	elif input_data.st_mk_pressed and is_valid_air_state:
 		current_damage = input_data.damage
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mk"
+		print("Debug: Air attack triggered, type=jump_mk for %s" % name)
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
 	if is_landing and landing_lock_timer > 0:
@@ -215,6 +233,8 @@ func _on_hit_detected(target: String, blockstun_duration: float, is_blocked: boo
 	if player_id == "p1" and attack_type == "st_mp" and is_attacking:
 		cancel_window_timer = cancel_window_duration
 		print("Debug: Cancel window opened for powerkk (%.2f sec) for %s" % [cancel_window_duration, name])
+	if has_node("Hitbox/HitShape"):
+		print("Debug: Hitbox/HitShape disabled = %s after hit for %s" % [$Hitbox/HitShape.disabled, name])
 
 func _on_animation_tree_finished(anim_name: String):
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
@@ -243,6 +263,8 @@ func _on_animation_tree_finished(anim_name: String):
 		cancel_window_timer = 0.0
 		update_facing_direction()
 		_update_animation_state(0, false)
+		if has_node("Hitbox/HitShape"):
+			print("Debug: Hitbox/HitShape disabled = %s after %s anim finished for %s" % [$Hitbox/HitShape.disabled, anim_name, name])
 	elif anim_name in ["jump_mp", "jump_mk"] and is_air_attacking:
 		if is_on_floor():
 			is_air_attacking = false
@@ -279,6 +301,8 @@ func _on_animation_tree_finished(anim_name: String):
 		if move_set and (move_set.is_powerkk or move_set.is_spnk):
 			move_set.stop_special_move()
 			_update_animation_state(0, false)
+		if has_node("Hitbox/HitShape"):
+			print("Debug: Hitbox/HitShape disabled = %s after %s anim finished for %s" % [$Hitbox/HitShape.disabled, anim_name, name])
 
 func stop_attack():
 	is_attacking = false
@@ -288,6 +312,8 @@ func stop_attack():
 	update_facing_direction()
 	_update_animation_state(0, false)
 	print("Debug: Attack stopped for %s" % name)
+	if has_node("Hitbox/HitShape"):
+		print("Debug: Hitbox/HitShape disabled = %s after stop_attack for %s" % [$Hitbox/HitShape.disabled, name])
 
 func get_facing_multiplier() -> float:
 	return super.get_facing_multiplier()

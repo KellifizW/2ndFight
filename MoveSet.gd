@@ -96,7 +96,8 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		print("Warning: World node not found in group 'world' for %s" % parent.name)
 		return false
 	
-	if input_data.spm2_pressed and not parent.is_attacking and not is_fireball:
+	# 修正：當 powerkk 或 spnk 正在執行時，忽略火球輸入
+	if input_data.spm2_pressed and not parent.is_attacking and not is_fireball and not is_powerkk and not is_spnk:
 		is_fireball = true
 		is_spmove = true
 		if animation_player and animation_player.has_animation("fireball"):
