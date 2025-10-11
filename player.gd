@@ -6,6 +6,10 @@ signal hit_detected(target: String, blockstun_duration: float, is_blocked: bool)
 @export var is_ai_controlled: bool = false
 @export var corner_push_distance: float = 50.0
 @export var cancel_window_duration: float = 0.3
+@export var st_mp_hitstun: float = 0.35
+@export var st_mp_blockstun: float = 0.267
+@export var st_mk_hitstun: float = 0.45
+@export var st_mk_blockstun: float = 0.3
 
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 @onready var player_controller = $PlayerController if has_node("PlayerController") else null
@@ -177,8 +181,6 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
 		var target = area.get_parent()
-		var input_data = get_input()
-		var blockstun_duration = input_data.blockstun_duration
 		var damage = current_damage
 		if damage > 0:
 			var world = get_tree().get_first_node_in_group("world")
@@ -187,22 +189,21 @@ func _on_hitbox_area_entered(area: Area2D):
 			var slowmo_controller = world.get_node_or_null("SlowMoController")
 			if slowmo_controller:
 				slowmo_controller.request_hit_freeze()
-			target.take_hit(blockstun_duration, damage, false)
+			
+			var hitstun = st_mp_hitstun if attack_type == "st_mp" else st_mk_hitstun if attack_type == "st_mk" else 0.35
+			var blockstun = st_mp_blockstun if attack_type == "st_mp" else st_mk_blockstun if attack_type == "st_mk" else 0.267
+			
+			target.take_hit(hitstun, blockstun, damage, false)
+			
 			var is_blocked = target.is_blocking and target.block_type == "ordinary"
-			hit_detected.emit(target.name, blockstun_duration, is_blocked)
+			hit_detected.emit(target.name, blockstun, is_blocked)
 			if move_set and (move_set.is_spnk or move_set.is_powerkk):
 				print("Debug: Special move hit detected, skipping push back for %s" % name)
 				return
 			var push_manager = get_tree().get_first_node_in_group("push_manager")
 			var is_target_at_corner = push_manager.is_at_corner(target) if push_manager else false
 			if is_target_at_corner:
-				var push_duration: float
-				if damage >= 20.0:
-					push_duration = 0.4
-				elif is_blocked:
-					push_duration = 0.267
-				else:
-					push_duration = 0.35
+				var push_duration: float = blockstun if is_blocked else hitstun
 				is_push_back = true
 				push_back_timer = push_duration
 				initial_push_back = push_duration

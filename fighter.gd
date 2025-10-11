@@ -55,7 +55,7 @@ func _physics_process(delta):
 func post_physics_process(delta):
 	pass
 
-func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: bool = false):
+func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267, damage: float = 10.0, skip_push: bool = false):
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
 		print("Warning: World node not found in group 'world' for %s" % name)
@@ -78,7 +78,7 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 	if is_blocking or ((is_holding_back or is_crouch_blocking) and is_on_floor() and not is_spmove):
 		is_blocking = true
 		is_crouch_blocking = input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0
-		initial_blockstun = 0.4 if damage >= 20.0 else 0.267
+		initial_blockstun = max(blockstun_duration, min_hitstun_duration)
 		block_timer = initial_blockstun
 		block_type = "ordinary"
 		fixed_velocity.x = 0
@@ -101,25 +101,18 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 		healthbar.take_damage(damage)
 		var facing_mult = get_facing_multiplier()
 
-		if damage > 10.0:
+		if damage > 10.0 or healthbar.current_health <= 0:
 			is_knockfly = true
 			knockfly_timer = max(knockfly_duration, min_hitstun_duration)
 			if not skip_push:
 				knockfly_velocity_x = -knockfly_push_speed * world.SIMULATION_SCALE * facing_mult
 				print("Debug: Knockfly push set - velocity_x=%.2f, skip_push=%s" % [knockfly_velocity_x, skip_push])
-			print("Debug: Special move hit, triggering knockfly for %s" % name)
-		elif healthbar.current_health <= 0:
-			is_knockfly = true
-			knockfly_timer = max(knockfly_duration, min_hitstun_duration)
-			if not skip_push:
-				knockfly_velocity_x = -knockfly_push_speed * world.SIMULATION_SCALE * facing_mult
-				print("Debug: Health zero knockfly push set - velocity_x=%.2f, skip_push=%s" % [knockfly_velocity_x, skip_push])
-			print("Debug: Health reached zero, triggering knockfly for %s" % name)
+			print("Debug: Special move hit or health zero, triggering knockfly for %s" % name)
 		else:
+			is_hit = true
+			initial_hitstun = max(hitstun_duration, min_hitstun_duration)
+			hit_timer = initial_hitstun
 			if is_on_floor():
-				is_hit = true
-				initial_hitstun = max(0.35, min_hitstun_duration)
-				hit_timer = initial_hitstun
 				if not skip_push:
 					hit_push_timer = initial_hitstun
 					hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
@@ -128,16 +121,13 @@ func take_hit(blockstun_duration: float = 0.2, damage: float = 10.0, skip_push: 
 				fixed_velocity.y = 0
 				print("Debug: Ground hitstun triggered, duration %s for %s, damage %s" % [initial_hitstun, name, damage])
 			else:
-				is_hit = true
-				initial_hitstun = max(0.35, min_hitstun_duration)
-				hit_timer = initial_hitstun
 				fixed_velocity.y = int(air_knockback_vertical_speed * world.SIMULATION_SCALE)
 				fixed_velocity.x = int(-air_knockback_horizontal_speed * world.SIMULATION_SCALE * facing_mult)
 				print("Debug: Air hit push set - velocity.y=%s, velocity.x=%s" % [fixed_velocity.y, fixed_velocity.x])
 				print("Debug: Air hit triggered for %s, fixed_velocity.y=%s, fixed_velocity.x=%s" % [name, fixed_velocity.y, fixed_velocity.x])
 	else:
 		is_hit = true
-		initial_hitstun = max(0.35, min_hitstun_duration)
+		initial_hitstun = max(hitstun_duration, min_hitstun_duration)
 		hit_timer = initial_hitstun
 		if not skip_push:
 			hit_push_timer = initial_hitstun
