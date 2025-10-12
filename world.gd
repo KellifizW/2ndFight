@@ -1,12 +1,11 @@
 extends Node2D
 
-# 移植 Global.cs 的常數，適配 480x240 視圖
 const TICKS_PER_SECOND: int = 60
 const SIMULATION_SCALE: int = 1000
-const WALL_LIMIT: int = 24000  # 480 * 1000 / 2
-const STARTING_POSITION: int = 7500  # 150 * 1000 / 2
-const FLOOR_Y: int = 200000  # 200 * SIMULATION_SCALE，地板高度
-const GRAVITY: int = 1800000  # 1800 * 0.375 * 1000
+const WALL_LIMIT: int = 24000
+const STARTING_POSITION: int = 7500
+const FLOOR_Y: int = 200000
+const GRAVITY: int = 1800000
 
 @onready var hit_label = $UI/HitLabel
 @onready var fps_label = $UI/FPS
@@ -15,6 +14,7 @@ const GRAVITY: int = 1800000  # 1800 * 0.375 * 1000
 @onready var slowmo_controller = $SlowMoController
 @onready var animation_label = $UI/AnimationLabel
 @onready var combo_label = $UI/ComboLabel
+@onready var debug_label = $UI/DebugLabel
 
 var initial_p1_pos: Vector2
 var initial_p2_pos: Vector2
@@ -22,10 +22,10 @@ var slowmo_triggered: bool = false
 var current_combo: int = 0
 var combo_target: String = ""
 var combo_reset_timer: float = 0.0
-const COMBO_BUFFER: float = 0.2  # 緩衝時間，避免嚴格計時
+const COMBO_BUFFER: float = 0.2
 
 func _ready():
-	add_to_group("world")  # 確保 world 節點加入 "world" 組
+	add_to_group("world")
 	print("Debug: World added to group 'world'. Group members: ", get_tree().get_nodes_in_group("world"))
 	if not is_in_group("world"):
 		print("Error: World failed to join 'world' group")
@@ -43,10 +43,11 @@ func _ready():
 		print("Warning: ComboLabel node not found in world")
 	else:
 		combo_label.text = ""
+	if debug_label:
+		debug_label.text = ""
 	
-	# 設置初始位置，y 坐標為地板高度
-	initial_p1_pos = Vector2(190.0, float(FLOOR_Y) / SIMULATION_SCALE)  # y=200
-	initial_p2_pos = Vector2(290.0, float(FLOOR_Y) / SIMULATION_SCALE)  # y=200
+	initial_p1_pos = Vector2(190.0, float(FLOOR_Y) / SIMULATION_SCALE)
+	initial_p2_pos = Vector2(290.0, float(FLOOR_Y) / SIMULATION_SCALE)
 	player1.fixed_position = Vector2i(int(190.0 * SIMULATION_SCALE), FLOOR_Y)
 	player2.fixed_position = Vector2i(int(290.0 * SIMULATION_SCALE), FLOOR_Y)
 	player1.global_position = to_scaled_vector2(player1.fixed_position)
@@ -64,13 +65,11 @@ func _input(event):
 func _process(delta):
 	fps_label.text = "FPS: %d" % (1.0 / delta)
 	
-	# 更新 AnimationLabel 顯示兩個角色的當前動畫
 	if animation_label:
 		var p1_anim = player1.animation_state.get_current_node() if player1.animation_state else "none"
 		var p2_anim = player2.animation_state.get_current_node() if player2.animation_state else "none"
 		animation_label.text = "P1: %s, P2: %s" % [p1_anim, p2_anim]
 	
-	# 檢查玩家血量以觸發慢動作
 	if not slowmo_triggered:
 		if (player1.healthbar and player1.healthbar.current_health <= 0) or \
 		   (player2.healthbar and player2.healthbar.current_health <= 0):
@@ -84,14 +83,12 @@ func _physics_process(delta):
 		if combo_reset_timer <= 0:
 			reset_combo()
 
-# 移植 Global.cs 的 to_scaled_vector2
 func to_scaled_vector2(vector: Vector2i) -> Vector2:
 	return Vector2(
 		float(vector.x) / SIMULATION_SCALE,
 		float(vector.y) / SIMULATION_SCALE
 	)
 
-# 重置玩家動畫狀態的函數
 func reset_player_animation(player: Node, target_state: String) -> void:
 	var animation_tree = player.get_node_or_null("AnimationTree")
 	var animation_state = animation_tree.get("parameters/playback") if animation_tree else null
@@ -103,16 +100,13 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 		print("Warning: AnimationTree, animation_state, or animation_player not found for %s" % player.name)
 		return
 	
-	# 停止 AnimationPlayer 以打斷當前動畫
 	animation_player.stop()
 	animation_player.clear_queue()
 	animation_player.speed_scale = 1.0
 	print("Debug: %s AnimationPlayer stopped and queue cleared" % player.name)
 	
-	# 禁用 AnimationTree 以清除狀態
 	animation_tree.active = false
 	
-	# 設置動畫條件，與 player.gd 的邏輯一致
 	var conditions = {
 		"Walk": target_state == "Walk",
 		"Crouch": target_state == "Crouch",
@@ -133,11 +127,9 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 	for condition in conditions:
 		animation_tree.set("parameters/conditions/" + condition, conditions[condition])
 	
-	# 重置 Walk 的混合位置
 	if target_state == "Walk":
 		animation_tree.set("parameters/Walk/blend_position", 0.0)
 	
-	# 重新啟用 AnimationTree 並切換到目標動畫
 	animation_tree.active = true
 	animation_state.travel(target_state)
 	print("Debug: %s animation reset to %s" % [player.name, target_state])
@@ -150,7 +142,6 @@ func reset_players():
 	player1.global_position = to_scaled_vector2(player1.fixed_position)
 	player2.global_position = to_scaled_vector2(player2.fixed_position)
 	
-	# 重置血量並即時更新 UI
 	for player in [player1, player2]:
 		if player.healthbar:
 			player.healthbar.current_health = 100.0
@@ -160,7 +151,6 @@ func reset_players():
 				player.healthbar.set("value", 100.0)
 			print("Debug: %s health reset to 100.0" % player.name)
 	
-	# 重置狀態
 	for player in [player1, player2]:
 		player.is_hit = false
 		player.is_knockfly = false
@@ -182,23 +172,19 @@ func reset_players():
 		player.attack_type = "none"
 		player.update_facing_direction()
 	
-	# 重置特殊招式
 	for player in [player1, player2]:
 		if player.has_node("MoveSet"):
 			player.get_node("MoveSet").stop_special_move()
 	
-	# 重置動畫到 Walk
 	for player in [player1, player2]:
 		reset_player_animation(player, "Walk")
 	
-	# 重置AI行為
 	for player in [player1, player2]:
 		if player.has_node("AIBehavior"):
 			player.get_node("AIBehavior").current_state = "idle"
 			player.get_node("AIBehavior").state_timer = 0.0
 			player.get_node("AIBehavior").last_action_time = 0.0
 	
-	# 重置慢動作相關狀態
 	if slowmo_controller:
 		slowmo_controller.exit_slowmo_animation()
 		slowmo_controller.is_hit_slowmo = false
@@ -206,12 +192,13 @@ func reset_players():
 		Engine.time_scale = slowmo_controller.normal_time_scale
 		print("Debug: Slow motion and hit slowmo states reset, time_scale=%s" % Engine.time_scale)
 	
-	# 重置 AnimationLabel
 	if animation_label:
 		animation_label.text = "P1: Walk, P2: Walk"
 	
-	# 重置combo
 	reset_combo()
+	
+	if debug_label:
+		debug_label.text = ""
 	
 	print("Debug: Players reset! Positions, health, animations, and slow motion restored.")
 
@@ -220,7 +207,6 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		hit_label.text = "Hits: " + target + " was hit!"
 		print("Debug: %s was hit, updating HitLabel" % target)
 		
-		# combo邏輯
 		if was_in_stun and combo_target == target and current_combo > 0:
 			current_combo += 1
 		else:

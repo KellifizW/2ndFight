@@ -1482,6 +1482,22 @@ collision_layer = 2
 collision_mask = 0
 script = ExtResource("1_tdckb")
 player_id = "p2"
+is_ai_controlled = null
+corner_push_distance = null
+cancel_window_duration = null
+st_mp_hitstun = null
+st_mp_blockstun = null
+st_mk_hitstun = null
+st_mk_blockstun = null
+air_knockback_horizontal_speed = null
+air_knockback_vertical_speed = null
+air_friction = null
+min_hitstun_duration = null
+landing_duration = null
+knockfly_duration = null
+block_push_distance = null
+hit_push_distance = null
+jump_delay_duration = null
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_tdckb")

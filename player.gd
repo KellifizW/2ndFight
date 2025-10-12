@@ -203,6 +203,18 @@ func _on_hitbox_area_entered(area: Area2D):
 			else:
 				pass
 
+			var contact_point = get_contact_point($Hitbox, area)
+			print("Debug: Hit detected on %s" % target.name)
+			print("  - Hitbox Global Position: %s, Size: %s" % [$Hitbox.global_position, $Hitbox/HitShape.shape.size if has_node("Hitbox/HitShape") else "N/A"])
+			print("  - Hurtbox Global Position: %s, Size: %s" % [area.global_position, area.get_node_or_null("HurtShape").shape.size if area.get_node_or_null("HurtShape") else "N/A"])
+			print("  - Contact Point: %s" % contact_point)
+
+			var world_node = get_tree().get_first_node_in_group("world")
+			if world_node:
+				var debug_label = world_node.get_node_or_null("UI/DebugLabel")
+				if debug_label:
+					debug_label.text = "Hit on %s\nHitbox: %s\nHurtbox: %s\nContact: %s" % [target.name, $Hitbox.global_position, area.global_position, contact_point]
+
 func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
 	if player_id == "p1" and attack_type == "st_mp" and is_attacking:
 		cancel_window_timer = cancel_window_duration

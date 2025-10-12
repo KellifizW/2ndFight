@@ -152,3 +152,37 @@ func take_knockfly():
 		knockfly_timer = max(knockfly_duration, min_hitstun_duration)
 		print("Debug: Knockfly taken for %s, knockfly_timer set to %.2f" % [name, knockfly_duration])
 		_update_animation_state(0, is_crouching)
+
+func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
+	var hit_shape_node = hit_area.get_node_or_null("HitShape") as CollisionShape2D
+	var hurt_shape_node = hurt_area.get_node_or_null("HurtShape") as CollisionShape2D
+
+	if not hit_shape_node or not hurt_shape_node or not (hit_shape_node.shape is RectangleShape2D) or not (hurt_shape_node.shape is RectangleShape2D):
+		print("Warning: Invalid shapes for contact point calculation in get_contact_point")
+		return Vector2.ZERO
+
+	var hit_global_pos = hit_area.global_position + hit_shape_node.position
+	var hit_half_size = hit_shape_node.shape.size / 2.0
+	var hit_left = hit_global_pos.x - hit_half_size.x
+	var hit_right = hit_global_pos.x + hit_half_size.x
+	var hit_bottom = hit_global_pos.y - hit_half_size.y
+	var hit_top = hit_global_pos.y + hit_half_size.y
+
+	var hurt_global_pos = hurt_area.global_position + hurt_shape_node.position
+	var hurt_half_size = hurt_shape_node.shape.size / 2.0
+	var hurt_left = hurt_global_pos.x - hurt_half_size.x
+	var hurt_right = hurt_global_pos.x + hurt_half_size.x
+	var hurt_bottom = hurt_global_pos.y - hurt_half_size.y
+	var hurt_top = hurt_global_pos.y + hurt_half_size.y
+
+	var overlap_left = max(hit_left, hurt_left)
+	var overlap_right = min(hit_right, hurt_right)
+	var overlap_bottom = max(hit_bottom, hurt_bottom)
+	var overlap_top = min(hit_top, hurt_top)
+
+	if overlap_left >= overlap_right or overlap_bottom >= overlap_top:
+		return Vector2.ZERO
+
+	var median_x = (overlap_left + overlap_right) / 2.0
+	var median_y = (overlap_bottom + overlap_top) / 2.0
+	return Vector2(median_x, median_y)
