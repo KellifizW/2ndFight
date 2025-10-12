@@ -75,8 +75,6 @@ signal block_detected(target: String, block_type: String)
 
 func _ready():
 	world = get_tree().get_first_node_in_group("world")
-	if not world:
-		print("Error: World node not found in group 'world' during initialization")
 	if animation_tree:
 		animation_tree.active = true
 		if animation_state:
@@ -119,7 +117,6 @@ func _physics_process(delta):
 			pending_dash_dir = 0
 			last_input_dir = 0
 			landing_facing_lock = false
-			print("Debug: Dash/Backdash ended, resetting velocity and double-tap vars for %s" % name)
 	
 	if jump_delay_timer > 0:
 		jump_delay_timer -= delta
@@ -127,7 +124,6 @@ func _physics_process(delta):
 			fixed_velocity.y = int(jump_vertical_speed * (self.world.SIMULATION_SCALE if self.world else 1000))
 			just_jumped = true
 			fixed_position.y = (self.world.FLOOR_Y if self.world else 200000) - 1
-			print("Debug: Jump vertical physics activated after delay, fixed_velocity.y=%s" % fixed_velocity.y)
 	
 	var input_data = get_input()
 	var input_dir = input_data["input_dir"]
@@ -161,7 +157,6 @@ func _physics_process(delta):
 				pending_dash_dir = 0
 				last_input_dir = 0
 				landing_facing_lock = true
-				print("Debug: Dash initiated, fixed_velocity.x=%s, input_dir=%s, facing_direction=%s, double-tap vars reset" % [fixed_velocity.x, input_dir, facing_direction])
 			else:
 				if not (is_blocking and is_opponent_proximity and block_type == "proximity"):
 					is_backdashing = true
@@ -171,9 +166,6 @@ func _physics_process(delta):
 					pending_dash_dir = 0
 					last_input_dir = 0
 					landing_facing_lock = true
-					print("Debug: Backdash initiated, fixed_velocity.x=%s, input_dir=%s, facing_direction=%s, double-tap vars reset" % [fixed_velocity.x, input_dir, facing_direction])
-				else:
-					print("Debug: Backdash blocked due to proximity block for %s" % name)
 				neutral_timer = 0.0
 				pending_dash_dir = 0
 				last_input_dir = 0
@@ -181,14 +173,12 @@ func _physics_process(delta):
 			if last_input_dir != 0 and input_dir == 0:
 				neutral_timer = double_tap_timer
 				pending_dash_dir = last_input_dir
-				print("Debug: Neutral input detected, neutral_timer=%s, pending_dash_dir=%s" % [neutral_timer, pending_dash_dir])
 			last_input_dir = input_dir
 	
 	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not is_fireball and not (is_hit or is_knockfly or is_blocking or is_push_back) and not is_crouching:
 		if input_dir != 0:
 			if input_dir * facing_direction < 0 and is_blocking and is_opponent_proximity and block_type == "proximity":
 				fixed_velocity.x = 0
-				print("Debug: Backward movement blocked due to proximity block for %s" % name)
 			else:
 				var move_speed = walk_speed if input_dir * facing_direction > 0 else back_speed
 				fixed_velocity.x = int(move_speed * (self.world.SIMULATION_SCALE if self.world else 1000) * input_dir)
@@ -200,10 +190,8 @@ func _physics_process(delta):
 			if is_fireball:
 				fixed_velocity.x = 0
 				fixed_velocity.y = 0
-				print("Debug: Fireball active, locking fixed_velocity to (0, 0) for %s" % name)
 	
 	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk and not is_fireball and not (is_hit or is_knockfly or is_blocking or is_push_back) and jump_delay_timer <= 0:
-		print("Debug: Jump logic triggered")
 		jump_dir = input_dir
 		is_jumping = true
 		landing_facing_lock = true
@@ -215,10 +203,6 @@ func _physics_process(delta):
 			fixed_velocity.x = int(jump_speed * (self.world.SIMULATION_SCALE if self.world else 1000) * jump_dir)
 		else:
 			fixed_velocity.x = 0
-		print("Debug: Jump initiated with delay, fixed_velocity.x=%s, fixed_position.y=%s, jump_dir=%s, timer=%.2fs" % [fixed_velocity.x, fixed_position.y, jump_dir, jump_delay_duration])
-	else:
-		if jump_pressed:
-			print("Debug: Jump skipped, reasons: on_floor=%s, crouching=%s, dashing=%s, backdashing=%s, attacking=%s, powerkk=%s, spnk=%s, fireball=%s, hit=%s, knockfly=%s, blocking=%s, push_back=%s, jump_delay=%s" % [is_on_floor(), is_crouching, is_dashing, is_backdashing, is_attacking, is_powerkk, is_spnk, is_fireball, is_hit, is_knockfly, is_blocking, is_push_back, jump_delay_timer > 0])
 	
 	if jump_delay_timer <= 0 and not is_on_floor():
 		add_gravity((self.world.GRAVITY if self.world else 1800000), delta)
@@ -243,14 +227,11 @@ func _physics_process(delta):
 			if not (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed):
 				self.is_landing = true
 				self.landing_lock_timer = landing_duration
-				print("Debug: Landing, setting is_landing=true, landing_lock_timer=%.2f, facing_direction=%.1f for %s" % [landing_duration, facing_direction, name])
 				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-		print("Debug: Landing, resetting is_jumping and dash detection vars, facing_direction=%.1f for %s" % [facing_direction, name])
 		
 		var push_manager = get_tree().get_first_node_in_group("push_manager")
 		if push_manager:
 			push_manager._physics_process(delta)
-			print("Debug: Forced PushManager check on landing for %s" % name)
 	
 	global_position = (self.world.to_scaled_vector2(fixed_position) if self.world else Vector2(float(fixed_position.x) / 1000.0, float(fixed_position.y) / 1000.0))
 	
@@ -281,7 +262,6 @@ func _on_animation_player_finished(anim_name: String) -> void:
 		update_facing_direction()
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = true
-		print("Debug: Attack animation 'st_mp' finished, resetting is_attacking, facing_direction=%.1f for %s" % [facing_direction, name])
 
 func add_gravity(gravity: int, delta: float) -> void:
 	fixed_velocity.y += int(gravity * delta)
@@ -343,7 +323,6 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 			fixed_velocity.x = 0
 			fixed_velocity.y = 0
 			block_detected.emit(name, block_type)
-			print("Debug: Proximity block triggered, is_holding_back=%s, is_crouch_blocking=%s" % [is_holding_back, is_crouch_blocking])
 
 func _on_hurtbox_area_exited(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
@@ -352,7 +331,6 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 			is_blocking = false
 			is_crouch_blocking = false
 			block_type = "none"
-			print("Debug: Proximity block ended for %s" % name)
 
 func update_facing_direction():
 	var move_set = $MoveSet if has_node("MoveSet") else null
@@ -360,11 +338,7 @@ func update_facing_direction():
 	var is_attacking_state = is_attacking
 	var is_landing_state = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
 	
-	# 除錯：記錄更新面向的條件
-	print("Debug: [update_facing_direction] %s - is_special_move=%s, is_attacking=%s, is_landing_state=%s, landing_facing_lock=%s" % [name, is_special_move, is_attacking_state, is_landing_state, landing_facing_lock])
-	
 	if is_special_move or is_attacking_state or landing_facing_lock or is_landing_state:
-		print("Debug: [update_facing_direction] Skipped for %s due to conditions: is_special_move=%s, is_attacking=%s, landing_facing_lock=%s, is_landing_state=%s" % [name, is_special_move, is_attacking_state, landing_facing_lock, is_landing_state])
 		return
 	
 	var players = get_tree().get_nodes_in_group("players")
@@ -380,23 +354,18 @@ func update_facing_direction():
 		var other_left = other_player.global_position.x - other_player.colbox_half_width
 		var other_right = other_player.global_position.x + other_player.colbox_half_width
 		
-		# 除錯：記錄玩家位置
-		print("Debug: [update_facing_direction] %s - self_left=%.2f, self_right=%.2f, other_left=%.2f, other_right=%.2f" % [name, self_left, self_right, other_left, other_right])
-		
 		if self_left > other_right:
 			facing_direction = -1.0
 			scale.x = -1
 			scale.y = 1
 			sprite.scale.x = 1.0
 			rotation_degrees = 0
-			print("Debug: [update_facing_direction] %s facing left (-1.0), other player is to the left" % name)
 		elif self_right < other_left:
 			facing_direction = 1.0
 			scale.x = 1
 			scale.y = 1
 			sprite.scale.x = 1.0
 			rotation_degrees = 0
-			print("Debug: [update_facing_direction] %s facing right (1.0), other player is to the right" % name)
 		update_hitbox_position()
 	else:
 		facing_direction = 1.0
@@ -404,7 +373,6 @@ func update_facing_direction():
 		scale.y = 1
 		sprite.scale.x = 1.0
 		rotation_degrees = 0
-		print("Debug: [update_facing_direction] No other player found, default facing_direction=1.0 for %s" % name)
 
 func _set_animation_conditions(target_state: String, on_floor: bool, crouch_input: bool) -> void:
 	animation_tree.set("parameters/conditions/Walk", target_state == "Walk" and on_floor and not crouch_input)
@@ -471,23 +439,18 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	if target_state == "Walk" and not on_floor and is_jumping:
 		if anim_jump_dir > 0:
 			target_state = "Jump_F"
-			print("Debug: Selecting Jump_F, jump_dir = %.1f, facing_direction = %.1f" % [jump_dir, facing_direction])
 		elif anim_jump_dir < 0:
 			target_state = "Jump_B"
-			print("Debug: Selecting Jump_B, jump_dir = %.1f, facing_direction = %.1f" % [jump_dir, facing_direction])
 		else:
 			target_state = "Jump_V"
-			print("Debug: Selecting Jump_V, jump_dir = %.1f, facing_direction = %.1f" % [jump_dir, facing_direction])
 	
 	_set_animation_conditions(target_state, on_floor, crouch_input)
 	
 	if curr_state != target_state:
 		animation_state.travel(target_state)
-		print("Debug: Animation switched to %s for %s, dir_x=%.1f, crouch_input=%s, is_blocking=%s, is_crouch_blocking=%s, facing_direction=%.1f" % [target_state, name, dir_x, crouch_input, is_blocking, is_crouch_blocking, facing_direction])
 	
 	if target_state == "Walk":
 		animation_tree.set("parameters/Walk/blend_position", anim_dir)
 	
 	if is_jumping and on_floor:
 		is_jumping = false
-		print("Debug: Landing, resetting is_jumping for %s" % name)
