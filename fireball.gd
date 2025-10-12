@@ -67,18 +67,18 @@ func _on_hitbox_area_entered(area: Area2D):
 			hitbox.monitoring = false
 		if prox_shape:
 			prox_shape.disabled = true
-		animation_player.play("fireball/ball_impact")  # 使用動畫庫路徑
+		animation_player.play("fireball/ball_impact")
 		var world = get_tree().get_first_node_in_group("world")
 		if world:
 			var slowmo_controller = world.get_node_or_null("SlowMoController")
 			if slowmo_controller:
 				slowmo_controller.request_hit_freeze()
-		target.take_hit(blockstun_duration, damage, false)
+		# 修正參數順序：hitstun_duration, blockstun_duration, damage, skip_push
+		target.take_hit(blockstun_duration, blockstun_duration, damage, false)
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		if target.has_signal("hit_detected"):
 			target.hit_detected.emit(name, blockstun_duration, is_blocked)
 		print("Fireball hit %s, is_blocked: %s, damage: %s, owner_id: %s" % [target.name, is_blocked, damage, owner_id])
-
 func _on_hurtbox_area_entered(area: Area2D):
 	if not is_active:
 		return

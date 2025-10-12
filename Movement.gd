@@ -243,9 +243,9 @@ func _physics_process(delta):
 			if not (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed):
 				self.is_landing = true
 				self.landing_lock_timer = landing_duration
-				print("Debug: Landing, setting is_landing=true, landing_lock_timer=%.2f for %s" % [landing_duration, name])
+				print("Debug: Landing, setting is_landing=true, landing_lock_timer=%.2f, facing_direction=%.1f for %s" % [landing_duration, facing_direction, name])
 				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-		print("Debug: Landing, resetting is_jumping and dash detection vars for %s" % name)
+		print("Debug: Landing, resetting is_jumping and dash detection vars, facing_direction=%.1f for %s" % [facing_direction, name])
 		
 		var push_manager = get_tree().get_first_node_in_group("push_manager")
 		if push_manager:
@@ -259,13 +259,14 @@ func _physics_process(delta):
 	
 	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
 	var is_attacking_state = is_attacking
-	if not (is_special_move or is_attacking_state or is_hit or is_knockfly or is_blocking or is_jumping or is_landing) and not landing_facing_lock:
+	var is_landing_state = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
+	if not (is_special_move or is_attacking_state or is_landing_state) and not landing_facing_lock:
 		update_facing_direction()
 	
-	if is_on_floor() and was_in_air and not is_landing and not (is_powerkk or is_spnk) and not is_jumping and not landing_facing_lock:
+	if is_on_floor() and was_in_air and not is_landing_state and not (is_powerkk or is_spnk) and not is_jumping and not landing_facing_lock:
 		update_facing_direction()
 	was_in_air = not is_on_floor()
-	if is_on_floor() and prev_position.x != global_position.x and not (is_powerkk or is_spnk) and not is_landing and not is_jumping and not landing_facing_lock:
+	if is_on_floor() and prev_position.x != global_position.x and not (is_powerkk or is_spnk) and not is_landing_state and not is_jumping and not landing_facing_lock:
 		update_facing_direction()
 	prev_position = global_position
 	
@@ -280,7 +281,7 @@ func _on_animation_player_finished(anim_name: String) -> void:
 		update_facing_direction()
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = true
-		print("Debug: Attack animation 'st_mp' finished, resetting is_attacking for %s" % name)
+		print("Debug: Attack animation 'st_mp' finished, resetting is_attacking, facing_direction=%.1f for %s" % [facing_direction, name])
 
 func add_gravity(gravity: int, delta: float) -> void:
 	fixed_velocity.y += int(gravity * delta)
@@ -357,31 +358,45 @@ func update_facing_direction():
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
 	var is_attacking_state = is_attacking
-	if is_special_move or is_attacking_state or landing_facing_lock:
+	var is_landing_state = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
+	
+	# 除錯：記錄更新面向的條件
+	print("Debug: [update_facing_direction] %s - is_special_move=%s, is_attacking=%s, is_landing_state=%s, landing_facing_lock=%s" % [name, is_special_move, is_attacking_state, is_landing_state, landing_facing_lock])
+	
+	if is_special_move or is_attacking_state or landing_facing_lock or is_landing_state:
+		print("Debug: [update_facing_direction] Skipped for %s due to conditions: is_special_move=%s, is_attacking=%s, landing_facing_lock=%s, is_landing_state=%s" % [name, is_special_move, is_attacking_state, landing_facing_lock, is_landing_state])
 		return
+	
 	var players = get_tree().get_nodes_in_group("players")
 	var other_player = null
 	for player in players:
 		if player != self:
 			other_player = player
 			break
+	
 	if other_player:
 		var self_left = global_position.x - colbox_half_width
 		var self_right = global_position.x + colbox_half_width
 		var other_left = other_player.global_position.x - other_player.colbox_half_width
 		var other_right = other_player.global_position.x + other_player.colbox_half_width
+		
+		# 除錯：記錄玩家位置
+		print("Debug: [update_facing_direction] %s - self_left=%.2f, self_right=%.2f, other_left=%.2f, other_right=%.2f" % [name, self_left, self_right, other_left, other_right])
+		
 		if self_left > other_right:
 			facing_direction = -1.0
 			scale.x = -1
 			scale.y = 1
 			sprite.scale.x = 1.0
 			rotation_degrees = 0
+			print("Debug: [update_facing_direction] %s facing left (-1.0), other player is to the left" % name)
 		elif self_right < other_left:
 			facing_direction = 1.0
 			scale.x = 1
 			scale.y = 1
 			sprite.scale.x = 1.0
 			rotation_degrees = 0
+			print("Debug: [update_facing_direction] %s facing right (1.0), other player is to the right" % name)
 		update_hitbox_position()
 	else:
 		facing_direction = 1.0
@@ -389,6 +404,7 @@ func update_facing_direction():
 		scale.y = 1
 		sprite.scale.x = 1.0
 		rotation_degrees = 0
+		print("Debug: [update_facing_direction] No other player found, default facing_direction=1.0 for %s" % name)
 
 func _set_animation_conditions(target_state: String, on_floor: bool, crouch_input: bool) -> void:
 	animation_tree.set("parameters/conditions/Walk", target_state == "Walk" and on_floor and not crouch_input)
@@ -467,7 +483,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	
 	if curr_state != target_state:
 		animation_state.travel(target_state)
-		print("Debug: Animation switched to %s for %s, dir_x=%.1f, crouch_input=%s, is_blocking=%s, is_crouch_blocking=%s" % [target_state, name, dir_x, crouch_input, is_blocking, is_crouch_blocking])
+		print("Debug: Animation switched to %s for %s, dir_x=%.1f, crouch_input=%s, is_blocking=%s, is_crouch_blocking=%s, facing_direction=%.1f" % [target_state, name, dir_x, crouch_input, is_blocking, is_crouch_blocking, facing_direction])
 	
 	if target_state == "Walk":
 		animation_tree.set("parameters/Walk/blend_position", anim_dir)
