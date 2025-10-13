@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://ch1ju50maflfw"]
+[gd_scene load_steps=16 format=3 uid="uid://ch1ju50maflfw"]
 
 [ext_resource type="Texture2D" uid="uid://bmjae6pnph2g8" path="res://assets/T_VFX_simple_ss.png" id="1_42wi3"]
 [ext_resource type="Script" uid="uid://cl1f56yxnlaj4" path="res://vfx_hit.gd" id="1_i4h24"]
@@ -47,23 +47,29 @@ point_count = 2
 curve = SubResource("Curve_42wi3")
 
 [sub_resource type="Curve" id="Curve_6yyi1"]
-_data = [Vector2(0, 0), 0.0, 1.0, 0, 1, Vector2(1, 1), 1.0, 0.0, 1, 0]
+_data = [Vector2(0, 0.078651786), 0.0, 2.6143253, 0, 1, Vector2(0.35242295, 1), 2.6143253, 0.0, 1, 0]
 point_count = 2
 
 [sub_resource type="CurveTexture" id="CurveTexture_4dmgk"]
 curve = SubResource("Curve_6yyi1")
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_qjvhm"]
+resource_local_to_scene = true
 particle_flag_disable_z = true
 gravity = Vector3(0, 0, 0)
 scale_curve = SubResource("CurveTexture_4dmgk")
-color = Color(1.2692354, 1.0674192, 0.4619699, 1)
+color = Color(4.5703535, 3.1433055, 1.02916, 1)
 alpha_curve = SubResource("CurveTexture_i4h24")
+
+[sub_resource type="Environment" id="Environment_i4h24"]
+background_mode = 3
+glow_enabled = true
 
 [node name="VFX_hit" type="Node2D"]
 script = ExtResource("1_i4h24")
 
 [node name="explode" type="GPUParticles2D" parent="."]
+modulate = Color(1.3945211, 1.3945211, 1.3945211, 1)
 material = SubResource("CanvasItemMaterial_sr76h")
 scale = Vector2(0.4, 0.4)
 emitting = false
@@ -80,4 +86,8 @@ amount = 1
 texture = ExtResource("2_42wi3")
 lifetime = 0.2
 one_shot = true
+fixed_fps = 60
 process_material = SubResource("ParticleProcessMaterial_qjvhm")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_i4h24")

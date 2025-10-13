@@ -2,30 +2,30 @@ class_name MoveSet extends Node
 
 @export var is_powerkk_penetrable: bool = true
 @export var is_spnk_penetrable: bool = true
-@export var is_fireball_penetrable: bool = true  # 控制 fireball 是否穿透
-@export var fireball_y_offset: float = 0.0  # 火球 Y 軸偏移，負值表示向上
-@export var fireball_x_offset: float = 15.0   # 火球 X 軸偏移，控制生成點離角色的距離
-@export var fireball_spawn_delay: float = 0.2667  # 火球生成延遲（秒）
+@export var is_fireball_penetrable: bool = true
+@export var fireball_y_offset: float = 0.0
+@export var fireball_x_offset: float = 15.0
+@export var fireball_spawn_delay: float = 0.2667
 var is_powerkk: bool = false
 var is_spnk: bool = false
-var is_fireball: bool = false  # 火球狀態
+var is_fireball: bool = false
 var is_spmove: bool = false
 var powerkk_time: float = 0.933
 var spnk_time: float = 0.0
-var fireball_time: float = 0.3  # 火球施放動畫時間
+var fireball_time: float = 0.3
 var powerkk_timer: float = 0.0
 var spnk_timer: float = 0.0
-var fireball_timer: float = 0.0  # 火球計時器
-var fireball_spawn_timer: float = 0.0  # 火球生成計時器
+var fireball_timer: float = 0.0
+var fireball_spawn_timer: float = 0.0
 var powerkk_damage: float = 20.0
 var spnk_damage: float = 20.0
-var fireball_damage: float = 15.0  # 火球傷害，稍低於 powerkk
+var fireball_damage: float = 15.0
 var powerkk_move_distance: float = 100.0
 var spnk_move_distance: float = 90.0
-var fireball_move_distance: float = 0.0  # 火球不移動施放者
+var fireball_move_distance: float = 0.0
 var powerkk_initial_facing: float = 0.0
 var spnk_initial_facing: float = 0.0
-var fireball_initial_facing: float = 0.0  # 火球初始面向
+var fireball_initial_facing: float = 0.0
 var powerkk_initial_parent_scale_x: float = 0.0
 var powerkk_initial_sprite_scale_x: float = 0.0
 var spnk_initial_parent_scale_x: float = 0.0
@@ -50,7 +50,6 @@ func _ready():
 					var track_path = anim.track_get_path(track_idx)
 					if track_path.get_subname_count() > 0 and track_path.get_subname(0) == "Sprite2D:transform/scale.x":
 						print("Warning: Animation '%s' modifies Sprite2D:transform/scale.x, which may override sprite.scale.x in %s. Consider removing this track." % [anim_name, parent.name])
-		# 在 _ready 中統一連接 animation_finished 信號，避免動態連接
 		if not animation_player.animation_finished.is_connected(_on_spmove_animation_finished):
 			animation_player.animation_finished.connect(_on_spmove_animation_finished)
 	if parent and parent.has_signal("hit_detected"):
@@ -63,7 +62,7 @@ func stop_special_move():
 		is_fireball = false
 		is_spmove = false
 		is_spmove_animation_playing = false
-		fireball_spawn_timer = 0.0  # 重置火球生成計時器
+		fireball_spawn_timer = 0.0
 		var final_position = sprite.position
 		animation_player.stop()
 		sprite.position = Vector2.ZERO
@@ -74,12 +73,14 @@ func stop_special_move():
 		else:
 			print("Warning: World node not found, fallback to direct global_position update")
 			parent.global_position.x += final_position.x
+		# 修正：強制更新 facing 並確保 sprite.scale.x 與 facing_direction 同步
+		parent.force_update_facing_direction()  # 使用 force_update_facing_direction 確保正確計算
 		sprite.scale.x = abs(sprite.scale.x) * sign(parent.facing_direction)
-		parent.update_facing_direction()
 		parent.fixed_velocity.x = 0
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false
-		print("Debug: Special move stopped for %s, final position: %s, sprite.scale.x=%s" % [parent.name, parent.global_position, sprite.scale.x])
+		# 加 debug：追蹤 stop 後的 facing 和 scale
+		print("Debug: Special move stopped for %s, facing_direction=%s, parent.scale.x=%s, sprite.scale.x=%s, position=%s" % [parent.name, parent.facing_direction, parent.scale.x, sprite.scale.x, parent.global_position])
 
 func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) -> bool:
 	if parent.is_hit or parent.is_knockfly:
@@ -96,7 +97,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		print("Warning: World node not found in group 'world' for %s" % parent.name)
 		return false
 	
-	# 修正：當 powerkk 或 spnk 正在執行時，忽略火球輸入
 	if input_data.spm2_pressed and not parent.is_attacking and not is_fireball and not is_powerkk and not is_spnk:
 		is_fireball = true
 		is_spmove = true
@@ -108,13 +108,13 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		else:
 			fireball_time = 0.3
 		fireball_timer = fireball_time
-		fireball_spawn_timer = fireball_spawn_delay  # 設置火球生成延遲
+		fireball_spawn_timer = fireball_spawn_delay
 		parent.current_damage = fireball_damage
 		fireball_initial_facing = parent.facing_direction
 		fireball_initial_parent_scale_x = parent.scale.x
 		fireball_initial_sprite_scale_x = sprite.scale.x
 		if "is_special_moving" in parent:
-			parent.is_special_moving = false  # 火球施放不移動角色
+			parent.is_special_moving = false
 		animation_player.play("fireball")
 		print("Debug: Fireball triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, spawn delay=%.2fs" % [parent.name, fireball_damage, fireball_initial_facing, parent.scale.x, sprite.scale.x, fireball_spawn_delay])
 		is_spmove_animation_playing = true
@@ -122,13 +122,12 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	
 	if is_fireball:
 		fireball_timer -= delta
-		fireball_spawn_timer -= delta  # 更新火球生成計時器
-		if fireball_spawn_timer <= 0 and fireball_spawn_timer > -delta:  # 確保只生成一次
-			# 根據 player_id 選擇火球場景
+		fireball_spawn_timer -= delta
+		if fireball_spawn_timer <= 0 and fireball_spawn_timer > -delta:
 			var fireball_scene = load("res://P1_fireball.tscn" if player_id == "p1" else "res://P2_fireball.tscn")
 			var fireball = fireball_scene.instantiate()
 			fireball.direction = parent.facing_direction
-			fireball.owner_id = player_id  # 設置火球的發射者
+			fireball.owner_id = player_id
 			fireball.global_position = parent.global_position + Vector2(fireball_x_offset * parent.facing_direction, fireball_y_offset)
 			get_tree().current_scene.add_child(fireball)
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
@@ -227,12 +226,13 @@ func _on_spmove_animation_finished(anim_name: String):
 		is_spmove_animation_playing = false
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false
-		# 僅在計時器未結束時停止特殊招式，避免動畫提前結束
 		if (anim_name == "spnk" and spnk_timer > 0) or (anim_name == "powerkk" and powerkk_timer > 0) or (anim_name == "fireball" and fireball_timer > 0):
 			print("Debug: Animation %s finished but timer still active for %s, skipping stop_special_move" % [anim_name, parent.name])
 			return
 		stop_special_move()
-		print("Debug: Animation %s finished, stopping special move for %s" % [anim_name, parent.name])
+		# 修正：動畫結束後強制更新 facing
+		parent.force_update_facing_direction()
+		print("Debug: Animation %s finished for %s, facing_direction=%s, parent.scale.x=%s, sprite.scale.x=%s" % [anim_name, parent.name, parent.facing_direction, parent.scale.x, sprite.scale.x])
 
 func _process(delta: float):
 	if not is_spmove_animation_playing or not animation_player or not animation_player.is_playing():

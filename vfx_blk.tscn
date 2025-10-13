@@ -1,0 +1,70 @@
+[gd_scene load_steps=12 format=3 uid="uid://b3fnkau3l2ucr"]
+
+[ext_resource type="Texture2D" uid="uid://doykl6emt5tob" path="res://assets/texture/trans/29.png" id="1_2jt2x"]
+[ext_resource type="Texture2D" uid="uid://cuitf5meji2p" path="res://assets/texture/trans/21.png" id="2_7crm8"]
+
+[sub_resource type="Curve" id="Curve_7crm8"]
+_data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_xm6gv"]
+curve = SubResource("Curve_7crm8")
+
+[sub_resource type="Curve" id="Curve_ivt7l"]
+_data = [Vector2(0, 0), 0.0, 1.0, 0, 1, Vector2(1, 1), 1.0, 0.0, 1, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_srr75"]
+curve = SubResource("Curve_ivt7l")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_himcj"]
+particle_flag_disable_z = true
+radial_velocity_min = -2.2351742e-05
+radial_velocity_max = -2.2351742e-05
+gravity = Vector3(0, 0, 0)
+scale_min = 0.19999999
+scale_max = 0.19999999
+scale_curve = SubResource("CurveTexture_srr75")
+color = Color(0.28527018, 0.74837047, 1.8916494, 1)
+alpha_curve = SubResource("CurveTexture_xm6gv")
+
+[sub_resource type="Curve" id="Curve_xm6gv"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.08370045, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_ivt7l"]
+curve = SubResource("Curve_xm6gv")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_srr75"]
+particle_flag_disable_z = true
+gravity = Vector3(0, 0, 0)
+scale_min = 0.099999994
+scale_max = 0.099999994
+color = Color(0, 0.86981136, 1.6372112, 0.50980395)
+alpha_curve = SubResource("CurveTexture_ivt7l")
+
+[sub_resource type="Environment" id="Environment_5881g"]
+background_mode = 3
+glow_enabled = true
+glow_hdr_threshold = 1.5
+
+[node name="vfx_blk" type="Node2D"]
+
+[node name="exp" type="GPUParticles2D" parent="."]
+modulate = Color(1.4369954, 1.4369954, 1.4369954, 1)
+amount = 1
+texture = ExtResource("1_2jt2x")
+lifetime = 0.3
+explosiveness = 1.0
+fixed_fps = 60
+process_material = SubResource("ParticleProcessMaterial_himcj")
+
+[node name="wave" type="GPUParticles2D" parent="."]
+position = Vector2(-10, 0)
+amount = 1
+texture = ExtResource("2_7crm8")
+lifetime = 0.3
+process_material = SubResource("ParticleProcessMaterial_srr75")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_5881g")

@@ -94,6 +94,13 @@ func _physics_process(delta):
 	var input_data = get_input()
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
 	
+	# 修正：確保 spnk 結束後清除攻擊狀態
+	if move_set and move_set.is_spmove:
+		is_attacking = false
+		attack_type = "none"
+		input_data.st_mp_pressed = false
+		input_data.st_mk_pressed = false
+	
 	if is_attacking and animation_state.get_current_node() in ["st_mp", "st_mk"]:
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
@@ -112,9 +119,12 @@ func _physics_process(delta):
 		force_update_facing_direction()
 		current_damage = input_data.damage
 		is_attacking = true
-		attack_type = input_data.attack_type
+		# 修正：明確根據輸入設置 attack_type
+		attack_type = "st_mp" if input_data.st_mp_pressed else "st_mk"
 		if not is_push_back:
 			fixed_velocity.x = 0
+		# 加 debug：追蹤攻擊觸發時的 input 和 attack_type
+		print("Debug: Attack triggered for %s, input_st_mp=%s, input_st_mk=%s, attack_type=%s, facing=%s, animation=%s" % [name, input_data.st_mp_pressed, input_data.st_mk_pressed, attack_type, facing_direction, animation_state.get_current_node() if animation_state else "none"])
 	
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked
 	if input_data.st_mp_pressed and is_valid_air_state:
@@ -203,7 +213,6 @@ func _on_hitbox_area_entered(area: Area2D):
 		var stun_duration = blockstun if is_blocked else hitstun
 		hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
 		
-		# 僅在未格擋時生成VFX
 		var vfx_position = "N/A"
 		if not is_blocked:
 			var contact_point = get_contact_point($Hitbox, area)
@@ -214,7 +223,7 @@ func _on_hitbox_area_entered(area: Area2D):
 				print("Warning: Using fallback midpoint position %s for VFX due to invalid contact point" % contact_point)
 			vfx.global_position = contact_point
 			if not target.is_on_floor():
-				vfx.global_position.y += 10  # 空中攻擊向下偏移10像素
+				vfx.global_position.y += 10
 			var particles_1 = vfx.get_node_or_null("explode")
 			var particles_2 = vfx.get_node_or_null("ring")
 			if particles_1:
@@ -286,6 +295,8 @@ func _on_animation_tree_finished(anim_name: String):
 		cancel_window_timer = 0.0
 		update_facing_direction()
 		_update_animation_state(0, false)
+		# 加 debug：追蹤攻擊動畫結束
+		print("Debug: Attack animation %s finished for %s, is_attacking=%s, attack_type=%s, facing=%s" % [anim_name, name, is_attacking, attack_type, facing_direction])
 	elif anim_name in ["jump_mp", "jump_mk"] and is_air_attacking:
 		if is_on_floor():
 			is_air_attacking = false
@@ -320,6 +331,8 @@ func _on_animation_tree_finished(anim_name: String):
 		if move_set and (move_set.is_powerkk or move_set.is_spnk):
 			move_set.stop_special_move()
 			_update_animation_state(0, false)
+		# 加 debug：追蹤 spnk/powerkk 動畫結束
+		print("Debug: Animation %s finished for %s, is_attacking=%s, attack_type=%s, facing=%s" % [anim_name, name, is_attacking, attack_type, facing_direction])
 
 func stop_attack():
 	is_attacking = false
@@ -353,6 +366,8 @@ func force_update_facing_direction():
 			facing_direction = 1.0
 			scale.x = 1
 		update_hitbox_position()
+		# 加 debug：追蹤 force 更新時的邊界和 facing
+		print("Debug: Force update facing for %s, self_left=%s, self_right=%s, other_left=%s, other_right=%s, new_facing=%s" % [name, self_left, self_right, other_left, other_right, facing_direction])
 	else:
 		facing_direction = 1.0
 		scale.x = 1

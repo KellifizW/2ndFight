@@ -7,7 +7,6 @@ var world: Node
 @onready var animation_player = $AnimationPlayer if has_node("AnimationPlayer") else null
 @export var landing_duration: float = 0.2
 
-# Physics variables
 var fixed_position: Vector2i = Vector2i.ZERO
 var fixed_velocity: Vector2i = Vector2i.ZERO
 var colbox_half_width: float = 0.0
@@ -147,7 +146,7 @@ func _physics_process(delta):
 			is_holding_back = false
 			is_crouch_blocking = false
 	
-	if is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_jumping and not is_crouching and not is_powerkk and not is_spnk and not is_fireball and not (is_hit or is_knockfly or is_blocking or is_push_back):
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not is_fireball and not (is_hit or is_knockfly or is_blocking or is_push_back) and not is_crouching:
 		if neutral_timer > 0 and input_dir != 0 and pending_dash_dir == input_dir:
 			if input_dir * facing_direction > 0:
 				is_dashing = true
@@ -238,10 +237,11 @@ func _physics_process(delta):
 	if just_jumped and fixed_velocity.y > 0:
 		just_jumped = false
 	
+	# 修正：放寬 facing 更新條件，允許 spnk 結束後立即更新
 	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
 	var is_attacking_state = is_attacking
 	var is_landing_state = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
-	if not (is_special_move or is_attacking_state or is_landing_state) and not landing_facing_lock:
+	if not (is_attacking_state or landing_facing_lock or is_landing_state):  # 移除 is_special_move 限制
 		update_facing_direction()
 	
 	if is_on_floor() and was_in_air and not is_landing_state and not (is_powerkk or is_spnk) and not is_jumping and not landing_facing_lock:
@@ -338,7 +338,7 @@ func update_facing_direction():
 	var is_attacking_state = is_attacking
 	var is_landing_state = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
 	
-	if is_special_move or is_attacking_state or landing_facing_lock or is_landing_state:
+	if is_attacking_state or landing_facing_lock or is_landing_state:  # 移除 is_special_move 限制
 		return
 	
 	var players = get_tree().get_nodes_in_group("players")
@@ -354,6 +354,7 @@ func update_facing_direction():
 		var other_left = other_player.global_position.x - other_player.colbox_half_width
 		var other_right = other_player.global_position.x + other_player.colbox_half_width
 		
+		var old_facing = facing_direction
 		if self_left > other_right:
 			facing_direction = -1.0
 			scale.x = -1
@@ -367,6 +368,8 @@ func update_facing_direction():
 			sprite.scale.x = 1.0
 			rotation_degrees = 0
 		update_hitbox_position()
+		# 加 debug：追蹤更新時的邊界和 facing 變化
+		print("Debug: Update facing for %s, self_left=%s, self_right=%s, other_left=%s, other_right=%s, old_facing=%s, new_facing=%s, scale.x=%s" % [name, self_left, self_right, other_left, other_right, old_facing, facing_direction, scale.x])
 	else:
 		facing_direction = 1.0
 		scale.x = 1
@@ -408,8 +411,11 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 	if is_blocking:
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
 	if is_attacking:
-		var atype = get("attack_type") if "attack_type" in self else "st_mp"
-		return "st_mp" if atype == "st_mp" else "st_mk" if atype == "st_mk" else "st_mp"
+		var atype = get("attack_type") if "attack_type" in self else "none"
+		# 修正：移除 fallback 邏輯，確保 attack_type 有效
+		if atype in ["st_mp", "st_mk"]:
+			return atype
+		return "Walk"  # 若 attack_type 無效，返回 Walk
 	if is_dashing:
 		return "Dash"
 	if is_backdashing:
@@ -448,6 +454,8 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	
 	if curr_state != target_state:
 		animation_state.travel(target_state)
+		# 加 debug：追蹤動畫狀態轉換
+		print("Debug: Animation state changed for %s, from %s to %s, attack_type=%s" % [name, curr_state, target_state, get("attack_type") if "attack_type" in self else "none"])
 	
 	if target_state == "Walk":
 		animation_tree.set("parameters/Walk/blend_position", anim_dir)
