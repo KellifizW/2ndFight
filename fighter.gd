@@ -39,7 +39,6 @@ func _physics_process(delta):
 			fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
 		elif fixed_velocity.x < 0:
 			fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
-		print("Debug: Air friction applied, fixed_velocity.x=%s for %s" % [fixed_velocity.x, name])
 
 	var input_data = get_input()
 	var is_valid_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping
@@ -68,12 +67,8 @@ func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267,
 
 	if is_attacking:
 		is_attacking = false
-		print("Debug: Attack interrupted by hit for %s" % name)
 	if is_spmove:
 		move_set.stop_special_move()
-		print("Debug: Special move interrupted by hit for %s" % name)
-
-	print("Debug: take_hit called, input_dir=%s, crouch_pressed=%s, is_holding_back=%s, is_crouch_blocking=%s, is_blocking=%s, block_type=%s" % [input_data.input_dir, input_data.crouch_pressed, is_holding_back, is_crouch_blocking, is_blocking, block_type])
 
 	if is_blocking or ((is_holding_back or is_crouch_blocking) and is_on_floor() and not is_spmove):
 		is_blocking = true
@@ -86,13 +81,9 @@ func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267,
 		if not skip_push:
 			block_push_timer = initial_blockstun
 			block_push_velocity = 2.0 * block_push_distance * world.SIMULATION_SCALE / initial_blockstun
-			print("Debug: Block push set - timer=%.2f, velocity=%.2f, skip_push=%s" % [block_push_timer, block_push_velocity, skip_push])
-		print("Debug: Ordinary block successful (from hit), blockstun duration %s for %s, crouch_blocking=%s" % [initial_blockstun, name, is_crouch_blocking])
 		block_detected.emit(name, block_type)
 		_update_animation_state(0, input_data.crouch_pressed)
 		return
-	else:
-		print("Debug: No block triggered, proceeding to hit logic, is_on_floor=%s" % is_on_floor())
 
 	if not is_on_floor():
 		update_facing_direction()
@@ -106,25 +97,20 @@ func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267,
 			knockfly_timer = max(knockfly_duration, min_hitstun_duration)
 			if not skip_push:
 				knockfly_velocity_x = -knockfly_push_speed * world.SIMULATION_SCALE * facing_mult
-				print("Debug: Knockfly push set - velocity_x=%.2f, skip_push=%s" % [knockfly_velocity_x, skip_push])
-			print("Debug: Special move hit or health zero, triggering knockfly for %s" % name)
+			return
+
+		is_hit = true
+		initial_hitstun = max(hitstun_duration, min_hitstun_duration)
+		hit_timer = initial_hitstun
+		if is_on_floor():
+			if not skip_push:
+				hit_push_timer = initial_hitstun
+				hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
+			fixed_velocity.x = 0
+			fixed_velocity.y = 0
 		else:
-			is_hit = true
-			initial_hitstun = max(hitstun_duration, min_hitstun_duration)
-			hit_timer = initial_hitstun
-			if is_on_floor():
-				if not skip_push:
-					hit_push_timer = initial_hitstun
-					hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
-					print("Debug: Hit push set - timer=%.2f, velocity=%.2f, skip_push=%s" % [hit_push_timer, hit_push_velocity, skip_push])
-				fixed_velocity.x = 0
-				fixed_velocity.y = 0
-				print("Debug: Ground hitstun triggered, duration %s for %s, damage %s" % [initial_hitstun, name, damage])
-			else:
-				fixed_velocity.y = int(air_knockback_vertical_speed * world.SIMULATION_SCALE)
-				fixed_velocity.x = int(-air_knockback_horizontal_speed * world.SIMULATION_SCALE * facing_mult)
-				print("Debug: Air hit push set - velocity.y=%s, velocity.x=%s" % [fixed_velocity.y, fixed_velocity.x])
-				print("Debug: Air hit triggered for %s, fixed_velocity.y=%s, fixed_velocity.x=%s" % [name, fixed_velocity.y, fixed_velocity.x])
+			fixed_velocity.y = int(air_knockback_vertical_speed * world.SIMULATION_SCALE)
+			fixed_velocity.x = int(-air_knockback_horizontal_speed * world.SIMULATION_SCALE * facing_mult)
 	else:
 		is_hit = true
 		initial_hitstun = max(hitstun_duration, min_hitstun_duration)
@@ -132,10 +118,8 @@ func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267,
 		if not skip_push:
 			hit_push_timer = initial_hitstun
 			hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
-			print("Debug: Hit push set (no healthbar) - timer=%.2f, velocity=%.2f, skip_push=%s" % [hit_push_timer, hit_push_velocity, skip_push])
 		fixed_velocity.x = 0
 		fixed_velocity.y = 0
-		print("Warning: No healthbar, hitstun triggered without damage for %s" % name)
 
 	_update_animation_state(0, input_data.crouch_pressed)
 
@@ -146,11 +130,8 @@ func take_knockfly():
 	if not is_hit and not is_knockfly and is_on_floor():
 		if is_spmove:
 			move_set.stop_special_move()
-			print("Debug: Special move interrupted by knockfly for %s" % name)
-
 		is_knockfly = true
 		knockfly_timer = max(knockfly_duration, min_hitstun_duration)
-		print("Debug: Knockfly taken for %s, knockfly_timer set to %.2f" % [name, knockfly_duration])
 		_update_animation_state(0, is_crouching)
 
 func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
@@ -158,31 +139,60 @@ func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
 	var hurt_shape_node = hurt_area.get_node_or_null("HurtShape") as CollisionShape2D
 
 	if not hit_shape_node or not hurt_shape_node or not (hit_shape_node.shape is RectangleShape2D) or not (hurt_shape_node.shape is RectangleShape2D):
-		print("Warning: Invalid shapes for contact point calculation in get_contact_point")
-		return Vector2.ZERO
+		print("Warning: Invalid shapes for contact point calculation in get_contact_point for %s" % name)
+		return (hit_area.global_position + hurt_area.global_position) / 2.0
 
-	var hit_global_pos = hit_area.global_position + hit_shape_node.position
-	var hit_half_size = hit_shape_node.shape.size / 2.0
-	var hit_left = hit_global_pos.x - hit_half_size.x
-	var hit_right = hit_global_pos.x + hit_half_size.x
-	var hit_bottom = hit_global_pos.y - hit_half_size.y
-	var hit_top = hit_global_pos.y + hit_half_size.y
+	var world = get_tree().get_first_node_in_group("world")
+	var SIMULATION_SCALE = world.SIMULATION_SCALE if world else 1000.0
+	var TOLERANCE = 2.0 * SIMULATION_SCALE
 
-	var hurt_global_pos = hurt_area.global_position + hurt_shape_node.position
-	var hurt_half_size = hurt_shape_node.shape.size / 2.0
-	var hurt_left = hurt_global_pos.x - hurt_half_size.x
-	var hurt_right = hurt_global_pos.x + hurt_half_size.x
-	var hurt_bottom = hurt_global_pos.y - hurt_half_size.y
-	var hurt_top = hurt_global_pos.y + hurt_half_size.y
+	var hit_shape_pos = hit_shape_node.global_position
+	var hit_half_size = hit_shape_node.shape.extents * abs(hit_shape_node.global_scale)
+	var hit_left = (hit_shape_pos.x - hit_half_size.x) * SIMULATION_SCALE
+	var hit_right = (hit_shape_pos.x + hit_half_size.x) * SIMULATION_SCALE
+	var hit_bottom = (hit_shape_pos.y - hit_half_size.y) * SIMULATION_SCALE
+	var hit_top = (hit_shape_pos.y + hit_half_size.y) * SIMULATION_SCALE
 
-	var overlap_left = max(hit_left, hurt_left)
-	var overlap_right = min(hit_right, hurt_right)
-	var overlap_bottom = max(hit_bottom, hurt_bottom)
-	var overlap_top = min(hit_top, hurt_top)
+	var hurt_shape_pos = hurt_shape_node.global_position
+	var hurt_half_size = hurt_shape_node.shape.extents * abs(hurt_shape_node.global_scale)
+	var hurt_left = (hurt_shape_pos.x - hurt_half_size.x) * SIMULATION_SCALE
+	var hurt_right = (hurt_shape_pos.x + hurt_half_size.x) * SIMULATION_SCALE
+	var hurt_bottom = (hurt_shape_pos.y - hurt_half_size.y) * SIMULATION_SCALE
+	var hurt_top = (hurt_shape_pos.y + hurt_half_size.y) * SIMULATION_SCALE
 
-	if overlap_left >= overlap_right or overlap_bottom >= overlap_top:
-		return Vector2.ZERO
+	var overlap_left = max(int(hit_left), int(hurt_left))
+	var overlap_right = min(int(hit_right), int(hurt_right))
+	var overlap_bottom = max(int(hit_bottom), int(hurt_bottom))
+	var overlap_top = min(int(hit_top), int(hurt_top))
 
-	var median_x = (overlap_left + overlap_right) / 2.0
-	var median_y = (overlap_bottom + overlap_top) / 2.0
-	return Vector2(median_x, median_y)
+	if overlap_left <= overlap_right + TOLERANCE and overlap_bottom <= overlap_top + TOLERANCE:
+		var median_x = (overlap_left + overlap_right) / 2.0 / SIMULATION_SCALE
+		var median_y = (overlap_bottom + overlap_top) / 2.0 / SIMULATION_SCALE
+		var contact_point = Vector2(median_x, median_y)
+		print("Debug: Contact point calculated: %s" % contact_point)
+		return contact_point
+
+	print("Warning: No overlap detected in get_contact_point for %s vs %s" % [hit_area.get_parent().name, hurt_area.get_parent().name])
+	var space_state = get_world_2d().direct_space_state
+	var query = PhysicsShapeQueryParameters2D.new()
+	query.set_shape(hit_shape_node.shape)
+	query.transform = hit_shape_node.global_transform
+	query.collision_mask = hurt_area.collision_layer
+	var result = space_state.intersect_shape(query, 1)
+	if result and result[0].has("point"):
+		var collision_point = result[0].point
+		print("Debug: Physics query found collision point: %s" % collision_point)
+		return collision_point
+
+	var hurt_left_edge = Vector2(hurt_shape_pos.x - hurt_half_size.x, hurt_shape_pos.y)
+	var point_query = PhysicsPointQueryParameters2D.new()
+	point_query.position = hurt_left_edge
+	point_query.collision_mask = hit_area.collision_layer
+	var point_result = space_state.intersect_point(point_query, 1)
+	if point_result and point_result[0].has("collider"):
+		var collision_point = hurt_left_edge
+		print("Debug: Point query found collision at Hurtbox left edge: %s" % collision_point)
+		return collision_point
+
+	print("Warning: Physics query failed, using fallback midpoint position")
+	return (hit_area.global_position + hurt_area.global_position) / 2.0

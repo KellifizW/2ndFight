@@ -140,6 +140,21 @@ func _physics_process(delta):
 	if not (landing_lock_timer > 0):
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
+func _physics_process_jump(delta: float):
+	var input_data = get_input()
+	if input_data.jump_pressed and is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_hit and not is_knockfly and not is_blocking:
+		is_jumping = true
+		landing_facing_lock = true
+		var world = get_tree().get_first_node_in_group("world")
+		if world:
+			fixed_position.y = world.FLOOR_Y - 1
+			fixed_velocity.y = 0
+			if input_data.input_dir != 0:
+				var jump_speed = jump_horizontal_speed if input_data.input_dir * facing_direction > 0 else jump_horizontal_speed * 0.75
+				fixed_velocity.x = int(jump_speed * world.SIMULATION_SCALE * input_data.input_dir)
+			else:
+				fixed_velocity.x = 0
+
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	if is_wakeup_locked:
 		return "wakeup"
@@ -203,17 +218,43 @@ func _on_hitbox_area_entered(area: Area2D):
 			else:
 				pass
 
+			# 生成VFX
 			var contact_point = get_contact_point($Hitbox, area)
-			print("Debug: Hit detected on %s" % target.name)
-			print("  - Hitbox Global Position: %s, Size: %s" % [$Hitbox.global_position, $Hitbox/HitShape.shape.size if has_node("Hitbox/HitShape") else "N/A"])
-			print("  - Hurtbox Global Position: %s, Size: %s" % [area.global_position, area.get_node_or_null("HurtShape").shape.size if area.get_node_or_null("HurtShape") else "N/A"])
-			print("  - Contact Point: %s" % contact_point)
-
-			var world_node = get_tree().get_first_node_in_group("world")
-			if world_node:
-				var debug_label = world_node.get_node_or_null("UI/DebugLabel")
-				if debug_label:
-					debug_label.text = "Hit on %s\nHitbox: %s\nHurtbox: %s\nContact: %s" % [target.name, $Hitbox.global_position, area.global_position, contact_point]
+			var vfx = preload("res://vfx_hit.tscn").instantiate()
+			world.add_child(vfx)
+			# 使用後備位置：hitbox和hurtbox的中間點
+			if contact_point == Vector2.ZERO:
+				contact_point = (area.global_position + $Hitbox.global_position) / 2.0
+				print("Warning: Using fallback midpoint position %s for VFX due to invalid contact point" % contact_point)
+			vfx.global_position = contact_point
+			if not target.is_on_floor():
+				vfx.global_position.y += 10  # 空中攻擊向下偏移10像素
+			# 明確啟動粒子系統
+			var particles_1 = vfx.get_node_or_null("explode")
+			var particles_2 = vfx.get_node_or_null("ring")
+			if particles_1:
+				particles_1.emitting = true
+			if particles_2:
+				particles_2.emitting = true
+			
+			# 除錯日誌
+			var debug_text = "Hit on %s\nHitbox: %s (facing: %s)\nHurtbox: %s (facing: %s)\nVFX Contact: %s\nAir hit: %s" % [
+				target.name,
+				$Hitbox.global_position,
+				get_facing_multiplier(),
+				area.global_position,
+				target.get_facing_multiplier() if "get_facing_multiplier" in target else 1.0,
+				vfx.global_position,
+				"yes" if not target.is_on_floor() else "no"
+			]
+			print("Debug: VFX spawned at %s for %s hitting %s, particles emitting: %s, %s" % [
+				vfx.global_position, name, target.name,
+				particles_1.emitting if particles_1 else false,
+				particles_2.emitting if particles_2 else false
+			])
+			var debug_label = world.get_node_or_null("UI/DebugLabel")
+			if debug_label:
+				debug_label.text = debug_text
 
 func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
 	if player_id == "p1" and attack_type == "st_mp" and is_attacking:
@@ -291,21 +332,6 @@ func stop_attack():
 
 func get_facing_multiplier() -> float:
 	return super.get_facing_multiplier()
-
-func _physics_process_jump(delta: float):
-	var input_data = get_input()
-	if input_data.jump_pressed and is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_hit and not is_knockfly and not is_blocking:
-		is_jumping = true
-		landing_facing_lock = true
-		var world = get_tree().get_first_node_in_group("world")
-		if world:
-			fixed_position.y = world.FLOOR_Y - 1
-			fixed_velocity.y = 0
-			if input_data.input_dir != 0:
-				var jump_speed = jump_horizontal_speed if input_data.input_dir * facing_direction > 0 else jump_horizontal_speed * 0.75
-				fixed_velocity.x = int(jump_speed * world.SIMULATION_SCALE * input_data.input_dir)
-			else:
-				fixed_velocity.x = 0
 
 func force_update_facing_direction():
 	var players = get_tree().get_nodes_in_group("players")
