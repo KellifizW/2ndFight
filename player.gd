@@ -186,75 +186,74 @@ func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
 		var target = area.get_parent()
 		var damage = current_damage
-		if damage > 0:
-			var world = get_tree().get_first_node_in_group("world")
-			if not world:
-				return
-			var slowmo_controller = world.get_node_or_null("SlowMoController")
-			if slowmo_controller:
-				slowmo_controller.request_hit_freeze()
-			
-			var hitstun = st_mp_hitstun if attack_type == "st_mp" else st_mk_hitstun if attack_type == "st_mk" else 0.35
-			var blockstun = st_mp_blockstun if attack_type == "st_mp" else st_mk_blockstun if attack_type == "st_mk" else 0.267
-			
-			var was_in_stun = target.is_hit or target.is_knockfly
-			target.take_hit(hitstun, blockstun, damage, false)
-			
-			var is_blocked = target.is_blocking and target.block_type == "ordinary"
-			var stun_duration = blockstun if is_blocked else hitstun
-			hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
-			if move_set and (move_set.is_spnk or move_set.is_powerkk):
-				return
-			var push_manager = get_tree().get_first_node_in_group("push_manager")
-			var is_target_at_corner = push_manager.is_at_corner(target) if push_manager else false
-			if is_target_at_corner:
-				var push_duration: float = stun_duration
-				is_push_back = true
-				push_back_timer = push_duration
-				initial_push_back = push_duration
-				push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
-				var facing_mult = get_facing_multiplier()
-				fixed_velocity.x = int(-push_back_velocity * facing_mult)
-			else:
-				pass
-
-			# 生成VFX
+		var world = get_tree().get_first_node_in_group("world")
+		if not world:
+			return
+		var slowmo_controller = world.get_node_or_null("SlowMoController")
+		if slowmo_controller:
+			slowmo_controller.request_hit_freeze()
+		
+		var hitstun = st_mp_hitstun if attack_type == "st_mp" else st_mk_hitstun if attack_type == "st_mk" else 0.35
+		var blockstun = st_mp_blockstun if attack_type == "st_mp" else st_mk_blockstun if attack_type == "st_mk" else 0.267
+		
+		var was_in_stun = target.is_hit or target.is_knockfly
+		target.take_hit(hitstun, blockstun, damage, false)
+		
+		var is_blocked = target.is_blocking and target.block_type == "ordinary"
+		var stun_duration = blockstun if is_blocked else hitstun
+		hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
+		
+		# 僅在未格擋時生成VFX
+		var vfx_position = "N/A"
+		if not is_blocked:
 			var contact_point = get_contact_point($Hitbox, area)
 			var vfx = preload("res://vfx_hit.tscn").instantiate()
 			world.add_child(vfx)
-			# 使用後備位置：hitbox和hurtbox的中間點
 			if contact_point == Vector2.ZERO:
 				contact_point = (area.global_position + $Hitbox.global_position) / 2.0
 				print("Warning: Using fallback midpoint position %s for VFX due to invalid contact point" % contact_point)
 			vfx.global_position = contact_point
 			if not target.is_on_floor():
 				vfx.global_position.y += 10  # 空中攻擊向下偏移10像素
-			# 明確啟動粒子系統
 			var particles_1 = vfx.get_node_or_null("explode")
 			var particles_2 = vfx.get_node_or_null("ring")
 			if particles_1:
 				particles_1.emitting = true
 			if particles_2:
 				particles_2.emitting = true
-			
-			# 除錯日誌
-			var debug_text = "Hit on %s\nHitbox: %s (facing: %s)\nHurtbox: %s (facing: %s)\nVFX Contact: %s\nAir hit: %s" % [
-				target.name,
-				$Hitbox.global_position,
-				get_facing_multiplier(),
-				area.global_position,
-				target.get_facing_multiplier() if "get_facing_multiplier" in target else 1.0,
-				vfx.global_position,
-				"yes" if not target.is_on_floor() else "no"
-			]
-			print("Debug: VFX spawned at %s for %s hitting %s, particles emitting: %s, %s" % [
-				vfx.global_position, name, target.name,
-				particles_1.emitting if particles_1 else false,
-				particles_2.emitting if particles_2 else false
-			])
-			var debug_label = world.get_node_or_null("UI/DebugLabel")
-			if debug_label:
-				debug_label.text = debug_text
+			vfx_position = vfx.global_position
+			print("Debug: Hit VFX spawned at %s for %s hitting %s (unblocked)" % [vfx.global_position, name, target.name])
+		else:
+			print("Debug: VFX skipped due to block for %s hitting %s" % [name, target.name])
+		
+		var debug_text = "Hit on %s\nHitbox: %s (facing: %s)\nHurtbox: %s (facing: %s)\nVFX Contact: %s\nAir hit: %s\nBlocked: %s" % [
+			target.name,
+			$Hitbox.global_position,
+			get_facing_multiplier(),
+			area.global_position,
+			target.get_facing_multiplier() if "get_facing_multiplier" in target else 1.0,
+			vfx_position,
+			"yes" if not target.is_on_floor() else "no",
+			"yes" if is_blocked else "no"
+		]
+		var debug_label = world.get_node_or_null("UI/DebugLabel")
+		if debug_label:
+			debug_label.text = debug_text
+		
+		if move_set and (move_set.is_spnk or move_set.is_powerkk):
+			return
+		var push_manager = get_tree().get_first_node_in_group("push_manager")
+		var is_target_at_corner = push_manager.is_at_corner(target) if push_manager else false
+		if is_target_at_corner:
+			var push_duration: float = stun_duration
+			is_push_back = true
+			push_back_timer = push_duration
+			initial_push_back = push_duration
+			push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
+			var facing_mult = get_facing_multiplier()
+			fixed_velocity.x = int(-push_back_velocity * facing_mult)
+		else:
+			pass
 
 func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
 	if player_id == "p1" and attack_type == "st_mp" and is_attacking:
