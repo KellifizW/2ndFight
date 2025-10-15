@@ -1,7 +1,7 @@
 [gd_scene load_steps=16 format=3 uid="uid://ch1ju50maflfw"]
 
 [ext_resource type="Texture2D" uid="uid://bmjae6pnph2g8" path="res://assets/T_VFX_simple_ss.png" id="1_42wi3"]
-[ext_resource type="Script" uid="uid://cl1f56yxnlaj4" path="res://vfx_hit.gd" id="1_i4h24"]
+[ext_resource type="Script" uid="uid://dowb57vy1aew4" path="res://vfx_impact.gd" id="1_i4h24"]
 [ext_resource type="Texture2D" uid="uid://47hjn72dc7ig" path="res://assets/ring_s.png" id="2_42wi3"]
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_sr76h"]

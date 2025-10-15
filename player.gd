@@ -213,27 +213,24 @@ func _on_hitbox_area_entered(area: Area2D):
 		var stun_duration = blockstun if is_blocked else hitstun
 		hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
 		
-		var vfx_position = "N/A"
-		if not is_blocked:
-			var contact_point = get_contact_point($Hitbox, area)
-			var vfx = preload("res://vfx_hit.tscn").instantiate()
-			world.add_child(vfx)
-			if contact_point == Vector2.ZERO:
-				contact_point = (area.global_position + $Hitbox.global_position) / 2.0
-				print("Warning: Using fallback midpoint position %s for VFX due to invalid contact point" % contact_point)
-			vfx.global_position = contact_point
-			if not target.is_on_floor():
-				vfx.global_position.y += 10
-			var particles_1 = vfx.get_node_or_null("explode")
-			var particles_2 = vfx.get_node_or_null("ring")
-			if particles_1:
-				particles_1.emitting = true
-			if particles_2:
-				particles_2.emitting = true
-			vfx_position = vfx.global_position
-			print("Debug: Hit VFX spawned at %s for %s hitting %s (unblocked)" % [vfx.global_position, name, target.name])
-		else:
-			print("Debug: VFX skipped due to block for %s hitting %s" % [name, target.name])
+		var contact_point = get_contact_point($Hitbox, area)
+		var vfx_scene_path = "res://vfx_blk.tscn" if is_blocked else "res://vfx_hit.tscn"
+		var vfx = load(vfx_scene_path).instantiate()
+		world.add_child(vfx)
+		if contact_point == Vector2.ZERO:
+			contact_point = (area.global_position + $Hitbox.global_position) / 2.0
+			print("Warning: Using fallback midpoint position %s for VFX due to invalid contact point" % contact_point)
+		vfx.global_position = contact_point
+		if not target.is_on_floor():
+			vfx.global_position.y += 10
+		var particles_1 = vfx.get_node_or_null("exp") if is_blocked else vfx.get_node_or_null("explode")
+		var particles_2 = vfx.get_node_or_null("wave") if is_blocked else vfx.get_node_or_null("ring")
+		if particles_1:
+			particles_1.emitting = true
+		if particles_2:
+			particles_2.emitting = true
+		var vfx_position = vfx.global_position
+		print("Debug: %s VFX spawned at %s for %s hitting %s (%s)" % ["Block" if is_blocked else "Hit", vfx.global_position, name, target.name, "blocked" if is_blocked else "unblocked"])
 		
 		var debug_text = "Hit on %s\nHitbox: %s (facing: %s)\nHurtbox: %s (facing: %s)\nVFX Contact: %s\nAir hit: %s\nBlocked: %s" % [
 			target.name,

@@ -1,6 +1,7 @@
-[gd_scene load_steps=12 format=3 uid="uid://b3fnkau3l2ucr"]
+[gd_scene load_steps=13 format=3 uid="uid://b3fnkau3l2ucr"]
 
 [ext_resource type="Texture2D" uid="uid://doykl6emt5tob" path="res://assets/texture/trans/29.png" id="1_2jt2x"]
+[ext_resource type="Script" uid="uid://dowb57vy1aew4" path="res://vfx_impact.gd" id="1_xm6gv"]
 [ext_resource type="Texture2D" uid="uid://cuitf5meji2p" path="res://assets/texture/trans/21.png" id="2_7crm8"]
 
 [sub_resource type="Curve" id="Curve_7crm8"]
@@ -49,21 +50,26 @@ glow_enabled = true
 glow_hdr_threshold = 1.5
 
 [node name="vfx_blk" type="Node2D"]
+script = ExtResource("1_xm6gv")
 
 [node name="exp" type="GPUParticles2D" parent="."]
 modulate = Color(1.4369954, 1.4369954, 1.4369954, 1)
+emitting = false
 amount = 1
 texture = ExtResource("1_2jt2x")
 lifetime = 0.3
+one_shot = true
 explosiveness = 1.0
 fixed_fps = 60
 process_material = SubResource("ParticleProcessMaterial_himcj")
 
 [node name="wave" type="GPUParticles2D" parent="."]
 position = Vector2(-10, 0)
+emitting = false
 amount = 1
 texture = ExtResource("2_7crm8")
 lifetime = 0.3
+one_shot = true
 process_material = SubResource("ParticleProcessMaterial_srr75")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]

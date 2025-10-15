@@ -79,6 +79,14 @@ func _on_hitbox_area_entered(area: Area2D):
 		if target.has_signal("hit_detected"):
 			target.hit_detected.emit(name, blockstun_duration, is_blocked)
 		print("Fireball hit %s, is_blocked: %s, damage: %s, owner_id: %s" % [target.name, is_blocked, damage, owner_id])
+		# 根據是否格擋選擇 VFX 場景
+		var vfx_position = (global_position + area.global_position) / 2.0
+		var vfx_scene_path = "res://vfx_blk.tscn" if is_blocked else "res://vfx_hit.tscn"
+		var vfx_scene = load(vfx_scene_path).instantiate()
+		vfx_scene.global_position = vfx_position
+		get_tree().current_scene.add_child(vfx_scene)
+		print("Debug: VFX instantiated at %s for %s on %s" % [vfx_position, "block" if is_blocked else "hit", target.name])
+
 func _on_hurtbox_area_entered(area: Area2D):
 	if not is_active:
 		return
@@ -112,6 +120,12 @@ func _on_proximitybox_area_entered(area: Area2D):
 			if target.has_signal("block_detected"):
 				target.block_detected.emit(name, "proximity")
 			print("Fireball blocked by %s, playing impact and destroying, owner_id: %s" % [target.name, owner_id])
+			# 實例化格擋 VFX
+			var vfx_position = (global_position + area.global_position) / 2.0
+			var vfx_blk = load("res://vfx_blk.tscn").instantiate()
+			vfx_blk.global_position = vfx_position
+			get_tree().current_scene.add_child(vfx_blk)
+			print("Debug: VFX_blk instantiated at %s for proximity block on %s" % [vfx_position, target.name])
 
 func _on_animation_finished(anim_name: String):
 	if anim_name == "fireball/ball_impact":  # 使用動畫庫路徑
