@@ -26,7 +26,7 @@ gravity = Vector3(0, 0, 0)
 scale_min = 0.19999999
 scale_max = 0.19999999
 scale_curve = SubResource("CurveTexture_srr75")
-color = Color(0.28527018, 0.74837047, 1.8916494, 1)
+color = Color(0.29776347, 1.1679686, 2.9083786, 1)
 alpha_curve = SubResource("CurveTexture_xm6gv")
 
 [sub_resource type="Curve" id="Curve_xm6gv"]
@@ -41,7 +41,7 @@ particle_flag_disable_z = true
 gravity = Vector3(0, 0, 0)
 scale_min = 0.099999994
 scale_max = 0.099999994
-color = Color(0, 0.86981136, 1.6372112, 0.50980395)
+color = Color(0.6548072, 2.5508888, 3.052433, 1)
 alpha_curve = SubResource("CurveTexture_ivt7l")
 
 [sub_resource type="Environment" id="Environment_5881g"]
@@ -68,8 +68,9 @@ position = Vector2(-10, 0)
 emitting = false
 amount = 1
 texture = ExtResource("2_7crm8")
-lifetime = 0.3
+lifetime = 0.09999999999999999
 one_shot = true
+fixed_fps = 60
 process_material = SubResource("ParticleProcessMaterial_srr75")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]

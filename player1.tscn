@@ -1128,7 +1128,7 @@ tracks/10/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_woueq"]
-size = Vector2(40, 20)
+size = Vector2(80, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_bjfdx"]
 size = Vector2(35, 20)
@@ -1604,7 +1604,6 @@ collision_layer = 4
 collision_mask = 2
 
 [node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
-position = Vector2(20, 0)
 debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="."]
@@ -1614,7 +1613,6 @@ collision_mask = 72
 shape = SubResource("RectangleShape2D_kcguo")
 
 [node name="AttackHurtShape" type="CollisionShape2D" parent="Hurtbox"]
-position = Vector2(20, 0)
 debug_color = Color(0.9878623, 0.092036285, 0.1464591, 0.41960785)
 
 [node name="Proximitybox" type="Area2D" parent="."]

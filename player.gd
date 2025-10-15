@@ -1,26 +1,26 @@
 # Frame Data for Attacks and Moves (based on animation timings in player1.tscn and player2.tscn)
-# These values are derived from the animation lengths and hitbox enable/disable timings.
-# Startup: Time before hitbox becomes active (from animation start to first enable).
-# Active: Duration hitbox is active (false for disabled).
-# Recovery: Time after active until animation ends.
-# Note: For moves with multiple active periods (e.g., specials), listed as primary or aggregated.
-# Values are approximate due to step=0.0333 or 0.1 in animations.
+# These values are derived from animation lengths and hitbox enable/disable timings in Godot 4.5.
+# Startup: Time from animation start to when hitbox becomes active (HitShape:shape set to non-null).
+# Active: Duration hitbox is active (from non-null to null or disabled).
+# Recovery: Time from hitbox deactivation to animation end.
+# Note: Values for P2 st_mp, st_mk, and spnk are updated based on player2.tscn (AnimationLibrary_46qut).
+# For moves with multiple active periods (e.g., spnk), active time is aggregated.
 
 # For P1 (Davis):
-# st_mp: startup = 0.1s, active = 0.0333s, recovery = 0.2667s (total length 0.4s)
-# st_mk: startup = 0.2s, active = 0.0333s, recovery = 0.3667s (total length 0.6s)
-# jump_mp: startup = 0.1s, active = 0.0333s, recovery = 0.2667s (total length 0.4s)
-# jump_mk: startup = 0.2s, active = 0.0333s, recovery = 0.2667s (total length 0.5s)
-# powerkk: startup = 0.2s, active = multiple (5 periods of ~0.0667s each, total active ~0.3335s), recovery = interspersed + final 0.2s (total length 1.0s)
-# fireball: startup = 0.3s, active = 0.0333s, recovery = 0.4667s (total length 0.8s)
+# - st_mp: startup = 0.1s, active = 0.0333s, recovery = 0.2667s (total 0.4s)
+# - st_mk: startup = 0.2s, active = 0.0667s, recovery = 0.4003s (total 0.667s)
+# - jump_mp: startup = 0.1333s, active = 0.0667s, recovery = 0.2s (total 0.4s)
+# - jump_mk: startup = 0.1s, active = 0.1s, recovery = 0.3s (total 0.5s)
+# - powerkk: startup = 0.3s, active = 0.1333s, recovery = 0.5s (total 0.9333s)
+# - fireball: startup = 0.3s, active = 0.0333s, recovery = 0.4667s (total 0.8s)
 
 # For P2 (Dennis):
-# st_mp: startup = 0.1s, active = 0.0333s, recovery = 0.2667s (total length 0.4s)
-# st_mk: startup = 0.2s, active = 0.0333s, recovery = 0.3667s (total length 0.6s)
-# jump_mp: startup = 0.1s, active = 0.0333s, recovery = 0.2667s (total length 0.4s)
-# jump_mk: startup = 0.2s, active = 0.0333s, recovery = 0.2667s (total length 0.5s)
-# spnk: startup = 0.2s, active = multiple (similar to powerkk, ~0.3335s total active), recovery = interspersed + final 0.2s (total length 1.0s)
-# fireball: startup = 0.3s, active = 0.0333s, recovery = 0.4667s (total length 0.8s)
+# - st_mp: startup = 0.2s, active = 0.1333s, recovery = 0.3667s (total 0.7s)
+# - st_mk: startup = 0.1s, active = 0.0333s, recovery = 0.2667s (total 0.4s)
+# - jump_mp: startup = 0.1s, active = 0.0667s, recovery = 0.2333s (total 0.4s)
+# - jump_mk: startup = 0.1s, active = 0.1s, recovery = 0.267s (total 0.467s)
+# - spnk: startup = 0.2s, active = 0.1333s (0.0667s + 0.0666s), recovery = 0.4667s (total 1.0s)
+# - fireball: startup = 0.3s, active = 0.0333s, recovery = 0.3667s (total 0.7s)
 
 class_name Player extends Fighter
 
@@ -30,9 +30,9 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @export var is_ai_controlled: bool = false
 @export var corner_push_distance: float = 50.0
 @export var cancel_window_duration: float = 0.3
-@export var st_mp_hitstun: float = 0.4 if player_id == "p1" else 0.35
+@export var st_mp_hitstun: float = 0.4
 @export var st_mp_blockstun: float = 0.267
-@export var st_mk_hitstun: float = 0.65 if player_id == "p1" else 0.45
+@export var st_mk_hitstun: float = 0.65
 @export var st_mk_blockstun: float = 0.3
 
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
@@ -50,16 +50,14 @@ var has_air_attacked: bool = false
 var skip_pushbox: bool = false
 var cancel_window_timer: float = 0.0
 
-# 新增：用來儲存攻擊數據的字典，key 是攻擊類型
-var attack_data: Dictionary = {}
-
-# 新增計時器變量，用來追蹤 startup/active/recovery
-var startup_timer: float = 0.0
-var active_timer: float = 0.0
-var recovery_timer: float = 0.0
-
 func _ready():
 	super._ready()
+	if player_id == "p1":
+		st_mp_hitstun = 0.4
+		st_mk_hitstun = 0.65
+	else:
+		st_mp_hitstun = 0.35
+		st_mk_hitstun = 0.45
 	if has_node("Hitbox"):
 		$Hitbox.area_entered.connect(_on_hitbox_area_entered)
 	if animation_tree and not animation_tree.animation_finished.is_connected(_on_animation_tree_finished):
@@ -72,20 +70,6 @@ func _ready():
 	else:
 		print("Warning: PlayerController not found for %s" % name)
 	hit_detected.connect(_on_hit_detected)
-	
-	# 加載 AttackData Resource（根據 player_id 加載對應文件）
-	_load_attack_data()
-
-# 新增函數：加載 AttackData
-func _load_attack_data():
-	# 假設你的 .tres 文件命名如 res://data/attacks/st_mp_p1.tres
-	var attacks = ["st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball"]  # 根據你的招式清單
-	for atk in attacks:
-		var path = "res://data/attacks/%s_%s.tres" % [atk, player_id]
-		if ResourceLoader.exists(path):
-			attack_data[atk] = load(path)
-		else:
-			print("Warning: AttackData for %s not found at %s" % [atk, path])
 
 func get_input() -> Dictionary:
 	if is_knockfly or is_wakeup or is_hit:
@@ -163,74 +147,26 @@ func _physics_process(delta):
 	
 	if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_ground_state:
 		force_update_facing_direction()
+		current_damage = input_data.damage
+		is_attacking = true
+		# 修正：明確根據輸入設置 attack_type
 		attack_type = "st_mp" if input_data.st_mp_pressed else "st_mk"
-		if attack_data.has(attack_type):
-			var data = attack_data[attack_type]
-			current_damage = data.damage
-			# 使用 Resource 中的值（可選擇 override 原 hitstun，如果想替換）
-			st_mp_hitstun = data.hitstun if attack_type == "st_mp" else st_mp_hitstun
-			st_mk_hitstun = data.hitstun if attack_type == "st_mk" else st_mk_hitstun
-			# 啟動計時器
-			startup_timer = data.startup
-			active_timer = 0.0
-			recovery_timer = 0.0
-			is_attacking = true
-			if not is_push_back:
-				fixed_velocity.x = 0
-			print("Debug: Attack triggered for %s, input_st_mp=%s, input_st_mk=%s, attack_type=%s, facing=%s, animation=%s" % [name, input_data.st_mp_pressed, input_data.st_mk_pressed, attack_type, facing_direction, animation_state.get_current_node() if animation_state else "none"])
-			print("Debug: Loaded data for %s: startup=%s, active=%s, recovery=%s, hitstun=%s" % [attack_type, data.startup, data.active, data.recovery, data.hitstun])
-		else:
-			print("Warning: No AttackData for %s" % attack_type)
-	
-	# 新增：處理攻擊計時器（同步 hitbox）
-	if is_attacking:
-		if startup_timer > 0:
-			startup_timer -= delta
-			print("Debug: startup_timer remaining = %s for %s" % [startup_timer, attack_type])
-			if startup_timer <= 0:
-				# startup 結束，啟用 hitbox 並開始 active
-				if has_node("Hitbox/HitShape"):
-					$Hitbox/HitShape.disabled = false
-				active_timer = attack_data[attack_type].active
-				print("Debug: Hitbox enabled for %s, active_timer set to %s" % [attack_type, active_timer])
-		elif active_timer > 0:
-			active_timer -= delta
-			print("Debug: active_timer remaining = %s for %s" % [active_timer, attack_type])
-			if active_timer <= 0:
-				# active 結束，禁用 hitbox 並開始 recovery
-				if has_node("Hitbox/HitShape"):
-					$Hitbox/HitShape.disabled = true
-				recovery_timer = attack_data[attack_type].recovery
-				print("Debug: Hitbox disabled for %s, recovery_timer set to %s" % [attack_type, recovery_timer])
-		elif recovery_timer > 0:
-			recovery_timer -= delta
-			print("Debug: recovery_timer remaining = %s for %s" % [recovery_timer, attack_type])
-			if recovery_timer <= 0:
-				# recovery 結束，重置攻擊狀態
-				stop_attack()
-				print("Debug: Attack %s ended for %s" % [attack_type, name])
+		if not is_push_back:
+			fixed_velocity.x = 0
+		# 加 debug：追蹤攻擊觸發時的 input 和 attack_type
+		print("Debug: Attack triggered for %s, input_st_mp=%s, input_st_mk=%s, attack_type=%s, facing=%s, animation=%s" % [name, input_data.st_mp_pressed, input_data.st_mk_pressed, attack_type, facing_direction, animation_state.get_current_node() if animation_state else "none"])
 	
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked
 	if input_data.st_mp_pressed and is_valid_air_state:
+		current_damage = input_data.damage
+		is_air_attacking = true
+		has_air_attacked = true
 		attack_type = "jump_mp"
-		if attack_data.has(attack_type):
-			var data = attack_data[attack_type]
-			current_damage = data.damage
-			is_air_attacking = true
-			has_air_attacked = true
-			startup_timer = data.startup
-			active_timer = 0.0
-			recovery_timer = 0.0
 	elif input_data.st_mk_pressed and is_valid_air_state:
+		current_damage = input_data.damage
+		is_air_attacking = true
+		has_air_attacked = true
 		attack_type = "jump_mk"
-		if attack_data.has(attack_type):
-			var data = attack_data[attack_type]
-			current_damage = data.damage
-			is_air_attacking = true
-			has_air_attacked = true
-			startup_timer = data.startup
-			active_timer = 0.0
-			recovery_timer = 0.0
 	
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
@@ -381,9 +317,13 @@ func _on_animation_tree_finished(anim_name: String):
 		update_facing_direction()
 		_update_animation_state(0, false)
 	elif anim_name in ["st_mp", "st_mk"] and is_attacking:
-		# 修改：不再強制結束攻擊，讓 recovery_timer 控制
-		print("Debug: Animation %s finished, but waiting for recovery_timer = %s" % [anim_name, recovery_timer])
-		# 取消原結束邏輯，等待 recovery_timer <= 0
+		is_attacking = false
+		attack_type = "none"
+		cancel_window_timer = 0.0
+		update_facing_direction()
+		_update_animation_state(0, false)
+		# 加 debug：追蹤攻擊動畫結束
+		print("Debug: Attack animation %s finished for %s, is_attacking=%s, attack_type=%s, facing=%s" % [anim_name, name, is_attacking, attack_type, facing_direction])
 	elif anim_name in ["jump_mp", "jump_mk"] and is_air_attacking:
 		if is_on_floor():
 			is_air_attacking = false
@@ -424,11 +364,6 @@ func _on_animation_tree_finished(anim_name: String):
 func stop_attack():
 	is_attacking = false
 	attack_type = "none"
-	startup_timer = 0.0
-	active_timer = 0.0
-	recovery_timer = 0.0
-	if has_node("Hitbox/HitShape"):
-		$Hitbox/HitShape.disabled = true
 	if animation_player:
 		animation_player.stop()
 	update_facing_direction()
@@ -458,8 +393,6 @@ func force_update_facing_direction():
 			facing_direction = 1.0
 			scale.x = 1
 		update_hitbox_position()
-		# 加 debug：追蹤 force 更新時的邊界和 facing
-		print("Debug: Force update facing for %s, self_left=%s, self_right=%s, other_left=%s, other_right=%s, new_facing=%s" % [name, self_left, self_right, other_left, other_right, facing_direction])
 	else:
 		facing_direction = 1.0
 		scale.x = 1

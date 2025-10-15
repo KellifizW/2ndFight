@@ -368,8 +368,6 @@ func update_facing_direction():
 			sprite.scale.x = 1.0
 			rotation_degrees = 0
 		update_hitbox_position()
-		# 加 debug：追蹤更新時的邊界和 facing 變化
-		print("Debug: Update facing for %s, self_left=%s, self_right=%s, other_left=%s, other_right=%s, old_facing=%s, new_facing=%s, scale.x=%s" % [name, self_left, self_right, other_left, other_right, old_facing, facing_direction, scale.x])
 	else:
 		facing_direction = 1.0
 		scale.x = 1

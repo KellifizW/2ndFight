@@ -2,6 +2,8 @@ extends Node
 
 class_name SlowMoController
 
+signal time_scale_changed(new_time_scale: float)
+
 # 時間縮放參數
 var normal_time_scale: float = 1.0
 var slowmo_time_scale: float = 0.4  # 慢動作速度（40%正常速度）
@@ -28,6 +30,7 @@ func _ready():
 	tween.set_ease(Tween.EASE_IN_OUT)
 	# 確保初始時間縮放為正常
 	Engine.time_scale = normal_time_scale
+	emit_signal("time_scale_changed", normal_time_scale)
 	print("Debug: SlowMoController initialized, time_scale set to %s, process_mode set to ALWAYS" % normal_time_scale)
 
 func _process(_delta):
@@ -54,6 +57,7 @@ func request_hit_freeze():
 	tween.set_ignore_time_scale(true)  # 使用真實時間計時
 	# 立即進入擊中慢動作
 	Engine.time_scale = hit_slowmo_time_scale
+	emit_signal("time_scale_changed", hit_slowmo_time_scale)
 	# 除錯：記錄開始真實時間
 	hit_start_time = Time.get_ticks_msec()
 	# 持續慢動作 0.09 秒（真實時間）
@@ -72,6 +76,7 @@ func enter_slowmo_animation():
 	tween.set_ease(Tween.EASE_IN_OUT)
 	tween.tween_property(Engine, "time_scale", slowmo_time_scale, slowmo_enter_time)
 	tween.tween_callback(_on_enter_slowmo_finished)
+	emit_signal("time_scale_changed", slowmo_time_scale)
 	print("Debug: Entering slow motion, transitioning to time_scale=%s over %s seconds" % [slowmo_time_scale, slowmo_enter_time])
 
 # 退出慢動作的動畫（手動切換）
@@ -83,6 +88,7 @@ func exit_slowmo_animation():
 	tween.set_ease(Tween.EASE_IN_OUT)
 	tween.tween_property(Engine, "time_scale", normal_time_scale, slowmo_exit_time)
 	tween.tween_callback(_on_exit_slowmo_finished)
+	emit_signal("time_scale_changed", normal_time_scale)
 	print("Debug: Exiting slow motion, transitioning to time_scale=%s over %s seconds" % [normal_time_scale, slowmo_exit_time])
 
 # 進入慢動作完成
@@ -94,12 +100,14 @@ func _on_enter_slowmo_finished():
 func _on_exit_slowmo_finished():
 	slowmo_active = false
 	Engine.time_scale = normal_time_scale  # 確保時間縮放完全恢復
+	emit_signal("time_scale_changed", normal_time_scale)
 	print("Debug: Slow motion deactivated, slowmo_active=%s, time_scale=%s" % [slowmo_active, Engine.time_scale])
 
 # 擊中慢動作完成
 func _on_hit_slowmo_finished():
 	is_hit_slowmo = false
 	Engine.time_scale = normal_time_scale  # 確保時間縮放完全恢復
+	emit_signal("time_scale_changed", normal_time_scale)
 	# 除錯：計算並打印真實持續時間（秒）
 	var duration_sec = (Time.get_ticks_msec() - hit_start_time) / 1000.0
 	print("Debug: Hit slowmo duration: %s seconds" % duration_sec)

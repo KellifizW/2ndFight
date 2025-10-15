@@ -15,6 +15,8 @@ const GRAVITY: int = 1800000
 @onready var animation_label = $UI/AnimationLabel
 @onready var combo_label = $UI/ComboLabel
 @onready var debug_label = $UI/DebugLabel
+@onready var p1_advantage_label = $UI/P1AdvantageLabel
+@onready var p2_advantage_label = $UI/P2AdvantageLabel
 
 var initial_p1_pos: Vector2
 var initial_p2_pos: Vector2
@@ -23,6 +25,14 @@ var current_combo: int = 0
 var combo_target: String = ""
 var combo_reset_timer: float = 0.0
 const COMBO_BUFFER: float = 0.2
+
+# 用於計算優勢時間的變數（使用真實時間，避免 slowmo 影響）
+var hit_time: float = 0.0
+var attacker: Node = null
+var target_player: Node = null
+var attacker_recover_time: float = 0.0
+var target_recover_time: float = 0.0
+var advantage_calculated: bool = false
 
 func _ready():
 	add_to_group("world")
@@ -45,6 +55,12 @@ func _ready():
 		combo_label.text = ""
 	if debug_label:
 		debug_label.text = ""
+	if p1_advantage_label:
+		p1_advantage_label.text = "P1 Adv: 0"
+	if p2_advantage_label:
+		p2_advantage_label.text = "P2 Adv: 0"
+	else:
+		print("Warning: Advantage labels not found in UI")
 	
 	initial_p1_pos = Vector2(190.0, float(FLOOR_Y) / SIMULATION_SCALE)
 	initial_p2_pos = Vector2(290.0, float(FLOOR_Y) / SIMULATION_SCALE)
@@ -82,6 +98,31 @@ func _physics_process(delta):
 		combo_reset_timer -= delta
 		if combo_reset_timer <= 0:
 			reset_combo()
+	
+	# 監聽狀態變化計算優勢（使用真實時間，不受 time_scale 影響）
+	if attacker and target_player and not advantage_calculated:
+		# 檢查攻擊者恢復（is_attacking 結束）
+		if attacker_recover_time == 0.0 and not attacker.is_attacking:
+			attacker_recover_time = Time.get_unix_time_from_system()
+			print("Debug: Attacker %s recovered at %s" % [attacker.name, attacker_recover_time])
+		
+		# 檢查被擊者恢復（is_hit 或 is_blocking 結束）
+		if target_recover_time == 0.0 and not (target_player.is_hit or target_player.is_blocking):
+			target_recover_time = Time.get_unix_time_from_system()
+			print("Debug: Target %s recovered at %s" % [target_player.name, target_recover_time])
+		
+		# 兩者皆恢復，計算優勢
+		if attacker_recover_time > 0 and target_recover_time > 0:
+			var advantage_time = (target_recover_time - hit_time) - (attacker_recover_time - hit_time)  # stun - 恢復
+			var advantage_frames = int(advantage_time * TICKS_PER_SECOND)
+			if attacker == player1:
+				p1_advantage_label.text = "P1 Adv: " + ("+" if advantage_frames > 0 else "") + str(advantage_frames)
+				p2_advantage_label.text = "P2 Adv: " + ("+" if -advantage_frames > 0 else "") + str(-advantage_frames)
+			else:
+				p1_advantage_label.text = "P1 Adv: " + ("+" if -advantage_frames > 0 else "") + str(-advantage_frames)
+				p2_advantage_label.text = "P2 Adv: " + ("+" if advantage_frames > 0 else "") + str(advantage_frames)
+			print("Debug: Advantage frames: %d (time diff: %.4f)" % [advantage_frames, advantage_time])
+			advantage_calculated = true
 
 func to_scaled_vector2(vector: Vector2i) -> Vector2:
 	return Vector2(
@@ -200,6 +241,18 @@ func reset_players():
 	if debug_label:
 		debug_label.text = ""
 	
+	# 重置優勢計算
+	hit_time = 0.0
+	attacker = null
+	target_player = null
+	attacker_recover_time = 0.0
+	target_recover_time = 0.0
+	advantage_calculated = false
+	if p1_advantage_label:
+		p1_advantage_label.text = "P1 Adv: 0"
+	if p2_advantage_label:
+		p2_advantage_label.text = "P2 Adv: 0"
+	
 	print("Debug: Players reset! Positions, health, animations, and slow motion restored.")
 
 func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
@@ -218,6 +271,15 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		hit_label.text = target + " blocked! Stun: " + str(stun_duration)
 		print("Debug: %s blocked with stun duration %s, updating HitLabel" % [target, stun_duration])
 		reset_combo()
+	
+	# 記錄擊中時刻，重置計算（使用真實時間）
+	hit_time = Time.get_unix_time_from_system()
+	attacker = player1 if target == "Player2" else player2
+	target_player = player2 if target == "Player2" else player1
+	attacker_recover_time = 0.0
+	target_recover_time = 0.0
+	advantage_calculated = false
+	print("Debug: Hit detected at %s, attacker=%s, target=%s" % [hit_time, attacker.name, target_player.name])
 
 func _on_block_detected(target: String, block_type: String):
 	if block_type == "proximity":
