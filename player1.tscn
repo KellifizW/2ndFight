@@ -1575,6 +1575,9 @@ graph_offset = Vector2(-150, -54)
 [node name="Player1" type="CharacterBody2D"]
 collision_mask = 0
 script = ExtResource("1_0e34t")
+st_mp_damage = 6.0
+st_mk_damage = 9.0
+jump_mk_damage = 6.0
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_yev3d")

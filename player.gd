@@ -34,6 +34,10 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @export var st_mp_blockstun: float = 0.267
 @export var st_mk_hitstun: float = 0.65
 @export var st_mk_blockstun: float = 0.3
+@export var st_mp_damage: float = 10.0
+@export var st_mk_damage: float = 15.0
+@export var jump_mp_damage: float = 8.0
+@export var jump_mk_damage: float = 12.0
 
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 @onready var player_controller = $PlayerController if has_node("PlayerController") else null
@@ -90,7 +94,21 @@ func get_input() -> Dictionary:
 		if ai_behavior:
 			return ai_behavior.get_ai_input()
 	if player_controller:
-		return player_controller.get_input_data()
+		var input_data = player_controller.get_input_data()
+		# Assign damage based on attack type
+		if input_data.st_mp_pressed:
+			input_data.damage = st_mp_damage
+			input_data.attack_type = "st_mp"
+		elif input_data.st_mk_pressed:
+			input_data.damage = st_mk_damage
+			input_data.attack_type = "st_mk"
+		elif input_data.st_mp_pressed and not is_on_floor():
+			input_data.damage = jump_mp_damage
+			input_data.attack_type = "jump_mp"
+		elif input_data.st_mk_pressed and not is_on_floor():
+			input_data.damage = jump_mk_damage
+			input_data.attack_type = "jump_mk"
+		return input_data
 	else:
 		print("Warning: Falling back to default input due to missing PlayerController for %s" % name)
 		return {
@@ -149,21 +167,19 @@ func _physics_process(delta):
 		force_update_facing_direction()
 		current_damage = input_data.damage
 		is_attacking = true
-		# 修正：明確根據輸入設置 attack_type
-		attack_type = "st_mp" if input_data.st_mp_pressed else "st_mk"
+		attack_type = input_data.attack_type
 		if not is_push_back:
 			fixed_velocity.x = 0
-		# 加 debug：追蹤攻擊觸發時的 input 和 attack_type
-		print("Debug: Attack triggered for %s, input_st_mp=%s, input_st_mk=%s, attack_type=%s, facing=%s, animation=%s" % [name, input_data.st_mp_pressed, input_data.st_mk_pressed, attack_type, facing_direction, animation_state.get_current_node() if animation_state else "none"])
+		print("Debug: Attack triggered for %s, input_st_mp=%s, input_st_mk=%s, attack_type=%s, damage=%s, facing=%s, animation=%s" % [name, input_data.st_mp_pressed, input_data.st_mk_pressed, attack_type, current_damage, facing_direction, animation_state.get_current_node() if animation_state else "none"])
 	
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked
 	if input_data.st_mp_pressed and is_valid_air_state:
-		current_damage = input_data.damage
+		current_damage = jump_mp_damage
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mp"
 	elif input_data.st_mk_pressed and is_valid_air_state:
-		current_damage = input_data.damage
+		current_damage = jump_mk_damage
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mk"
@@ -226,6 +242,12 @@ func _on_hitbox_area_entered(area: Area2D):
 	if area.name == "Hurtbox" and area.get_parent() != self:
 		var target = area.get_parent()
 		var damage = current_damage
+		if move_set and move_set.is_spnk:
+			var anim_pos = animation_player.current_animation_position
+			if anim_pos < 0.2667:  # First active period (0.2 to 0.2667s)
+				damage = 6.0
+			else:  # Second active period (0.2667 to 0.3333s)
+				damage = move_set.spnk_damage
 		var world = get_tree().get_first_node_in_group("world")
 		if not world:
 			return
@@ -322,7 +344,6 @@ func _on_animation_tree_finished(anim_name: String):
 		cancel_window_timer = 0.0
 		update_facing_direction()
 		_update_animation_state(0, false)
-		# 加 debug：追蹤攻擊動畫結束
 		print("Debug: Attack animation %s finished for %s, is_attacking=%s, attack_type=%s, facing=%s" % [anim_name, name, is_attacking, attack_type, facing_direction])
 	elif anim_name in ["jump_mp", "jump_mk"] and is_air_attacking:
 		if is_on_floor():
@@ -358,7 +379,6 @@ func _on_animation_tree_finished(anim_name: String):
 		if move_set and (move_set.is_powerkk or move_set.is_spnk):
 			move_set.stop_special_move()
 			_update_animation_state(0, false)
-		# 加 debug：追蹤 spnk/powerkk 動畫結束
 		print("Debug: Animation %s finished for %s, is_attacking=%s, attack_type=%s, facing=%s" % [anim_name, name, is_attacking, attack_type, facing_direction])
 
 func stop_attack():
