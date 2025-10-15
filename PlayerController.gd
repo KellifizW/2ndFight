@@ -7,7 +7,7 @@ func get_input_data() -> Dictionary:
 	# 獲取原始輸入
 	var move_right = Input.is_action_pressed("move_right" + suffix)
 	var move_left = Input.is_action_pressed("move_left" + suffix)
-	var move_up_just = Input.is_action_just_pressed("jump" + suffix)
+	var move_up = Input.is_action_pressed("jump" + suffix) # 修改：從 is_action_just_pressed 改為 is_action_pressed
 	var move_down = Input.is_action_pressed("crouch" + suffix)
 	
 	# 計算水平方向 (dir_x)
@@ -19,15 +19,15 @@ func get_input_data() -> Dictionary:
 	
 	# 計算垂直方向 (dir_y)
 	var dir_y: int = 0
-	if move_up_just and not move_down:
+	if move_up and not move_down:
 		dir_y = -1
-	elif move_down and not move_up_just:
+	elif move_down and not move_up:
 		dir_y = 1
 	
 	# 組合輸入：斜上和斜下處理
 	var input_dir: int = dir_x
 	var crouch_pressed: bool = dir_y > 0
-	var jump_pressed: bool = dir_y < 0  # 修正：移除 dir_x != 0 條件，讓僅按上鍵也能跳躍（直跳）
+	var jump_pressed: bool = dir_y < 0
 	
 	# 攻擊和特殊招式輸入
 	var st_mp_pressed = Input.is_action_just_pressed("st_mp" + suffix)

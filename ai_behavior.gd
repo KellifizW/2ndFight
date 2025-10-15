@@ -76,10 +76,31 @@ func get_ai_input() -> Dictionary:
 			"spm2_pressed": false
 		}
 	
+	# 新增：偵測自己或對手血量 <= 0，如果是，返回空輸入（停止全部動作）
+	var self_healthbar = parent.healthbar if "healthbar" in parent else null
+	var opponent_healthbar = opponent.healthbar if "healthbar" in opponent else null
+	if (self_healthbar and self_healthbar.current_health <= 0) or (opponent_healthbar and opponent_healthbar.current_health <= 0):
+		return {
+			"input_dir": 0,
+			"crouch_pressed": false,
+			"jump_pressed": false,
+			"st_mp_pressed": false,
+			"st_mk_pressed": false,
+			"attack_type": "none",
+			"blockstun_duration": 0.2,
+			"damage": 0.0,
+			"spm1_pressed": false,
+			"spm2_pressed": false
+		}
+	
 	# 計算距離和相對位置（移除 * facing_mult，讓方向絕對）
 	var distance = abs(parent.global_position.x - opponent.global_position.x)
 	var facing_mult = parent.get_facing_multiplier()  # 只用來除錯，不影響計算
 	var relative_dir = sign(opponent.global_position.x - parent.global_position.x)  # 正=對手在右，負=對手在左
+	
+	# 新增：偵測是否接近或已到角落（使用從 Movement.gd 繼承的 arena_left/arena_right）
+	var is_near_corner: bool = (parent.global_position.x - parent.arena_left < 50) or (parent.arena_right - parent.global_position.x < 50)
+	var is_at_corner: bool = (parent.global_position.x - parent.arena_left < 10) or (parent.arena_right - parent.global_position.x < 10)
 	
 	# 決策邏輯：每隔reaction_delay秒重新決策狀態
 	decision_timer -= get_process_delta_time()
@@ -90,28 +111,36 @@ func get_ai_input() -> Dictionary:
 		previous_state = current_state  # 記錄舊狀態
 		
 		# 更新狀態機：基於距離（>120遠: approach, >60中: 偶爾fireball else approach, <60近: defend or attack）
-		if distance > 120:  # 遠距離：強制接近
-			current_state = "approach"
-			current_attack = "none"  # 重置攻擊
-			current_crouch = false  # 重置蹲下
-		elif distance > 60:  # 中距離：90%接近，10% fireball
-			if randf() < 0.1:
-				current_state = "attack"
-			else:
+		# 新增：如果接近或已到角落，調整機率
+		var fireball_chance: float = 0.1  # 預設中距離 fireball 機率
+		if is_near_corner:
+			fireball_chance = 0.3  # 接近角落，提高 fireball 機率
+		if is_at_corner:
+			current_state = "attack"  # 已到角落，強制攻擊
+			current_crouch = false  # 避免蹲下防守
+		else:
+			if distance > 120:  # 遠距離：強制接近
 				current_state = "approach"
-				current_attack = "none"
-				current_crouch = false
-		else:  # 近距離：根據對手狀態選擇
-			if opponent.is_attacking or opponent.is_special_moving:  # 對手攻擊：防守
-				current_state = "defend"
-				current_attack = "none"
-			else:  # 對手無攻擊：攻擊
-				current_state = "attack"
-				current_crouch = false
+				current_attack = "none"  # 重置攻擊
+				current_crouch = false  # 重置蹲下
+			elif distance > 60:  # 中距離：(1 - fireball_chance) 接近，fireball_chance fireball
+				if randf() < fireball_chance:
+					current_state = "attack"
+				else:
+					current_state = "approach"
+					current_attack = "none"
+					current_crouch = false
+			else:  # 近距離：根據對手狀態選擇
+				if opponent.is_attacking or opponent.is_special_moving:  # 對手攻擊：防守
+					current_state = "defend"
+					current_attack = "none"
+				else:  # 對手無攻擊：攻擊
+					current_state = "attack"
+					current_crouch = false
 		
 		# 除錯：只在狀態改變時 print
 		if current_state != previous_state:
-			print("AI 狀態改變為: %s (距離: %.1f, facing_mult: %.1f, relative_dir: %d)" % [current_state, distance, facing_mult, relative_dir])
+			print("AI 狀態改變為: %s (距離: %.1f, facing_mult: %.1f, relative_dir: %d, near_corner: %s, at_corner: %s)" % [current_state, distance, facing_mult, relative_dir, is_near_corner, is_at_corner])
 	
 	# 根據當前狀態生成輸入
 	var input_dir: int = 0
@@ -128,7 +157,13 @@ func get_ai_input() -> Dictionary:
 		if attack_decision_timer <= 0:
 			attack_decision_timer = attack_decision_delay + randf_range(0.0, 0.2)  # 0.3-0.5秒
 			# 根據距離選擇攻擊（<40近: st_mp/st_mk拳腳, 否則spm1衝刺 or spm2火球）
-			if distance < 40:  # 近距：拳腳攻擊
+			# 新增：如果已到角落，優先近身攻擊 (st_mp 或 spm1)
+			if is_at_corner:
+				if randf() < 0.7:
+					current_attack = "spm1"  # 優先衝刺攻擊
+				else:
+					current_attack = "st_mp"  # 拳擊
+			elif distance < 40:  # 近距：拳腳攻擊
 				if randf() < 0.5:
 					current_attack = "st_mp"
 				else:
@@ -150,6 +185,9 @@ func get_ai_input() -> Dictionary:
 		if defend_decision_timer <= 0:
 			defend_decision_timer = defend_decision_delay + randf_range(0.0, 0.2)  # 0.3-0.5秒
 			current_crouch = randf() < 0.6  # 決定是否蹲下，並保持
+			# 新增：如果接近角落，降低蹲下機率 (減少防守被動)
+			if is_near_corner:
+				current_crouch = randf() < 0.3
 			# 除錯：確認蹲下選擇
 			print("Debug: %s in defend, crouch: %s" % [parent.name, "true" if current_crouch else "false"])
 	
@@ -176,6 +214,16 @@ func get_ai_input() -> Dictionary:
 			crouch_pressed = current_crouch  # 使用當前蹲下狀態
 		"idle":
 			pass  # 無動作，僅初始狀態使用
+	
+	# 新增：在已到角落時，增加 50% 機率跳躍逃脫（無論狀態，覆蓋其他輸入）
+	if is_at_corner and randf() < 0.5:
+		jump_pressed = true
+		input_dir = int(relative_dir)  # 跳向對手方向，試圖逃脫
+		st_mp_pressed = false  # 避免同時攻擊，專注逃脫
+		st_mk_pressed = false
+		spm1_pressed = false
+		spm2_pressed = false
+		crouch_pressed = false
 	
 	# 計算攻擊類型和傷害（參考PlayerController.gd）
 	var attack_type = "st_mp" if st_mp_pressed else "st_mk" if st_mk_pressed else "none"
