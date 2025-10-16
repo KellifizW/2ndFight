@@ -10,10 +10,12 @@ var hitbox_shape: CollisionShape2D = null
 var current_animation: String = ""
 var last_animation: String = ""
 var frame_data: Array = []  # 儲存每幀的狀態（0=Startup, 1=Active, 2=Recovery, 3=Dash/Backdash, 4=Block, 5=Jump, 6=Hit, 7=Knockfly）
-var total_frames: int = 180  # 總幀數（3秒 * 60 FPS）
+var total_frames: int = 90  # 總幀數（1.5秒 * 60 FPS）
 var current_frame: int = 0
 var is_tracking: bool = false
 var was_active: bool = false  # 追蹤是否曾進入 Active 階段
+
+@onready var frame_count_label = $FrameCountLabel  # 引用場景中的 FrameCountLabel
 
 func _ready():
 	# 初始化進度條屬性
@@ -32,6 +34,12 @@ func _ready():
 	set("theme_override_styles/fill", null)
 	# 確保進度條可見
 	visible = true
+	
+	# 檢查 FrameCountLabel 是否存在
+	if frame_count_label:
+		frame_count_label.text = ""
+	else:
+		print("Warning: FrameCountLabel not found for %s" % name)
 
 func initialize(p1: Node, p2: Node):
 	# 初始化玩家節點
@@ -86,15 +94,11 @@ func _process(delta):
 			was_active = false  # 重置攻擊狀態
 			print("Debug: Transition from jump to attack %s for %s, keeping frame_data, size=%d" % [anim_name, target_player.name, frame_data.size()])
 		
-		# 計算當前幀
+		# 計算當前幀（超過 total_frames 時循環）
 		var anim_position = playback.get_current_play_position()
 		var anim_length = animation_player.get_animation(anim_name).length if animation_player.has_animation(anim_name) else 0.5
-		current_frame = int(anim_position * 60)  # 轉換為幀數（60 FPS）
-		
-		# 確保不超過 180 幀
-		if current_frame >= total_frames:
-			current_frame = total_frames - 1
-			is_tracking = false
+		var total_anim_frames = int(anim_length * 60)  # 動畫總幀數
+		current_frame = int(anim_position * 60) % total_frames  # 轉換為幀數並循環
 		
 		# 定義動畫階段
 		var frame_state = 0  # 0=Startup, 1=Active, 2=Recovery, 3=Dash/Backdash, 4=Block, 5=Jump, 6=Hit, 7=Knockfly
@@ -115,7 +119,7 @@ func _process(delta):
 					was_active = true
 				elif was_active:
 					frame_state = 2  # Recovery
-				elif current_frame >= int(anim_length * 60):
+				elif int(anim_position * 60) >= total_anim_frames:
 					frame_state = 2  # Recovery
 				else:
 					frame_state = 0  # Startup
@@ -184,6 +188,8 @@ func reset_frame_bar():
 	is_tracking = true
 	was_active = false  # 重置 Active 狀態
 	queue_redraw()
+	if frame_count_label:
+		frame_count_label.text = ""
 	print("Debug: FrameBar reset for %s, was_active=%s" % [target_player.name, was_active])
 
 func _on_animation_finished(anim_name: String):
@@ -197,8 +203,11 @@ func _on_animation_finished(anim_name: String):
 		is_tracking = false
 		var anim_length = animation_player.get_animation(anim_name).length if animation_player.has_animation(anim_name) else 0.5
 		var total_anim_frames = int(anim_length * 60)
-		if total_anim_frames > current_frame:
-			for i in range(current_frame + 1, min(total_anim_frames, total_frames)):
+		var display_frames = min(total_anim_frames, total_frames)
+		if total_anim_frames > total_frames:
+			# 超過 total_frames 的部分，從頭開始填充
+			var extra_frames = total_anim_frames - total_frames
+			for i in range(min(extra_frames, total_frames)):
 				if frame_data.size() <= i:
 					frame_data.resize(i + 1)
 				# 為非攻擊動畫保持對應狀態
@@ -211,9 +220,84 @@ func _on_animation_finished(anim_name: String):
 				elif anim_name in ["Jump_F", "Jump_B", "Jump_V"]:
 					frame_data[i] = 5  # Jump
 				elif anim_name == "hit":
-					frame_data[i] = 6  # Hitr
+					frame_data[i] = 6  # Hit
 				elif anim_name == "knockfly":
 					frame_data[i] = 7  # Knockfly
-			value = min(total_anim_frames, total_frames)
-			queue_redraw()
-		print("Debug: Animation %s finished for %s, total frames=%d" % [anim_name, target_player.name, value])
+			display_frames = total_frames
+		else:
+			# 未超過 total_frames，填充剩餘幀
+			for i in range(current_frame + 1, display_frames):
+				if frame_data.size() <= i:
+					frame_data.resize(i + 1)
+				if anim_name in ["st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball"]:
+					frame_data[i] = 2  # Recovery
+				elif anim_name in ["Dash", "Backdash"]:
+					frame_data[i] = 3  # Dash/Backdash
+				elif anim_name in ["block", "cr_block"]:
+					frame_data[i] = 4  # Block
+				elif anim_name in ["Jump_F", "Jump_B", "Jump_V"]:
+					frame_data[i] = 5  # Jump
+				elif anim_name == "hit":
+					frame_data[i] = 6  # Hit
+				elif anim_name == "knockfly":
+					frame_data[i] = 7  # Knockfly
+		value = display_frames
+		queue_redraw()
+		
+		# 統計各階段幀數並更新 Label
+		if frame_count_label:
+			var stage_counts = {
+				"Startup": 0,
+				"Active": 0,
+				"Recovery": 0,
+				"Dash": 0,
+				"Backdash": 0,
+				"Block": 0,
+				"Cr_Block": 0,
+				"Jump": 0,
+				"Hit": 0,
+				"Knockfly": 0
+			}
+			for frame_state in frame_data:
+				match frame_state:
+					0: stage_counts["Startup"] += 1
+					1: stage_counts["Active"] += 1
+					2: stage_counts["Recovery"] += 1
+					3: 
+						if anim_name == "Dash":
+							stage_counts["Dash"] += 1
+						elif anim_name == "Backdash":
+							stage_counts["Backdash"] += 1
+					4:
+						if anim_name == "block":
+							stage_counts["Block"] += 1
+						elif anim_name == "cr_block":
+							stage_counts["Cr_Block"] += 1
+					5: stage_counts["Jump"] += 1
+					6: stage_counts["Hit"] += 1
+					7: stage_counts["Knockfly"] += 1
+			
+			# 構建 Label 文字
+			var label_text = ""
+			if anim_name in ["st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball"]:
+				if stage_counts["Startup"] > 0:
+					label_text += "Startup: %dF " % stage_counts["Startup"]
+				if stage_counts["Active"] > 0:
+					label_text += "Active: %dF " % stage_counts["Active"]
+				if stage_counts["Recovery"] > 0:
+					label_text += "Recovery: %dF " % stage_counts["Recovery"]
+			else:
+				var stage_name = "Dash" if anim_name == "Dash" else \
+								"Backdash" if anim_name == "Backdash" else \
+								"Block" if anim_name == "block" else \
+								"Cr_Block" if anim_name == "cr_block" else \
+								"Jump" if anim_name in ["Jump_F", "Jump_B", "Jump_V"] else \
+								"Hit" if anim_name == "hit" else \
+								"Knockfly" if anim_name == "knockfly" else anim_name
+				if stage_counts[stage_name] > 0:
+					label_text += "%s: %dF " % [stage_name, stage_counts[stage_name]]
+			label_text += "Total: %dF" % total_anim_frames
+			frame_count_label.text = label_text
+			print("Debug: FrameCountLabel updated for %s: %s" % [target_player.name, label_text])
+		
+		print("Debug: Animation %s finished for %s, total frames=%d, display frames=%d" % [anim_name, target_player.name, total_anim_frames, display_frames])
