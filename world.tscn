@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://c0j8o4o3jtun1"]
+[gd_scene load_steps=14 format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
 [ext_resource type="PackedScene" uid="uid://bw2666uj5f0gw" path="res://player1.tscn" id="1_f3sb7"]
@@ -6,8 +6,9 @@
 [ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://FollowCamera.tscn" id="3_gbfbk"]
 [ext_resource type="PackedScene" uid="uid://jla54h8ttkct" path="res://player2.tscn" id="3_tlwt5"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
-[ext_resource type="Script" uid="uid://dwchp2rimawb" path="res://cpu_controller.gd" id="6_dwbse"]
+[ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://slow_mo_controller.gd" id="7_pkg7o"]
+[ext_resource type="PackedScene" uid="uid://dsnvnd8yxiin5" path="res://FrameBar.tscn" id="7_wse8f"]
 [ext_resource type="Script" uid="uid://cydy3y7rrkibl" path="res://PushManager.gd" id="9_ioo17"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_036b0"]
@@ -46,9 +47,22 @@ hit_push_distance = 10.0
 
 [node name="Player2" parent="." instance=ExtResource("3_tlwt5")]
 position = Vector2(290, 200)
+is_ai_controlled = false
 corner_push_distance = 5.0
+cancel_window_duration = 0.3
+st_mp_hitstun = 0.4
+st_mp_blockstun = 0.267
+st_mk_hitstun = 0.65
+st_mk_blockstun = 0.3
+air_knockback_horizontal_speed = 100.0
+air_knockback_vertical_speed = -300.0
+air_friction = 10.0
+min_hitstun_duration = 0.13333333333333333
+landing_duration = 0.2
+knockfly_duration = 0.75
 block_push_distance = 10.0
 hit_push_distance = 10.0
+jump_delay_duration = 0.1
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
 position = Vector2(240, 232)
@@ -130,6 +144,12 @@ offset_top = 59.0
 offset_right = 315.0
 offset_bottom = 82.0
 text = "P2 Advantage: 0.000"
+
+[node name="FrameBarP1" parent="UI" instance=ExtResource("7_wse8f")]
+
+[node name="FrameBarP2" parent="UI" instance=ExtResource("7_wse8f")]
+offset_left = 300.0
+offset_right = 480.0
 
 [node name="CPUController" type="Node" parent="."]
 script = ExtResource("6_dwbse")

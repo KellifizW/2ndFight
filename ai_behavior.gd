@@ -292,8 +292,8 @@ func get_ai_input() -> Dictionary:
 		"idle":
 			pass  # 無動作，僅初始狀態使用
 	
-	# 在已到角落時，增加 50% 機率跳躍逃脫
-	if is_at_corner and randf() < 0.5:
+	# 修改：在已到角落時，提高到80%機率跳躍逃脫（加強脫困）
+	if is_at_corner and randf() < 0.8:
 		jump_pressed = true
 		input_dir = int(relative_dir)  # 跳向對手方向，試圖逃脫
 		st_mp_pressed = false
@@ -301,6 +301,13 @@ func get_ai_input() -> Dictionary:
 		spm1_pressed = false
 		spm2_pressed = false
 		crouch_pressed = false
+	
+	# 新增：讓AI在跳躍時有50%機率進行空中攻擊（jump_mp或jump_mk）
+	if jump_pressed and randf() < 0.5:
+		if randf() < 0.5:
+			st_mp_pressed = true  # 觸發 jump_mp
+		else:
+			st_mk_pressed = true  # 觸發 jump_mk
 	
 	# 計算攻擊類型和傷害
 	var attack_type = "st_mp" if st_mp_pressed else "st_mk" if st_mk_pressed else "none"

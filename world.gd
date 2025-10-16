@@ -17,6 +17,8 @@ const GRAVITY: int = 1800000
 @onready var debug_label = $UI/DebugLabel
 @onready var p1_advantage_label = $UI/P1AdvantageLabel
 @onready var p2_advantage_label = $UI/P2AdvantageLabel
+@onready var frame_bar_p1 = $UI/FrameBarP1  # 使用場景樹中的節點
+@onready var frame_bar_p2 = $UI/FrameBarP2  # 使用場景樹中的節點
 
 var initial_p1_pos: Vector2
 var initial_p2_pos: Vector2
@@ -69,6 +71,21 @@ func _ready():
 	player1.global_position = to_scaled_vector2(player1.fixed_position)
 	player2.global_position = to_scaled_vector2(player2.fixed_position)
 	print("Debug: Initial positions set - P1: %s, P2: %s" % [player1.global_position, player2.global_position])
+	
+	# 初始化場景樹中的 FrameBar
+	if frame_bar_p1:
+		frame_bar_p1.initialize(player1, player2)
+		frame_bar_p1.z_index = 10  # 高層級，防止遮擋
+		print("Debug: FrameBarP1 initialized at position: %s, z_index: %d" % [frame_bar_p1.position, frame_bar_p1.z_index])
+	else:
+		print("Error: FrameBarP1 not found in UI")
+	
+	if frame_bar_p2:
+		frame_bar_p2.initialize(player2, player1)
+		frame_bar_p2.z_index = 10
+		print("Debug: FrameBarP2 initialized at position: %s, z_index: %d" % [frame_bar_p2.position, frame_bar_p2.z_index])
+	else:
+		print("Error: FrameBarP2 not found in UI")
 
 func _input(event):
 	if event is InputEventKey and event.pressed:
@@ -153,7 +170,7 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 		"Crouch": target_state == "Crouch",
 		"Dash": false,
 		"Backdash": false,
-		"St_mp": target_state == "St_mp",
+		"st_mp": target_state == "st_mp",
 		"Jump_F": target_state == "Jump_F",
 		"Jump_B": target_state == "Jump_B",
 		"Jump_V": target_state == "Jump_V",
@@ -253,7 +270,13 @@ func reset_players():
 	if p2_advantage_label:
 		p2_advantage_label.text = "P2 Adv: 0"
 	
-	print("Debug: Players reset! Positions, health, animations, and slow motion restored.")
+	# 重置 FrameBar
+	if frame_bar_p1:
+		frame_bar_p1.reset_frame_bar()
+	if frame_bar_p2:
+		frame_bar_p2.reset_frame_bar()
+	
+	print("Debug: Players reset! Positions, health, animations, frame bars, and slow motion restored.")
 
 func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
 	if not is_blocked:

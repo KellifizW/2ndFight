@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://dsnvnd8yxiin5"]
+
+[ext_resource type="Script" uid="uid://bfp4rv4sbcptr" path="res://FrameBar.gd" id="1_hbfuy"]
+
+[node name="FrameBar" type="ProgressBar"]
+offset_right = 180.0
+offset_bottom = 10.0
+pivot_offset = Vector2(48, 52)
+max_value = 180.0
+show_percentage = false
+script = ExtResource("1_hbfuy")
