@@ -41,6 +41,7 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 @onready var player_controller = $PlayerController if has_node("PlayerController") else null
+@export var powerkk_blockstun: float = 4.5  # 假設 powerkk 的 blockstun 為 4.5 秒
 
 var current_mode: String = "ground_stand"
 var attack_type: String = "none"
@@ -255,8 +256,10 @@ func _on_hitbox_area_entered(area: Area2D):
 		if slowmo_controller:
 			slowmo_controller.request_hit_freeze()
 		
+		# 修改 blockstun 和 hitstun 的選擇邏輯
 		var hitstun = st_mp_hitstun if attack_type == "st_mp" else st_mk_hitstun if attack_type == "st_mk" else 0.35
-		var blockstun = st_mp_blockstun if attack_type == "st_mp" else st_mk_blockstun if attack_type == "st_mk" else 0.267
+		var blockstun = st_mp_blockstun if attack_type == "st_mp" else st_mk_blockstun if attack_type == "st_mk" else powerkk_blockstun if attack_type == "powerkk" else 0.267
+		print("Debug: Hit detected, attack_type=%s, blockstun=%s, hitstun=%s, is_powerkk=%s" % [attack_type, blockstun, hitstun, move_set.is_powerkk if move_set else false])
 		
 		var was_in_stun = target.is_hit or target.is_knockfly
 		target.take_hit(hitstun, blockstun, damage, false)
@@ -264,7 +267,7 @@ func _on_hitbox_area_entered(area: Area2D):
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		var stun_duration = blockstun if is_blocked else hitstun
 		hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
-		
+				
 		var contact_point = get_contact_point($Hitbox, area)
 		var vfx_scene_path = "res://vfx_blk.tscn" if is_blocked else "res://vfx_hit.tscn"
 		var vfx = load(vfx_scene_path).instantiate()

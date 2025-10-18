@@ -207,8 +207,8 @@ func _physics_process(delta: float) -> void:
 					push_vec_other = -normal_x * push_amount
 				
 				if parent.just_jumped or parent.is_landing or other.just_jumped or other.is_landing:
-					push_vec_self *= 1.5
-					push_vec_other *= 1.5
+					push_vec_self *= 1.0  # 原1.5，改為1.0以減小跳躍推開
+					push_vec_other *= 1.0  # 原1.5，改為1.0以減小跳躍推開
 				
 				var new_self_fixed_x = fixed_position_a.x - push_vec_self
 				var new_other_fixed_x = fixed_position_b.x - push_vec_other

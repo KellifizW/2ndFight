@@ -47,6 +47,9 @@ var frame_data: Dictionary = {
 	}
 }
 
+# 新增：用於 P1 st_mp 連技取消的計時器（模擬 player.gd 的 cancel_window_duration = 0.3s）
+var cancel_window_timer_ai: float = 0.0  # AI 專用取消窗口計時器
+
 func _ready():
 	parent = get_parent()
 	if parent:
@@ -56,6 +59,9 @@ func _ready():
 			punish_attack = "st_mp"  # P1 startup 0.1s
 		else:
 			punish_attack = "st_mk"  # P2 startup 0.1s
+		# 新增：連接 parent 的 hit_detected 信號，偵測自己擊中對手
+		if parent.has_signal("hit_detected"):
+			parent.hit_detected.connect(_on_self_hit_detected)
 	else:
 		print("Warning: AIBehavior parent not found")
 	# 延遲查找對手，確保場景初始化完成
@@ -74,6 +80,11 @@ func _process(delta):
 		if punish_timer <= 0:
 			punish_timer = 0.0
 			punish_opportunity = true  # blockstun 結束，反擊機會
+	# 更新取消窗口計時器
+	if cancel_window_timer_ai > 0:
+		cancel_window_timer_ai -= delta
+		if cancel_window_timer_ai <= 0:
+			cancel_window_timer_ai = 0.0
 
 func _set_state_timer(value: float):
 	decision_timer = value  # state_timer 改變時同步更新 decision_timer
@@ -132,6 +143,12 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 			punish_opportunity = false  # 確保在計時器結束前不觸發
 		else:
 			punish_opportunity = false  # 無機會，重置
+
+# 新增：處理自己擊中對手的信號，用於觸發 st_mp 連技取消
+func _on_self_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
+	if ai_enabled and parent.player_id == "p1" and parent.attack_type == "st_mp" and parent.is_attacking:
+		cancel_window_timer_ai = 0.3  # 匹配 player.gd 的 cancel_window_duration = 0.3s
+		print("Debug: AI P1 st_mp hit detected, starting cancel window for combo")
 
 func get_ai_input() -> Dictionary:
 	# 如果AI未啟用或無對手，返回空輸入
@@ -308,6 +325,14 @@ func get_ai_input() -> Dictionary:
 			st_mp_pressed = true  # 觸發 jump_mp
 		else:
 			st_mk_pressed = true  # 觸發 jump_mk
+	
+	# 新增：如果取消窗口啟動，強制觸發 spm1_pressed 來取消 st_mp 並連技
+	if cancel_window_timer_ai > 0:
+		spm1_pressed = true  # 在窗口內觸發 spm1 (powerkk)，取消 st_mp 動畫
+		st_mp_pressed = false  # 避免重複 st_mp
+		st_mk_pressed = false
+		spm2_pressed = false
+		print("Debug: AI P1 triggering spm1 in cancel window for combo")
 	
 	# 計算攻擊類型和傷害
 	var attack_type = "st_mp" if st_mp_pressed else "st_mk" if st_mk_pressed else "none"

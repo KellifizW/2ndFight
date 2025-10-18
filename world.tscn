@@ -47,19 +47,7 @@ hit_push_distance = 10.0
 
 [node name="Player2" parent="." instance=ExtResource("3_tlwt5")]
 position = Vector2(290, 200)
-is_ai_controlled = false
 corner_push_distance = 5.0
-cancel_window_duration = 0.3
-st_mp_hitstun = 0.4
-st_mp_blockstun = 0.267
-st_mk_hitstun = 0.65
-st_mk_blockstun = 0.3
-air_knockback_horizontal_speed = 100.0
-air_knockback_vertical_speed = -300.0
-air_friction = 10.0
-min_hitstun_duration = 0.13333333333333333
-landing_duration = 0.2
-knockfly_duration = 0.75
 block_push_distance = 10.0
 hit_push_distance = 10.0
 jump_delay_duration = 0.1
@@ -149,7 +137,9 @@ text = "P2 Advantage: 0.000"
 
 [node name="FrameBarP2" parent="UI" instance=ExtResource("7_wse8f")]
 offset_left = 240.0
+offset_top = 30.0
 offset_right = 420.0
+offset_bottom = 40.0
 
 [node name="CPUController" type="Node" parent="."]
 script = ExtResource("6_dwbse")

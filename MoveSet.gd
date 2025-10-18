@@ -6,10 +6,12 @@ class_name MoveSet extends Node
 @export var fireball_y_offset: float = 0.0
 @export var fireball_x_offset: float = 15.0
 @export var fireball_spawn_delay: float = 0.2667
+@export var powerkk_blockstun: float = 4.5  # 新增 powerkk 的 blockstun 時間
 var is_powerkk: bool = false
 var is_spnk: bool = false
 var is_fireball: bool = false
 var is_spmove: bool = false
+var is_special_moving: bool = false
 var powerkk_time: float = 0.933
 var spnk_time: float = 0.0
 var fireball_time: float = 0.3
@@ -54,6 +56,7 @@ func _ready():
 			animation_player.animation_finished.connect(_on_spmove_animation_finished)
 	if parent and parent.has_signal("hit_detected"):
 		parent.hit_detected.connect(_on_hit_detected)
+	is_special_moving = false
 
 func stop_special_move():
 	if is_powerkk or is_spnk or is_fireball:
@@ -61,6 +64,7 @@ func stop_special_move():
 		is_spnk = false
 		is_fireball = false
 		is_spmove = false
+		is_special_moving = false
 		is_spmove_animation_playing = false
 		fireball_spawn_timer = 0.0
 		var final_position = sprite.position
@@ -74,12 +78,11 @@ func stop_special_move():
 			print("Warning: World node not found, fallback to direct global_position update")
 			parent.global_position.x += final_position.x
 		# 修正：強制更新 facing 並確保 sprite.scale.x 與 facing_direction 同步
-		parent.force_update_facing_direction()  # 使用 force_update_facing_direction 確保正確計算
+		parent.force_update_facing_direction()
 		sprite.scale.x = abs(sprite.scale.x) * sign(parent.facing_direction)
 		parent.fixed_velocity.x = 0
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false
-		# 加 debug：追蹤 stop 後的 facing 和 scale
 		print("Debug: Special move stopped for %s, facing_direction=%s, parent.scale.x=%s, sprite.scale.x=%s, position=%s" % [parent.name, parent.facing_direction, parent.scale.x, sprite.scale.x, parent.global_position])
 
 func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) -> bool:
@@ -100,6 +103,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if input_data.spm2_pressed and not parent.is_attacking and not is_fireball and not is_powerkk and not is_spnk:
 		is_fireball = true
 		is_spmove = true
+		is_special_moving = true
 		if animation_player and animation_player.has_animation("fireball"):
 			fireball_time = animation_player.get_animation("fireball").length
 			if fireball_time <= 0:
@@ -114,7 +118,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		fireball_initial_parent_scale_x = parent.scale.x
 		fireball_initial_sprite_scale_x = sprite.scale.x
 		if "is_special_moving" in parent:
-			parent.is_special_moving = false
+			parent.is_special_moving = true
+		parent.fixed_velocity = Vector2i(0, 0)
+		parent.fixed_position.y = world.FLOOR_Y
 		animation_player.play("fireball")
 		print("Debug: Fireball triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, spawn delay=%.2fs" % [parent.name, fireball_damage, fireball_initial_facing, parent.scale.x, sprite.scale.x, fireball_spawn_delay])
 		is_spmove_animation_playing = true
@@ -141,6 +147,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		if player_id == "p1" and not is_powerkk:
 			is_powerkk = true
 			is_spmove = true
+			is_special_moving = true
 			if animation_player and animation_player.has_animation("powerkk"):
 				powerkk_time = animation_player.get_animation("powerkk").length
 				if powerkk_time <= 0:
@@ -150,6 +157,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				powerkk_time = 0.933
 			powerkk_timer = powerkk_time
 			parent.current_damage = powerkk_damage
+			parent.attack_type = "powerkk"
 			parent.fixed_velocity.x = int((powerkk_move_distance / powerkk_time) * world.SIMULATION_SCALE * parent.facing_direction)
 			powerkk_initial_facing = parent.facing_direction
 			powerkk_initial_parent_scale_x = parent.scale.x
@@ -158,12 +166,13 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				parent.is_special_moving = true
 			animation_player.play("powerkk")
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
-			print("Debug: Powerkk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, powerkk_damage, powerkk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
+			print("Debug: Powerkk triggered for %s, current_damage=%s, attack_type=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, powerkk_damage, parent.attack_type, powerkk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
 			is_spmove_animation_playing = true
 			return true
 		elif player_id == "p2" and not is_spnk:
 			is_spnk = true
 			is_spmove = true
+			is_special_moving = true
 			if animation_player and animation_player.has_animation("spnk"):
 				spnk_time = animation_player.get_animation("spnk").length
 				if spnk_time <= 0:
@@ -173,6 +182,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				spnk_time = 1.2
 			spnk_timer = spnk_time
 			parent.current_damage = spnk_damage
+			parent.attack_type = "spnk"
 			parent.fixed_velocity.x = int((spnk_move_distance / spnk_time) * world.SIMULATION_SCALE * parent.facing_direction)
 			spnk_initial_facing = parent.facing_direction
 			spnk_initial_parent_scale_x = parent.scale.x
@@ -181,7 +191,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				parent.is_special_moving = true
 			animation_player.play("spnk")
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
-			print("Debug: Spnk triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, spnk_damage, spnk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
+			print("Debug: Spnk triggered for %s, current_damage=%s, attack_type=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, spnk_damage, parent.attack_type, spnk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
 			is_spmove_animation_playing = true
 			return true
 	
@@ -192,14 +202,11 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				parent.fixed_position.y = world.FLOOR_Y
 				parent.fixed_velocity.y = 0
 		var delta_move = int(parent.fixed_velocity.x * delta)
-		print("Debug: Powerkk delta move = %s, before fixed_x = %s" % [delta_move, parent.fixed_position.x])
 		parent.fixed_position.x += delta_move
-		print("Debug: Powerkk after add, fixed_x = %s" % parent.fixed_position.x)
 		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		powerkk_timer -= delta
 		if powerkk_timer <= 0:
 			stop_special_move()
-			print("Debug: Powerkk timer ended for %s" % parent.name)
 		return true
 
 	if is_spnk:
@@ -209,9 +216,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				parent.fixed_position.y = world.FLOOR_Y
 				parent.fixed_velocity.y = 0
 		var delta_move = int(parent.fixed_velocity.x * delta)
-		print("Debug: Spnk delta move = %s, before fixed_x = %s" % [delta_move, parent.fixed_position.x])
 		parent.fixed_position.x += delta_move
-		print("Debug: Spnk after add, fixed_x = %s" % parent.fixed_position.x)
 		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		spnk_timer -= delta
 		if spnk_timer <= 0:
@@ -230,7 +235,6 @@ func _on_spmove_animation_finished(anim_name: String):
 			print("Debug: Animation %s finished but timer still active for %s, skipping stop_special_move" % [anim_name, parent.name])
 			return
 		stop_special_move()
-		# 修正：動畫結束後強制更新 facing
 		parent.force_update_facing_direction()
 		print("Debug: Animation %s finished for %s, facing_direction=%s, parent.scale.x=%s, sprite.scale.x=%s" % [anim_name, parent.name, parent.facing_direction, parent.scale.x, sprite.scale.x])
 

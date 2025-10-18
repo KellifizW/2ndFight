@@ -13,8 +13,8 @@ var colbox_half_width: float = 0.0
 var colbox_half_height: float = 0.0
 var walk_speed: float = 100.0
 var back_speed: float = walk_speed * 0.75
-var jump_vertical_speed: float = -650.0
-var jump_horizontal_speed: float = 110.0
+var jump_vertical_speed: float = -810.0
+var jump_horizontal_speed: float = 120.0
 var jump_dir: float = 0.0
 var is_jumping: bool = false
 var is_dashing: bool = false
@@ -68,7 +68,7 @@ var knockfly_max_distance: float = 150.0
 var just_jumped: bool = false
 var landing_facing_lock: bool = false
 var jump_delay_timer: float = 0.0
-@export var jump_delay_duration: float = 0.1
+@export var jump_delay_duration: float = 0.067
 
 signal block_detected(target: String, block_type: String)
 
@@ -130,11 +130,9 @@ func _physics_process(delta):
 	var jump_pressed = input_data["jump_pressed"]
 	is_crouching = crouch_pressed
 	var move_set = $MoveSet if has_node("MoveSet") else null
-	var is_powerkk = move_set.is_powerkk if move_set else false
-	var is_spnk = move_set.is_spnk if move_set else false
-	var is_fireball = move_set.is_fireball if move_set else false
+	var is_special_moving = move_set.is_special_moving if move_set and "is_special_moving" in move_set else false
 	
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not is_fireball and not (is_hit or is_knockfly):
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_special_moving and not (is_hit or is_knockfly):
 		if input_dir * facing_direction < 0:
 			is_holding_back = true
 			is_crouch_blocking = crouch_pressed and input_dir * facing_direction < 0
@@ -146,7 +144,7 @@ func _physics_process(delta):
 			is_holding_back = false
 			is_crouch_blocking = false
 	
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not is_fireball and not (is_hit or is_knockfly or is_blocking or is_push_back) and not is_crouching:
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back) and not is_crouching:
 		if neutral_timer > 0 and input_dir != 0 and pending_dash_dir == input_dir:
 			if input_dir * facing_direction > 0:
 				is_dashing = true
@@ -174,7 +172,7 @@ func _physics_process(delta):
 				pending_dash_dir = last_input_dir
 			last_input_dir = input_dir
 	
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_powerkk and not is_spnk and not is_fireball and not (is_hit or is_knockfly or is_blocking or is_push_back) and not is_crouching:
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back) and not is_crouching:
 		if input_dir != 0:
 			if input_dir * facing_direction < 0 and is_blocking and is_opponent_proximity and block_type == "proximity":
 				fixed_velocity.x = 0
@@ -184,13 +182,10 @@ func _physics_process(delta):
 		else:
 			fixed_velocity.x = 0
 	else:
-		if not (is_jumping or is_dashing or is_backdashing or is_hit or is_knockfly or is_blocking or is_push_back or jump_delay_timer > 0 or ("is_special_moving" in self and self.is_special_moving)):
+		if not (is_jumping or is_dashing or is_backdashing or is_hit or is_knockfly or is_blocking or is_push_back or jump_delay_timer > 0 or is_special_moving):
 			fixed_velocity.x = 0
-			if is_fireball:
-				fixed_velocity.x = 0
-				fixed_velocity.y = 0
 	
-	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_powerkk and not is_spnk and not is_fireball and not (is_hit or is_knockfly or is_blocking or is_push_back) and jump_delay_timer <= 0:
+	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back) and jump_delay_timer <= 0:
 		jump_dir = input_dir
 		is_jumping = true
 		landing_facing_lock = true
@@ -204,9 +199,9 @@ func _physics_process(delta):
 			fixed_velocity.x = 0
 	
 	if jump_delay_timer <= 0 and not is_on_floor():
-		add_gravity((self.world.GRAVITY if self.world else 1800000), delta)
+		add_gravity((self.world.GRAVITY if self.world else 3000000), delta)
 	else:
-		if not just_jumped and not is_fireball:
+		if not just_jumped:
 			fixed_velocity.y = 0
 			fixed_position.y = (self.world.FLOOR_Y if self.world else 200000)
 	
@@ -237,17 +232,15 @@ func _physics_process(delta):
 	if just_jumped and fixed_velocity.y > 0:
 		just_jumped = false
 	
-	# 修正：放寬 facing 更新條件，允許 spnk 結束後立即更新
-	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
 	var is_attacking_state = is_attacking
 	var is_landing_state = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
-	if not (is_attacking_state or landing_facing_lock or is_landing_state):  # 移除 is_special_move 限制
+	if not (is_attacking_state or landing_facing_lock or is_landing_state):
 		update_facing_direction()
 	
-	if is_on_floor() and was_in_air and not is_landing_state and not (is_powerkk or is_spnk) and not is_jumping and not landing_facing_lock:
+	if is_on_floor() and was_in_air and not is_landing_state and not is_special_moving and not is_jumping and not landing_facing_lock:
 		update_facing_direction()
 	was_in_air = not is_on_floor()
-	if is_on_floor() and prev_position.x != global_position.x and not (is_powerkk or is_spnk) and not is_landing_state and not is_jumping and not landing_facing_lock:
+	if is_on_floor() and prev_position.x != global_position.x and not is_special_moving and not is_landing_state and not is_jumping and not landing_facing_lock:
 		update_facing_direction()
 	prev_position = global_position
 	
@@ -334,11 +327,10 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 
 func update_facing_direction():
 	var move_set = $MoveSet if has_node("MoveSet") else null
-	var is_special_move = move_set and (move_set.is_powerkk or move_set.is_spnk)
 	var is_attacking_state = is_attacking
 	var is_landing_state = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
 	
-	if is_attacking_state or landing_facing_lock or is_landing_state:  # 移除 is_special_move 限制
+	if is_attacking_state or landing_facing_lock or is_landing_state:
 		return
 	
 	var players = get_tree().get_nodes_in_group("players")
@@ -355,18 +347,44 @@ func update_facing_direction():
 		var other_right = other_player.global_position.x + other_player.colbox_half_width
 		
 		var old_facing = facing_direction
-		if self_left > other_right:
+		var epsilon = 1.0
+		if self_left > other_right + epsilon:
 			facing_direction = -1.0
 			scale.x = -1
 			scale.y = 1
 			sprite.scale.x = 1.0
 			rotation_degrees = 0
-		elif self_right < other_left:
+			print("Debug: Facing updated to -1 for %s (self_left=%s > other_right=%s), position=%s, other_position=%s" % [name, self_left, other_right, global_position.x, other_player.global_position.x])
+		elif self_right < other_left - epsilon:
 			facing_direction = 1.0
 			scale.x = 1
 			scale.y = 1
 			sprite.scale.x = 1.0
 			rotation_degrees = 0
+			print("Debug: Facing updated to 1 for %s (self_right=%s < other_left=%s), position=%s, other_position=%s" % [name, self_right, other_left, global_position.x, other_player.global_position.x])
+		else:
+			var push_manager = get_tree().get_first_node_in_group("push_manager")
+			var is_at_left_corner = push_manager.is_at_corner(self) if push_manager else false
+			if is_at_left_corner and global_position.x > other_player.global_position.x:
+				facing_direction = -1.0
+				scale.x = -1
+				scale.y = 1
+				sprite.scale.x = 1.0
+				rotation_degrees = 0
+				print("Debug: Facing forced to -1 for %s at left corner, position=%s, other_position=%s" % [name, global_position.x, other_player.global_position.x])
+			elif is_at_left_corner and global_position.x <= other_player.global_position.x:
+				facing_direction = 1.0
+				scale.x = 1
+				scale.y = 1
+				sprite.scale.x = 1.0
+				rotation_degrees = 0
+				print("Debug: Facing forced to 1 for %s at left corner, position=%s, other_position=%s" % [name, global_position.x, other_player.global_position.x])
+			else:
+				facing_direction = old_facing
+				scale.x = sign(old_facing)
+				scale.y = 1
+				sprite.scale.x = 1.0
+				rotation_degrees = 0
 		update_hitbox_position()
 	else:
 		facing_direction = 1.0
@@ -410,10 +428,9 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
 	if is_attacking:
 		var atype = get("attack_type") if "attack_type" in self else "none"
-		# 修正：移除 fallback 邏輯，確保 attack_type 有效
 		if atype in ["st_mp", "st_mk"]:
 			return atype
-		return "Walk"  # 若 attack_type 無效，返回 Walk
+		return "Walk"
 	if is_dashing:
 		return "Dash"
 	if is_backdashing:
@@ -452,8 +469,6 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	
 	if curr_state != target_state:
 		animation_state.travel(target_state)
-		# 加 debug：追蹤動畫狀態轉換
-		print("Debug: Animation state changed for %s, from %s to %s, attack_type=%s" % [name, curr_state, target_state, get("attack_type") if "attack_type" in self else "none"])
 	
 	if target_state == "Walk":
 		animation_tree.set("parameters/Walk/blend_position", anim_dir)
