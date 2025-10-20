@@ -354,14 +354,12 @@ func update_facing_direction():
 			scale.y = 1
 			sprite.scale.x = 1.0
 			rotation_degrees = 0
-			print("Debug: Facing updated to -1 for %s (self_left=%s > other_right=%s), position=%s, other_position=%s" % [name, self_left, other_right, global_position.x, other_player.global_position.x])
 		elif self_right < other_left - epsilon:
 			facing_direction = 1.0
 			scale.x = 1
 			scale.y = 1
 			sprite.scale.x = 1.0
 			rotation_degrees = 0
-			print("Debug: Facing updated to 1 for %s (self_right=%s < other_left=%s), position=%s, other_position=%s" % [name, self_right, other_left, global_position.x, other_player.global_position.x])
 		else:
 			var push_manager = get_tree().get_first_node_in_group("push_manager")
 			var is_at_left_corner = push_manager.is_at_corner(self) if push_manager else false

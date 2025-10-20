@@ -41,7 +41,7 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 @onready var player_controller = $PlayerController if has_node("PlayerController") else null
-@export var powerkk_blockstun: float = 4.5  # 假設 powerkk 的 blockstun 為 4.5 秒
+@export var powerkk_blockstun: float = 0.3833
 
 var current_mode: String = "ground_stand"
 var attack_type: String = "none"
@@ -256,9 +256,20 @@ func _on_hitbox_area_entered(area: Area2D):
 		if slowmo_controller:
 			slowmo_controller.request_hit_freeze()
 		
-		# 修改 blockstun 和 hitstun 的選擇邏輯
+		# 修改：hitstun 和 blockstun 的選擇邏輯，添加對特殊招式的檢查
 		var hitstun = st_mp_hitstun if attack_type == "st_mp" else st_mk_hitstun if attack_type == "st_mk" else 0.35
 		var blockstun = st_mp_blockstun if attack_type == "st_mp" else st_mk_blockstun if attack_type == "st_mk" else powerkk_blockstun if attack_type == "powerkk" else 0.267
+		
+		# 新增：如果檢測到特殊招式（如 powerkk），覆蓋 blockstun 和 hitstun
+		if move_set:
+			if move_set.is_powerkk:
+				blockstun = powerkk_blockstun  # 使用 powerkk 的專屬 blockstun (0.3833 秒)
+				hitstun = 0.65  # 可根據需求調整 hitstun（這裡假設與 st_mk 類似，您可自訂）
+				print("Debug: PowerKK special stun applied, blockstun=%s, hitstun=%s" % [blockstun, hitstun])
+			# 如果有其他特殊招式（如 spnk），可在此添加類似檢查，例如：
+			# elif move_set.is_spnk:
+			#     blockstun = spnk_blockstun  # 假設您有定義 spnk_blockstun
+
 		print("Debug: Hit detected, attack_type=%s, blockstun=%s, hitstun=%s, is_powerkk=%s" % [attack_type, blockstun, hitstun, move_set.is_powerkk if move_set else false])
 		
 		var was_in_stun = target.is_hit or target.is_knockfly
@@ -267,35 +278,72 @@ func _on_hitbox_area_entered(area: Area2D):
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		var stun_duration = blockstun if is_blocked else hitstun
 		hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
-				
+						
 		var contact_point = get_contact_point($Hitbox, area)
 		var vfx_scene_path = "res://vfx_blk.tscn" if is_blocked else "res://vfx_hit.tscn"
 		var vfx = load(vfx_scene_path).instantiate()
 		world.add_child(vfx)
+		# 修改：設置 VFX 及其粒子系統的面向與攻擊者一致，確保 local_coords 為 true，並處理箭頭紋理方向
+		vfx.scale.x = facing_direction
+		var particles_1 = vfx.get_node_or_null("exp") if is_blocked else vfx.get_node_or_null("explode")
+		var particles_2 = vfx.get_node_or_null("wave") if is_blocked else vfx.get_node_or_null("ring")
+		if particles_1:
+			particles_1.scale.x = facing_direction
+			particles_1.local_coords = true
+			if particles_1.process_material:
+				var direction = particles_1.process_material.direction if particles_1.process_material.direction else Vector3(100, 0, 0)
+				particles_1.process_material.direction = Vector3(direction.x * facing_direction, direction.y, direction.z)
+			particles_1.emitting = true
+		if particles_2:
+			particles_2.scale.x = facing_direction
+			particles_2.local_coords = true
+			particles_2.rotation = PI if facing_direction == -1.0 else 0.0  # 旋轉 180 度以翻轉箭頭紋理
+			if particles_2.process_material:
+				var direction = particles_2.process_material.direction if particles_2.process_material.direction else Vector3(100, 0, 0)
+				particles_2.process_material.direction = Vector3(direction.x * facing_direction, direction.y, direction.z)
+			particles_2.emitting = true
 		if contact_point == Vector2.ZERO:
 			contact_point = (area.global_position + $Hitbox.global_position) / 2.0
 			print("Warning: Using fallback midpoint position %s for VFX due to invalid contact point" % contact_point)
 		vfx.global_position = contact_point
 		if not target.is_on_floor():
 			vfx.global_position.y += 10
-		var particles_1 = vfx.get_node_or_null("exp") if is_blocked else vfx.get_node_or_null("explode")
-		var particles_2 = vfx.get_node_or_null("wave") if is_blocked else vfx.get_node_or_null("ring")
-		if particles_1:
-			particles_1.emitting = true
-		if particles_2:
-			particles_2.emitting = true
-		var vfx_position = vfx.global_position
-		print("Debug: %s VFX spawned at %s for %s hitting %s (%s)" % ["Block" if is_blocked else "Hit", vfx.global_position, name, target.name, "blocked" if is_blocked else "unblocked"])
+		# 新增：除錯日誌，確認 VFX 面向設置與粒子屬性
+		print("Debug: %s VFX spawned at %s for %s hitting %s (%s), vfx_scene=%s, attacker_facing=%s, vfx_scale_x=%s, particles_1_scale_x=%s, particles_1_direction=%s, particles_1_local_coords=%s, particles_1_rotation=%s, particles_2_scale_x=%s, particles_2_direction=%s, particles_2_local_coords=%s, particles_2_rotation=%s" % [
+			"Block" if is_blocked else "Hit",
+			vfx.global_position,
+			name,
+			target.name,
+			"blocked" if is_blocked else "unblocked",
+			vfx_scene_path,
+			facing_direction,
+			vfx.scale.x,
+			particles_1.scale.x if particles_1 else "null",
+			particles_1.process_material.direction if particles_1 and particles_1.process_material else "null",
+			particles_1.local_coords if particles_1 else "null",
+			particles_1.rotation if particles_1 else "null",
+			particles_2.scale.x if particles_2 else "null",
+			particles_2.process_material.direction if particles_2 and particles_2.process_material else "null",
+			particles_2.local_coords if particles_2 else "null",
+			particles_2.rotation if particles_2 else "null"
+		])
 		
-		var debug_text = "Hit on %s\nHitbox: %s (facing: %s)\nHurtbox: %s (facing: %s)\nVFX Contact: %s\nAir hit: %s\nBlocked: %s" % [
+		var debug_text = "Hit on %s\nHitbox: %s (facing: %s)\nHurtbox: %s (facing: %s)\nVFX Contact: %s\nAir hit: %s\nBlocked: %s\nVFX Scale X: %s\nP1 Direction: %s\nP1 Local Coords: %s\nP1 Rotation: %s\nP2 Direction: %s\nP2 Local Coords: %s\nP2 Rotation: %s" % [
 			target.name,
 			$Hitbox.global_position,
 			get_facing_multiplier(),
 			area.global_position,
 			target.get_facing_multiplier() if "get_facing_multiplier" in target else 1.0,
-			vfx_position,
+			vfx.global_position,
 			"yes" if not target.is_on_floor() else "no",
-			"yes" if is_blocked else "no"
+			"yes" if is_blocked else "no",
+			vfx.scale.x,
+			particles_1.process_material.direction if particles_1 and particles_1.process_material else "null",
+			particles_1.local_coords if particles_1 else "null",
+			particles_1.rotation if particles_1 else "null",
+			particles_2.process_material.direction if particles_2 and particles_2.process_material else "null",
+			particles_2.local_coords if particles_2 else "null",
+			particles_2.rotation if particles_2 else "null"
 		]
 		var debug_label = world.get_node_or_null("UI/DebugLabel")
 		if debug_label:

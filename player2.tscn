@@ -1361,10 +1361,10 @@ tracks/4/path = NodePath("Hitbox/HitShape:position")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
-"times": PackedFloat32Array(0.2),
+"times": PackedFloat32Array(0.20000002),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(20, 10)]
+"values": [Vector2(20, 5)]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
@@ -1412,7 +1412,7 @@ tracks/8/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(20, 10)]
+"values": [Vector2(20, 5)]
 }
 tracks/9/type = "value"
 tracks/9/imported = false
@@ -1858,7 +1858,7 @@ states/st_mp/position = Vector2(594, 142)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-52, 185)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "knockfly", SubResource("AnimationNodeStateMachineTransition_64yue"), "knockfly", "wakeup", SubResource("AnimationNodeStateMachineTransition_g4e5n"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_aiihl")]
-graph_offset = Vector2(-96, -85)
+graph_offset = Vector2(-134, -10)
 
 [node name="Player2" type="CharacterBody2D"]
 collision_layer = 2

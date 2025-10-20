@@ -6,7 +6,7 @@ class_name MoveSet extends Node
 @export var fireball_y_offset: float = 0.0
 @export var fireball_x_offset: float = 15.0
 @export var fireball_spawn_delay: float = 0.2667
-@export var powerkk_blockstun: float = 4.5  # 新增 powerkk 的 blockstun 時間
+
 var is_powerkk: bool = false
 var is_spnk: bool = false
 var is_fireball: bool = false

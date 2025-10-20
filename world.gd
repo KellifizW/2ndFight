@@ -93,7 +93,7 @@ func _input(event):
 			reset_players()
 		if event.keycode == KEY_M and not slowmo_triggered:
 			slowmo_controller.request_slowmo_change()
-			print("Debug: M key pressed, requesting slow motion change")
+			print("Debug: M key pressed, requesting slow motion change at %s ms" % Time.get_ticks_msec())
 
 func _process(delta):
 	fps_label.text = "FPS: %d" % (1.0 / delta)
@@ -108,7 +108,7 @@ func _process(delta):
 		   (player2.healthbar and player2.healthbar.current_health <= 0):
 			slowmo_controller.request_slowmo_change()
 			slowmo_triggered = true
-			print("Debug: Slow motion triggered due to player health <= 0")
+			print("Debug: Slow motion triggered due to player health <= 0 at %s ms" % Time.get_ticks_msec())
 
 func _physics_process(delta):
 	if combo_reset_timer > 0:
@@ -118,19 +118,29 @@ func _physics_process(delta):
 	
 	# 監聽狀態變化計算優勢（使用真實時間，不受 time_scale 影響）
 	if attacker and target_player and not advantage_calculated:
-		# 檢查攻擊者恢復（is_attacking 結束）
-		if attacker_recover_time == 0.0 and not attacker.is_attacking:
-			attacker_recover_time = Time.get_unix_time_from_system()
-			print("Debug: Attacker %s recovered at %s" % [attacker.name, attacker_recover_time])
+		# Check attacker recovery (expanded to include special move states and animation)
+		if attacker_recover_time == 0.0:
+			var move_set = attacker.get_node_or_null("MoveSet")
+			var animation_player = attacker.get_node_or_null("AnimationPlayer")
+			var is_recovered = not attacker.is_attacking
+			if move_set:
+				is_recovered = is_recovered and not (move_set.is_special_moving or move_set.is_spmove)
+			if animation_player and animation_player.is_playing():
+				var current_anim = animation_player.current_animation
+				if current_anim in ["powerkk", "spnk", "fireball"]:
+					is_recovered = false  # Prevent recovery during special animation
+			if is_recovered:
+				attacker_recover_time = Time.get_unix_time_from_system()
+				print("Debug: Attacker %s recovered at %s (expanded check)" % [attacker.name, attacker_recover_time])
 		
-		# 檢查被擊者恢復（is_hit 或 is_blocking 結束）
+		# Check target recovery (unchanged, as blockstun/hitstun are accurately flagged)
 		if target_recover_time == 0.0 and not (target_player.is_hit or target_player.is_blocking):
 			target_recover_time = Time.get_unix_time_from_system()
 			print("Debug: Target %s recovered at %s" % [target_player.name, target_recover_time])
 		
-		# 兩者皆恢復，計算優勢
+		# Both recovered, compute advantage (unchanged)
 		if attacker_recover_time > 0 and target_recover_time > 0:
-			var advantage_time = (target_recover_time - hit_time) - (attacker_recover_time - hit_time)  # stun - 恢復
+			var advantage_time = (target_recover_time - hit_time) - (attacker_recover_time - hit_time)  # stun - recovery
 			var advantage_frames = int(advantage_time * TICKS_PER_SECOND)
 			if attacker == player1:
 				p1_advantage_label.text = "P1 Adv: " + ("+" if advantage_frames > 0 else "") + str(advantage_frames)
@@ -161,7 +171,7 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 	animation_player.stop()
 	animation_player.clear_queue()
 	animation_player.speed_scale = 1.0
-	print("Debug: %s AnimationPlayer stopped and queue cleared" % player.name)
+	print("Debug: %s AnimationPlayer stopped and queue cleared at %s ms" % [player.name, Time.get_ticks_msec()])
 	
 	animation_tree.active = false
 	
@@ -190,7 +200,7 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 	
 	animation_tree.active = true
 	animation_state.travel(target_state)
-	print("Debug: %s animation reset to %s" % [player.name, target_state])
+	print("Debug: %s animation reset to %s at %s ms" % [player.name, target_state, Time.get_ticks_msec()])
 
 func reset_players():
 	player1.global_position = initial_p1_pos
@@ -207,7 +217,7 @@ func reset_players():
 				player.healthbar.value = 100.0
 			else:
 				player.healthbar.set("value", 100.0)
-			print("Debug: %s health reset to 100.0" % player.name)
+			print("Debug: %s health reset to 100.0 at %s ms" % [player.name, Time.get_ticks_msec()])
 	
 	for player in [player1, player2]:
 		player.is_hit = false
@@ -248,7 +258,7 @@ func reset_players():
 		slowmo_controller.is_hit_slowmo = false
 		slowmo_triggered = false
 		Engine.time_scale = slowmo_controller.normal_time_scale
-		print("Debug: Slow motion and hit slowmo states reset, time_scale=%s" % Engine.time_scale)
+		print("Debug: Slow motion and hit slowmo states reset, time_scale=%s at %s ms" % [Engine.time_scale, Time.get_ticks_msec()])
 	
 	if animation_label:
 		animation_label.text = "P1: Walk, P2: Walk"
@@ -276,12 +286,13 @@ func reset_players():
 	if frame_bar_p2:
 		frame_bar_p2.reset_frame_bar()
 	
-	print("Debug: Players reset! Positions, health, animations, frame bars, and slow motion restored.")
+	print("Debug: Players reset! Positions, health, animations, frame bars, and slow motion restored at %s ms" % Time.get_ticks_msec())
 
 func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
+	var hit_time_ms = Time.get_ticks_msec()
 	if not is_blocked:
 		hit_label.text = "Hits: " + target + " was hit!"
-		print("Debug: %s was hit, updating HitLabel" % target)
+		print("Debug: %s was hit at %s ms, updating HitLabel, stun_duration=%s" % [target, hit_time_ms, stun_duration])
 		
 		if was_in_stun and combo_target == target and current_combo > 0:
 			current_combo += 1
@@ -292,7 +303,7 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		update_combo_label()
 	else:
 		hit_label.text = target + " blocked! Stun: " + str(stun_duration)
-		print("Debug: %s blocked with stun duration %s, updating HitLabel" % [target, stun_duration])
+		print("Debug: %s blocked at %s ms with stun duration %s, updating HitLabel" % [target, hit_time_ms, stun_duration])
 		reset_combo()
 	
 	# 記錄擊中時刻，重置計算（使用真實時間）
@@ -302,12 +313,13 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 	attacker_recover_time = 0.0
 	target_recover_time = 0.0
 	advantage_calculated = false
-	print("Debug: Hit detected at %s, attacker=%s, target=%s" % [hit_time, attacker.name, target_player.name])
+	print("Debug: Hit detected at %s ms, attacker=%s, target=%s, requesting slowmo" % [hit_time_ms, attacker.name, target_player.name])
 
 func _on_block_detected(target: String, block_type: String):
+	var block_time_ms = Time.get_ticks_msec()
 	if block_type == "proximity":
 		hit_label.text = target + " blocked (proximity)!"
-		print("Debug: %s triggered proximity block, updating HitLabel" % target)
+		print("Debug: %s triggered proximity block at %s ms, updating HitLabel" % [target, block_time_ms])
 	reset_combo()
 
 func update_combo_label():

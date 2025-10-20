@@ -11,7 +11,7 @@ var hit_slowmo_time_scale: float = 0.02  # 擊中慢動作速度（2%正常速�
 var slowmo_enter_time: float = 0.1   # 進入慢動作的過渡時間（秒），僅用於手動切換
 var slowmo_exit_time: float = 0.15   # 退出慢動作的過渡時間（秒），僅用於手動切換
 var slowmo_active: bool = false      # 慢動作是否啟動（手動切換）
-var hit_slowmo_time: float = 0.09    # 擊中慢動作的持續時間（秒，真實時間）
+var hit_slowmo_time: float = 0.1    # 擊中慢動作的持續時間（秒，真實時間）
 var hit_slowmo_exit_time: float = 0.01  # 擊中慢動作的退出過渡時間（秒，真實時間）
 var is_hit_slowmo: bool = false     # 標記是否處於擊中慢動作狀態
 

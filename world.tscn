@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://c0j8o4o3jtun1"]
+[gd_scene load_steps=15 format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
 [ext_resource type="PackedScene" uid="uid://bw2666uj5f0gw" path="res://player1.tscn" id="1_f3sb7"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://slow_mo_controller.gd" id="7_pkg7o"]
 [ext_resource type="PackedScene" uid="uid://dsnvnd8yxiin5" path="res://FrameBar.tscn" id="7_wse8f"]
 [ext_resource type="Script" uid="uid://cydy3y7rrkibl" path="res://PushManager.gd" id="9_ioo17"]
+[ext_resource type="Script" uid="uid://cmi0ksd8w268l" path="res://ControlHistory.gd" id="11_ic0uy"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_036b0"]
 
@@ -149,3 +150,6 @@ script = ExtResource("7_pkg7o")
 
 [node name="PushManager" type="Node" parent="."]
 script = ExtResource("9_ioo17")
+
+[node name="ControlHistory" type="Node" parent="."]
+script = ExtResource("11_ic0uy")
