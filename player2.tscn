@@ -1,10 +1,11 @@
-[gd_scene load_steps=73 format=3 uid="uid://jla54h8ttkct"]
+[gd_scene load_steps=74 format=3 uid="uid://jla54h8ttkct"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_tdckb"]
 [ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="2_tdckb"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://MoveSet.gd" id="3_vop8p"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai_behavior.gd" id="4_tj0vx"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://PlayerController.gd" id="5_bhnal"]
+[ext_resource type="Script" uid="uid://cdns34piysikv" path="res://InputManager.gd" id="6_uqwy3"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(20, 70)
@@ -1930,3 +1931,6 @@ script = ExtResource("4_tj0vx")
 
 [node name="PlayerController" type="Node" parent="."]
 script = ExtResource("5_bhnal")
+
+[node name="InputManager" type="Node" parent="."]
+script = ExtResource("6_uqwy3")

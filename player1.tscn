@@ -1,10 +1,11 @@
-[gd_scene load_steps=67 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=68 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="2_yev3d"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://MoveSet.gd" id="3_0e34t"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai_behavior.gd" id="4_3pafw"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://PlayerController.gd" id="5_3odsw"]
+[ext_resource type="Script" uid="uid://cdns34piysikv" path="res://InputManager.gd" id="6_woueq"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(20, 70)
@@ -1636,3 +1637,6 @@ script = ExtResource("4_3pafw")
 
 [node name="PlayerController" type="Node" parent="."]
 script = ExtResource("5_3odsw")
+
+[node name="InputManager" type="Node" parent="."]
+script = ExtResource("6_woueq")

@@ -53,7 +53,6 @@ var cancel_window_timer_ai: float = 0.0  # AI 專用取消窗口計時器
 func _ready():
 	parent = get_parent()
 	if parent:
-		print("AIBehavior ready for %s" % parent.name)
 		# 根據 player_id 設定初始最快反擊招式
 		if parent.player_id == "p1":
 			punish_attack = "st_mp"  # P1 startup 0.1s

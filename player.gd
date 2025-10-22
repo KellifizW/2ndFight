@@ -126,6 +126,8 @@ func get_input() -> Dictionary:
 		}
 
 func _physics_process(delta):
+	if has_node("InputManager"):  # 新增: 先更新輸入歷史
+		$InputManager.update_input()
 	super._physics_process(delta)
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
@@ -141,6 +143,11 @@ func _physics_process(delta):
 			cancel_window_timer = 0.0
 	
 	var input_data = get_input()
+	# 新增: 如果 spm2_pressed，抑制 st_mp/st_mk
+	if input_data.spm2_pressed:
+		input_data.st_mp_pressed = false
+		input_data.st_mk_pressed = false
+	
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
 	
 	# 修正：確保 spnk 結束後清除攻擊狀態
