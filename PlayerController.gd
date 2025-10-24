@@ -30,19 +30,22 @@ func get_input_data() -> Dictionary:
 	var spm1_pressed = Input.is_action_just_pressed("spmove1" + suffix)
 	var spm2_pressed = Input.is_action_just_pressed("spmove2" + suffix)
 	
-	# 檢查 fireball 和 powerkk 序列
+	# 檢查 fireball、powerkk 和 spnk 序列
 	var input_manager = get_parent().get_node("InputManager") if get_parent().has_node("InputManager") else null
 	if input_manager:
 		if player_id == "p1" and input_manager.check_powerkk_input():
 			spm1_pressed = true
 			st_mp_pressed = false  # 抑制正常 st_mp
+		if player_id == "p2" and input_manager.check_spnk_input():
+			spm1_pressed = true
+			st_mk_pressed = false  # 抑制正常 st_mk
 		if input_manager.check_fireball_input():
 			spm2_pressed = true
 			st_mp_pressed = false  # 抑制正常 st_mp
 	
 	var move_set = get_parent().get_node("MoveSet") if get_parent().has_node("MoveSet") else null
 	# 修正 attack_type 邏輯，優先處理 spm1_pressed 和 spm2_pressed
-	var attack_type = "powerkk" if spm1_pressed and player_id == "p1" else "fireball" if spm2_pressed else "st_mp" if st_mp_pressed else "st_mk" if st_mk_pressed else "none"
+	var attack_type = "powerkk" if spm1_pressed and player_id == "p1" else "spnk" if spm1_pressed and player_id == "p2" else "fireball" if spm2_pressed else "st_mp" if st_mp_pressed else "st_mk" if st_mk_pressed else "none"
 	var blockstun_duration = 0.4 if move_set and ((move_set.is_powerkk and player_id == "p1") or (move_set.is_spnk and player_id == "p2")) else 0.3 if move_set and move_set.is_fireball else 0.2
 	var damage = move_set.get_special_damage() if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball) else (10.0 if (st_mp_pressed or st_mk_pressed) else 0.0)
 	
