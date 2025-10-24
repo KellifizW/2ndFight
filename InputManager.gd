@@ -5,35 +5,58 @@ enum DirectionalInputs { NEUTRAL = 0, DOWN = 1, DOWN_FORWARD = 2, FORWARD = 3, D
 enum ButtonInputs { NONE = 0, ST_MP = 1 }
 enum ButtonMode { PRESS, HOLD }
 
-const INPUT_HISTORY_SIZE: int = 120  # 1 秒緩衝 (120 FPS)
-const INPUT_BUFFER: int = 10  # 調整為較小值，適合招式輸入
+const INPUT_HISTORY_SIZE: int = 240  # 擴大到 240 (約 2 秒)，允許更長的總輸入時間
+const INPUT_BUFFER: int = 30  # 增大到 30，兼容按鍵持續太久
 
 const FIREBALL_SEQUENCE: Array[Dictionary] = [
 	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
 	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS}
+	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}  # 改為 HOLD，兼容 PRESS 或 HOLD
 ]
 
 const FIREBALL_SEQUENCE2: Array[Dictionary] = [
 	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
 	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS}
+	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}  # 改為 HOLD
+]
+
+# 新增變體：允許方向後單獨按 ST_MP（不需同時按 FORWARD）
+const FIREBALL_SEQUENCE3: Array[Dictionary] = [
+	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.NEUTRAL, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
+]
+
+# 新增變體：基於 SEQUENCE2 的單獨 ST_MP
+const FIREBALL_SEQUENCE4: Array[Dictionary] = [
+	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.NEUTRAL, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
 ]
 
 const POWERKK_SEQUENCE: Array[Dictionary] = [
 	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
 	{"directional": DirectionalInputs.DOWN_BACK, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.BACK, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS}
+	{"directional": DirectionalInputs.BACK, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}  # 改為 HOLD
+]
+
+# 新增變體：powerkk 的單獨 ST_MP
+const POWERKK_SEQUENCE2: Array[Dictionary] = [
+	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.DOWN_BACK, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.BACK, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.NEUTRAL, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
 ]
 
 var fireball_motion: Dictionary = {  # 模仿 MotionInputs
-	"ValidInputs": [FIREBALL_SEQUENCE, FIREBALL_SEQUENCE2],  # 支持多變體
+	"ValidInputs": [FIREBALL_SEQUENCE, FIREBALL_SEQUENCE2, FIREBALL_SEQUENCE3, FIREBALL_SEQUENCE4],  # 新增變體
 	"InputBuffer": INPUT_BUFFER,
 	"AbsoluteDirection": false  # 如 Sakuga
 }
 
 var powerkk_motion: Dictionary = {  # 新增：powerkk 輸入配置
-	"ValidInputs": [POWERKK_SEQUENCE],
+	"ValidInputs": [POWERKK_SEQUENCE, POWERKK_SEQUENCE2],  # 新增變體
 	"InputBuffer": INPUT_BUFFER,
 	"AbsoluteDirection": false
 }
@@ -254,28 +277,28 @@ func was_pressed(index: int, action: String) -> bool:
 	if action.begins_with("crouch"):
 		return (curr_dir == DirectionalInputs.DOWN or curr_dir == DirectionalInputs.DOWN_FORWARD or curr_dir == DirectionalInputs.DOWN_BACK) and \
 			   (prev_dir != DirectionalInputs.DOWN and prev_dir != DirectionalInputs.DOWN_FORWARD and prev_dir != DirectionalInputs.DOWN_BACK) and \
-			   input_history[index].duration <= 3
+			   input_history[index].duration <= 10  # 增大到 10，兼容切換不夠快
 	elif action.begins_with("move_right"):
 		if input_side > 0:
 			return (curr_dir == DirectionalInputs.FORWARD or curr_dir == DirectionalInputs.DOWN_FORWARD) and \
 				   (prev_dir != DirectionalInputs.FORWARD and prev_dir != DirectionalInputs.DOWN_FORWARD) and \
-				   input_history[index].duration <= 3
+				   input_history[index].duration <= 10  # 增大到 10
 		else:
 			return (curr_dir == DirectionalInputs.BACK or curr_dir == DirectionalInputs.DOWN_BACK) and \
 				   (prev_dir != DirectionalInputs.BACK and prev_dir != DirectionalInputs.DOWN_BACK) and \
-				   input_history[index].duration <= 3
+				   input_history[index].duration <= 10  # 增大到 10
 	elif action.begins_with("move_left"):
 		if input_side > 0:
 			return (curr_dir == DirectionalInputs.BACK or curr_dir == DirectionalInputs.DOWN_BACK) and \
 				   (prev_dir != DirectionalInputs.BACK and prev_dir != DirectionalInputs.DOWN_BACK) and \
-				   input_history[index].duration <= 3
+				   input_history[index].duration <= 10  # 增大到 10
 		else:
 			return (curr_dir == DirectionalInputs.FORWARD or curr_dir == DirectionalInputs.DOWN_FORWARD) and \
 				   (prev_dir != DirectionalInputs.FORWARD and prev_dir != DirectionalInputs.DOWN_FORWARD) and \
-				   input_history[index].duration <= 3
+				   input_history[index].duration <= 10  # 增大到 10
 	elif action.begins_with("st_mp"):
 		return curr_buttons == ButtonInputs.ST_MP and prev_buttons != ButtonInputs.ST_MP and \
-			   input_history[index].duration == 1
+			   input_history[index].duration <= 5  # 增大到 5，兼容短暫 HOLD
 	return false
 
 # 輔助結構

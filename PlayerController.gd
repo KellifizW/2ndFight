@@ -6,7 +6,7 @@ func get_input_data() -> Dictionary:
 	var suffix = "_p2" if player_id == "p2" else ""
 	var move_right = Input.is_action_pressed("move_right" + suffix)
 	var move_left = Input.is_action_pressed("move_left" + suffix)
-	var move_up = Input.is_action_just_pressed("jump" + suffix)
+	var move_up = Input.is_action_pressed("jump" + suffix)  # 修改：使用 is_action_pressed 允許持續按住觸發跳躍
 	var move_down = Input.is_action_pressed("crouch" + suffix)
 	
 	var dir_x: int = 0
