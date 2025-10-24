@@ -27,7 +27,7 @@ var previous_state: String = ""  # 用來偵測狀態改變，觸發除錯 print
 var current_attack: String = "none"  # 當前選擇的攻擊類型，保持到下次更新
 var current_crouch: bool = false  # 當前蹲下狀態，保持到下次更新
 
-# 更新：frame data 字典，分開 P1 和 P2（從新提供數據），新增 startup 以優化選擇
+# 更新：frame data 字典，分開 P1 和 P2，新增 startup 以優化選擇
 var frame_data: Dictionary = {
 	"p1": {
 		"st_mp": {"startup": 0.1, "recovery": 0.2667, "blockstun": 0.267},
@@ -251,13 +251,13 @@ func get_ai_input() -> Dictionary:
 		attack_decision_timer -= get_process_delta_time()
 		if attack_decision_timer <= 0:
 			attack_decision_timer = attack_decision_delay + randf_range(0.0, 0.2)  # 0.3-0.5秒
-			# 根據距離選擇攻擊（<40近: st_mp/st_mk拳腳, 否則spm1衝刺 or spm2火球）
+			# 根據距離選擇攻擊（<30近: st_mp/st_mk拳腳, 否則spm1衝刺 or spm2火球）
 			if is_at_corner:
 				if randf() < 0.7:
 					current_attack = "spm1"  # 優先衝刺攻擊
 				else:
 					current_attack = punish_attack  # 用最佳招式
-			elif distance < 40:  # 近距：拳腳攻擊
+			elif distance < 30:  # 縮緊近距範圍至30像素
 				if randf() < 0.5:
 					current_attack = punish_attack
 				else:
@@ -284,11 +284,17 @@ func get_ai_input() -> Dictionary:
 			# 除錯：確認蹲下選擇
 			print("Debug: %s in defend, crouch: %s" % [parent.name, "true" if current_crouch else "false"])
 	
+	# 修改：全局跳躍機會，近中距5%機率跳（大幅降低頻率）
+	if distance < 120 and randf() < 0.05 and parent.is_on_floor():  # 僅地面觸發
+		jump_pressed = true
+		input_dir = -int(relative_dir) if current_state == "defend" else int(relative_dir)  # defend:後跳，否則前跳
+		print("Debug: AI jump triggered globally for escape/attack, dir=%d" % input_dir)
+	
 	# 根據當前狀態和選擇生成輸入
 	match current_state:
 		"approach":
 			input_dir = int(relative_dir)  # 絕對方向：正=向右接近，負=向左接近
-			if distance > 200 and randf() < 0.1:  # 超遠距低機率跳躍
+			if distance > 150 and randf() < 0.2 and parent.is_on_floor():  # 放鬆到150，僅地面
 				jump_pressed = true
 			# 除錯：確認approach方向
 			print("Debug: %s in approach, input_dir: %d, opponent at x: %.1f, self at x: %.1f" % [parent.name, input_dir, opponent.global_position.x, parent.global_position.x])
@@ -305,25 +311,32 @@ func get_ai_input() -> Dictionary:
 		"defend":
 			input_dir = -int(relative_dir)  # 反轉方向：遠離對手
 			crouch_pressed = current_crouch  # 使用當前蹲下狀態
+			if randf() < 0.15 and parent.is_on_floor():  # 降低到15%機率後跳，僅地面
+				jump_pressed = true
+				input_dir = -int(relative_dir)  # 後跳
 		"idle":
-			pass  # 無動作，僅初始狀態使用
+			pass
 	
-	# 修改：在已到角落時，提高到80%機率跳躍逃脫（加強脫困）
-	if is_at_corner and randf() < 0.8:
+	# 修改：在已到角落時，90%機率跳躍逃脫（僅地面）
+	if is_at_corner and randf() < 0.9 and parent.is_on_floor():
 		jump_pressed = true
-		input_dir = int(relative_dir)  # 跳向對手方向，試圖逃脫
+		input_dir = int(relative_dir)
 		st_mp_pressed = false
 		st_mk_pressed = false
 		spm1_pressed = false
 		spm2_pressed = false
 		crouch_pressed = false
+		print("Debug: Corner jump triggered for %s" % parent.name)
 	
-	# 新增：讓AI在跳躍時有50%機率進行空中攻擊（jump_mp或jump_mk）
-	if jump_pressed and randf() < 0.5:
-		if randf() < 0.5:
-			st_mp_pressed = true  # 觸發 jump_mp
-		else:
-			st_mk_pressed = true  # 觸發 jump_mk
+	# 修改：空中攻擊僅在接近地面（y < 50）且下落時觸發
+	if not parent.is_on_floor() and parent.velocity.y > 0 and parent.global_position.y < 50:  # 下落且低於50像素
+		if distance < 50 and randf() < 0.3:  # 近距30%機率攻擊
+			if randf() < 0.5:
+				st_mp_pressed = true  # 觸發 jump_mp
+			else:
+				st_mk_pressed = true  # 觸發 jump_mk
+			var attack_name = "jump_mp" if st_mp_pressed else "jump_mk"
+			print("Debug: AI aerial attack triggered near landing, attack=%s, y=%.1f" % [attack_name, parent.global_position.y])
 	
 	# 新增：如果取消窗口啟動，強制觸發 spm1_pressed 來取消 st_mp 並連技
 	if cancel_window_timer_ai > 0:

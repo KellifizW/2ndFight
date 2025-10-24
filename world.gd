@@ -17,8 +17,9 @@ const GRAVITY: int = 1800000
 @onready var debug_label = $UI/DebugLabel
 @onready var p1_advantage_label = $UI/P1AdvantageLabel
 @onready var p2_advantage_label = $UI/P2AdvantageLabel
-@onready var frame_bar_p1 = $UI/FrameBarP1  # 使用場景樹中的節點
-@onready var frame_bar_p2 = $UI/FrameBarP2  # 使用場景樹中的節點
+@onready var frame_bar_p1 = $UI/FrameBarP1
+@onready var frame_bar_p2 = $UI/FrameBarP2
+@onready var bgm_player = $BGMPlayer if has_node("BGMPlayer") else null # 新增：背景音樂播放器
 
 var initial_p1_pos: Vector2
 var initial_p2_pos: Vector2
@@ -35,6 +36,9 @@ var target_player: Node = null
 var attacker_recover_time: float = 0.0
 var target_recover_time: float = 0.0
 var advantage_calculated: bool = false
+
+# 新增：背景音樂控制變數
+var is_fading_out: bool = false
 
 func _ready():
 	add_to_group("world")
@@ -64,6 +68,16 @@ func _ready():
 	else:
 		print("Warning: Advantage labels not found in UI")
 	
+	# 新增：初始化背景音樂
+	if bgm_player:
+		bgm_player.volume_db = -80.0 # 初始無聲
+		var tween = create_tween()
+		tween.tween_property(bgm_player, "volume_db", 0.0, 1.0) # 3秒淡入到正常音量
+		tween.play()
+		print("Debug: BGM fade-in started at %s ms" % Time.get_ticks_msec())
+	else:
+		print("Warning: BGMPlayer node not found in world")
+
 	initial_p1_pos = Vector2(190.0, float(FLOOR_Y) / SIMULATION_SCALE)
 	initial_p2_pos = Vector2(290.0, float(FLOOR_Y) / SIMULATION_SCALE)
 	player1.fixed_position = Vector2i(int(190.0 * SIMULATION_SCALE), FLOOR_Y)
@@ -72,10 +86,9 @@ func _ready():
 	player2.global_position = to_scaled_vector2(player2.fixed_position)
 	print("Debug: Initial positions set - P1: %s, P2: %s" % [player1.global_position, player2.global_position])
 	
-	# 初始化場景樹中的 FrameBar
 	if frame_bar_p1:
 		frame_bar_p1.initialize(player1, player2)
-		frame_bar_p1.z_index = 10  # 高層級，防止遮擋
+		frame_bar_p1.z_index = 10
 		print("Debug: FrameBarP1 initialized at position: %s, z_index: %d" % [frame_bar_p1.position, frame_bar_p1.z_index])
 	else:
 		print("Error: FrameBarP1 not found in UI")
@@ -103,11 +116,19 @@ func _process(delta):
 		var p2_anim = player2.animation_state.get_current_node() if player2.animation_state else "none"
 		animation_label.text = "P1: %s, P2: %s" % [p1_anim, p2_anim]
 	
-	if not slowmo_triggered:
+	# 修改：檢查玩家血量並觸發音樂淡出
+	if not slowmo_triggered and not is_fading_out:
 		if (player1.healthbar and player1.healthbar.current_health <= 0) or \
 		   (player2.healthbar and player2.healthbar.current_health <= 0):
-			slowmo_controller.request_slowmo_change()
 			slowmo_triggered = true
+			if bgm_player:
+				var tween = create_tween()
+				tween.tween_property(bgm_player, "volume_db", -80.0, 2.0) # 2秒淡出到無聲
+				tween.tween_callback(bgm_player.stop) # 淡出後停止播放
+				tween.play()
+				is_fading_out = true
+				print("Debug: BGM fade-out started at %s ms due to player health <= 0" % Time.get_ticks_msec())
+			slowmo_controller.request_slowmo_change()
 			print("Debug: Slow motion triggered due to player health <= 0 at %s ms" % Time.get_ticks_msec())
 
 func _physics_process(delta):
@@ -116,9 +137,7 @@ func _physics_process(delta):
 		if combo_reset_timer <= 0:
 			reset_combo()
 	
-	# 監聽狀態變化計算優勢（使用真實時間，不受 time_scale 影響）
 	if attacker and target_player and not advantage_calculated:
-		# Check attacker recovery (expanded to include special move states and animation)
 		if attacker_recover_time == 0.0:
 			var move_set = attacker.get_node_or_null("MoveSet")
 			var animation_player = attacker.get_node_or_null("AnimationPlayer")
@@ -128,19 +147,17 @@ func _physics_process(delta):
 			if animation_player and animation_player.is_playing():
 				var current_anim = animation_player.current_animation
 				if current_anim in ["powerkk", "spnk", "fireball"]:
-					is_recovered = false  # Prevent recovery during special animation
+					is_recovered = false
 			if is_recovered:
 				attacker_recover_time = Time.get_unix_time_from_system()
-				print("Debug: Attacker %s recovered at %s (expanded check)" % [attacker.name, attacker_recover_time])
+				print("Debug: Attacker %s recovered at %s" % [attacker.name, attacker_recover_time])
 		
-		# Check target recovery (unchanged, as blockstun/hitstun are accurately flagged)
 		if target_recover_time == 0.0 and not (target_player.is_hit or target_player.is_blocking):
 			target_recover_time = Time.get_unix_time_from_system()
 			print("Debug: Target %s recovered at %s" % [target_player.name, target_recover_time])
 		
-		# Both recovered, compute advantage (unchanged)
 		if attacker_recover_time > 0 and target_recover_time > 0:
-			var advantage_time = (target_recover_time - hit_time) - (attacker_recover_time - hit_time)  # stun - recovery
+			var advantage_time = (target_recover_time - hit_time) - (attacker_recover_time - hit_time)
 			var advantage_frames = int(advantage_time * TICKS_PER_SECOND)
 			if attacker == player1:
 				p1_advantage_label.text = "P1 Adv: " + ("+" if advantage_frames > 0 else "") + str(advantage_frames)
@@ -260,6 +277,16 @@ func reset_players():
 		Engine.time_scale = slowmo_controller.normal_time_scale
 		print("Debug: Slow motion and hit slowmo states reset, time_scale=%s at %s ms" % [Engine.time_scale, Time.get_ticks_msec()])
 	
+	# 新增：重置背景音樂
+	if bgm_player:
+		bgm_player.volume_db = -80.0
+		bgm_player.play()
+		var tween = create_tween()
+		tween.tween_property(bgm_player, "volume_db", 0.0, 3.0)
+		tween.play()
+		is_fading_out = false
+		print("Debug: BGM reset and fade-in started at %s ms" % Time.get_ticks_msec())
+	
 	if animation_label:
 		animation_label.text = "P1: Walk, P2: Walk"
 	
@@ -268,7 +295,6 @@ func reset_players():
 	if debug_label:
 		debug_label.text = ""
 	
-	# 重置優勢計算
 	hit_time = 0.0
 	attacker = null
 	target_player = null
@@ -280,7 +306,6 @@ func reset_players():
 	if p2_advantage_label:
 		p2_advantage_label.text = "P2 Adv: 0"
 	
-	# 重置 FrameBar
 	if frame_bar_p1:
 		frame_bar_p1.reset_frame_bar()
 	if frame_bar_p2:
@@ -306,7 +331,6 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		print("Debug: %s blocked at %s ms with stun duration %s, updating HitLabel" % [target, hit_time_ms, stun_duration])
 		reset_combo()
 	
-	# 記錄擊中時刻，重置計算（使用真實時間）
 	hit_time = Time.get_unix_time_from_system()
 	attacker = player1 if target == "Player2" else player2
 	target_player = player2 if target == "Player2" else player1

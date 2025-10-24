@@ -1,4 +1,4 @@
-[gd_scene load_steps=68 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=72 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="2_yev3d"]
@@ -6,6 +6,10 @@
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai_behavior.gd" id="4_3pafw"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://PlayerController.gd" id="5_3odsw"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://InputManager.gd" id="6_woueq"]
+[ext_resource type="AudioStream" uid="uid://byg2puhfwvqyp" path="res://audio/hit_sound.wav" id="7_hfcs4"]
+[ext_resource type="AudioStream" uid="uid://bftnl060t6kjc" path="res://audio/block_sound.mp3" id="8_c5mkm"]
+[ext_resource type="AudioStream" uid="uid://bekh5vxg0gcta" path="res://audio/hurt_grunt_p1.wav" id="9_c5mkm"]
+[ext_resource type="AudioStream" uid="uid://dm1sdatl058bw" path="res://audio/powerkk_call.mp3" id="10_sl0af"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(20, 70)
@@ -1640,3 +1644,15 @@ script = ExtResource("5_3odsw")
 
 [node name="InputManager" type="Node" parent="."]
 script = ExtResource("6_woueq")
+
+[node name="HitSoundPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("7_hfcs4")
+
+[node name="BlockSoundPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("8_c5mkm")
+
+[node name="HurtGruntPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("9_c5mkm")
+
+[node name="SpecialCallPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("10_sl0af")

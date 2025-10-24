@@ -168,6 +168,13 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
 			print("Debug: Powerkk triggered for %s, current_damage=%s, attack_type=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, powerkk_damage, parent.attack_type, powerkk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
 			is_spmove_animation_playing = true
+
+			# 新增：播放 powerkk 叫聲音效
+			var special_call_player = parent.get_node("SpecialCallPlayer") if parent.has_node("SpecialCallPlayer") else null
+			if special_call_player:
+				special_call_player.play()
+				print("Debug: Powerkk call sound played for %s" % parent.name)
+
 			return true
 		elif player_id == "p2" and not is_spnk:
 			is_spnk = true
@@ -193,6 +200,13 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
 			print("Debug: Spnk triggered for %s, current_damage=%s, attack_type=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, spnk_damage, parent.attack_type, spnk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
 			is_spmove_animation_playing = true
+
+			# 新增：播放 spnk 叫聲音效
+			var special_call_player = parent.get_node("SpecialCallPlayer") if parent.has_node("SpecialCallPlayer") else null
+			if special_call_player:
+				special_call_player.play()
+				print("Debug: Spnk call sound played for %s" % parent.name)
+
 			return true
 	
 	if is_powerkk:

@@ -267,16 +267,12 @@ func _on_hitbox_area_entered(area: Area2D):
 		var hitstun = st_mp_hitstun if attack_type == "st_mp" else st_mk_hitstun if attack_type == "st_mk" else 0.35
 		var blockstun = st_mp_blockstun if attack_type == "st_mp" else st_mk_blockstun if attack_type == "st_mk" else powerkk_blockstun if attack_type == "powerkk" else 0.267
 		
-		# 新增：如果檢測到特殊招式（如 powerkk），覆蓋 blockstun 和 hitstun
 		if move_set:
 			if move_set.is_powerkk:
 				blockstun = powerkk_blockstun  # 使用 powerkk 的專屬 blockstun (0.3833 秒)
-				hitstun = 0.65  # 可根據需求調整 hitstun（這裡假設與 st_mk 類似，您可自訂）
+				hitstun = 0.65  # 可根據需求調整 hitstun
 				print("Debug: PowerKK special stun applied, blockstun=%s, hitstun=%s" % [blockstun, hitstun])
-			# 如果有其他特殊招式（如 spnk），可在此添加類似檢查，例如：
-			# elif move_set.is_spnk:
-			#     blockstun = spnk_blockstun  # 假設您有定義 spnk_blockstun
-
+		
 		print("Debug: Hit detected, attack_type=%s, blockstun=%s, hitstun=%s, is_powerkk=%s" % [attack_type, blockstun, hitstun, move_set.is_powerkk if move_set else false])
 		
 		var was_in_stun = target.is_hit or target.is_knockfly
@@ -285,12 +281,21 @@ func _on_hitbox_area_entered(area: Area2D):
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		var stun_duration = blockstun if is_blocked else hitstun
 		hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
-						
+		
+		# 新增：播放音效
+		var hit_sound_player = $HitSoundPlayer if has_node("HitSoundPlayer") else null
+		var block_sound_player = $BlockSoundPlayer if has_node("BlockSoundPlayer") else null
+		if is_blocked and block_sound_player:
+			block_sound_player.play()
+			print("Debug: Block sound played for %s hitting %s" % [name, target.name])
+		elif not is_blocked and hit_sound_player:
+			hit_sound_player.play()
+			print("Debug: Hit sound played for %s hitting %s" % [name, target.name])
+		
 		var contact_point = get_contact_point($Hitbox, area)
 		var vfx_scene_path = "res://vfx_blk.tscn" if is_blocked else "res://vfx_hit.tscn"
 		var vfx = load(vfx_scene_path).instantiate()
 		world.add_child(vfx)
-		# 修改：設置 VFX 及其粒子系統的面向與攻擊者一致，確保 local_coords 為 true，並處理箭頭紋理方向
 		vfx.scale.x = facing_direction
 		var particles_1 = vfx.get_node_or_null("exp") if is_blocked else vfx.get_node_or_null("explode")
 		var particles_2 = vfx.get_node_or_null("wave") if is_blocked else vfx.get_node_or_null("ring")
@@ -304,7 +309,7 @@ func _on_hitbox_area_entered(area: Area2D):
 		if particles_2:
 			particles_2.scale.x = facing_direction
 			particles_2.local_coords = true
-			particles_2.rotation = PI if facing_direction == -1.0 else 0.0  # 旋轉 180 度以翻轉箭頭紋理
+			particles_2.rotation = PI if facing_direction == -1.0 else 0.0
 			if particles_2.process_material:
 				var direction = particles_2.process_material.direction if particles_2.process_material.direction else Vector3(100, 0, 0)
 				particles_2.process_material.direction = Vector3(direction.x * facing_direction, direction.y, direction.z)
@@ -315,7 +320,6 @@ func _on_hitbox_area_entered(area: Area2D):
 		vfx.global_position = contact_point
 		if not target.is_on_floor():
 			vfx.global_position.y += 10
-		# 新增：除錯日誌，確認 VFX 面向設置與粒子屬性
 		print("Debug: %s VFX spawned at %s for %s hitting %s (%s), vfx_scene=%s, attacker_facing=%s, vfx_scale_x=%s, particles_1_scale_x=%s, particles_1_direction=%s, particles_1_local_coords=%s, particles_1_rotation=%s, particles_2_scale_x=%s, particles_2_direction=%s, particles_2_local_coords=%s, particles_2_rotation=%s" % [
 			"Block" if is_blocked else "Hit",
 			vfx.global_position,

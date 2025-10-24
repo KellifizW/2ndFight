@@ -85,6 +85,12 @@ func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267,
 		_update_animation_state(0, input_data.crouch_pressed)
 		return
 
+	# 新增：播放受擊叫聲（僅在非格擋狀態）
+	var hurt_grunt_player = $HurtGruntPlayer if has_node("HurtGruntPlayer") else null
+	if hurt_grunt_player:
+		hurt_grunt_player.play()
+		print("Debug: Hurt grunt sound played for %s (player_id=%s)" % [name, get("player_id") if "player_id" in self else "unknown"])
+
 	if not is_on_floor():
 		update_facing_direction()
 
