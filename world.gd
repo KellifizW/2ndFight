@@ -19,7 +19,7 @@ const GRAVITY: int = 1800000
 @onready var p2_advantage_label = $UI/P2AdvantageLabel
 @onready var frame_bar_p1 = $UI/FrameBarP1
 @onready var frame_bar_p2 = $UI/FrameBarP2
-@onready var bgm_player = $BGMPlayer if has_node("BGMPlayer") else null # 新增：背景音樂播放器
+@onready var bgm_player = $BGMPlayer if has_node("BGMPlayer") else null
 
 var initial_p1_pos: Vector2
 var initial_p2_pos: Vector2
@@ -29,7 +29,7 @@ var combo_target: String = ""
 var combo_reset_timer: float = 0.0
 const COMBO_BUFFER: float = 0.2
 
-# 用於計算優勢時間的變數（使用真實時間，避免 slowmo 影響）
+# 用於計算優勢時間的變數
 var hit_time: float = 0.0
 var attacker: Node = null
 var target_player: Node = null
@@ -37,8 +37,9 @@ var attacker_recover_time: float = 0.0
 var target_recover_time: float = 0.0
 var advantage_calculated: bool = false
 
-# 新增：背景音樂控制變數
+# 背景音樂控制變數
 var is_fading_out: bool = false
+var is_bgm_enabled: bool = true  # 新增：追蹤背景音樂開關狀態
 
 func _ready():
 	add_to_group("world")
@@ -68,11 +69,13 @@ func _ready():
 	else:
 		print("Warning: Advantage labels not found in UI")
 	
-	# 新增：初始化背景音樂
+	# 初始化背景音樂
 	if bgm_player:
-		bgm_player.volume_db = -80.0 # 初始無聲
+		is_bgm_enabled = true
+		bgm_player.volume_db = -80.0
+		bgm_player.play()
 		var tween = create_tween()
-		tween.tween_property(bgm_player, "volume_db", 0.0, 1.0) # 3秒淡入到正常音量
+		tween.tween_property(bgm_player, "volume_db", 0.0, 1.0)
 		tween.play()
 		print("Debug: BGM fade-in started at %s ms" % Time.get_ticks_msec())
 	else:
@@ -107,6 +110,9 @@ func _input(event):
 		if event.keycode == KEY_M and not slowmo_triggered:
 			slowmo_controller.request_slowmo_change()
 			print("Debug: M key pressed, requesting slow motion change at %s ms" % Time.get_ticks_msec())
+		if Input.is_action_just_pressed("toggle_bgm"):  # 使用 Input Map 檢測
+			toggle_bgm()
+			print("Debug: toggle_bgm action triggered, BGM state: %s at %s ms" % [is_bgm_enabled, Time.get_ticks_msec()])
 
 func _process(delta):
 	fps_label.text = "FPS: %d" % (1.0 / delta)
@@ -116,17 +122,18 @@ func _process(delta):
 		var p2_anim = player2.animation_state.get_current_node() if player2.animation_state else "none"
 		animation_label.text = "P1: %s, P2: %s" % [p1_anim, p2_anim]
 	
-	# 修改：檢查玩家血量並觸發音樂淡出
-	if not slowmo_triggered and not is_fading_out:
+	# 檢查玩家血量並觸發音樂淡出（僅當音樂開啟時）
+	if not slowmo_triggered and not is_fading_out and is_bgm_enabled:
 		if (player1.healthbar and player1.healthbar.current_health <= 0) or \
 		   (player2.healthbar and player2.healthbar.current_health <= 0):
 			slowmo_triggered = true
 			if bgm_player:
 				var tween = create_tween()
-				tween.tween_property(bgm_player, "volume_db", -80.0, 2.0) # 2秒淡出到無聲
-				tween.tween_callback(bgm_player.stop) # 淡出後停止播放
+				tween.tween_property(bgm_player, "volume_db", -80.0, 2.0)
+				tween.tween_callback(bgm_player.stop)
 				tween.play()
 				is_fading_out = true
+				is_bgm_enabled = false
 				print("Debug: BGM fade-out started at %s ms due to player health <= 0" % Time.get_ticks_msec())
 			slowmo_controller.request_slowmo_change()
 			print("Debug: Slow motion triggered due to player health <= 0 at %s ms" % Time.get_ticks_msec())
@@ -251,7 +258,6 @@ func reset_players():
 		player.hit_timer = 0.0
 		player.block_timer = 0.0
 		player.knockfly_timer = 0.0
-		player.dash_timer = 0.0
 		player.velocity = Vector2.ZERO
 		player.current_mode = "ground_stand"
 		player.attack_type = "none"
@@ -277,15 +283,20 @@ func reset_players():
 		Engine.time_scale = slowmo_controller.normal_time_scale
 		print("Debug: Slow motion and hit slowmo states reset, time_scale=%s at %s ms" % [Engine.time_scale, Time.get_ticks_msec()])
 	
-	# 新增：重置背景音樂
+	# 重置背景音樂
 	if bgm_player:
-		bgm_player.volume_db = -80.0
-		bgm_player.play()
-		var tween = create_tween()
-		tween.tween_property(bgm_player, "volume_db", 0.0, 3.0)
-		tween.play()
+		bgm_player.stop()
+		if is_bgm_enabled:
+			bgm_player.volume_db = -80.0
+			bgm_player.play()
+			var tween = create_tween()
+			tween.tween_property(bgm_player, "volume_db", 0.0, 3.0)
+			tween.play()
+			print("Debug: BGM reset and fade-in started at %s ms" % Time.get_ticks_msec())
+		else:
+			bgm_player.volume_db = -80.0
+			print("Debug: BGM reset but kept off at %s ms" % Time.get_ticks_msec())
 		is_fading_out = false
-		print("Debug: BGM reset and fade-in started at %s ms" % Time.get_ticks_msec())
 	
 	if animation_label:
 		animation_label.text = "P1: Walk, P2: Walk"
@@ -356,3 +367,25 @@ func reset_combo():
 	current_combo = 0
 	combo_target = ""
 	update_combo_label()
+
+func toggle_bgm():
+	if not bgm_player:
+		print("Warning: BGMPlayer node not found, cannot toggle BGM")
+		return
+	
+	is_fading_out = true
+	var tween = create_tween()
+	
+	if is_bgm_enabled:
+		tween.tween_property(bgm_player, "volume_db", -80.0, 1.0)
+		tween.tween_callback(bgm_player.stop)
+		is_bgm_enabled = false
+		print("Debug: BGM fading out and stopping at %s ms" % Time.get_ticks_msec())
+	else:
+		bgm_player.play()
+		tween.tween_property(bgm_player, "volume_db", 0.0, 1.0)
+		is_bgm_enabled = true
+		print("Debug: BGM playing and fading in at %s ms" % Time.get_ticks_msec())
+	
+	tween.tween_callback(func(): is_fading_out = false)
+	tween.play()

@@ -1,7 +1,9 @@
-[gd_scene load_steps=11 format=3 uid="uid://ck7d2l0lqx403"]
+[gd_scene load_steps=13 format=3 uid="uid://ck7d2l0lqx403"]
 
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="1_imvl6"]
 [ext_resource type="Script" uid="uid://2srsoq8uppfe" path="res://fireball.gd" id="1_twj7m"]
+[ext_resource type="AudioStream" uid="uid://rp7ewg5mlgh0" path="res://audio/fireball_spawn.mp3" id="3_ifjvk"]
+[ext_resource type="AudioStream" uid="uid://dgqp33vjqdvqk" path="res://audio/fireball_vanish.wav" id="4_g8rs3"]
 
 [sub_resource type="Animation" id="Animation_3ch2m"]
 length = 0.001
@@ -182,3 +184,10 @@ collision_mask = 64
 [node name="ProxShape" type="CollisionShape2D" parent="Proximitybox"]
 shape = SubResource("RectangleShape2D_twj7m")
 debug_color = Color(0.62189, 0.533606, 0, 0.42)
+
+[node name="SpawnSoundPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("3_ifjvk")
+
+[node name="HitSoundPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("4_g8rs3")
+pitch_scale = 1.1

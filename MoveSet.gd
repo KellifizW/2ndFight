@@ -57,6 +57,14 @@ func _ready():
 	if parent and parent.has_signal("hit_detected"):
 		parent.hit_detected.connect(_on_hit_detected)
 	is_special_moving = false
+	
+	# 初始化音效節點的音量
+	var special_call_player = parent.get_node_or_null("SpecialCallPlayer")
+	var fireball_call_player = parent.get_node_or_null("FireballCallPlayer")
+	if special_call_player:
+		special_call_player.volume_db = 0.0
+	if fireball_call_player:
+		fireball_call_player.volume_db = 0.0
 
 func stop_special_move():
 	if is_powerkk or is_spnk or is_fireball:
@@ -77,12 +85,37 @@ func stop_special_move():
 		else:
 			print("Warning: World node not found, fallback to direct global_position update")
 			parent.global_position.x += final_position.x
-		# 修正：強制更新 facing 並確保 sprite.scale.x 與 facing_direction 同步
 		parent.force_update_facing_direction()
 		sprite.scale.x = abs(sprite.scale.x) * sign(parent.facing_direction)
 		parent.fixed_velocity.x = 0
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false
+
+		# 淡出並重置音效
+		var special_call_player = parent.get_node_or_null("SpecialCallPlayer")
+		var fireball_call_player = parent.get_node_or_null("FireballCallPlayer")
+		var tween = create_tween()
+		tween.set_parallel(true)
+		const FADE_OUT_DURATION: float = 0.1
+		const MIN_VOLUME_DB: float = -80.0
+		const INITIAL_VOLUME_DB: float = 0.0
+
+		if special_call_player and special_call_player.playing:
+			tween.tween_property(special_call_player, "volume_db", MIN_VOLUME_DB, FADE_OUT_DURATION)
+			tween.tween_callback(func():
+				special_call_player.stop()
+				special_call_player.volume_db = INITIAL_VOLUME_DB
+			).set_delay(FADE_OUT_DURATION)
+			print("Debug: Fading out and resetting SpecialCallPlayer for %s" % parent.name)
+
+		if fireball_call_player and fireball_call_player.playing:
+			tween.tween_property(fireball_call_player, "volume_db", MIN_VOLUME_DB, FADE_OUT_DURATION)
+			tween.tween_callback(func():
+				fireball_call_player.stop()
+				fireball_call_player.volume_db = INITIAL_VOLUME_DB
+			).set_delay(FADE_OUT_DURATION)
+			print("Debug: Fading out and resetting FireballCallPlayer for %s" % parent.name)
+
 		print("Debug: Special move stopped for %s, facing_direction=%s, parent.scale.x=%s, sprite.scale.x=%s, position=%s" % [parent.name, parent.facing_direction, parent.scale.x, sprite.scale.x, parent.global_position])
 
 func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) -> bool:
@@ -122,6 +155,16 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		parent.fixed_velocity = Vector2i(0, 0)
 		parent.fixed_position.y = world.FLOOR_Y
 		animation_player.play("fireball")
+		
+		# 確保音量重置後播放 fireball 音效
+		var fireball_call_player = parent.get_node_or_null("FireballCallPlayer")
+		if fireball_call_player:
+			fireball_call_player.volume_db = 0.0
+			fireball_call_player.play()
+			print("Debug: Fireball call sound played for %s (player_id=%s, volume_db=%s)" % [parent.name, player_id, fireball_call_player.volume_db])
+		else:
+			print("Warning: FireballCallPlayer not found for %s" % parent.name)
+		
 		print("Debug: Fireball triggered for %s, current_damage=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, spawn delay=%.2fs" % [parent.name, fireball_damage, fireball_initial_facing, parent.scale.x, sprite.scale.x, fireball_spawn_delay])
 		is_spmove_animation_playing = true
 		return true
@@ -169,11 +212,14 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			print("Debug: Powerkk triggered for %s, current_damage=%s, attack_type=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, powerkk_damage, parent.attack_type, powerkk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
 			is_spmove_animation_playing = true
 
-			# 新增：播放 powerkk 叫聲音效
-			var special_call_player = parent.get_node("SpecialCallPlayer") if parent.has_node("SpecialCallPlayer") else null
+			# 確保音量重置後播放 powerkk 音效
+			var special_call_player = parent.get_node_or_null("SpecialCallPlayer")
 			if special_call_player:
+				special_call_player.volume_db = 0.0
 				special_call_player.play()
-				print("Debug: Powerkk call sound played for %s" % parent.name)
+				print("Debug: Powerkk call sound played for %s (volume_db=%s)" % [parent.name, special_call_player.volume_db])
+			else:
+				print("Warning: SpecialCallPlayer not found for %s" % parent.name)
 
 			return true
 		elif player_id == "p2" and not is_spnk:
@@ -201,11 +247,14 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			print("Debug: Spnk triggered for %s, current_damage=%s, attack_type=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, spnk_damage, parent.attack_type, spnk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
 			is_spmove_animation_playing = true
 
-			# 新增：播放 spnk 叫聲音效
-			var special_call_player = parent.get_node("SpecialCallPlayer") if parent.has_node("SpecialCallPlayer") else null
+			# 確保音量重置後播放 spnk 音效
+			var special_call_player = parent.get_node_or_null("SpecialCallPlayer")
 			if special_call_player:
+				special_call_player.volume_db = 0.0
 				special_call_player.play()
-				print("Debug: Spnk call sound played for %s" % parent.name)
+				print("Debug: Spnk call sound played for %s (volume_db=%s)" % [parent.name, special_call_player.volume_db])
+			else:
+				print("Warning: SpecialCallPlayer not found for %s" % parent.name)
 
 			return true
 	

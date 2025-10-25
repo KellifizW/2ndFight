@@ -12,6 +12,8 @@ var owner_id: String = "p1"  # 識別火球的發射者（p1 或 p2）
 @onready var hitbox = $Hitbox
 @onready var hurtbox = $Hurtbox
 @onready var prox_shape = $Proximitybox/ProxShape
+@onready var spawn_sound_player = $SpawnSoundPlayer  # 生成音效播放器（AudioStreamPlayer）
+@onready var hit_sound_player = $HitSoundPlayer  # 新增：擊中音效播放器（AudioStreamPlayer）
 
 func _ready():
 	# 為火球添加組以便識別
@@ -48,6 +50,14 @@ func _ready():
 		prox_shape.get_parent().area_entered.connect(_on_proximitybox_area_entered)  # 添加 Proximitybox 信號
 	monitoring = true
 	monitorable = true
+	
+	# 播放生成音效
+	if spawn_sound_player:
+		spawn_sound_player.play()
+		print("Debug: Fireball spawn sound played for owner_id: %s" % owner_id)
+	else:
+		print("Warning: SpawnSoundPlayer not found in Fireball!")
+	
 	print("Fireball initialized, owner_id: %s, speed: %s, damage: %s, collision_layer: %s, collision_mask: %s, direction: %s, sprite.offset: %s, scale.x: %s" % [owner_id, speed, damage, collision_layer, collision_mask, direction, sprite.offset, scale.x])
 
 func _physics_process(delta):
@@ -78,6 +88,15 @@ func _on_hitbox_area_entered(area: Area2D):
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		if target.has_signal("hit_detected"):
 			target.hit_detected.emit(name, blockstun_duration, is_blocked)
+		# 新增：播放擊中音效（無論是否格擋）
+		if hit_sound_player:
+			var sound = hit_sound_player.duplicate()
+			get_tree().current_scene.add_child(sound)
+			sound.play()
+			sound.finished.connect(func(): sound.queue_free())
+			print("Debug: Fireball hit sound played for owner_id: %s, target: %s, is_blocked: %s" % [owner_id, target.name, is_blocked])
+		else:
+			print("Warning: HitSoundPlayer not found in Fireball!")
 		print("Fireball hit %s, is_blocked: %s, damage: %s, owner_id: %s" % [target.name, is_blocked, damage, owner_id])
 		# 根據是否格擋選擇 VFX 場景
 		var vfx_position = (global_position + area.global_position) / 2.0
@@ -119,6 +138,15 @@ func _on_proximitybox_area_entered(area: Area2D):
 			target.take_hit(blockstun_duration, 0.0, false)  # 格擋時無傷害
 			if target.has_signal("block_detected"):
 				target.block_detected.emit(name, "proximity")
+			# 新增：播放擊中音效（近距離格擋）
+			if hit_sound_player:
+				var sound = hit_sound_player.duplicate()
+				get_tree().current_scene.add_child(sound)
+				sound.play()
+				sound.finished.connect(func(): sound.queue_free())
+				print("Debug: Fireball hit sound played for owner_id: %s, target: %s (proximity block)" % [owner_id, target.name])
+			else:
+				print("Warning: HitSoundPlayer not found in Fireball!")
 			print("Fireball blocked by %s, playing impact and destroying, owner_id: %s" % [target.name, owner_id])
 			# 實例化格擋 VFX
 			var vfx_position = (global_position + area.global_position) / 2.0
