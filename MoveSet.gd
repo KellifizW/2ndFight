@@ -58,7 +58,6 @@ func _ready():
 		parent.hit_detected.connect(_on_hit_detected)
 	is_special_moving = false
 	
-	# 初始化音效節點的音量
 	var special_call_player = parent.get_node_or_null("SpecialCallPlayer")
 	var fireball_call_player = parent.get_node_or_null("FireballCallPlayer")
 	if special_call_player:
@@ -85,13 +84,14 @@ func stop_special_move():
 		else:
 			print("Warning: World node not found, fallback to direct global_position update")
 			parent.global_position.x += final_position.x
+		if "is_facing_locked" in parent:
+			parent.is_facing_locked = false
 		parent.force_update_facing_direction()
 		sprite.scale.x = abs(sprite.scale.x) * sign(parent.facing_direction)
 		parent.fixed_velocity.x = 0
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false
 
-		# 淡出並重置音效
 		var special_call_player = parent.get_node_or_null("SpecialCallPlayer")
 		var fireball_call_player = parent.get_node_or_null("FireballCallPlayer")
 		var tween = create_tween()
@@ -116,7 +116,7 @@ func stop_special_move():
 			).set_delay(FADE_OUT_DURATION)
 			print("Debug: Fading out and resetting FireballCallPlayer for %s" % parent.name)
 
-		print("Debug: Special move stopped for %s, facing_direction=%s, parent.scale.x=%s, sprite.scale.x=%s, position=%s" % [parent.name, parent.facing_direction, parent.scale.x, sprite.scale.x, parent.global_position])
+		print("Debug: Special move stopped for %s, facing_direction=%s, parent.scale.x=%s, sprite.scale.x=%s, position=%s, is_facing_locked=%s" % [parent.name, parent.facing_direction, parent.scale.x, sprite.scale.x, parent.global_position, parent.is_facing_locked if "is_facing_locked" in parent else false])
 
 func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) -> bool:
 	if parent.is_hit or parent.is_knockfly:
@@ -152,11 +152,12 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		fireball_initial_sprite_scale_x = sprite.scale.x
 		if "is_special_moving" in parent:
 			parent.is_special_moving = true
+		if "is_facing_locked" in parent:
+			parent.is_facing_locked = true
 		parent.fixed_velocity = Vector2i(0, 0)
 		parent.fixed_position.y = world.FLOOR_Y
 		animation_player.play("fireball")
 		
-		# 確保音量重置後播放 fireball 音效
 		var fireball_call_player = parent.get_node_or_null("FireballCallPlayer")
 		if fireball_call_player:
 			fireball_call_player.volume_db = 0.0
@@ -207,12 +208,13 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			powerkk_initial_sprite_scale_x = sprite.scale.x
 			if "is_special_moving" in parent:
 				parent.is_special_moving = true
+			if "is_facing_locked" in parent:
+				parent.is_facing_locked = true
 			animation_player.play("powerkk")
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
 			print("Debug: Powerkk triggered for %s, current_damage=%s, attack_type=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, powerkk_damage, parent.attack_type, powerkk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
 			is_spmove_animation_playing = true
 
-			# 確保音量重置後播放 powerkk 音效
 			var special_call_player = parent.get_node_or_null("SpecialCallPlayer")
 			if special_call_player:
 				special_call_player.volume_db = 0.0
@@ -242,12 +244,13 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			spnk_initial_sprite_scale_x = sprite.scale.x
 			if "is_special_moving" in parent:
 				parent.is_special_moving = true
+			if "is_facing_locked" in parent:
+				parent.is_facing_locked = true
 			animation_player.play("spnk")
 			var hitbox_pos = parent.get_node("Hitbox").global_position if parent.has_node("Hitbox") else Vector2.ZERO
 			print("Debug: Spnk triggered for %s, current_damage=%s, attack_type=%s, initial_facing=%s, parent.scale.x=%s, sprite.scale.x=%s, fixed_velocity.x=%s, Hitbox global_position: (%s, %s), is_crouching=%s" % [parent.name, spnk_damage, parent.attack_type, spnk_initial_facing, parent.scale.x, sprite.scale.x, parent.fixed_velocity.x, hitbox_pos.x, hitbox_pos.y, parent.is_crouching])
 			is_spmove_animation_playing = true
 
-			# 確保音量重置後播放 spnk 音效
 			var special_call_player = parent.get_node_or_null("SpecialCallPlayer")
 			if special_call_player:
 				special_call_player.volume_db = 0.0

@@ -1,27 +1,3 @@
-# Frame Data for Attacks and Moves (based on animation timings in player1.tscn and player2.tscn)
-# These values are derived from animation lengths and hitbox enable/disable timings in Godot 4.5.
-# Startup: Time from animation start to when hitbox becomes active (HitShape:shape set to non-null).
-# Active: Duration hitbox is active (from non-null to null or disabled).
-# Recovery: Time from hitbox deactivation to animation end.
-# Note: Values for P2 st_mp, st_mk, and spnk are updated based on player2.tscn (AnimationLibrary_46qut).
-# For moves with multiple active periods (e.g., spnk), active time is aggregated.
-
-# For P1 (Davis):
-# - st_mp: startup = 0.1s, active = 0.0333s, recovery = 0.2667s (total 0.4s)
-# - st_mk: startup = 0.2s, active = 0.0667s, recovery = 0.4003s (total 0.667s)
-# - jump_mp: startup = 0.1333s, active = 0.0667s, recovery = 0.2s (total 0.4s)
-# - jump_mk: startup = 0.1s, active = 0.1s, recovery = 0.3s (total 0.5s)
-# - powerkk: startup = 0.3s, active = 0.1333s, recovery = 0.5s (total 0.9333s)
-# - fireball: startup = 0.3s, active = 0.0333s, recovery = 0.4667s (total 0.8s)
-
-# For P2 (Dennis):
-# - st_mp: startup = 0.2s, active = 0.1333s, recovery = 0.3667s (total 0.7s)
-# - st_mk: startup = 0.1s, active = 0.0333s, recovery = 0.2667s (total 0.4s)
-# - jump_mp: startup = 0.1s, active = 0.0667s, recovery = 0.2333s (total 0.4s)
-# - jump_mk: startup = 0.1s, active = 0.1s, recovery = 0.267s (total 0.467s)
-# - spnk: startup = 0.2s, active = 0.1333s (0.0667s + 0.0666s), recovery = 0.4667s (total 1.0s)
-# - fireball: startup = 0.3s, active = 0.0333s, recovery = 0.3667s (total 0.7s)
-
 class_name Player extends Fighter
 
 signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool)
@@ -38,10 +14,16 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @export var st_mk_damage: float = 15.0
 @export var jump_mp_damage: float = 8.0
 @export var jump_mk_damage: float = 12.0
+@export var powerkk_blockstun: float = 0.3833
+@export var cr_mp_hitstun: float = 0.35
+@export var cr_mp_blockstun: float = 0.233
+@export var cr_mp_damage: float = 8.0
+@export var cr_mk_hitstun: float = 0.5
+@export var cr_mk_blockstun: float = 0.267
+@export var cr_mk_damage: float = 9.0
 
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 @onready var player_controller = $PlayerController if has_node("PlayerController") else null
-@export var powerkk_blockstun: float = 0.3833
 
 var current_mode: String = "ground_stand"
 var attack_type: String = "none"
@@ -54,6 +36,7 @@ var landing_lock_timer: float = 0.0
 var has_air_attacked: bool = false
 var skip_pushbox: bool = false
 var cancel_window_timer: float = 0.0
+var is_facing_locked: bool = false
 
 func _ready():
 	super._ready()
@@ -96,7 +79,6 @@ func get_input() -> Dictionary:
 			return ai_behavior.get_ai_input()
 	if player_controller:
 		var input_data = player_controller.get_input_data()
-		# Assign damage based on attack type
 		if input_data.st_mp_pressed:
 			input_data.damage = st_mp_damage
 			input_data.attack_type = "st_mp"
@@ -126,7 +108,7 @@ func get_input() -> Dictionary:
 		}
 
 func _physics_process(delta):
-	if has_node("InputManager"):  # 新增: 先更新輸入歷史
+	if has_node("InputManager"):
 		$InputManager.update_input()
 	super._physics_process(delta)
 	var world = get_tree().get_first_node_in_group("world")
@@ -143,21 +125,19 @@ func _physics_process(delta):
 			cancel_window_timer = 0.0
 	
 	var input_data = get_input()
-	# 新增: 如果 spm2_pressed，抑制 st_mp/st_mk
 	if input_data.spm2_pressed:
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
 	
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
 	
-	# 修正：確保 spnk 結束後清除攻擊狀態
 	if move_set and move_set.is_spmove:
 		is_attacking = false
 		attack_type = "none"
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
 	
-	if is_attacking and animation_state.get_current_node() in ["st_mp", "st_mk"]:
+	if is_attacking and animation_state.get_current_node() in ["st_mp", "st_mk", "cr_mp", "cr_mk"]:
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
 	
@@ -173,9 +153,24 @@ func _physics_process(delta):
 	
 	if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_ground_state:
 		force_update_facing_direction()
-		current_damage = input_data.damage
-		is_attacking = true
-		attack_type = input_data.attack_type
+		if is_crouching:
+			if input_data.st_mp_pressed:
+				current_damage = cr_mp_damage
+				is_attacking = true
+				attack_type = "cr_mp"
+			elif input_data.st_mk_pressed:
+				current_damage = cr_mk_damage
+				is_attacking = true
+				attack_type = "cr_mk"
+		else:
+			if input_data.st_mp_pressed:
+				current_damage = st_mp_damage
+				is_attacking = true
+				attack_type = "st_mp"
+			elif input_data.st_mk_pressed:
+				current_damage = st_mk_damage
+				is_attacking = true
+				attack_type = "st_mk"
 		if not is_push_back:
 			fixed_velocity.x = 0
 		print("Debug: Attack triggered for %s, input_st_mp=%s, input_st_mk=%s, attack_type=%s, damage=%s, facing=%s, animation=%s" % [name, input_data.st_mp_pressed, input_data.st_mk_pressed, attack_type, current_damage, facing_direction, animation_state.get_current_node() if animation_state else "none"])
@@ -252,9 +247,9 @@ func _on_hitbox_area_entered(area: Area2D):
 		var damage = current_damage
 		if move_set and move_set.is_spnk:
 			var anim_pos = animation_player.current_animation_position
-			if anim_pos < 0.2667:  # First active period (0.2 to 0.2667s)
+			if anim_pos < 0.2667:
 				damage = 6.0
-			else:  # Second active period (0.2667 to 0.3333s)
+			else:
 				damage = move_set.spnk_damage
 		var world = get_tree().get_first_node_in_group("world")
 		if not world:
@@ -263,14 +258,26 @@ func _on_hitbox_area_entered(area: Area2D):
 		if slowmo_controller:
 			slowmo_controller.request_hit_freeze()
 		
-		# 修改：hitstun 和 blockstun 的選擇邏輯，添加對特殊招式的檢查
-		var hitstun = st_mp_hitstun if attack_type == "st_mp" else st_mk_hitstun if attack_type == "st_mk" else 0.35
-		var blockstun = st_mp_blockstun if attack_type == "st_mp" else st_mk_blockstun if attack_type == "st_mk" else powerkk_blockstun if attack_type == "powerkk" else 0.267
+		var hitstun = (
+			st_mp_hitstun if attack_type == "st_mp" else
+			st_mk_hitstun if attack_type == "st_mk" else
+			cr_mp_hitstun if attack_type == "cr_mp" else
+			cr_mk_hitstun if attack_type == "cr_mk" else
+			0.35
+		)
+		var blockstun = (
+			st_mp_blockstun if attack_type == "st_mp" else
+			st_mk_blockstun if attack_type == "st_mk" else
+			cr_mp_blockstun if attack_type == "cr_mp" else
+			cr_mk_blockstun if attack_type == "cr_mk" else
+			powerkk_blockstun if attack_type == "powerkk" else
+			0.267
+		)
 		
 		if move_set:
 			if move_set.is_powerkk:
-				blockstun = powerkk_blockstun  # 使用 powerkk 的專屬 blockstun (0.3833 秒)
-				hitstun = 0.65  # 可根據需求調整 hitstun
+				blockstun = powerkk_blockstun
+				hitstun = 0.65
 				print("Debug: PowerKK special stun applied, blockstun=%s, hitstun=%s" % [blockstun, hitstun])
 		
 		print("Debug: Hit detected, attack_type=%s, blockstun=%s, hitstun=%s, is_powerkk=%s" % [attack_type, blockstun, hitstun, move_set.is_powerkk if move_set else false])
@@ -282,7 +289,6 @@ func _on_hitbox_area_entered(area: Area2D):
 		var stun_duration = blockstun if is_blocked else hitstun
 		hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
 		
-		# 新增：播放音效
 		var hit_sound_player = $HitSoundPlayer if has_node("HitSoundPlayer") else null
 		var block_sound_player = $BlockSoundPlayer if has_node("BlockSoundPlayer") else null
 		if is_blocked and block_sound_player:
@@ -400,7 +406,7 @@ func _on_animation_tree_finished(anim_name: String):
 		landing_facing_lock = false
 		update_facing_direction()
 		_update_animation_state(0, false)
-	elif anim_name in ["st_mp", "st_mk"] and is_attacking:
+	elif anim_name in ["st_mp", "st_mk", "cr_mp", "cr_mk"] and is_attacking:
 		is_attacking = false
 		attack_type = "none"
 		cancel_window_timer = 0.0
@@ -440,8 +446,10 @@ func _on_animation_tree_finished(anim_name: String):
 	elif anim_name in ["powerkk", "spnk"]:
 		if move_set and (move_set.is_powerkk or move_set.is_spnk):
 			move_set.stop_special_move()
+			is_facing_locked = false
+			force_update_facing_direction()
 			_update_animation_state(0, false)
-		print("Debug: Animation %s finished for %s, is_attacking=%s, attack_type=%s, facing=%s" % [anim_name, name, is_attacking, attack_type, facing_direction])
+		print("Debug: Animation %s finished for %s, is_attacking=%s, attack_type=%s, facing=%s, is_facing_locked=%s" % [anim_name, name, is_attacking, attack_type, facing_direction, is_facing_locked])
 
 func stop_attack():
 	is_attacking = false
@@ -453,6 +461,11 @@ func stop_attack():
 
 func get_facing_multiplier() -> float:
 	return super.get_facing_multiplier()
+
+func update_facing_direction():
+	if is_facing_locked:
+		return
+	super.update_facing_direction()
 
 func force_update_facing_direction():
 	var players = get_tree().get_nodes_in_group("players")

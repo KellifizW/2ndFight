@@ -398,6 +398,8 @@ func _set_animation_conditions(target_state: String, on_floor: bool, crouch_inpu
 	animation_tree.set("parameters/conditions/Backdash", target_state == "Backdash")
 	animation_tree.set("parameters/conditions/st_mp", target_state == "st_mp")
 	animation_tree.set("parameters/conditions/st_mk", target_state == "st_mk")
+	animation_tree.set("parameters/conditions/cr_mp", target_state == "cr_mp")  # 新增
+	animation_tree.set("parameters/conditions/cr_mk", target_state == "cr_mk")  # 新增
 	animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
 	animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
 	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
@@ -412,10 +414,8 @@ func _set_animation_conditions(target_state: String, on_floor: bool, crouch_inpu
 	animation_tree.set("parameters/conditions/jump_mk", target_state == "jump_mk")
 	animation_tree.set("parameters/conditions/landing", target_state == "landing")
 	animation_tree.set("parameters/conditions/wakeup", target_state == "wakeup")
-
+	
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
-	if "is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0:
-		return "landing"
 	if "is_wakeup_locked" in self and self.is_wakeup_locked:
 		return "wakeup"
 	if is_knockfly:
@@ -426,7 +426,7 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
 	if is_attacking:
 		var atype = get("attack_type") if "attack_type" in self else "none"
-		if atype in ["st_mp", "st_mk"]:
+		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk"]:  # 新增 cr_mp 和 cr_mk
 			return atype
 		return "Walk"
 	if is_dashing:
