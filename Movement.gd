@@ -74,6 +74,19 @@ signal block_detected(target: String, block_type: String)
 
 func _ready():
 	world = get_tree().get_first_node_in_group("world")
+	var retry_count = 0
+	while not world and retry_count < 5:
+		world = get_tree().get_first_node_in_group("world")
+		if not world:
+			push_error("Error: World node not found for %s during _ready, attempt %d" % [name, retry_count + 1])
+			print("Debug: World node not found for %s during _ready, attempt %d at %s ms" % [name, retry_count + 1, Time.get_ticks_msec()])
+			await get_tree().create_timer(0.1).timeout
+			retry_count += 1
+	if world:
+		print("Debug: World node found for %s after %d attempts at %s ms" % [name, retry_count, Time.get_ticks_msec()])
+	else:
+		push_error("Error: World node still not found for %s after %d retries" % [name, retry_count])
+	
 	if animation_tree:
 		animation_tree.active = true
 		if animation_state:
@@ -95,6 +108,7 @@ func _ready():
 		update_facing_direction()
 	else:
 		fixed_position = Vector2i(int(global_position.x * 1000), 200000)
+		print("Debug: Fallback position set for %s due to missing world at %s ms" % [name, Time.get_ticks_msec()])
 
 func _physics_process(delta):
 	var current_position = global_position
@@ -123,6 +137,7 @@ func _physics_process(delta):
 			fixed_velocity.y = int(jump_vertical_speed * (self.world.SIMULATION_SCALE if self.world else 1000))
 			just_jumped = true
 			fixed_position.y = (self.world.FLOOR_Y if self.world else 200000) - 1
+			print("Debug: Jump initiated for %s, vertical_speed=%s at %s ms" % [name, jump_vertical_speed, Time.get_ticks_msec()])
 	
 	var input_data = get_input()
 	var input_dir = input_data["input_dir"]
@@ -154,6 +169,7 @@ func _physics_process(delta):
 				pending_dash_dir = 0
 				last_input_dir = 0
 				landing_facing_lock = true
+				print("Debug: Dash initiated for %s, direction=%s at %s ms" % [name, input_dir, Time.get_ticks_msec()])
 			else:
 				if not (is_blocking and is_opponent_proximity and block_type == "proximity"):
 					is_backdashing = true
@@ -163,6 +179,7 @@ func _physics_process(delta):
 					pending_dash_dir = 0
 					last_input_dir = 0
 					landing_facing_lock = true
+					print("Debug: Backdash initiated for %s, direction=%s at %s ms" % [name, input_dir, Time.get_ticks_msec()])
 				neutral_timer = 0.0
 				pending_dash_dir = 0
 				last_input_dir = 0
@@ -199,7 +216,13 @@ func _physics_process(delta):
 			fixed_velocity.x = 0
 	
 	if jump_delay_timer <= 0 and not is_on_floor():
-		add_gravity((self.world.GRAVITY if self.world else 3000000), delta)
+		var gravity = self.world.GRAVITY if self.world else 1800000
+		if has_node("MoveSet") and $MoveSet.is_super:
+			gravity = $MoveSet.super_gravity
+		if not world:
+			push_error("Error: Applying gravity without world node for %s" % name)
+			print("Debug: Applying gravity without world node for %s, using fallback gravity at %s ms" % [name, Time.get_ticks_msec()])
+		add_gravity(gravity, delta)
 	else:
 		if not just_jumped:
 			fixed_velocity.y = 0
@@ -222,6 +245,7 @@ func _physics_process(delta):
 				self.is_landing = true
 				self.landing_lock_timer = landing_duration
 				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+				print("Debug: Landing initiated for %s at %s ms" % [name, Time.get_ticks_msec()])
 		
 		var push_manager = get_tree().get_first_node_in_group("push_manager")
 		if push_manager:
@@ -255,9 +279,11 @@ func _on_animation_player_finished(anim_name: String) -> void:
 		update_facing_direction()
 		if has_node("Hitbox/HitShape"):
 			$Hitbox/HitShape.disabled = true
+		print("Debug: Animation %s finished for %s, is_attacking=%s at %s ms" % [anim_name, name, is_attacking, Time.get_ticks_msec()])
 
 func add_gravity(gravity: int, delta: float) -> void:
 	fixed_velocity.y += int(gravity * delta)
+	print("Debug: Gravity applied for %s, gravity=%s, delta=%s, new_velocity_y=%s at %s ms" % [name, gravity, delta, fixed_velocity.y, Time.get_ticks_msec()])
 
 func is_on_floor() -> bool:
 	if jump_delay_timer > 0 or just_jumped:
@@ -316,6 +342,7 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 			fixed_velocity.x = 0
 			fixed_velocity.y = 0
 			block_detected.emit(name, block_type)
+			print("Debug: Proximity block detected for %s at %s ms" % [name, Time.get_ticks_msec()])
 
 func _on_hurtbox_area_exited(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
@@ -324,6 +351,7 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 			is_blocking = false
 			is_crouch_blocking = false
 			block_type = "none"
+			print("Debug: Proximity block ended for %s at %s ms" % [name, Time.get_ticks_msec()])
 
 func update_facing_direction():
 	var move_set = $MoveSet if has_node("MoveSet") else null
@@ -369,14 +397,14 @@ func update_facing_direction():
 				scale.y = 1
 				sprite.scale.x = 1.0
 				rotation_degrees = 0
-				print("Debug: Facing forced to -1 for %s at left corner, position=%s, other_position=%s" % [name, global_position.x, other_player.global_position.x])
+				print("Debug: Facing forced to -1 for %s at left corner, position=%s, other_position=%s at %s ms" % [name, global_position.x, other_player.global_position.x, Time.get_ticks_msec()])
 			elif is_at_left_corner and global_position.x <= other_player.global_position.x:
 				facing_direction = 1.0
 				scale.x = 1
 				scale.y = 1
 				sprite.scale.x = 1.0
 				rotation_degrees = 0
-				print("Debug: Facing forced to 1 for %s at left corner, position=%s, other_position=%s" % [name, global_position.x, other_player.global_position.x])
+				print("Debug: Facing forced to 1 for %s at left corner, position=%s, other_position=%s at %s ms" % [name, global_position.x, other_player.global_position.x, Time.get_ticks_msec()])
 			else:
 				facing_direction = old_facing
 				scale.x = sign(old_facing)
@@ -390,6 +418,7 @@ func update_facing_direction():
 		scale.y = 1
 		sprite.scale.x = 1.0
 		rotation_degrees = 0
+		print("Debug: No other player found for %s, default facing=1 at %s ms" % [name, Time.get_ticks_msec()])
 
 func _set_animation_conditions(target_state: String, on_floor: bool, crouch_input: bool) -> void:
 	animation_tree.set("parameters/conditions/Walk", target_state == "Walk" and on_floor and not crouch_input)
@@ -398,8 +427,8 @@ func _set_animation_conditions(target_state: String, on_floor: bool, crouch_inpu
 	animation_tree.set("parameters/conditions/Backdash", target_state == "Backdash")
 	animation_tree.set("parameters/conditions/st_mp", target_state == "st_mp")
 	animation_tree.set("parameters/conditions/st_mk", target_state == "st_mk")
-	animation_tree.set("parameters/conditions/cr_mp", target_state == "cr_mp")  # 新增
-	animation_tree.set("parameters/conditions/cr_mk", target_state == "cr_mk")  # 新增
+	animation_tree.set("parameters/conditions/cr_mp", target_state == "cr_mp")
+	animation_tree.set("parameters/conditions/cr_mk", target_state == "cr_mk")
 	animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
 	animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
 	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
@@ -414,10 +443,26 @@ func _set_animation_conditions(target_state: String, on_floor: bool, crouch_inpu
 	animation_tree.set("parameters/conditions/jump_mk", target_state == "jump_mk")
 	animation_tree.set("parameters/conditions/landing", target_state == "landing")
 	animation_tree.set("parameters/conditions/wakeup", target_state == "wakeup")
-	
+	animation_tree.set("parameters/conditions/super", target_state == "super")
+	animation_tree.set("parameters/conditions/dp", target_state == "dp")
+
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
+	var move_set = $MoveSet if has_node("MoveSet") else null
+	var player_id = get_parent().player_id if get_parent() and "player_id" in get_parent() else "unknown"
+	
 	if "is_wakeup_locked" in self and self.is_wakeup_locked:
 		return "wakeup"
+	if move_set and move_set.is_spmove:
+		if move_set.is_super:
+			return "super"
+		elif player_id == "p1" and move_set.is_powerkk:
+			return "powerkk"
+		elif player_id == "p1" and move_set.is_dp:
+			return "dp"
+		elif player_id == "p2" and move_set.is_spnk:
+			return "spnk"
+		elif move_set.is_fireball:
+			return "fireball"
 	if is_knockfly:
 		return "knockfly"
 	if is_hit:
@@ -426,7 +471,7 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
 	if is_attacking:
 		var atype = get("attack_type") if "attack_type" in self else "none"
-		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk"]:  # 新增 cr_mp 和 cr_mk
+		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk", "super", "dp"]:  # 添加 dp 到有效攻擊類型
 			return atype
 		return "Walk"
 	if is_dashing:
@@ -467,9 +512,11 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	
 	if curr_state != target_state:
 		animation_state.travel(target_state)
+		print("Debug: Animation state changed for %s from %s to %s at %s ms" % [name, curr_state, target_state, Time.get_ticks_msec()])
 	
 	if target_state == "Walk":
 		animation_tree.set("parameters/Walk/blend_position", anim_dir)
 	
 	if is_jumping and on_floor:
 		is_jumping = false
+		print("Debug: Jumping ended for %s at %s ms" % [name, Time.get_ticks_msec()])

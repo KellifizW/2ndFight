@@ -54,7 +54,7 @@ func _physics_process(delta):
 func post_physics_process(delta):
 	pass
 
-func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267, damage: float = 10.0, skip_push: bool = false):
+func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267, damage: float = 10.0, skip_push: bool = false, force_knockfly: bool = false):
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
 		print("Warning: World node not found in group 'world' for %s" % name)
@@ -93,6 +93,15 @@ func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267,
 
 	if not is_on_floor():
 		update_facing_direction()
+
+	if force_knockfly:
+		is_knockfly = true
+		knockfly_timer = max(knockfly_duration, min_hitstun_duration)
+		fixed_velocity.y = int(air_knockback_vertical_speed * world.SIMULATION_SCALE)
+		fixed_position.y -= 1
+		is_jumping = true
+		print("Debug: Forced aerial knockfly for %s" % name)
+		return
 
 	if healthbar:
 		healthbar.take_damage(damage)

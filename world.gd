@@ -5,7 +5,9 @@ const SIMULATION_SCALE: int = 1000
 const WALL_LIMIT: int = 24000
 const STARTING_POSITION: int = 7500
 const FLOOR_Y: int = 200000
-const GRAVITY: int = 1800000
+const GRAVITY: int = 3000000
+
+@export var bgm_max_volume_db: float = -6.0  # 導出變數，控制最大音量，預設 -6 dB (50% 音量)
 
 @onready var hit_label = $UI/HitLabel
 @onready var fps_label = $UI/FPS
@@ -39,7 +41,7 @@ var advantage_calculated: bool = false
 
 # 背景音樂控制變數
 var is_fading_out: bool = false
-var is_bgm_enabled: bool = true  # 新增：追蹤背景音樂開關狀態
+var is_bgm_enabled: bool = true  # 追蹤背景音樂開關狀態
 
 func _ready():
 	add_to_group("world")
@@ -75,7 +77,7 @@ func _ready():
 		bgm_player.volume_db = -80.0
 		bgm_player.play()
 		var tween = create_tween()
-		tween.tween_property(bgm_player, "volume_db", 0.0, 1.0)
+		tween.tween_property(bgm_player, "volume_db", bgm_max_volume_db, 1.0)
 		tween.play()
 		print("Debug: BGM fade-in started at %s ms" % Time.get_ticks_msec())
 	else:
@@ -290,7 +292,7 @@ func reset_players():
 			bgm_player.volume_db = -80.0
 			bgm_player.play()
 			var tween = create_tween()
-			tween.tween_property(bgm_player, "volume_db", 0.0, 3.0)
+			tween.tween_property(bgm_player, "volume_db", bgm_max_volume_db, 3.0)
 			tween.play()
 			print("Debug: BGM reset and fade-in started at %s ms" % Time.get_ticks_msec())
 		else:
@@ -383,7 +385,7 @@ func toggle_bgm():
 		print("Debug: BGM fading out and stopping at %s ms" % Time.get_ticks_msec())
 	else:
 		bgm_player.play()
-		tween.tween_property(bgm_player, "volume_db", 0.0, 1.0)
+		tween.tween_property(bgm_player, "volume_db", bgm_max_volume_db, 1.0)
 		is_bgm_enabled = true
 		print("Debug: BGM playing and fading in at %s ms" % Time.get_ticks_msec())
 	

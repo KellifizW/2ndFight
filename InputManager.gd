@@ -33,6 +33,25 @@ const SPNK_SEQUENCE: Array[Dictionary] = [
 	{"directional": DirectionalInputs.BACK, "buttons": ButtonInputs.ST_MK, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
 ]
 
+const DP_SEQUENCE1: Array[Dictionary] = [
+	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
+]
+
+const DP_SEQUENCE2: Array[Dictionary] = [
+	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.DOWN_BACK, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
+]
+
+const DP_SEQUENCE3: Array[Dictionary] = [
+	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
+]
+
 var fireball_motion: Dictionary = {
 	"ValidInputs": [FIREBALL_SEQUENCE, FIREBALL_SEQUENCE2],
 	"InputBuffer": INPUT_BUFFER,
@@ -47,6 +66,12 @@ var powerkk_motion: Dictionary = {
 
 var spnk_motion: Dictionary = {
 	"ValidInputs": [SPNK_SEQUENCE],
+	"InputBuffer": INPUT_BUFFER,
+	"AbsoluteDirection": false
+}
+
+var dp_motion: Dictionary = {
+	"ValidInputs": [DP_SEQUENCE1, DP_SEQUENCE2, DP_SEQUENCE3],
 	"InputBuffer": INPUT_BUFFER,
 	"AbsoluteDirection": false
 }
@@ -67,20 +92,43 @@ func update_input():
 	var suffix = "_p2" if parent and parent.player_id == "p2" else ""
 	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
 	
+	# 初始化輸入數據
+	var input_data = {
+		"spm1_pressed": false,
+		"spm2_pressed": false,
+		"dp_pressed": false,
+		"super_pressed": Input.is_key_pressed(KEY_P) and player_id == "p1"
+	}
+	
 	# 僅在檢測到 st_mp 或 st_mk 輸入時檢查招式
 	if Input.is_action_just_pressed("st_mp" + suffix):
 		if player_id == "p1":
 			if check_powerkk_input():
-				return  # 匹配到 powerkk，停止進一步檢查
+				input_data.spm1_pressed = true
+				parent.set_input_data(input_data)
+				return
+			if check_dp_input():
+				input_data.dp_pressed = true
+				parent.set_input_data(input_data)
+				return
 			if check_fireball_input():
-				return  # 匹配到 fireball，停止進一步檢查
+				input_data.spm2_pressed = true
+				parent.set_input_data(input_data)
+				return
 		else:
 			if check_fireball_input():
+				input_data.spm2_pressed = true
+				parent.set_input_data(input_data)
 				return
 	elif Input.is_action_just_pressed("st_mk" + suffix):
 		if player_id == "p2":
 			if check_spnk_input():
+				input_data.spm1_pressed = true
+				parent.set_input_data(input_data)
 				return
+	
+	# 設置默認輸入數據
+	parent.set_input_data(input_data)
 
 func get_current_raw_input() -> int:
 	var parent = get_parent()
@@ -145,6 +193,12 @@ func check_spnk_input() -> bool:
 	if player_id != "p2": return false
 	return check_motion(spnk_motion)
 
+func check_dp_input() -> bool:
+	var parent = get_parent()
+	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
+	if player_id != "p1": return false
+	return check_motion(dp_motion)
+
 func check_motion(motion: Dictionary) -> bool:
 	var parent = get_parent()
 	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
@@ -175,7 +229,7 @@ func check_motion(motion: Dictionary) -> bool:
 				total_frames += hist.duration
 				if total_frames > MAX_TOTAL_FRAMES:
 					if player_id == "p1":
-						print("Debug: [%s] Total frames exceeded for %s: total_frames=%d" % [player_id, "Fireball" if "fireball" in motion else "PowerKK" if "powerkk" in motion else "Spnk", total_frames])
+						print("Debug: [%s] Total frames exceeded for %s: total_frames=%d" % [player_id, "Fireball" if "fireball" in motion else "PowerKK" if "powerkk" in motion else "Spnk" if "spnk" in motion else "DP", total_frames])
 					matched = false
 					break
 				
@@ -184,10 +238,10 @@ func check_motion(motion: Dictionary) -> bool:
 				if hist_dir == DirectionalInputs.FORWARD or hist_dir == DirectionalInputs.DOWN_FORWARD:
 					has_forward_input = true
 				
-				# 如果檢查 fireball 且有 BACK 或 DOWN_BACK，立即終止
-				if "fireball" in motion and has_back_input:
+				# 如果檢查 fireball 或 dp 且有 BACK 或 DOWN_BACK，立即終止
+				if ("fireball" in motion or "dp" in motion) and has_back_input:
 					if player_id == "p1":
-						print("Debug: [%s] Fireball check aborted due to BACK or DOWN_BACK at history[%d]: hist_dir=%d" % [player_id, hist_pos, hist_dir])
+						print("Debug: [%s] %s check aborted due to BACK or DOWN_BACK at history[%d]: hist_dir=%d" % [player_id, "Fireball" if "fireball" in motion else "DP", hist_pos, hist_dir])
 					matched = false
 					break
 				# 如果檢查 powerkk 或 spnk 且有 FORWARD 或 DOWN_FORWARD，立即終止
@@ -200,7 +254,7 @@ func check_motion(motion: Dictionary) -> bool:
 				if check_input(hist_pos, step.directional, step.buttons if "buttons" in step else 0, step.dir_mode, step.but_mode if "but_mode" in step else ButtonMode.PRESS):
 					if hist.duration <= INPUT_BUFFER:
 						if player_id == "p1":
-							print("Debug: [%s] Step matched for %s: seq_idx=%d, hist_pos=%d, directional=%d, buttons=%d" % [player_id, "Fireball" if "fireball" in motion else "PowerKK" if "powerkk" in motion else "Spnk", seq_idx, hist_pos, step.directional, step.buttons if "buttons" in step else 0])
+							print("Debug: [%s] Step matched for %s: seq_idx=%d, hist_pos=%d, directional=%d, buttons=%d" % [player_id, "Fireball" if "fireball" in motion else "PowerKK" if "powerkk" in motion else "Spnk" if "spnk" in motion else "DP", seq_idx, hist_pos, step.directional, step.buttons if "buttons" in step else 0])
 						step_matched = true
 						seq_idx -= 1
 				
@@ -208,13 +262,13 @@ func check_motion(motion: Dictionary) -> bool:
 			
 			if not step_matched:
 				if player_id == "p1":
-					print("Debug: [%s] Step not matched for %s: seq_idx=%d, directional=%d, buttons=%d" % [player_id, "Fireball" if "fireball" in motion else "PowerKK" if "powerkk" in motion else "Spnk", seq_idx, step.directional, step.buttons if "buttons" in step else 0])
+					print("Debug: [%s] Step not matched for %s: seq_idx=%d, directional=%d, buttons=%d" % [player_id, "Fireball" if "fireball" in motion else "PowerKK" if "powerkk" in motion else "Spnk" if "spnk" in motion else "DP", seq_idx, step.directional, step.buttons if "buttons" in step else 0])
 				matched = false
 		
 		if matched:
 			found = true
 			if player_id == "p1" or player_id == "p2":
-				print("Debug: [%s] Sequence matched for %s! History checked: %d to %d" % [player_id, "PowerKK" if "powerkk" in motion else "Spnk" if "spnk" in motion else "Fireball", hist_pos, current_history])
+				print("Debug: [%s] Sequence matched for %s! History checked: %d to %d" % [player_id, "PowerKK" if "powerkk" in motion else "Spnk" if "spnk" in motion else "Fireball" if "fireball" in motion else "DP", hist_pos, current_history])
 			break
 	
 	return found
