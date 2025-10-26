@@ -29,6 +29,7 @@ func get_input_data() -> Dictionary:
 	var st_mk_pressed = Input.is_action_just_pressed("st_mk" + suffix)
 	var spm1_pressed = Input.is_action_just_pressed("spmove1" + suffix)
 	var spm2_pressed = Input.is_action_just_pressed("spmove2" + suffix)
+	var spm3_pressed = Input.is_action_just_pressed("spmove3" + suffix)
 	var super_pressed = Input.is_action_just_pressed("super" + suffix)
 	var dp_pressed = false
 	
@@ -47,6 +48,10 @@ func get_input_data() -> Dictionary:
 		if input_manager.check_fireball_input():
 			spm2_pressed = true
 			st_mp_pressed = false  # Suppress normal st_mp
+	
+	# Add shortcut for spmove3 to trigger dp for p1
+	if player_id == "p1" and spm3_pressed:
+		dp_pressed = true
 	
 	var move_set = get_parent().get_node("MoveSet") if get_parent().has_node("MoveSet") else null
 	# Handle attack_type logic, prioritizing spm1_pressed, spm2_pressed, dp_pressed, and super_pressed

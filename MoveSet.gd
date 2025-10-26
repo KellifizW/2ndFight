@@ -6,7 +6,7 @@ class_name MoveSet extends Node
 @export var fireball_y_offset: float = 0.0
 @export var fireball_x_offset: float = 15.0
 @export var fireball_spawn_delay: float = 0.2667
-@export var super_duration: float = 3.2  # 超必總持續時間
+@export var super_duration: float = 2.6  # 超必總持續時間
 @export var super_move_distance: float = 200.0  # 超必水平移動距離
 @export var super_gravity: float = 200000.0  # 超必專屬重力
 @export var super_jump_delay: float = 0.9  # 凍結結束後跳起的延遲時間
@@ -14,13 +14,13 @@ class_name MoveSet extends Node
 @export var dp_duration: float = 1.0  # Total duration of DP
 @export var dp_jump_delay: float = 0.0667  # Delay before jump
 @export var dp_horizontal_move: float = 80.0  # Horizontal forward movement
-@export var dp_vertical_speed: float = -500.0  # Jump vertical speed
+@export var dp_vertical_speed: float = -900.0  # Jump vertical speed
 @export var dp_damage: float = 15.0  # Damage on hit
 
 var is_super: bool = false
 var super_timer: float = 0.0
 var super_jump_timer: float = 0.0
-var super_freeze_time: float = 0.9  # 凍結 0.9 秒
+var super_freeze_time: float = 0.3  # 凍結 0.3 秒
 var is_powerkk: bool = false
 var is_spnk: bool = false
 var is_fireball: bool = false
