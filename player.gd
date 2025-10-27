@@ -79,7 +79,7 @@ func set_input_data(data: Dictionary):
 	special_input_data = data
 
 func get_input() -> Dictionary:
-	if is_knockfly or is_wakeup or is_hit:
+	if is_knockfly or is_wakeup or is_hit or is_layground:
 		return {
 			"input_dir": 0,
 			"crouch_pressed": false,
@@ -153,7 +153,7 @@ func _physics_process(delta):
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
 	
-	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup
+	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup and not is_layground
 	
 	if move_set and move_set.is_spmove:
 		is_attacking = false
@@ -199,7 +199,7 @@ func _physics_process(delta):
 			fixed_velocity.x = 0
 		print("Debug: Attack triggered for %s, input_st_mp=%s, input_st_mk=%s, attack_type=%s, damage=%s, facing=%s, animation=%s at %s ms" % [name, input_data.st_mp_pressed, input_data.st_mk_pressed, attack_type, current_damage, facing_direction, animation_state.get_current_node() if animation_state else "none", Time.get_ticks_msec()])
 	
-	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked
+	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked and not is_layground
 	if input_data.st_mp_pressed and is_valid_air_state:
 		current_damage = jump_mp_damage
 		is_air_attacking = true
@@ -225,7 +225,7 @@ func _physics_process(delta):
 
 func _physics_process_jump(delta: float):
 	var input_data = get_input()
-	if input_data.jump_pressed and is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_hit and not is_knockfly and not is_blocking:
+	if input_data.jump_pressed and is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_hit and not is_knockfly and not is_blocking and not is_layground:
 		is_jumping = true
 		landing_facing_lock = true
 		if world:
@@ -240,9 +240,15 @@ func _physics_process_jump(delta: float):
 			print("Debug: Jump attempted for %s without world node at %s ms" % [name, Time.get_ticks_msec()])
 
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
+	if is_layground:
+		return "layground"
+	if is_knockfly:
+		return "knockfly"
 	if is_wakeup_locked:
 		return "wakeup"
-	elif move_set and move_set.is_spmove:
+	if is_hit:
+		return "hit"
+	if move_set and move_set.is_spmove:
 		if move_set.is_super:
 			return "super"
 		elif player_id == "p1" and move_set.is_powerkk:
@@ -253,9 +259,11 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 			return "spnk"
 		elif move_set.is_fireball:
 			return "fireball"
-	elif is_landing and landing_lock_timer > 0:
+	if is_blocking:
+		return "cr_block" if is_crouch_blocking and crouch_input else "block"
+	if is_landing and landing_lock_timer > 0:
 		return "landing"
-	elif not on_floor and (is_jumping or is_air_attacking):
+	if not on_floor and (is_jumping or is_air_attacking):
 		if is_air_attacking or has_air_attacked:
 			return attack_type
 		else:
@@ -344,7 +352,7 @@ func _on_hitbox_area_entered(area: Area2D):
 		hitstun = 0.65
 		blockstun = powerkk_blockstun
 		damage = move_set.dp_damage
-		force_knockfly = not is_blocked  # DP 擊飛（僅限非格擋）
+		force_knockfly = not is_blocked
 	
 	# 執行擊中
 	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly)
@@ -459,14 +467,15 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 
 func _on_animation_tree_finished(anim_name: String):
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
-	if anim_name == "knockfly" and is_knockfly:
+	if anim_name == "layground" and is_layground:
 		if healthbar and healthbar.current_health <= 0:
 			return
-		is_knockfly = false
+		is_layground = false
 		is_wakeup = true
 		is_wakeup_locked = true
 		fixed_velocity = Vector2i.ZERO
 		animation_state.travel("wakeup")
+		print("Debug: Layground animation finished for %s, transitioning to wakeup" % name)
 	elif anim_name == "wakeup" and is_wakeup:
 		is_wakeup = false
 		is_wakeup_locked = false

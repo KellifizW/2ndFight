@@ -9,7 +9,7 @@ var is_being_pushed: bool = false
 var current_damage: float = 0.0
 var air_hit_knockfly_speed: float = 53.33
 @export var air_knockback_horizontal_speed: float = 100.0
-@export var air_knockback_vertical_speed: float = -800.0
+@export var air_knockback_vertical_speed: float = -600.0
 @export var air_friction: float = 10.0
 @export var min_hitstun_duration: float = 8.0 / 60.0
 
@@ -54,7 +54,7 @@ func _physics_process(delta):
 func post_physics_process(delta):
 	pass
 
-func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267, damage: float = 10.0, skip_push: bool = false, force_knockfly: bool = false):
+func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267, damage: float = 10.0, skip_push: bool = false, force_knockfly: bool = false, custom_gravity: float = 3000000.0, custom_knockfly_vertical_speed: float = air_knockback_vertical_speed):
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
 		print("Warning: World node not found in group 'world' for %s" % name)
@@ -94,47 +94,36 @@ func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267,
 	if not is_on_floor():
 		update_facing_direction()
 
-	if force_knockfly:
+	# 修改：統一處理 knockfly 抬升邏輯並添加調試日誌
+	if force_knockfly or (damage > 10.0 or (healthbar and healthbar.current_health <= 0)):
 		is_knockfly = true
-		knockfly_timer = max(knockfly_duration, min_hitstun_duration)
-		fixed_velocity.y = int(air_knockback_vertical_speed * world.SIMULATION_SCALE)
-		fixed_position.y -= 1
-		is_jumping = true
-		print("Debug: Forced aerial knockfly for %s" % name)
+		knockfly_timer = max(knockfly_duration, min_hitstun_duration)  # knockfly_duration 已設為 0.3833
+		fixed_velocity.y = int(custom_knockfly_vertical_speed * world.SIMULATION_SCALE)  # 使用自定義垂直初速
+		fixed_position.y -= 1  # 強制微調位置，確保離開地面
+		is_jumping = true  # 標記為空中，防止地面邏輯干擾
+		if not skip_push:
+			knockfly_velocity_x = -knockfly_push_speed * world.SIMULATION_SCALE * get_facing_multiplier()
+		knockfly_gravity = custom_gravity  # 應用自定義重力
+		print("Debug: Knockfly triggered for %s, force_knockfly=%s, velocity.y=%s, position.y=%s, custom_gravity=%s, custom_knockfly_vertical_speed=%s, knockfly_timer=%s" % [name, force_knockfly, fixed_velocity.y, fixed_position.y, custom_gravity, custom_knockfly_vertical_speed, knockfly_timer])
+		_update_animation_state(0, input_data.crouch_pressed)  # 立即更新到 knockfly 動畫
 		return
 
-	if healthbar:
-		healthbar.take_damage(damage)
-		var facing_mult = get_facing_multiplier()
-
-		if damage > 10.0 or healthbar.current_health <= 0:
-			is_knockfly = true
-			knockfly_timer = max(knockfly_duration, min_hitstun_duration)
-			if not skip_push:
-				knockfly_velocity_x = -knockfly_push_speed * world.SIMULATION_SCALE * facing_mult
-			return
-
-		is_hit = true
-		initial_hitstun = max(hitstun_duration, min_hitstun_duration)
-		hit_timer = initial_hitstun
-		if is_on_floor():
-			if not skip_push:
-				hit_push_timer = initial_hitstun
-				hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
-			fixed_velocity.x = 0
-			fixed_velocity.y = 0
-		else:
-			fixed_velocity.y = int(air_knockback_vertical_speed * world.SIMULATION_SCALE)
-			fixed_velocity.x = int(-air_knockback_horizontal_speed * world.SIMULATION_SCALE * facing_mult)
-	else:
-		is_hit = true
-		initial_hitstun = max(hitstun_duration, min_hitstun_duration)
-		hit_timer = initial_hitstun
+	# 以下是原 hit 邏輯（輕擊，不擊飛）
+	is_hit = true
+	initial_hitstun = max(hitstun_duration, min_hitstun_duration)
+	hit_timer = initial_hitstun
+	if is_on_floor():
 		if not skip_push:
 			hit_push_timer = initial_hitstun
 			hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
 		fixed_velocity.x = 0
 		fixed_velocity.y = 0
+	else:
+		fixed_velocity.y = int(air_knockback_vertical_speed * world.SIMULATION_SCALE)
+		fixed_velocity.x = int(-air_knockback_horizontal_speed * world.SIMULATION_SCALE * get_facing_multiplier())
+
+	if healthbar:
+		healthbar.take_damage(damage)
 
 	_update_animation_state(0, input_data.crouch_pressed)
 
@@ -146,7 +135,7 @@ func take_knockfly():
 		if is_spmove:
 			move_set.stop_special_move()
 		is_knockfly = true
-		knockfly_timer = max(knockfly_duration, min_hitstun_duration)
+		knockfly_timer = max(0.3833, min_hitstun_duration)
 		_update_animation_state(0, is_crouching)
 
 func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:

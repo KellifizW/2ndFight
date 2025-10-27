@@ -3,25 +3,28 @@ class_name MoveSet extends Node
 @export var is_powerkk_penetrable: bool = true
 @export var is_spnk_penetrable: bool = true
 @export var is_fireball_penetrable: bool = true
-@export var is_dp_penetrable: bool = true  # 新增：DP 的穿透性，預設 true
+@export var is_dp_penetrable: bool = true
 @export var fireball_y_offset: float = 0.0
 @export var fireball_x_offset: float = 15.0
 @export var fireball_spawn_delay: float = 0.2667
-@export var super_duration: float = 2.6  # 超必總持續時間
-@export var super_move_distance: float = 200.0  # 超必水平移動距離
-@export var super_gravity: float = 200000.0  # 超必專屬重力
-@export var super_jump_delay: float = 0.9  # 凍結結束後跳起的延遲時間
-@export var super_jump_vertical_speed: float = -210.0  # 超必專屬跳躍垂直速度
-@export var dp_duration: float = 1.0  # Total duration of DP
-@export var dp_jump_delay: float = 0.0667  # Delay before jump
-@export var dp_horizontal_move: float = 80.0  # Horizontal forward movement
-@export var dp_vertical_speed: float = -900.0  # Jump vertical speed
-@export var dp_damage: float = 15.0  # Damage on hit
+@export var super_duration: float = 2.6
+@export var super_move_distance: float = 200.0
+@export var super_gravity: float = 200000.0
+@export var super_jump_delay: float = 0.9
+@export var super_jump_vertical_speed: float = -210.0
+@export var dp_duration: float = 1.0
+@export var dp_jump_delay: float = 0.0667
+@export var dp_horizontal_move: float = 80.0
+@export var dp_vertical_speed: float = -700.0
+@export var dp_damage: float = 15.0
+@export var dp_knockfly_vertical_speed: float = -800.0  # DP 擊飛對手的垂直初速
+@export var dp_knockfly_gravity: float = 3500000.0  # DP 擊飛對手的重力
+@export var dp_hitstun: float = 0.65  # DP 專屬擊暈持續時間，讓擊飛更持久
 
 var is_super: bool = false
 var super_timer: float = 0.0
 var super_jump_timer: float = 0.0
-var super_freeze_time: float = 0.3  # 凍結 0.3 秒
+var super_freeze_time: float = 0.3
 var is_powerkk: bool = false
 var is_spnk: bool = false
 var is_fireball: bool = false
@@ -56,8 +59,8 @@ var fireball_initial_parent_scale_x: float = 0.0
 var fireball_initial_sprite_scale_x: float = 0.0
 var is_spmove_animation_playing: bool = false
 var super_initial_facing: float = 0.0
-var has_jumped_in_super: bool = false  # 新增：追蹤超必是否已跳躍
-var has_jumped_in_dp: bool = false  # 追蹤DP是否已跳躍
+var has_jumped_in_super: bool = false
+var has_jumped_in_dp: bool = false
 @onready var parent = get_parent()
 @onready var hitbox = parent.get_node("Hitbox/HitShape") if parent.has_node("Hitbox/HitShape") else null
 @onready var animation_player = parent.get_node("AnimationPlayer") if parent.has_node("AnimationPlayer") else null
@@ -174,16 +177,15 @@ func start_super():
 	is_special_moving = true
 	super_timer = super_duration
 	super_jump_timer = super_jump_delay
-	has_jumped_in_super = false  # 初始化跳躍追蹤
+	has_jumped_in_super = false
 	parent.fixed_velocity = Vector2i.ZERO
 	super_initial_facing = parent.facing_direction
 	if "is_facing_locked" in parent:
 		parent.is_facing_locked = true
 	animation_player.play("super")
-	animation_player.seek(0, true)  # 定位到第一幀
+	animation_player.seek(0, true)
 	var world = get_tree().get_first_node_in_group("world")
 	if world:
-		# 設定持續的水平速度，基於整個 super_duration
 		parent.fixed_velocity.x = int((super_move_distance / super_duration) * world.SIMULATION_SCALE * super_initial_facing)
 	parent.current_damage = super_damage
 	freeze_game(super_freeze_time)
@@ -195,7 +197,7 @@ func start_dp():
 	is_dp = true
 	is_spmove = true
 	is_special_moving = true
-	is_dp_penetrable = true  # 新增：啟動時預設允許穿透
+	is_dp_penetrable = true
 	dp_timer = dp_duration
 	dp_jump_timer = dp_jump_delay
 	has_jumped_in_dp = false
@@ -203,7 +205,7 @@ func start_dp():
 	dp_initial_facing = parent.facing_direction
 	if "is_facing_locked" in parent:
 		parent.is_facing_locked = true
-	animation_player.play("dp")  # Assumes "dp" animation exists
+	animation_player.play("dp")
 	animation_player.seek(0, true)
 	var world = get_tree().get_first_node_in_group("world")
 	if world:
@@ -213,15 +215,15 @@ func start_dp():
 
 func freeze_game(duration: float):
 	var tween = create_tween()
-	tween.set_ignore_time_scale(true)  # 使用真實時間
-	Engine.time_scale = 0.0  # 凍結遊戲
+	tween.set_ignore_time_scale(true)
+	Engine.time_scale = 0.0
 	tween.tween_interval(duration)
-	tween.tween_property(Engine, "time_scale", 1.0, 0.1)  # 緩出恢復
+	tween.tween_property(Engine, "time_scale", 1.0, 0.1)
 	tween.tween_callback(resume_after_freeze)
-	
+
 func resume_after_freeze():
 	if animation_player and animation_player.current_animation == "super":
-		animation_player.play()  # 確保動畫繼續播放
+		animation_player.play()
 		print("Debug: Super freeze ended, resuming animation for %s" % parent.name)
 
 func stop_special_move():
@@ -364,12 +366,10 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if is_dp:
 		dp_timer -= delta
 		dp_jump_timer -= delta
-		# Horizontal movement
 		var delta_move = int(parent.fixed_velocity.x * delta)
 		parent.fixed_position.x += delta_move
 		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		
-		# Jump logic: Trigger once after delay
 		if dp_jump_timer <= 0.0 and not parent.is_jumping and parent.fixed_position.y == world.FLOOR_Y and not has_jumped_in_dp:
 			parent.fixed_velocity.y = int(dp_vertical_speed * world.SIMULATION_SCALE)
 			parent.fixed_position.y = world.FLOOR_Y - 1
@@ -377,7 +377,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			has_jumped_in_dp = true
 			print("Debug: DP jump triggered for %s at dp_jump_timer=%.2f" % [parent.name, dp_jump_timer])
 		
-		# Gravity if airborne
 		if parent.fixed_position.y < world.FLOOR_Y:
 			parent.fixed_velocity.y += int(world.GRAVITY * delta)
 			if parent.fixed_position.y >= world.FLOOR_Y:
@@ -409,12 +408,10 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if is_super:
 		super_timer -= delta
 		super_jump_timer -= delta
-		# 持續水平移動整個超必期間
 		var delta_move = int(parent.fixed_velocity.x * delta)
 		parent.fixed_position.x += delta_move
 		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		
-		# 跳躍邏輯：僅在未跳躍且計時器到達時執行一次
 		if super_jump_timer <= 0.0 and not parent.is_jumping and parent.fixed_position.y == world.FLOOR_Y and not has_jumped_in_super:
 			parent.fixed_velocity.y = int(super_jump_vertical_speed * world.SIMULATION_SCALE)
 			parent.fixed_position.y = world.FLOOR_Y - 1
@@ -422,7 +419,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			has_jumped_in_super = true
 			print("Debug: Super jump triggered for %s at super_jump_timer=%.2f, fixed_velocity.y=%s" % [parent.name, super_jump_timer, parent.fixed_velocity.y])
 		
-		# 垂直運動使用 super_gravity
 		if parent.fixed_position.y < world.FLOOR_Y:
 			parent.fixed_velocity.y += int(super_gravity * delta)
 			if parent.fixed_position.y >= world.FLOOR_Y:
@@ -484,8 +480,13 @@ func _process(delta: float):
 		var current_time = animation_player.current_animation_position
 		print("Debug: Playing animation %s at %.2f seconds for %s" % [current_anim, current_time, parent.name])
 
-func _on_hit_detected(target: String, blockstun_duration: float, is_blocked: bool):
+func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
 	var player_id = parent.player_id if "player_id" in parent else "p1"
+	var target_node = null
+	for player in get_tree().get_nodes_in_group("players"):
+		if player.name == target:
+			target_node = player
+			break
 	if player_id == "p2" and is_spnk:
 		if is_blocked:
 			is_spnk_penetrable = false
@@ -506,7 +507,7 @@ func _on_hit_detected(target: String, blockstun_duration: float, is_blocked: boo
 			print("Debug: DP hit blocked by %s, is_dp_penetrable=false" % target)
 		else:
 			is_dp_penetrable = true
-			print("Debug: DP hit %s (not blocked), is_dp_penetrable=true" % target)
+			print("Debug: DP hit %s (not blocked), is_dp_penetrable=true, relying on player.gd for knockfly handling" % target)
 
 func get_special_damage() -> float:
 	var player_id = parent.player_id if "player_id" in parent else "p1"
