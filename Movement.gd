@@ -78,8 +78,6 @@ func _ready():
 	while not world and retry_count < 5:
 		world = get_tree().get_first_node_in_group("world")
 		if not world:
-			push_error("Error: World node not found for %s during _ready, attempt %d" % [name, retry_count + 1])
-			print("Debug: World node not found for %s during _ready, attempt %d at %s ms" % [name, retry_count + 1, Time.get_ticks_msec()])
 			await get_tree().create_timer(0.1).timeout
 			retry_count += 1
 	if world:

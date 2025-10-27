@@ -3,6 +3,7 @@ class_name MoveSet extends Node
 @export var is_powerkk_penetrable: bool = true
 @export var is_spnk_penetrable: bool = true
 @export var is_fireball_penetrable: bool = true
+@export var is_dp_penetrable: bool = true  # 新增：DP 的穿透性，預設 true
 @export var fireball_y_offset: float = 0.0
 @export var fireball_x_offset: float = 15.0
 @export var fireball_spawn_delay: float = 0.2667
@@ -194,6 +195,7 @@ func start_dp():
 	is_dp = true
 	is_spmove = true
 	is_special_moving = true
+	is_dp_penetrable = true  # 新增：啟動時預設允許穿透
 	dp_timer = dp_duration
 	dp_jump_timer = dp_jump_delay
 	has_jumped_in_dp = false
@@ -498,6 +500,13 @@ func _on_hit_detected(target: String, blockstun_duration: float, is_blocked: boo
 		else:
 			is_fireball_penetrable = true
 			print("Debug: Fireball hit %s (not blocked), is_fireball_penetrable=true" % target)
+	elif is_dp:
+		if is_blocked:
+			is_dp_penetrable = false
+			print("Debug: DP hit blocked by %s, is_dp_penetrable=false" % target)
+		else:
+			is_dp_penetrable = true
+			print("Debug: DP hit %s (not blocked), is_dp_penetrable=true" % target)
 
 func get_special_damage() -> float:
 	var player_id = parent.player_id if "player_id" in parent else "p1"

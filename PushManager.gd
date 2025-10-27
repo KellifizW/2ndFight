@@ -116,7 +116,8 @@ func _physics_process(delta: float) -> void:
 		if move_set:
 			var player_id = parent.player_id if "player_id" in parent else "p1"
 			is_penetrable = (player_id == "p1" and move_set.is_powerkk and move_set.is_powerkk_penetrable) or \
-							(player_id == "p2" and move_set.is_spnk and move_set.is_spnk_penetrable)
+							(player_id == "p2" and move_set.is_spnk and move_set.is_spnk_penetrable) or \
+							(move_set.is_dp and move_set.is_dp_penetrable)
 		parent.is_being_pushed = false
 		if is_penetrable or parent.skip_pushbox:
 			continue
@@ -127,7 +128,8 @@ func _physics_process(delta: float) -> void:
 			if other_move_set:
 				var other_player_id = other.player_id if "player_id" in other else "p1"
 				other_is_penetrable = (other_player_id == "p1" and other_move_set.is_powerkk and other_move_set.is_powerkk_penetrable) or \
-									  (other_player_id == "p2" and other_move_set.is_spnk and other_move_set.is_spnk_penetrable)
+									  (other_player_id == "p2" and other_move_set.is_spnk and other_move_set.is_spnk_penetrable) or \
+									  (other_move_set.is_dp and other_move_set.is_dp_penetrable)
 			if other_is_penetrable or other.skip_pushbox:
 				continue
 
@@ -188,27 +190,27 @@ func _physics_process(delta: float) -> void:
 				var push_vec_other = 0
 				
 				if unpush_self and overlap_fixed_y > 0:
-					push_vec_self = 0  # 角落玩家不動
+					push_vec_self = 0
 					var push_amount = push_distance_fixed * 1.2 + 1
 					if self_at_left:
-						push_vec_other = -push_amount  # 負值：推other向右
+						push_vec_other = -push_amount
 					elif self_at_right:
-						push_vec_other = push_amount   # 正值：推other向左
+						push_vec_other = push_amount
 				elif unpush_other and overlap_fixed_y > 0:
-					push_vec_other = 0  # 角落玩家不動
+					push_vec_other = 0
 					var push_amount = push_distance_fixed * 1.2 + 1
 					if other_at_left:
-						push_vec_self = -push_amount  # 負值：推self向右
+						push_vec_self = -push_amount
 					elif other_at_right:
-						push_vec_self = push_amount   # 正值：推self向左
+						push_vec_self = push_amount
 				else:
 					var push_amount = push_distance_fixed * 0.6 + 1
 					push_vec_self = normal_x * push_amount
 					push_vec_other = -normal_x * push_amount
 				
 				if parent.just_jumped or parent.is_landing or other.just_jumped or other.is_landing:
-					push_vec_self *= 1.0  # 原1.5，改為1.0以減小跳躍推開
-					push_vec_other *= 1.0  # 原1.5，改為1.0以減小跳躍推開
+					push_vec_self *= 1.0
+					push_vec_other *= 1.0
 				
 				var new_self_fixed_x = fixed_position_a.x - push_vec_self
 				var new_other_fixed_x = fixed_position_b.x - push_vec_other

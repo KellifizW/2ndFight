@@ -92,42 +92,31 @@ func update_input():
 	var suffix = "_p2" if parent and parent.player_id == "p2" else ""
 	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
 	
-	# 初始化輸入數據
-	var input_data = {
-		"spm1_pressed": false,
-		"spm2_pressed": false,
-		"dp_pressed": false,
-		"super_pressed": Input.is_key_pressed(KEY_P) and player_id == "p1"
-	}
+	# 初始化輸入數據為空字典，只添加 true 的鍵值
+	var input_data = {}
+	
+	# super_pressed 只在 true 時添加
+	if Input.is_action_just_pressed("super" + suffix) and player_id == "p1":
+		input_data["super_pressed"] = true
 	
 	# 僅在檢測到 st_mp 或 st_mk 輸入時檢查招式
 	if Input.is_action_just_pressed("st_mp" + suffix):
 		if player_id == "p1":
 			if check_powerkk_input():
-				input_data.spm1_pressed = true
-				parent.set_input_data(input_data)
-				return
+				input_data["spm1_pressed"] = true
 			if check_dp_input():
-				input_data.dp_pressed = true
-				parent.set_input_data(input_data)
-				return
+				input_data["dp_pressed"] = true
 			if check_fireball_input():
-				input_data.spm2_pressed = true
-				parent.set_input_data(input_data)
-				return
+				input_data["spm2_pressed"] = true
 		else:
 			if check_fireball_input():
-				input_data.spm2_pressed = true
-				parent.set_input_data(input_data)
-				return
+				input_data["spm2_pressed"] = true
 	elif Input.is_action_just_pressed("st_mk" + suffix):
 		if player_id == "p2":
 			if check_spnk_input():
-				input_data.spm1_pressed = true
-				parent.set_input_data(input_data)
-				return
+				input_data["spm1_pressed"] = true
 	
-	# 設置默認輸入數據
+	# 設置輸入數據（只包含 true 的鍵值）
 	parent.set_input_data(input_data)
 
 func get_current_raw_input() -> int:
