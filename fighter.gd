@@ -83,9 +83,10 @@ func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267,
 			block_push_velocity = 2.0 * block_push_distance * world.SIMULATION_SCALE / initial_blockstun
 		block_detected.emit(name, block_type)
 		_update_animation_state(0, input_data.crouch_pressed)
+		print("Debug: Block detected, no damage applied for %s" % name)
 		return
 
-	# 新增：播放受擊叫聲（僅在非格擋狀態）
+	# 播放受擊叫聲（僅在非格擋狀態）
 	var hurt_grunt_player = $HurtGruntPlayer if has_node("HurtGruntPlayer") else null
 	if hurt_grunt_player:
 		hurt_grunt_player.play()
@@ -94,36 +95,37 @@ func take_hit(hitstun_duration: float = 0.35, blockstun_duration: float = 0.267,
 	if not is_on_floor():
 		update_facing_direction()
 
-	# 修改：統一處理 knockfly 抬升邏輯並添加調試日誌
-	if force_knockfly or (damage > 10.0 or (healthbar and healthbar.current_health <= 0)):
+	# 先造成傷害（無論擊中還是擊飛）
+	if healthbar:
+		healthbar.take_damage(damage)
+		print("Debug: Damage applied: %s to %s, current_health=%s" % [damage, name, healthbar.current_health])
+
+	# 修改：恢復舊版邏輯，區分擊中/擊飛，但確保傷害已計算
+	var facing_mult = get_facing_multiplier()
+	if force_knockfly or damage > 10.0 or (healthbar and healthbar.current_health <= 0):
 		is_knockfly = true
-		knockfly_timer = max(knockfly_duration, min_hitstun_duration)  # knockfly_duration 已設為 0.3833
+		knockfly_timer = max(knockfly_duration, min_hitstun_duration)
 		fixed_velocity.y = int(custom_knockfly_vertical_speed * world.SIMULATION_SCALE)  # 使用自定義垂直初速
 		fixed_position.y -= 1  # 強制微調位置，確保離開地面
 		is_jumping = true  # 標記為空中，防止地面邏輯干擾
 		if not skip_push:
-			knockfly_velocity_x = -knockfly_push_speed * world.SIMULATION_SCALE * get_facing_multiplier()
+			knockfly_velocity_x = -knockfly_push_speed * world.SIMULATION_SCALE * facing_mult
 		knockfly_gravity = custom_gravity  # 應用自定義重力
 		print("Debug: Knockfly triggered for %s, force_knockfly=%s, velocity.y=%s, position.y=%s, custom_gravity=%s, custom_knockfly_vertical_speed=%s, knockfly_timer=%s" % [name, force_knockfly, fixed_velocity.y, fixed_position.y, custom_gravity, custom_knockfly_vertical_speed, knockfly_timer])
-		_update_animation_state(0, input_data.crouch_pressed)  # 立即更新到 knockfly 動畫
-		return
-
-	# 以下是原 hit 邏輯（輕擊，不擊飛）
-	is_hit = true
-	initial_hitstun = max(hitstun_duration, min_hitstun_duration)
-	hit_timer = initial_hitstun
-	if is_on_floor():
-		if not skip_push:
-			hit_push_timer = initial_hitstun
-			hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
-		fixed_velocity.x = 0
-		fixed_velocity.y = 0
 	else:
-		fixed_velocity.y = int(air_knockback_vertical_speed * world.SIMULATION_SCALE)
-		fixed_velocity.x = int(-air_knockback_horizontal_speed * world.SIMULATION_SCALE * get_facing_multiplier())
-
-	if healthbar:
-		healthbar.take_damage(damage)
+		is_hit = true
+		initial_hitstun = max(hitstun_duration, min_hitstun_duration)
+		hit_timer = initial_hitstun
+		if is_on_floor():
+			if not skip_push:
+				hit_push_timer = initial_hitstun
+				hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
+			fixed_velocity.x = 0
+			fixed_velocity.y = 0
+		else:
+			fixed_velocity.y = int(air_knockback_vertical_speed * world.SIMULATION_SCALE)
+			fixed_velocity.x = int(-air_knockback_horizontal_speed * world.SIMULATION_SCALE * facing_mult)
+		print("Debug: Normal hit for %s, hitstun=%s" % [name, initial_hitstun])
 
 	_update_animation_state(0, input_data.crouch_pressed)
 

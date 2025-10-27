@@ -287,7 +287,7 @@ func _on_hitbox_area_entered(area: Area2D):
 	var damage = current_damage
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove
-	var is_blocked = target.is_blocking and target.block_type == "ordinary"
+	var is_blocked = target.is_blocking  # 修改這裡：移除 and target.block_type == "ordinary"，只需檢查 is_blocking
 	var was_in_stun = target.is_hit or target.is_knockfly
 	
 	var hitstun: float = 0.35

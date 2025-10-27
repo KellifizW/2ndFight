@@ -11,6 +11,7 @@ var is_layground: bool = false
 var layground_timer: float = 0.0
 @export var knockfly_gravity: float = 3000000.0
 @export var knockfly_duration: float = 0.3833
+var is_knockfly_animation_finished: bool = false  # 新增：追蹤 knockfly 動畫是否完成
 
 var fixed_position: Vector2i = Vector2i.ZERO
 var fixed_velocity: Vector2i = Vector2i.ZERO
@@ -113,6 +114,7 @@ func _ready():
 		print("Debug: Fallback position set for %s due to missing world at %s ms" % [name, Time.get_ticks_msec()])
 	knockfly_timer = 0.0
 	layground_timer = 0.0
+	is_knockfly_animation_finished = false  # 初始化動畫完成標誌
 
 func _physics_process(delta):
 	var current_position = global_position
@@ -219,31 +221,36 @@ func _physics_process(delta):
 		else:
 			fixed_velocity.x = 0
 	
+	# 修改 knockfly 和 layground 邏輯
 	if is_knockfly:
-		if knockfly_timer > 0:
-			knockfly_timer -= delta
-			fixed_velocity.y = 0
-			print("Debug: Knockfly floating for %s, remaining time: %s" % [name, knockfly_timer])
-		else:
-			fixed_velocity.y += int(knockfly_gravity * delta / world.TICKS_PER_SECOND)
-			print("Debug: Knockfly falling with custom gravity: %s for %s" % [knockfly_gravity, name])
-		
+		knockfly_timer -= delta
+		fixed_velocity.y += int(knockfly_gravity * delta)
+		print("Debug: Knockfly falling with custom gravity: %s for %s at %s ms" % [knockfly_gravity, name, Time.get_ticks_msec()])
+
+		# 檢查是否著地
 		if is_on_floor():
 			fixed_velocity = Vector2i.ZERO
 			is_knockfly = false
 			is_layground = true
 			layground_timer = layground_duration
+			is_knockfly_animation_finished = false
 			_update_animation_state(0, false)
-			print("Debug: Knockfly landed, transitioning to layground for %s, timer: %s" % [name, layground_duration])
-	
+			print("Debug: Knockfly landed, transitioning to layground for %s, timer: %s at %s ms" % [name, layground_duration, Time.get_ticks_msec()])
+		elif knockfly_timer <= 0 and not is_on_floor():
+			# 動畫完成但仍在空中，保持 knockfly 狀態
+			is_knockfly_animation_finished = true
+			fixed_velocity.x = 0
+			print("Debug: Knockfly animation finished but still in air for %s, maintaining knockfly state at %s ms" % [name, Time.get_ticks_msec()])
+
 	if is_layground:
 		layground_timer -= delta
 		fixed_velocity = Vector2i.ZERO
 		if layground_timer <= 0:
 			is_layground = false
 			is_knockfly = false
+			is_knockfly_animation_finished = false
 			_update_animation_state(0, false)
-			print("Debug: Layground ended for %s, transitioning to wakeup/idle" % name)
+			print("Debug: Layground ended for %s, transitioning to wakeup/idle at %s ms" % [name, Time.get_ticks_msec()])
 	
 	if jump_delay_timer <= 0 and not is_on_floor() and not is_knockfly:
 		var gravity = self.world.GRAVITY if self.world else 1800000
@@ -304,7 +311,20 @@ func _physics_process(delta):
 	post_physics_process(delta)
 
 func _on_animation_player_finished(anim_name: String) -> void:
-	if anim_name == "st_mp" and is_attacking:
+	if anim_name == "knockfly" and is_knockfly:
+		if is_on_floor():
+			is_knockfly = false
+			is_layground = true
+			layground_timer = layground_duration
+			is_knockfly_animation_finished = false
+			_update_animation_state(0, false)
+			print("Debug: Knockfly animation finished and on floor, transitioning to layground for %s at %s ms" % [name, Time.get_ticks_msec()])
+		else:
+			is_knockfly_animation_finished = true
+			if animation_player:
+				animation_player.stop()  # 停止動畫以保持最後一幀
+			print("Debug: Knockfly animation finished but still in air, holding last frame for %s at %s ms" % [name, Time.get_ticks_msec()])
+	elif anim_name == "st_mp" and is_attacking:
 		is_attacking = false
 		update_facing_direction()
 		if has_node("Hitbox/HitShape"):
@@ -483,6 +503,8 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 	
 	if is_layground:
 		return "layground"
+	if is_knockfly:
+		return "knockfly"  # 無論動畫是否完成，knockfly 狀態優先
 	if "is_wakeup_locked" in self and self.is_wakeup_locked:
 		return "wakeup"
 	if move_set and move_set.is_spmove:
@@ -496,8 +518,6 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 			return "spnk"
 		elif move_set.is_fireball:
 			return "fireball"
-	if is_knockfly:
-		return "knockfly"
 	if is_hit:
 		return "hit" if on_floor else "Jump_B"
 	if is_blocking:
@@ -544,10 +564,14 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	_set_animation_conditions(target_state, on_floor, crouch_input)
 	
 	if curr_state != target_state:
-		animation_state.travel(target_state)
-		if target_state == "layground":
-			print("Debug: Transitioned to layground animation for %s" % name)
-		print("Debug: Animation state changed for %s from %s to %s at %s ms" % [name, curr_state, target_state, Time.get_ticks_msec()])
+		if target_state == "knockfly" and is_knockfly_animation_finished and not is_on_floor():
+			# 保持 knockfly 最後一幀，不重新播放
+			pass
+		else:
+			animation_state.travel(target_state)
+			if target_state == "layground":
+				print("Debug: Transitioned to layground animation for %s at %s ms" % [name, Time.get_ticks_msec()])
+			print("Debug: Animation state changed for %s from %s to %s at %s ms" % [name, curr_state, target_state, Time.get_ticks_msec()])
 	
 	if target_state == "Walk":
 		animation_tree.set("parameters/Walk/blend_position", anim_dir)

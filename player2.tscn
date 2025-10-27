@@ -1,4 +1,4 @@
-[gd_scene load_steps=85 format=3 uid="uid://jla54h8ttkct"]
+[gd_scene load_steps=84 format=3 uid="uid://jla54h8ttkct"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_tdckb"]
 [ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="2_tdckb"]
@@ -1419,6 +1419,34 @@ tracks/1/keys = {
 "values": [Vector2(0, -4), Vector2(-4, -4), Vector2(6, -4)]
 }
 
+[sub_resource type="Animation" id="Animation_uns0w"]
+resource_name = "layground"
+length = 0.3833
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame_coords")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.099999994, 0.21666703),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Vector2i(4, 3), Vector2i(5, 3), Vector2i(4, 3)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Hurtbox/HurtShape:disabled")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [true]
+}
+
 [sub_resource type="Animation" id="Animation_yev3d"]
 length = 0.933337
 loop_mode = 1
@@ -1869,34 +1897,6 @@ tracks/2/keys = {
 "values": [true]
 }
 
-[sub_resource type="Animation" id="Animation_uns0w"]
-resource_name = "layground"
-length = 0.3833
-tracks/0/type = "value"
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/path = NodePath("Sprite2D:frame_coords")
-tracks/0/interp = 1
-tracks/0/loop_wrap = true
-tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.099999994, 0.21666703),
-"transitions": PackedFloat32Array(1, 1, 1),
-"update": 0,
-"values": [Vector2i(4, 3), Vector2i(5, 3), Vector2i(4, 3)]
-}
-tracks/1/type = "value"
-tracks/1/imported = false
-tracks/1/enabled = true
-tracks/1/path = NodePath("Hurtbox/HurtShape:disabled")
-tracks/1/interp = 1
-tracks/1/loop_wrap = true
-tracks/1/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [true]
-}
-
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_46qut"]
 _data = {
 &"RESET": SubResource("Animation_3ch2m"),
@@ -2018,10 +2018,6 @@ advance_mode = 2
 switch_mode = 2
 advance_mode = 2
 
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_ikxd4"]
-switch_mode = 2
-advance_mode = 2
-
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_r433l"]
 switch_mode = 2
 advance_mode = 2
@@ -2074,8 +2070,8 @@ states/st_mp/node = SubResource("AnimationNodeAnimation_61wwb")
 states/st_mp/position = Vector2(594, 142)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-52, 185)
-transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_aiihl"), "knockfly", "layground", SubResource("AnimationNodeStateMachineTransition_ikxd4"), "layground", "wakeup", SubResource("AnimationNodeStateMachineTransition_r433l")]
-graph_offset = Vector2(-196, 30)
+transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_aiihl"), "layground", "wakeup", SubResource("AnimationNodeStateMachineTransition_r433l")]
+graph_offset = Vector2(-228, 107)
 
 [node name="Player2" type="CharacterBody2D"]
 collision_layer = 2
@@ -2107,7 +2103,6 @@ libraries = {
 tree_root = SubResource("AnimationNodeStateMachine_mbed6")
 advance_expression_base_node = NodePath("..")
 anim_player = NodePath("../AnimationPlayer")
-parameters/conditions/knockfly = false
 parameters/Walk/blend_position = 0.000833988
 
 [node name="Hitbox" type="Area2D" parent="."]
