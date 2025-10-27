@@ -355,7 +355,7 @@ func _on_hitbox_area_entered(area: Area2D):
 		force_knockfly = not is_blocked
 	
 	# 執行擊中
-	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly)
+	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly, move_set.dp_knockfly_gravity if move_set and move_set.is_dp else 3000000.0, move_set.dp_knockfly_vertical_speed if move_set and move_set.is_dp else air_knockback_vertical_speed)
 	
 	# 發射擊中信號
 	var stun_duration = blockstun if is_blocked else hitstun
