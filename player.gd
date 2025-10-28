@@ -1,3 +1,4 @@
+# player.gd
 class_name Player extends Fighter
 
 signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool)
@@ -42,6 +43,110 @@ var special_input_data: Dictionary = {
 	"spm2_pressed": false,
 	"dp_pressed": false,
 	"super_pressed": false
+}
+
+var player_anim_resets: Dictionary = {
+	"wakeup": func():
+		is_wakeup = false
+		is_wakeup_locked = false
+		is_landing = false
+		_update_animation_state(0, false),
+	"landing": func():
+		is_landing = false
+		landing_lock_timer = 0.0
+		landing_facing_lock = false
+		update_facing_direction()
+		_update_animation_state(0, false),
+	"st_mp": func():
+		is_attacking = false
+		attack_type = "none"
+		cancel_window_timer = 0.0
+		update_facing_direction()
+		_update_animation_state(0, false)
+		print("Debug: Attack animation st_mp finished for %s, is_attacking=%s, attack_type=%s, facing=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, Time.get_ticks_msec()]),
+	"st_mk": func():
+		is_attacking = false
+		attack_type = "none"
+		cancel_window_timer = 0.0
+		update_facing_direction()
+		_update_animation_state(0, false)
+		print("Debug: Attack animation st_mk finished for %s, is_attacking=%s, attack_type=%s, facing=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, Time.get_ticks_msec()]),
+	"cr_mp": func():
+		is_attacking = false
+		attack_type = "none"
+		cancel_window_timer = 0.0
+		update_facing_direction()
+		_update_animation_state(0, false)
+		print("Debug: Attack animation cr_mp finished for %s, is_attacking=%s, attack_type=%s, facing=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, Time.get_ticks_msec()]),
+	"cr_mk": func():
+		is_attacking = false
+		attack_type = "none"
+		cancel_window_timer = 0.0
+		update_facing_direction()
+		_update_animation_state(0, false)
+		print("Debug: Attack animation cr_mk finished for %s, is_attacking=%s, attack_type=%s, facing=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, Time.get_ticks_msec()]),
+	"jump_mp": func():
+		if is_on_floor():
+			is_air_attacking = false
+			has_air_attacked = false
+			var input_data = get_input()
+			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed:
+				is_landing = false
+				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+			else:
+				is_landing = true
+				landing_lock_timer = landing_duration,
+	"jump_mk": func():
+		if is_on_floor():
+			is_air_attacking = false
+			has_air_attacked = false
+			var input_data = get_input()
+			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed:
+				is_landing = false
+				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+			else:
+				is_landing = true
+				landing_lock_timer = landing_duration,
+	"jump_v": func():
+		if is_on_floor():
+			is_jumping = false
+			var input_data = get_input()
+			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed:
+				is_landing = false
+				landing_facing_lock = false
+				update_facing_direction()
+				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+			else:
+				is_landing = true
+				landing_lock_timer = landing_duration,
+	"Jump_V": func(): call("jump_v"),
+	"Jump_F": func(): call("jump_v"),
+	"Jump_B": func(): call("jump_v"),
+	"fireball": func():
+		if move_set and move_set.is_fireball:
+			move_set.stop_special_move()
+			_update_animation_state(0, false),
+	"powerkk": func():
+		if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_dp):
+			move_set.stop_special_move()
+			is_facing_locked = false
+			force_update_facing_direction()
+			_update_animation_state(0, false)
+		print("Debug: Animation powerkk finished for %s, is_attacking=%s, attack_type=%s, facing=%s, is_facing_locked=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, is_facing_locked, Time.get_ticks_msec()]),
+	"spnk": func(): 
+		if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_dp):
+			move_set.stop_special_move()
+			is_facing_locked = false
+			force_update_facing_direction()
+			_update_animation_state(0, false)
+		print("Debug: Animation spnk finished for %s, is_attacking=%s, attack_type=%s, facing=%s, is_facing_locked=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, is_facing_locked, Time.get_ticks_msec()]),
+	"dp": func(): 
+		if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_dp):
+			move_set.stop_special_move()
+			is_facing_locked = false
+			force_update_facing_direction()
+			_update_animation_state(0, false)
+		print("Debug: Animation dp finished for %s, is_attacking=%s, attack_type=%s, facing=%s, is_facing_locked=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, is_facing_locked, Time.get_ticks_msec()]),
 }
 
 func _ready():
@@ -286,8 +391,7 @@ func _on_hitbox_area_entered(area: Area2D):
 	var target_name = target.name
 	var damage = current_damage
 	var move_set = $MoveSet if has_node("MoveSet") else null
-	var is_spmove = move_set and move_set.is_spmove
-	var is_blocked = target.is_blocking  # 修改這裡：移除 and target.block_type == "ordinary"，只需檢查 is_blocking
+	var is_blocked = target.is_blocking
 	var was_in_stun = target.is_hit or target.is_knockfly
 	
 	var hitstun: float = 0.35
@@ -303,7 +407,6 @@ func _on_hitbox_area_entered(area: Area2D):
 	if slowmo_controller:
 		slowmo_controller.request_hit_freeze()
 	
-	# 設定擊暈和傷害參數
 	if attack_type == "st_mp":
 		hitstun = st_mp_hitstun
 		blockstun = st_mp_blockstun
@@ -354,14 +457,11 @@ func _on_hitbox_area_entered(area: Area2D):
 		damage = move_set.dp_damage
 		force_knockfly = not is_blocked
 	
-	# 執行擊中
 	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly, move_set.dp_knockfly_gravity if move_set and move_set.is_dp else 3000000.0, move_set.dp_knockfly_vertical_speed if move_set and move_set.is_dp else air_knockback_vertical_speed)
 	
-	# 發射擊中信號
 	var stun_duration = blockstun if is_blocked else hitstun
 	hit_detected.emit(target_name, stun_duration, is_blocked, was_in_stun)
 	
-	# 播放音效
 	var hit_sound_player = $HitSoundPlayer if has_node("HitSoundPlayer") else null
 	var block_sound_player = $BlockSoundPlayer if has_node("BlockSoundPlayer") else null
 	if is_blocked and block_sound_player:
@@ -371,83 +471,29 @@ func _on_hitbox_area_entered(area: Area2D):
 		hit_sound_player.play()
 		print("Debug: Hit sound played for %s hitting %s at %s ms" % [name, target_name, Time.get_ticks_msec()])
 	
-	# 生成 VFX
-	var vfx_scene_path = "res://vfx_blk.tscn" if is_blocked else "res://vfx_hit.tscn"
-	var vfx_scene = load(vfx_scene_path)
-	if not vfx_scene:
-		push_error("Error: Failed to load VFX scene %s for %s at %s ms" % [vfx_scene_path, name, Time.get_ticks_msec()])
-		return
-	var vfx = vfx_scene.instantiate()
-	world.add_child(vfx)
-	
+	var vfx_type = "block" if is_blocked else "hit"
 	var contact_point = get_contact_point($Hitbox, area)
-	vfx.scale.x = facing_direction
-	var particles_1 = vfx.get_node_or_null("exp") if is_blocked else vfx.get_node_or_null("explode")
-	var particles_2 = vfx.get_node_or_null("wave") if is_blocked else vfx.get_node_or_null("ring")
-	if particles_1:
-		particles_1.scale.x = facing_direction
-		particles_1.local_coords = true
-		if particles_1.process_material:
-			var direction = particles_1.process_material.direction if particles_1.process_material.direction else Vector3(100, 0, 0)
-			particles_1.process_material.direction = Vector3(direction.x * facing_direction, direction.y, direction.z)
-		particles_1.emitting = true
-	if particles_2:
-		particles_2.scale.x = facing_direction
-		particles_2.local_coords = true
-		particles_2.rotation = PI if facing_direction == -1.0 else 0.0
-		if particles_2.process_material:
-			var direction = particles_2.process_material.direction if particles_2.process_material.direction else Vector3(100, 0, 0)
-			particles_2.process_material.direction = Vector3(direction.x * facing_direction, direction.y, direction.z)
-		particles_2.emitting = true
 	if contact_point == Vector2.ZERO:
 		contact_point = (area.global_position + $Hitbox.global_position) / 2.0
 		print("Warning: Using fallback midpoint position %s for VFX due to invalid contact point for %s at %s ms" % [contact_point, name, Time.get_ticks_msec()])
-	vfx.global_position = contact_point
 	if not target.is_on_floor():
-		vfx.global_position.y += 10
-	print("Debug: %s VFX spawned at %s for %s hitting %s (%s), vfx_scene=%s, attacker_facing=%s, vfx_scale_x=%s, particles_1_scale_x=%s, particles_1_direction=%s, particles_1_local_coords=%s, particles_1_rotation=%s, particles_2_scale_x=%s, particles_2_direction=%s, particles_2_local_coords=%s, particles_2_rotation=%s at %s ms" % [
-		"Block" if is_blocked else "Hit",
-		vfx.global_position,
-		name,
-		target_name,
-		"blocked" if is_blocked else "unblocked",
-		vfx_scene_path,
-		facing_direction,
-		vfx.scale.x,
-		particles_1.scale.x if particles_1 else "null",
-		particles_1.process_material.direction if particles_1 and particles_1.process_material else "null",
-		particles_1.local_coords if particles_1 else "null",
-		particles_1.rotation if particles_1 else "null",
-		particles_2.scale.x if particles_2 else "null",
-		particles_2.process_material.direction if particles_2 and particles_2.process_material else "null",
-		particles_2.local_coords if particles_2 else "null",
-		particles_2.rotation if particles_2 else "null",
-		Time.get_ticks_msec()
-	])
+		contact_point.y += 10
+	VFXImpact.spawn_vfx(world, vfx_type, contact_point, facing_direction)
 	
-	# 更新 Debug 標籤
-	var debug_text = "Hit on %s\nHitbox: %s (facing: %s)\nHurtbox: %s (facing: %s)\nVFX Contact: %s\nAir hit: %s\nBlocked: %s\nVFX Scale X: %s\nP1 Direction: %s\nP1 Local Coords: %s\nP1 Rotation: %s\nP2 Direction: %s\nP2 Local Coords: %s\nP2 Rotation: %s" % [
+	var debug_text = "Hit on %s\nHitbox: %s (facing: %s)\nHurtbox: %s (facing: %s)\nVFX Contact: %s\nAir hit: %s\nBlocked: %s" % [
 		target_name,
 		$Hitbox.global_position,
 		get_facing_multiplier(),
 		area.global_position,
 		target.get_facing_multiplier() if "get_facing_multiplier" in target else 1.0,
-		vfx.global_position,
+		contact_point,
 		"yes" if not target.is_on_floor() else "no",
-		"yes" if is_blocked else "no",
-		vfx.scale.x,
-		particles_1.process_material.direction if particles_1 and particles_1.process_material else "null",
-		particles_1.local_coords if particles_1 else "null",
-		particles_1.rotation if particles_1 else "null",
-		particles_2.process_material.direction if particles_2 and particles_2.process_material else "null",
-		particles_2.local_coords if particles_2 else "null",
-		particles_2.rotation if particles_2 else "null"
+		"yes" if is_blocked else "no"
 	]
 	var debug_label = world.get_node_or_null("UI/DebugLabel")
 	if debug_label:
 		debug_label.text = debug_text
 	
-	# 角落推開
 	if move_set and (move_set.is_spnk or move_set.is_powerkk or move_set.is_dp):
 		return
 	var push_manager = get_tree().get_first_node_in_group("push_manager")
@@ -466,8 +512,8 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		cancel_window_timer = cancel_window_duration
 
 func _on_animation_tree_finished(anim_name: String):
-	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 	if anim_name == "layground" and is_layground:
+		var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 		if healthbar and healthbar.current_health <= 0:
 			return
 		is_layground = false
@@ -476,57 +522,9 @@ func _on_animation_tree_finished(anim_name: String):
 		fixed_velocity = Vector2i.ZERO
 		animation_state.travel("wakeup")
 		print("Debug: Layground animation finished for %s, transitioning to wakeup" % name)
-	elif anim_name == "wakeup" and is_wakeup:
-		is_wakeup = false
-		is_wakeup_locked = false
-		is_landing = false
-		_update_animation_state(0, false)
-	elif anim_name == "landing" and is_landing:
-		is_landing = false
-		landing_lock_timer = 0.0
-		landing_facing_lock = false
-		update_facing_direction()
-		_update_animation_state(0, false)
-	elif anim_name in ["st_mp", "st_mk", "cr_mp", "cr_mk"] and is_attacking:
-		is_attacking = false
-		attack_type = "none"
-		cancel_window_timer = 0.0
-		update_facing_direction()
-		_update_animation_state(0, false)
-		print("Debug: Attack animation %s finished for %s, is_attacking=%s, attack_type=%s, facing=%s at %s ms" % [anim_name, name, is_attacking, attack_type, facing_direction, Time.get_ticks_msec()])
-	elif anim_name in ["jump_mp", "jump_mk"] and is_air_attacking:
-		if is_on_floor():
-			is_air_attacking = false
-			has_air_attacked = false
-			var input_data = get_input()
-			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed:
-				is_landing = false
-				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-			else:
-				is_landing = true
-				landing_lock_timer = landing_duration
-	elif anim_name in ["jump_v", "Jump_V", "Jump_F", "Jump_B"] and is_on_floor():
-		is_jumping = false
-		var input_data = get_input()
-		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed:
-			is_landing = false
-			landing_facing_lock = false
-			update_facing_direction()
-			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-		else:
-			is_landing = true
-			landing_lock_timer = landing_duration
-	elif anim_name == "fireball":
-		if move_set and move_set.is_fireball:
-			move_set.stop_special_move()
-			_update_animation_state(0, false)
-	elif anim_name in ["powerkk", "spnk", "dp"]:
-		if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_dp):
-			move_set.stop_special_move()
-			is_facing_locked = false
-			force_update_facing_direction()
-			_update_animation_state(0, false)
-		print("Debug: Animation %s finished for %s, is_attacking=%s, attack_type=%s, facing=%s, is_facing_locked=%s at %s ms" % [anim_name, name, is_attacking, attack_type, facing_direction, is_facing_locked, Time.get_ticks_msec()])
+	else:
+		if anim_name in player_anim_resets:
+			player_anim_resets[anim_name].call()
 
 func stop_attack():
 	is_attacking = false

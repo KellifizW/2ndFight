@@ -76,6 +76,45 @@ var jump_delay_timer: float = 0.0
 @export var jump_delay_duration: float = 0.067
 
 signal block_detected(target: String, block_type: String)
+var animation_conditions: Array = [
+	"Walk", "Crouch", "Dash", "Backdash",
+	"st_mp", "st_mk", "cr_mp", "cr_mk",
+	"Jump_F", "Jump_B", "Jump_V",
+	"hit", "knockfly", "block", "cr_block",
+	"powerkk", "spnk", "fireball",
+	"jump_mp", "jump_mk", "landing", "wakeup", "super", "dp", "layground"
+]
+
+var anim_resets: Dictionary = {
+	"layground": func(): 
+		is_layground = false
+		is_knockfly = false
+		is_knockfly_animation_finished = false
+		_update_animation_state(0, false)
+		print("Debug: Layground ended for %s, transitioning to wakeup/idle at %s ms" % [name, Time.get_ticks_msec()]),
+	"knockfly": func():
+		if is_on_floor():
+			fixed_velocity = Vector2i.ZERO
+			is_knockfly = false
+			is_layground = true
+			layground_timer = layground_duration
+			is_knockfly_animation_finished = false
+			_update_animation_state(0, false)
+			print("Debug: Knockfly landed, transitioning to layground for %s, timer: %s at %s ms" % [name, layground_duration, Time.get_ticks_msec()])
+		else:
+			is_knockfly_animation_finished = true
+			if animation_player:
+				animation_player.stop()  # 停止動畫以保持最後一幀
+			print("Debug: Knockfly animation finished but still in air, holding last frame for %s at %s ms" % [name, Time.get_ticks_msec()]),
+	"st_mp": func():
+		is_attacking = false
+		update_facing_direction()
+		if has_node("Hitbox/HitShape"):
+			$Hitbox/HitShape.disabled = true
+		print("Debug: Animation %s finished for %s, is_attacking=%s at %s ms" % ["st_mp", name, is_attacking, Time.get_ticks_msec()]),
+	# 添加其他通用重置，例如 "hit": func(): is_hit = false, 等（根據你的需求擴展）
+}
+
 
 func _ready():
 	world = get_tree().get_first_node_in_group("world")
@@ -310,26 +349,9 @@ func _physics_process(delta):
 	
 	post_physics_process(delta)
 
-func _on_animation_player_finished(anim_name: String) -> void:
-	if anim_name == "knockfly" and is_knockfly:
-		if is_on_floor():
-			is_knockfly = false
-			is_layground = true
-			layground_timer = layground_duration
-			is_knockfly_animation_finished = false
-			_update_animation_state(0, false)
-			print("Debug: Knockfly animation finished and on floor, transitioning to layground for %s at %s ms" % [name, Time.get_ticks_msec()])
-		else:
-			is_knockfly_animation_finished = true
-			if animation_player:
-				animation_player.stop()  # 停止動畫以保持最後一幀
-			print("Debug: Knockfly animation finished but still in air, holding last frame for %s at %s ms" % [name, Time.get_ticks_msec()])
-	elif anim_name == "st_mp" and is_attacking:
-		is_attacking = false
-		update_facing_direction()
-		if has_node("Hitbox/HitShape"):
-			$Hitbox/HitShape.disabled = true
-		print("Debug: Animation %s finished for %s, is_attacking=%s at %s ms" % [anim_name, name, is_attacking, Time.get_ticks_msec()])
+func _on_animation_player_finished(anim_name: String):
+	if anim_name in anim_resets:
+		anim_resets[anim_name].call()
 
 func add_gravity(gravity: int, delta: float) -> void:
 	fixed_velocity.y += int(gravity * delta)
@@ -471,32 +493,18 @@ func update_facing_direction():
 		print("Debug: No other player found for %s, default facing=1 at %s ms" % [name, Time.get_ticks_msec()])
 
 func _set_animation_conditions(target_state: String, on_floor: bool, crouch_input: bool) -> void:
-	animation_tree.set("parameters/conditions/Walk", target_state == "Walk" and on_floor and not crouch_input)
-	animation_tree.set("parameters/conditions/Crouch", target_state == "Crouch")
-	animation_tree.set("parameters/conditions/Dash", target_state == "Dash")
-	animation_tree.set("parameters/conditions/Backdash", target_state == "Backdash")
-	animation_tree.set("parameters/conditions/st_mp", target_state == "st_mp")
-	animation_tree.set("parameters/conditions/st_mk", target_state == "st_mk")
-	animation_tree.set("parameters/conditions/cr_mp", target_state == "cr_mp")
-	animation_tree.set("parameters/conditions/cr_mk", target_state == "cr_mk")
-	animation_tree.set("parameters/conditions/Jump_F", target_state == "Jump_F")
-	animation_tree.set("parameters/conditions/Jump_B", target_state == "Jump_B")
-	animation_tree.set("parameters/conditions/Jump_V", target_state == "Jump_V")
-	animation_tree.set("parameters/conditions/hit", target_state == "hit")
-	animation_tree.set("parameters/conditions/knockfly", target_state == "knockfly")
-	animation_tree.set("parameters/conditions/block", target_state == "block")
-	animation_tree.set("parameters/conditions/cr_block", target_state == "cr_block")
-	animation_tree.set("parameters/conditions/powerkk", target_state == "powerkk")
-	animation_tree.set("parameters/conditions/spnk", target_state == "spnk")
-	animation_tree.set("parameters/conditions/fireball", target_state == "fireball")
-	animation_tree.set("parameters/conditions/jump_mp", target_state == "jump_mp")
-	animation_tree.set("parameters/conditions/jump_mk", target_state == "jump_mk")
-	animation_tree.set("parameters/conditions/landing", target_state == "landing")
-	animation_tree.set("parameters/conditions/wakeup", target_state == "wakeup")
-	animation_tree.set("parameters/conditions/super", target_state == "super")
-	animation_tree.set("parameters/conditions/dp", target_state == "dp")
-	animation_tree.set("parameters/conditions/layground", target_state == "layground")
-
+	for c in animation_conditions:
+		var condition_value: bool = (target_state == c)
+		# 添加特定條件調整（例如 Walk 需要額外檢查）
+		if c == "Walk":
+			condition_value = condition_value and on_floor and not crouch_input
+		elif c == "Crouch":
+			condition_value = condition_value
+		elif c == "cr_block":
+			condition_value = condition_value and is_crouch_blocking and crouch_input
+		# ... 可以根據需要添加更多特定調整，保持靈活
+		animation_tree.set("parameters/conditions/" + c, condition_value)
+		
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var player_id = get_parent().player_id if get_parent() and "player_id" in get_parent() else "unknown"
