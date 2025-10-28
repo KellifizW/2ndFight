@@ -9,10 +9,14 @@ var world: Node
 var is_layground: bool = false
 @export var layground_duration: float = 0.3833
 var layground_timer: float = 0.0
-@export var knockfly_gravity: float = 3000000.0
+@export var knockfly_gravity: float = 1000000.0
 @export var knockfly_duration: float = 0.3833
-var is_knockfly_animation_finished: bool = false  # 新增：追蹤 knockfly 動畫是否完成
+var is_knockfly_animation_finished: bool = false
 
+var is_air_hit_knockfly: bool = false
+var knockfly_velocity_x: float = 0.0
+var knockfly_accumulated_distance: float = 0.0
+var knockfly_max_distance: float = 150.0
 var fixed_position: Vector2i = Vector2i.ZERO
 var fixed_velocity: Vector2i = Vector2i.ZERO
 var colbox_half_width: float = 0.0
@@ -38,13 +42,10 @@ var neutral_timer: float = 0.0
 var is_crouching: bool = false
 var is_hit: bool = false
 var is_knockfly: bool = false
-var arena_left: float = 0.0
-var arena_right: float = 480.0
 var hit_timer: float = 0.0
 var block_timer: float = 0.0
 var knockfly_timer: float = 0.0
 var knockfly_push_speed: float = 300.0
-var knockfly_velocity_x: float = 0.0
 @export var block_push_distance: float = 20.0
 var block_push_timer: float = 0.0
 var initial_blockstun: float = 0.0
@@ -62,20 +63,17 @@ var is_opponent_proximity: bool = false
 var block_type: String = "none"
 var prev_position: Vector2 = Vector2()
 var was_in_air: bool = false
-var air_hit_knockfly_distance: float = 10.0
-var is_air_hit_knockfly: bool = false
 var is_push_back: bool = false
 var push_back_timer: float = 0.0
 var initial_push_back: float = 0.0
 var push_back_velocity: float = 0.0
-var knockfly_accumulated_distance: float = 0.0
-var knockfly_max_distance: float = 150.0
 var just_jumped: bool = false
 var landing_facing_lock: bool = false
 var jump_delay_timer: float = 0.0
 @export var jump_delay_duration: float = 0.067
 
 signal block_detected(target: String, block_type: String)
+
 var animation_conditions: Array = [
 	"Walk", "Crouch", "Dash", "Backdash",
 	"st_mp", "st_mk", "cr_mp", "cr_mk",
@@ -86,55 +84,49 @@ var animation_conditions: Array = [
 ]
 
 var anim_resets: Dictionary = {
-	"layground": func(): 
-		is_layground = false
-		is_knockfly = false
-		is_knockfly_animation_finished = false
-		_update_animation_state(0, false)
-		print("Debug: Layground ended for %s, transitioning to wakeup/idle at %s ms" % [name, Time.get_ticks_msec()]),
-	"knockfly": func():
-		if is_on_floor():
-			fixed_velocity = Vector2i.ZERO
-			is_knockfly = false
-			is_layground = true
-			layground_timer = layground_duration
-			is_knockfly_animation_finished = false
-			_update_animation_state(0, false)
-			print("Debug: Knockfly landed, transitioning to layground for %s, timer: %s at %s ms" % [name, layground_duration, Time.get_ticks_msec()])
-		else:
-			is_knockfly_animation_finished = true
-			if animation_player:
-				animation_player.stop()  # 停止動畫以保持最後一幀
-			print("Debug: Knockfly animation finished but still in air, holding last frame for %s at %s ms" % [name, Time.get_ticks_msec()]),
-	"st_mp": func():
-		is_attacking = false
-		update_facing_direction()
-		if has_node("Hitbox/HitShape"):
-			$Hitbox/HitShape.disabled = true
-		print("Debug: Animation %s finished for %s, is_attacking=%s at %s ms" % ["st_mp", name, is_attacking, Time.get_ticks_msec()]),
-	# 添加其他通用重置，例如 "hit": func(): is_hit = false, 等（根據你的需求擴展）
+	"layground": func(): _reset_layground(),
+	"knockfly": func(): _reset_knockfly(),
+	"st_mp": func(): _reset_attack()
 }
 
+func _reset_layground() -> void:
+	is_layground = false
+	is_knockfly = false
+	is_knockfly_animation_finished = false
+	_update_animation_state(0, false)
 
-func _ready():
-	world = get_tree().get_first_node_in_group("world")
-	var retry_count = 0
-	while not world and retry_count < 5:
-		world = get_tree().get_first_node_in_group("world")
-		if not world:
-			await get_tree().create_timer(0.1).timeout
-			retry_count += 1
-	if world:
-		print("Debug: World node found for %s after %d attempts at %s ms" % [name, retry_count, Time.get_ticks_msec()])
+func _reset_knockfly() -> void:
+	if is_on_floor():
+		fixed_velocity = Vector2i.ZERO
+		is_knockfly = false
+		is_layground = true
+		layground_timer = layground_duration
+		is_knockfly_animation_finished = false
+		_update_animation_state(0, false)
 	else:
-		push_error("Error: World node still not found for %s after %d retries" % [name, retry_count])
+		is_knockfly_animation_finished = true
+		if animation_player:
+			animation_player.stop()
+
+func _reset_attack() -> void:
+	is_attacking = false
+	update_facing_direction()
+	if has_node("Hitbox/HitShape"):
+		$Hitbox/HitShape.disabled = true
+
+func _ready() -> void:
+	world = get_tree().get_first_node_in_group("world")
+	var retry_count: int = 0
+	while not world and retry_count < 5:
+		await get_tree().create_timer(0.1).timeout
+		world = get_tree().get_first_node_in_group("world")
+		retry_count += 1
 	
 	if animation_tree:
 		animation_tree.active = true
-		if animation_state:
-			animation_state.travel("Walk")
+		animation_state.travel("Walk")
 	if has_node("Pushbox") and $Pushbox.shape is RectangleShape2D:
-		var collision_scale = $Pushbox.scale
+		var collision_scale: Vector2 = $Pushbox.scale
 		colbox_half_width = $Pushbox.shape.size.x * collision_scale.x / 2.0
 		colbox_half_height = $Pushbox.shape.size.y * collision_scale.y / 2.0
 	if has_node("Hurtbox"):
@@ -142,29 +134,62 @@ func _ready():
 		$Hurtbox.area_exited.connect(_on_hurtbox_area_exited)
 	if animation_player:
 		animation_player.speed_scale = 1.0
-		if not animation_player.animation_finished.is_connected(_on_animation_player_finished):
-			animation_player.animation_finished.connect(_on_animation_player_finished)
+		animation_player.animation_finished.connect(_on_animation_player_finished)
 	prev_position = global_position
-	if world:
-		fixed_position = Vector2i(int(global_position.x * world.SIMULATION_SCALE), world.FLOOR_Y)
-		update_facing_direction()
-	else:
-		fixed_position = Vector2i(int(global_position.x * 1000), 200000)
-		print("Debug: Fallback position set for %s due to missing world at %s ms" % [name, Time.get_ticks_msec()])
+	fixed_position = Vector2i(int(global_position.x * (world.SIMULATION_SCALE if world else 1000)), world.FLOOR_Y if world else 200000)
+	update_facing_direction()
 	knockfly_timer = 0.0
 	layground_timer = 0.0
-	is_knockfly_animation_finished = false  # 初始化動畫完成標誌
+	is_knockfly_animation_finished = false
 
-func _physics_process(delta):
-	var current_position = global_position
-	var is_landing: bool = ("is_landing" in self and self.is_landing)
+func _physics_process(delta: float) -> void:
+	var input_data: Dictionary = get_input()
+	var input_dir: int = input_data["input_dir"]
+	var crouch_pressed: bool = input_data["crouch_pressed"]
+	var jump_pressed: bool = input_data["jump_pressed"]
+	is_crouching = crouch_pressed
+	var move_set = $MoveSet if has_node("MoveSet") else null
+	var is_special_moving: bool = move_set.is_special_moving if move_set and "is_special_moving" in move_set else false
+	var scale_factor: float = world.SIMULATION_SCALE if world else 1000.0
+	var floor_y: int = world.FLOOR_Y if world else 200000
 	
+	_handle_timers(delta)
+	_handle_blocking(input_dir, is_special_moving)
+	_handle_dash(input_dir, scale_factor, is_special_moving)
+	_handle_walk(input_dir, scale_factor, is_special_moving)
+	_handle_jump(jump_pressed, input_dir, scale_factor, floor_y, is_special_moving)
+	_handle_knockfly_layground(delta, floor_y)
+	_handle_gravity(delta, move_set)
+	
+	fixed_position += Vector2i(roundi(fixed_velocity.x * delta), roundi(fixed_velocity.y * delta))
+	_handle_landing(input_data, floor_y, delta)
+	
+	global_position = world.to_scaled_vector2(fixed_position) if world else Vector2(float(fixed_position.x) / 1000.0, float(fixed_position.y) / 1000.0)
+	
+	if just_jumped and fixed_velocity.y > 0:
+		just_jumped = false
+	
+	var is_landing_state: bool = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
+	if not (is_attacking or landing_facing_lock or is_landing_state):
+		update_facing_direction()
+	if is_on_floor() and was_in_air and not is_landing_state and not is_special_moving and not is_jumping and not landing_facing_lock:
+		update_facing_direction()
+	was_in_air = not is_on_floor()
+	if is_on_floor() and prev_position.x != global_position.x and not is_special_moving and not is_landing_state and not is_jumping and not landing_facing_lock:
+		update_facing_direction()
+	prev_position = global_position
+	
+	if not ("landing_lock_timer" in self and self.landing_lock_timer > 0) and not is_layground:
+		_update_animation_state(input_dir, crouch_pressed)
+	
+	post_physics_process(delta)
+
+func _handle_timers(delta: float) -> void:
 	if neutral_timer > 0:
 		neutral_timer -= delta
 		if neutral_timer <= 0:
 			neutral_timer = 0.0
 			pending_dash_dir = 0
-	
 	if dash_timer > 0:
 		dash_timer -= delta
 		if dash_timer <= 0:
@@ -175,98 +200,75 @@ func _physics_process(delta):
 			pending_dash_dir = 0
 			last_input_dir = 0
 			landing_facing_lock = false
-	
 	if jump_delay_timer > 0:
 		jump_delay_timer -= delta
 		if jump_delay_timer <= 0:
-			fixed_velocity.y = int(jump_vertical_speed * (self.world.SIMULATION_SCALE if self.world else 1000))
+			fixed_velocity.y = int(jump_vertical_speed * (world.SIMULATION_SCALE if world else 1000))
 			just_jumped = true
-			fixed_position.y = (self.world.FLOOR_Y if self.world else 200000) - 1
-			print("Debug: Jump initiated for %s, vertical_speed=%s at %s ms" % [name, jump_vertical_speed, Time.get_ticks_msec()])
-	
-	var input_data = get_input()
-	var input_dir = input_data["input_dir"]
-	var crouch_pressed = input_data["crouch_pressed"]
-	var jump_pressed = input_data["jump_pressed"]
-	is_crouching = crouch_pressed
-	var move_set = $MoveSet if has_node("MoveSet") else null
-	var is_special_moving = move_set.is_special_moving if move_set and "is_special_moving" in move_set else false
-	
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_special_moving and not (is_hit or is_knockfly or is_layground):
-		if input_dir * facing_direction < 0:
-			is_holding_back = true
-			is_crouch_blocking = crouch_pressed and input_dir * facing_direction < 0
-		else:
-			is_holding_back = false
-			is_crouch_blocking = false
+			fixed_position.y = (world.FLOOR_Y if world else 200000) - 1
+
+func _handle_blocking(input_dir: int, is_special_moving: bool) -> void:
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_layground):
+		is_holding_back = input_dir * facing_direction < 0
+		is_crouch_blocking = is_crouching and is_holding_back
 	else:
 		if not (is_hit or is_knockfly or is_blocking or is_layground):
 			is_holding_back = false
 			is_crouch_blocking = false
-	
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and not is_crouching:
+
+func _handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and not is_crouching:
 		if neutral_timer > 0 and input_dir != 0 and pending_dash_dir == input_dir:
 			if input_dir * facing_direction > 0:
 				is_dashing = true
 				dash_timer = dash_time
-				fixed_velocity.x = int(dash_speed * (self.world.SIMULATION_SCALE if self.world else 1000) * input_dir)
-				neutral_timer = 0.0
-				pending_dash_dir = 0
-				last_input_dir = 0
-				landing_facing_lock = true
-				print("Debug: Dash initiated for %s, direction=%s at %s ms" % [name, input_dir, Time.get_ticks_msec()])
-			else:
-				if not (is_blocking and is_opponent_proximity and block_type == "proximity"):
-					is_backdashing = true
-					dash_timer = backdash_time
-					fixed_velocity.x = int(backdash_speed * (self.world.SIMULATION_SCALE if self.world else 1000) * input_dir)
-					neutral_timer = 0.0
-					pending_dash_dir = 0
-					last_input_dir = 0
-					landing_facing_lock = true
-					print("Debug: Backdash initiated for %s, direction=%s at %s ms" % [name, input_dir, Time.get_ticks_msec()])
-				neutral_timer = 0.0
-				pending_dash_dir = 0
-				last_input_dir = 0
+				fixed_velocity.x = int(dash_speed * scale_factor * input_dir)
+			elif not (is_blocking and is_opponent_proximity and block_type == "proximity"):
+				is_backdashing = true
+				dash_timer = backdash_time
+				fixed_velocity.x = int(backdash_speed * scale_factor * input_dir)
+			neutral_timer = 0.0
+			pending_dash_dir = 0
+			last_input_dir = 0
+			landing_facing_lock = true
 		elif input_dir != last_input_dir:
 			if last_input_dir != 0 and input_dir == 0:
 				neutral_timer = double_tap_timer
 				pending_dash_dir = last_input_dir
 			last_input_dir = input_dir
-	
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not jump_pressed and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and not is_crouching:
+
+func _handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
+	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and not is_crouching:
 		if input_dir != 0:
 			if input_dir * facing_direction < 0 and is_blocking and is_opponent_proximity and block_type == "proximity":
 				fixed_velocity.x = 0
 			else:
-				var move_speed = walk_speed if input_dir * facing_direction > 0 else back_speed
-				fixed_velocity.x = int(move_speed * (self.world.SIMULATION_SCALE if self.world else 1000) * input_dir)
+				var move_speed: float = walk_speed if input_dir * facing_direction > 0 else back_speed
+				fixed_velocity.x = int(move_speed * scale_factor * input_dir)
 		else:
 			fixed_velocity.x = 0
 	else:
 		if not (is_jumping or is_dashing or is_backdashing or is_hit or is_knockfly or is_blocking or is_push_back or jump_delay_timer > 0 or is_special_moving or is_layground):
 			fixed_velocity.x = 0
-	
+
+func _handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor_y: int, is_special_moving: bool) -> void:
 	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and jump_delay_timer <= 0:
 		jump_dir = input_dir
 		is_jumping = true
 		landing_facing_lock = true
 		jump_delay_timer = jump_delay_duration
-		fixed_position.y = (self.world.FLOOR_Y if self.world else 200000) - 1
+		fixed_position.y = floor_y - 1
 		fixed_velocity.y = 0
 		if jump_dir != 0:
-			var jump_speed = jump_horizontal_speed if jump_dir * facing_direction > 0 else jump_horizontal_speed * 0.75
-			fixed_velocity.x = int(jump_speed * (self.world.SIMULATION_SCALE if self.world else 1000) * jump_dir)
+			var jump_speed: float = jump_horizontal_speed if jump_dir * facing_direction > 0 else jump_horizontal_speed * 0.75
+			fixed_velocity.x = int(jump_speed * scale_factor * jump_dir)
 		else:
 			fixed_velocity.x = 0
-	
-	# 修改 knockfly 和 layground 邏輯
+
+func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
 	if is_knockfly:
 		knockfly_timer -= delta
 		fixed_velocity.y += int(knockfly_gravity * delta)
-		print("Debug: Knockfly falling with custom gravity: %s for %s at %s ms" % [knockfly_gravity, name, Time.get_ticks_msec()])
-
-		# 檢查是否著地
 		if is_on_floor():
 			fixed_velocity = Vector2i.ZERO
 			is_knockfly = false
@@ -274,40 +276,29 @@ func _physics_process(delta):
 			layground_timer = layground_duration
 			is_knockfly_animation_finished = false
 			_update_animation_state(0, false)
-			print("Debug: Knockfly landed, transitioning to layground for %s, timer: %s at %s ms" % [name, layground_duration, Time.get_ticks_msec()])
 		elif knockfly_timer <= 0 and not is_on_floor():
-			# 動畫完成但仍在空中，保持 knockfly 狀態
 			is_knockfly_animation_finished = true
 			fixed_velocity.x = 0
-			print("Debug: Knockfly animation finished but still in air for %s, maintaining knockfly state at %s ms" % [name, Time.get_ticks_msec()])
-
 	if is_layground:
 		layground_timer -= delta
 		fixed_velocity = Vector2i.ZERO
 		if layground_timer <= 0:
-			is_layground = false
-			is_knockfly = false
-			is_knockfly_animation_finished = false
-			_update_animation_state(0, false)
-			print("Debug: Layground ended for %s, transitioning to wakeup/idle at %s ms" % [name, Time.get_ticks_msec()])
-	
+			_reset_layground()
+
+func _handle_gravity(delta: float, move_set) -> void:
 	if jump_delay_timer <= 0 and not is_on_floor() and not is_knockfly:
-		var gravity = self.world.GRAVITY if self.world else 1800000
-		if has_node("MoveSet") and $MoveSet.is_super:
-			gravity = $MoveSet.super_gravity
-		if not world:
-			push_error("Error: Applying gravity without world node for %s" % name)
-			print("Debug: Applying gravity without world node for %s, using fallback gravity at %s ms" % [name, Time.get_ticks_msec()])
-		add_gravity(gravity, delta)
+		var gravity: int = world.GRAVITY if world else 1800000
+		if move_set and move_set.is_super:
+			gravity = move_set.super_gravity
+		fixed_velocity.y += int(gravity * delta)
 	else:
 		if not just_jumped and not is_knockfly:
 			fixed_velocity.y = 0
-			fixed_position.y = (self.world.FLOOR_Y if self.world else 200000)
-	
-	fixed_position += Vector2i(round(fixed_velocity.x * delta), round(fixed_velocity.y * delta))
-	
-	if not just_jumped and fixed_position.y >= (self.world.FLOOR_Y if self.world else 200000) and jump_delay_timer <= 0 and fixed_velocity.y >= 0 and is_jumping:
-		fixed_position.y = (self.world.FLOOR_Y if self.world else 200000)
+			fixed_position.y = world.FLOOR_Y if world else 200000
+
+func _handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
+	if not just_jumped and fixed_position.y >= floor_y and jump_delay_timer <= 0 and fixed_velocity.y >= 0 and is_jumping:
+		fixed_position.y = floor_y
 		fixed_velocity.y = 0
 		is_jumping = false
 		just_jumped = false
@@ -321,46 +312,18 @@ func _physics_process(delta):
 				self.is_landing = true
 				self.landing_lock_timer = landing_duration
 				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-				print("Debug: Landing initiated for %s at %s ms" % [name, Time.get_ticks_msec()])
-		
 		var push_manager = get_tree().get_first_node_in_group("push_manager")
 		if push_manager:
 			push_manager._physics_process(delta)
-	
-	global_position = (self.world.to_scaled_vector2(fixed_position) if self.world else Vector2(float(fixed_position.x) / 1000.0, float(fixed_position.y) / 1000.0))
-	
-	if just_jumped and fixed_velocity.y > 0:
-		just_jumped = false
-	
-	var is_attacking_state = is_attacking
-	var is_landing_state = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
-	if not (is_attacking_state or landing_facing_lock or is_landing_state):
-		update_facing_direction()
-	
-	if is_on_floor() and was_in_air and not is_landing_state and not is_special_moving and not is_jumping and not landing_facing_lock:
-		update_facing_direction()
-	was_in_air = not is_on_floor()
-	if is_on_floor() and prev_position.x != global_position.x and not is_special_moving and not is_landing_state and not is_jumping and not landing_facing_lock:
-		update_facing_direction()
-	prev_position = global_position
-	
-	if not ("landing_lock_timer" in self and self.landing_lock_timer > 0) and not is_layground:
-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-	
-	post_physics_process(delta)
 
-func _on_animation_player_finished(anim_name: String):
+func _on_animation_player_finished(anim_name: String) -> void:
 	if anim_name in anim_resets:
 		anim_resets[anim_name].call()
-
-func add_gravity(gravity: int, delta: float) -> void:
-	fixed_velocity.y += int(gravity * delta)
-	print("Debug: Gravity applied for %s, gravity=%s, delta=%s, new_velocity_y=%s at %s ms" % [name, gravity, delta, fixed_velocity.y, Time.get_ticks_msec()])
 
 func is_on_floor() -> bool:
 	if jump_delay_timer > 0 or just_jumped:
 		return false
-	return fixed_position.y >= (self.world.FLOOR_Y if self.world else 200000)
+	return fixed_position.y >= (world.FLOOR_Y if world else 200000)
 
 func get_input() -> Dictionary:
 	var input_dir: int = 0
@@ -380,10 +343,10 @@ func get_input() -> Dictionary:
 		"jump_pressed": jump_pressed
 	}
 
-func update_hitbox_position():
+func update_hitbox_position() -> void:
 	pass
 
-func post_physics_process(delta):
+func post_physics_process(delta: float) -> void:
 	pass
 
 func get_facing_multiplier() -> float:
@@ -411,10 +374,8 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 			is_blocking = true
 			is_crouch_blocking = get_input().crouch_pressed and get_input().input_dir * facing_direction < 0
 			block_type = "proximity"
-			fixed_velocity.x = 0
-			fixed_velocity.y = 0
+			fixed_velocity = Vector2i.ZERO
 			block_detected.emit(name, block_type)
-			print("Debug: Proximity block detected for %s at %s ms" % [name, Time.get_ticks_msec()])
 
 func _on_hurtbox_area_exited(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
@@ -423,9 +384,8 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 			is_blocking = false
 			is_crouch_blocking = false
 			block_type = "none"
-			print("Debug: Proximity block ended for %s at %s ms" % [name, Time.get_ticks_msec()])
 
-func update_facing_direction():
+func update_facing_direction() -> void:
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_attacking_state = is_attacking
 	var is_landing_state = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
@@ -469,14 +429,12 @@ func update_facing_direction():
 				scale.y = 1
 				sprite.scale.x = 1.0
 				rotation_degrees = 0
-				print("Debug: Facing forced to -1 for %s at left corner, position=%s, other_position=%s at %s ms" % [name, global_position.x, other_player.global_position.x, Time.get_ticks_msec()])
 			elif is_at_left_corner and global_position.x <= other_player.global_position.x:
 				facing_direction = 1.0
 				scale.x = 1
 				scale.y = 1
 				sprite.scale.x = 1.0
 				rotation_degrees = 0
-				print("Debug: Facing forced to 1 for %s at left corner, position=%s, other_position=%s at %s ms" % [name, global_position.x, other_player.global_position.x, Time.get_ticks_msec()])
 			else:
 				facing_direction = old_facing
 				scale.x = sign(old_facing)
@@ -490,21 +448,16 @@ func update_facing_direction():
 		scale.y = 1
 		sprite.scale.x = 1.0
 		rotation_degrees = 0
-		print("Debug: No other player found for %s, default facing=1 at %s ms" % [name, Time.get_ticks_msec()])
 
 func _set_animation_conditions(target_state: String, on_floor: bool, crouch_input: bool) -> void:
 	for c in animation_conditions:
 		var condition_value: bool = (target_state == c)
-		# 添加特定條件調整（例如 Walk 需要額外檢查）
 		if c == "Walk":
 			condition_value = condition_value and on_floor and not crouch_input
-		elif c == "Crouch":
-			condition_value = condition_value
 		elif c == "cr_block":
 			condition_value = condition_value and is_crouch_blocking and crouch_input
-		# ... 可以根據需要添加更多特定調整，保持靈活
 		animation_tree.set("parameters/conditions/" + c, condition_value)
-		
+
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var player_id = get_parent().player_id if get_parent() and "player_id" in get_parent() else "unknown"
@@ -512,7 +465,7 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 	if is_layground:
 		return "layground"
 	if is_knockfly:
-		return "knockfly"  # 無論動畫是否完成，knockfly 狀態優先
+		return "knockfly"
 	if "is_wakeup_locked" in self and self.is_wakeup_locked:
 		return "wakeup"
 	if move_set and move_set.is_spmove:
@@ -554,36 +507,24 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 	return "Walk"
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	var curr_state = animation_state.get_current_node() if animation_state else ""
-	var on_floor = is_on_floor()
-	var anim_dir = dir_x * facing_direction
-	var anim_jump_dir = jump_dir * facing_direction
+	var curr_state: String = animation_state.get_current_node() if animation_state else ""
+	var on_floor: bool = is_on_floor()
+	var anim_dir: float = dir_x * facing_direction
+	var anim_jump_dir: float = jump_dir * facing_direction
 	
-	var target_state = _compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
+	var target_state: String = _compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
 	
 	if target_state == "Walk" and not on_floor and is_jumping:
-		if anim_jump_dir > 0:
-			target_state = "Jump_F"
-		elif anim_jump_dir < 0:
-			target_state = "Jump_B"
-		else:
-			target_state = "Jump_V"
+		target_state = "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
 	
 	_set_animation_conditions(target_state, on_floor, crouch_input)
 	
 	if curr_state != target_state:
-		if target_state == "knockfly" and is_knockfly_animation_finished and not is_on_floor():
-			# 保持 knockfly 最後一幀，不重新播放
-			pass
-		else:
+		if not (target_state == "knockfly" and is_knockfly_animation_finished and not is_on_floor()):
 			animation_state.travel(target_state)
-			if target_state == "layground":
-				print("Debug: Transitioned to layground animation for %s at %s ms" % [name, Time.get_ticks_msec()])
-			print("Debug: Animation state changed for %s from %s to %s at %s ms" % [name, curr_state, target_state, Time.get_ticks_msec()])
 	
 	if target_state == "Walk":
 		animation_tree.set("parameters/Walk/blend_position", anim_dir)
 	
 	if is_jumping and on_floor:
 		is_jumping = false
-		print("Debug: Jumping ended for %s at %s ms" % [name, Time.get_ticks_msec()])

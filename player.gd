@@ -1,4 +1,3 @@
-# player.gd
 class_name Player extends Fighter
 
 signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool)
@@ -45,68 +44,52 @@ var special_input_data: Dictionary = {
 	"super_pressed": false
 }
 
+func reset_attack_state():
+	is_attacking = false
+	attack_type = "none"
+	cancel_window_timer = 0.0
+	update_facing_direction()
+	_update_animation_state(0, false)
+
+func reset_landing_state():
+	is_landing = false
+	landing_lock_timer = 0.0
+	landing_facing_lock = false
+	update_facing_direction()
+	_update_animation_state(0, false)
+
+func reset_air_state():
+	if is_on_floor():
+		is_air_attacking = false
+		has_air_attacked = false
+		var input_data = get_input()
+		if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed:
+			is_landing = false
+			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+		else:
+			is_landing = true
+			landing_lock_timer = landing_duration
+
+func reset_special_state():
+	if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_dp or move_set.is_fireball):
+		move_set.stop_special_move()
+	is_facing_locked = false
+	force_update_facing_direction()
+	_update_animation_state(0, false)
+
 var player_anim_resets: Dictionary = {
 	"wakeup": func():
 		is_wakeup = false
 		is_wakeup_locked = false
 		is_landing = false
 		_update_animation_state(0, false),
-	"landing": func():
-		is_landing = false
-		landing_lock_timer = 0.0
-		landing_facing_lock = false
-		update_facing_direction()
-		_update_animation_state(0, false),
-	"st_mp": func():
-		is_attacking = false
-		attack_type = "none"
-		cancel_window_timer = 0.0
-		update_facing_direction()
-		_update_animation_state(0, false)
-		print("Debug: Attack animation st_mp finished for %s, is_attacking=%s, attack_type=%s, facing=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, Time.get_ticks_msec()]),
-	"st_mk": func():
-		is_attacking = false
-		attack_type = "none"
-		cancel_window_timer = 0.0
-		update_facing_direction()
-		_update_animation_state(0, false)
-		print("Debug: Attack animation st_mk finished for %s, is_attacking=%s, attack_type=%s, facing=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, Time.get_ticks_msec()]),
-	"cr_mp": func():
-		is_attacking = false
-		attack_type = "none"
-		cancel_window_timer = 0.0
-		update_facing_direction()
-		_update_animation_state(0, false)
-		print("Debug: Attack animation cr_mp finished for %s, is_attacking=%s, attack_type=%s, facing=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, Time.get_ticks_msec()]),
-	"cr_mk": func():
-		is_attacking = false
-		attack_type = "none"
-		cancel_window_timer = 0.0
-		update_facing_direction()
-		_update_animation_state(0, false)
-		print("Debug: Attack animation cr_mk finished for %s, is_attacking=%s, attack_type=%s, facing=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, Time.get_ticks_msec()]),
-	"jump_mp": func():
-		if is_on_floor():
-			is_air_attacking = false
-			has_air_attacked = false
-			var input_data = get_input()
-			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed:
-				is_landing = false
-				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-			else:
-				is_landing = true
-				landing_lock_timer = landing_duration,
-	"jump_mk": func():
-		if is_on_floor():
-			is_air_attacking = false
-			has_air_attacked = false
-			var input_data = get_input()
-			if input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or input_data.st_mp_pressed or input_data.st_mk_pressed or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed:
-				is_landing = false
-				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-			else:
-				is_landing = true
-				landing_lock_timer = landing_duration,
+	"landing": func(): reset_landing_state(),
+	"st_mp": func(): reset_attack_state(),
+	"st_mk": func(): reset_attack_state(),
+	"cr_mp": func(): reset_attack_state(),
+	"cr_mk": func(): reset_attack_state(),
+	"jump_mp": func(): reset_air_state(),
+	"jump_mk": func(): reset_air_state(),
 	"jump_v": func():
 		if is_on_floor():
 			is_jumping = false
@@ -119,47 +102,18 @@ var player_anim_resets: Dictionary = {
 			else:
 				is_landing = true
 				landing_lock_timer = landing_duration,
-	"Jump_V": func(): call("jump_v"),
-	"Jump_F": func(): call("jump_v"),
-	"Jump_B": func(): call("jump_v"),
-	"fireball": func():
-		if move_set and move_set.is_fireball:
-			move_set.stop_special_move()
-			_update_animation_state(0, false),
-	"powerkk": func():
-		if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_dp):
-			move_set.stop_special_move()
-			is_facing_locked = false
-			force_update_facing_direction()
-			_update_animation_state(0, false)
-		print("Debug: Animation powerkk finished for %s, is_attacking=%s, attack_type=%s, facing=%s, is_facing_locked=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, is_facing_locked, Time.get_ticks_msec()]),
-	"spnk": func(): 
-		if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_dp):
-			move_set.stop_special_move()
-			is_facing_locked = false
-			force_update_facing_direction()
-			_update_animation_state(0, false)
-		print("Debug: Animation spnk finished for %s, is_attacking=%s, attack_type=%s, facing=%s, is_facing_locked=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, is_facing_locked, Time.get_ticks_msec()]),
-	"dp": func(): 
-		if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_dp):
-			move_set.stop_special_move()
-			is_facing_locked = false
-			force_update_facing_direction()
-			_update_animation_state(0, false)
-		print("Debug: Animation dp finished for %s, is_attacking=%s, attack_type=%s, facing=%s, is_facing_locked=%s at %s ms" % [name, is_attacking, attack_type, facing_direction, is_facing_locked, Time.get_ticks_msec()]),
+	"Jump_V": func(): player_anim_resets["jump_v"].call(),
+	"Jump_F": func(): player_anim_resets["jump_v"].call(),
+	"Jump_B": func(): player_anim_resets["jump_v"].call(),
+	"fireball": func(): reset_special_state(),
+	"powerkk": func(): reset_special_state(),
+	"spnk": func(): reset_special_state(),
+	"dp": func(): reset_special_state(),
 }
 
 func _ready():
 	super._ready()
-	if not world:
-		await get_tree().create_timer(0.1).timeout
-		world = get_tree().get_first_node_in_group("world")
-		if world:
-			print("Debug: World node found for %s after retry at %s ms" % [name, Time.get_ticks_msec()])
-		else:
-			push_error("Error: World node still not found for %s after retry" % name)
-			print("Debug: World node still not found for %s after retry at %s ms" % [name, Time.get_ticks_msec()])
-	
+	world = get_tree().get_first_node_in_group("world")
 	if player_id == "p1":
 		st_mp_hitstun = 0.4
 		st_mk_hitstun = 0.65
@@ -168,73 +122,51 @@ func _ready():
 		st_mk_hitstun = 0.45
 	if has_node("Hitbox"):
 		$Hitbox.area_entered.connect(_on_hitbox_area_entered)
-	if animation_tree and not animation_tree.animation_finished.is_connected(_on_animation_tree_finished):
+	if animation_tree:
 		animation_tree.animation_finished.connect(_on_animation_tree_finished)
 		animation_tree.active = true
 		animation_state.travel("Walk")
 	add_to_group("players")
 	if player_controller:
 		player_controller.player_id = player_id
-	else:
-		print("Warning: PlayerController not found for %s at %s ms" % [name, Time.get_ticks_msec()])
 	hit_detected.connect(_on_hit_detected)
-	print("Debug: Player %s initialized, player_id=%s, is_ai_controlled=%s at %s ms" % [name, player_id, is_ai_controlled, Time.get_ticks_msec()])
 
 func set_input_data(data: Dictionary):
 	special_input_data = data
 
+var default_input: Dictionary = {
+	"input_dir": 0,
+	"crouch_pressed": false,
+	"jump_pressed": false,
+	"st_mp_pressed": false,
+	"st_mk_pressed": false,
+	"attack_type": "none",
+	"blockstun_duration": 0.2,
+	"damage": 0.0,
+	"spm1_pressed": false,
+	"spm2_pressed": false,
+	"super_pressed": false,
+	"dp_pressed": false
+}
+
 func get_input() -> Dictionary:
 	if is_knockfly or is_wakeup or is_hit or is_layground:
-		return {
-			"input_dir": 0,
-			"crouch_pressed": false,
-			"jump_pressed": false,
-			"st_mp_pressed": false,
-			"st_mk_pressed": false,
-			"attack_type": "none",
-			"blockstun_duration": 0.2,
-			"damage": 0.0,
-			"spm1_pressed": false,
-			"spm2_pressed": false,
-			"super_pressed": false,
-			"dp_pressed": false
-		}
+		return default_input.duplicate()
 	if is_ai_controlled:
 		var ai_behavior = $AIBehavior if has_node("AIBehavior") else null
 		if ai_behavior:
 			return ai_behavior.get_ai_input()
 	if player_controller:
 		var input_data = player_controller.get_input_data()
-		if input_data.st_mp_pressed:
-			input_data.damage = st_mp_damage
-			input_data.attack_type = "st_mp"
-		elif input_data.st_mk_pressed:
-			input_data.damage = st_mk_damage
-			input_data.attack_type = "st_mk"
-		elif input_data.st_mp_pressed and not is_on_floor():
-			input_data.damage = jump_mp_damage
-			input_data.attack_type = "jump_mp"
-		elif input_data.st_mk_pressed and not is_on_floor():
-			input_data.damage = jump_mk_damage
-			input_data.attack_type = "jump_mk"
 		input_data.super_pressed = Input.is_key_pressed(KEY_P)
+		if input_data.st_mp_pressed:
+			input_data.damage = st_mp_damage if is_on_floor() else jump_mp_damage
+			input_data.attack_type = "st_mp" if is_on_floor() else "jump_mp"
+		elif input_data.st_mk_pressed:
+			input_data.damage = st_mk_damage if is_on_floor() else jump_mk_damage
+			input_data.attack_type = "st_mk" if is_on_floor() else "jump_mk"
 		return input_data
-	else:
-		print("Warning: Falling back to default input due to missing PlayerController for %s at %s ms" % [name, Time.get_ticks_msec()])
-		return {
-			"input_dir": 0,
-			"crouch_pressed": false,
-			"jump_pressed": false,
-			"st_mp_pressed": false,
-			"st_mk_pressed": false,
-			"attack_type": "none",
-			"blockstun_duration": 0.2,
-			"damage": 0.0,
-			"spm1_pressed": false,
-			"spm2_pressed": false,
-			"super_pressed": false,
-			"dp_pressed": false
-		}
+	return default_input.duplicate()
 
 func _physics_process(delta):
 	if has_node("InputManager"):
@@ -273,7 +205,7 @@ func _physics_process(delta):
 	if player_id == "p1" and is_attacking and attack_type == "st_mp" and cancel_window_timer > 0 and input_data.spm1_pressed:
 		stop_attack()
 	
-	if move_set and (player_id == "p1" or player_id == "p2") and move_set.process_move(delta, input_data, is_valid_ground_state):
+	if move_set and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
 	
 	if cancel_window_timer > 0:
@@ -302,7 +234,6 @@ func _physics_process(delta):
 				attack_type = "st_mk"
 		if not is_push_back:
 			fixed_velocity.x = 0
-		print("Debug: Attack triggered for %s, input_st_mp=%s, input_st_mk=%s, attack_type=%s, damage=%s, facing=%s, animation=%s at %s ms" % [name, input_data.st_mp_pressed, input_data.st_mk_pressed, attack_type, current_damage, facing_direction, animation_state.get_current_node() if animation_state else "none", Time.get_ticks_msec()])
 	
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked and not is_layground
 	if input_data.st_mp_pressed and is_valid_air_state:
@@ -341,8 +272,6 @@ func _physics_process_jump(delta: float):
 				fixed_velocity.x = int(jump_speed * world.SIMULATION_SCALE * input_data.input_dir)
 			else:
 				fixed_velocity.x = 0
-		else:
-			print("Debug: Jump attempted for %s without world node at %s ms" % [name, Time.get_ticks_msec()])
 
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	if is_layground:
@@ -389,18 +318,17 @@ func _on_hitbox_area_entered(area: Area2D):
 	
 	var target = area.get_parent()
 	var target_name = target.name
-	var damage = current_damage
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_blocked = target.is_blocking
 	var was_in_stun = target.is_hit or target.is_knockfly
 	
 	var hitstun: float = 0.35
 	var blockstun: float = 0.267
+	var damage: float = current_damage
 	var skip_push: bool = false
 	var force_knockfly: bool = false
 	
 	if not world:
-		push_error("Error: World node not found for %s during hit detection at %s ms" % [name, Time.get_ticks_msec()])
 		return
 	
 	var slowmo_controller = world.get_node_or_null("SlowMoController")
@@ -466,16 +394,13 @@ func _on_hitbox_area_entered(area: Area2D):
 	var block_sound_player = $BlockSoundPlayer if has_node("BlockSoundPlayer") else null
 	if is_blocked and block_sound_player:
 		block_sound_player.play()
-		print("Debug: Block sound played for %s hitting %s at %s ms" % [name, target_name, Time.get_ticks_msec()])
 	elif not is_blocked and hit_sound_player:
 		hit_sound_player.play()
-		print("Debug: Hit sound played for %s hitting %s at %s ms" % [name, target_name, Time.get_ticks_msec()])
 	
 	var vfx_type = "block" if is_blocked else "hit"
 	var contact_point = get_contact_point($Hitbox, area)
 	if contact_point == Vector2.ZERO:
 		contact_point = (area.global_position + $Hitbox.global_position) / 2.0
-		print("Warning: Using fallback midpoint position %s for VFX due to invalid contact point for %s at %s ms" % [contact_point, name, Time.get_ticks_msec()])
 	if not target.is_on_floor():
 		contact_point.y += 10
 	VFXImpact.spawn_vfx(world, vfx_type, contact_point, facing_direction)
@@ -521,7 +446,6 @@ func _on_animation_tree_finished(anim_name: String):
 		is_wakeup_locked = true
 		fixed_velocity = Vector2i.ZERO
 		animation_state.travel("wakeup")
-		print("Debug: Layground animation finished for %s, transitioning to wakeup" % name)
 	else:
 		if anim_name in player_anim_resets:
 			player_anim_resets[anim_name].call()
@@ -566,4 +490,3 @@ func force_update_facing_direction():
 	else:
 		facing_direction = 1.0
 		scale.x = 1
-		print("Debug: No other player found for %s, default facing=1 at %s ms" % [name, Time.get_ticks_msec()])

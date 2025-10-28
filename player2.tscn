@@ -1,4 +1,4 @@
-[gd_scene load_steps=84 format=3 uid="uid://jla54h8ttkct"]
+[gd_scene load_steps=85 format=3 uid="uid://jla54h8ttkct"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_tdckb"]
 [ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="2_tdckb"]
@@ -2022,6 +2022,10 @@ advance_mode = 2
 switch_mode = 2
 advance_mode = 2
 
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_7gy1f"]
+switch_mode = 2
+advance_mode = 2
+
 [sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_mbed6"]
 states/Backdash/node = SubResource("AnimationNodeAnimation_3h1ys")
 states/Backdash/position = Vector2(-73, 86)
@@ -2070,7 +2074,7 @@ states/st_mp/node = SubResource("AnimationNodeAnimation_61wwb")
 states/st_mp/position = Vector2(594, 142)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-52, 185)
-transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_aiihl"), "layground", "wakeup", SubResource("AnimationNodeStateMachineTransition_r433l")]
+transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_aiihl"), "layground", "wakeup", SubResource("AnimationNodeStateMachineTransition_r433l"), "knockfly", "layground", SubResource("AnimationNodeStateMachineTransition_7gy1f")]
 graph_offset = Vector2(-228, 107)
 
 [node name="Player2" type="CharacterBody2D"]
