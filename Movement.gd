@@ -5,28 +5,50 @@ var world: Node
 @onready var animation_state = animation_tree.get("parameters/playback") if animation_tree else null
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer if has_node("AnimationPlayer") else null
+
+# ── 基本狀態 ──────────────────────────────
 @export var landing_duration: float = 0.2
 var is_layground: bool = false
 @export var layground_duration: float = 0.3833
 var layground_timer: float = 0.0
-@export var knockfly_gravity: float = 1000000.0
-@export var knockfly_duration: float = 0.3833
 var is_knockfly_animation_finished: bool = false
 
+# ── Knockfly 物理參數（預設值） ────────────
+@export_group("Knockfly Physics")
+@export var default_knockfly_gravity: float = 500000.0
+@export var default_knockfly_vertical_speed: float = -100.0
+@export var default_knockfly_horizontal_speed: float = 300.0
+@export var default_air_friction: float = 10.0
+@export var default_knockfly_duration: float = 0.3833
+
+# ── Knockfly 執行時實際值 ─────────────────
+var knockfly_gravity: float = default_knockfly_gravity
+var knockfly_vertical_speed: float = default_knockfly_vertical_speed
+var knockfly_horizontal_speed: float = default_knockfly_horizontal_speed
+var air_friction: float = default_air_friction
+var knockfly_duration: float = default_knockfly_duration
+
+# ── 空中受擊專用 ─────────────────────────
 var is_air_hit_knockfly: bool = false
 var knockfly_velocity_x: float = 0.0
 var knockfly_accumulated_distance: float = 0.0
 var knockfly_max_distance: float = 150.0
+
+# ── 核心物理變數 ──────────────────────────
 var fixed_position: Vector2i = Vector2i.ZERO
 var fixed_velocity: Vector2i = Vector2i.ZERO
 var colbox_half_width: float = 0.0
 var colbox_half_height: float = 0.0
+
+# ── 移動參數 ──────────────────────────────
 var walk_speed: float = 100.0
 var back_speed: float = walk_speed * 0.75
 var jump_vertical_speed: float = -810.0
 var jump_horizontal_speed: float = 120.0
 var jump_dir: float = 0.0
 var is_jumping: bool = false
+
+# ── 衝刺參數 ──────────────────────────────
 var is_dashing: bool = false
 var is_backdashing: bool = false
 var is_attacking: bool = false
@@ -39,13 +61,17 @@ var double_tap_timer: float = 0.3
 var last_input_dir: int = 0
 var pending_dash_dir: int = 0
 var neutral_timer: float = 0.0
+
+# ── 狀態旗標 ──────────────────────────────
 var is_crouching: bool = false
 var is_hit: bool = false
 var is_knockfly: bool = false
 var hit_timer: float = 0.0
 var block_timer: float = 0.0
 var knockfly_timer: float = 0.0
-var knockfly_push_speed: float = 300.0
+
+# ── 推擠參數 ──────────────────────────────
+@export_group("Push Parameters")
 @export var block_push_distance: float = 20.0
 var block_push_timer: float = 0.0
 var initial_blockstun: float = 0.0
@@ -54,6 +80,8 @@ var block_push_velocity: float = 0.0
 var hit_push_timer: float = 0.0
 var initial_hitstun: float = 0.0
 var hit_push_velocity: float = 0.0
+
+# ── 方向與防禦 ───────────────────────────
 var facing_direction: float = 1.0
 var dash_direction: float = 0.0
 var is_blocking: bool = false
@@ -61,6 +89,8 @@ var is_holding_back: bool = false
 var is_crouch_blocking: bool = false
 var is_opponent_proximity: bool = false
 var block_type: String = "none"
+
+# ── 追蹤變數 ──────────────────────────────
 var prev_position: Vector2 = Vector2()
 var was_in_air: bool = false
 var is_push_back: bool = false
@@ -269,6 +299,14 @@ func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
 	if is_knockfly:
 		knockfly_timer -= delta
 		fixed_velocity.y += int(knockfly_gravity * delta)
+		
+		# 空中摩擦
+		var friction_amount = int(air_friction * (world.SIMULATION_SCALE if world else 1000.0) * delta)
+		if fixed_velocity.x > 0:
+			fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
+		elif fixed_velocity.x < 0:
+			fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
+		
 		if is_on_floor():
 			fixed_velocity = Vector2i.ZERO
 			is_knockfly = false

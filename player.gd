@@ -327,6 +327,7 @@ func _on_hitbox_area_entered(area: Area2D):
 	var damage: float = current_damage
 	var skip_push: bool = false
 	var force_knockfly: bool = false
+	var knockfly_params: Dictionary = {}
 	
 	if not world:
 		return
@@ -384,8 +385,13 @@ func _on_hitbox_area_entered(area: Area2D):
 		blockstun = powerkk_blockstun
 		damage = move_set.dp_damage
 		force_knockfly = not is_blocked
+		knockfly_params = {
+			"gravity": move_set.dp_knockfly_gravity,
+			"vertical_speed": move_set.dp_knockfly_vertical_speed,
+			"duration": hitstun
+		}
 	
-	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly, move_set.dp_knockfly_gravity if move_set and move_set.is_dp else 3000000.0, move_set.dp_knockfly_vertical_speed if move_set and move_set.is_dp else air_knockback_vertical_speed)
+	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly, knockfly_params)
 	
 	var stun_duration = blockstun if is_blocked else hitstun
 	hit_detected.emit(target_name, stun_duration, is_blocked, was_in_stun)

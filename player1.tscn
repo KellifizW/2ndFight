@@ -1,4 +1,4 @@
-[gd_scene load_steps=92 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=91 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="2_yev3d"]
@@ -917,7 +917,7 @@ tracks/1/keys = {
 size = Vector2(20, 60)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0aqdq"]
-size = Vector2(20, 50)
+size = Vector2(80, 20)
 
 [sub_resource type="Animation" id="Animation_cmdsw"]
 resource_name = "dp"
@@ -2214,10 +2214,6 @@ advance_condition = &"Dash"
 advance_mode = 2
 advance_condition = &"Backdash"
 
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_0aqdq"]
-switch_mode = 2
-advance_mode = 2
-
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_s33xd"]
 switch_mode = 2
 advance_mode = 2
@@ -2272,8 +2268,8 @@ states/super/node = SubResource("AnimationNodeAnimation_ak627")
 states/super/position = Vector2(300, 222)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-108, 193)
-transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_c5mkm"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627"), "knockfly", "layground", SubResource("AnimationNodeStateMachineTransition_0aqdq"), "layground", "wakeup", SubResource("AnimationNodeStateMachineTransition_s33xd")]
-graph_offset = Vector2(-212, 45)
+transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_c5mkm"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627"), "layground", "wakeup", SubResource("AnimationNodeStateMachineTransition_s33xd")]
+graph_offset = Vector2(-220, 78)
 
 [node name="Player1" type="CharacterBody2D"]
 collision_mask = 0
