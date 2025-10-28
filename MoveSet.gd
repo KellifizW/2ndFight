@@ -1,6 +1,6 @@
 class_name MoveSet extends Node
 
-@export var is_powerkk_penetrable: bool = true
+@export var is_powerkk_penetrable: bool = false
 @export var is_spnk_penetrable: bool = true
 @export var is_fireball_penetrable: bool = true
 @export var is_dp_penetrable: bool = true
@@ -12,13 +12,13 @@ class_name MoveSet extends Node
 @export var super_gravity: float = 200000.0
 @export var super_jump_delay: float = 0.9
 @export var super_jump_vertical_speed: float = -210.0
-@export var dp_duration: float = 1.0
+@export var dp_duration: float = 0.6
 @export var dp_jump_delay: float = 0.0667
 @export var dp_horizontal_move: float = 80.0
-@export var dp_vertical_speed: float = -700.0
+@export var dp_vertical_speed: float = -800.0
 @export var dp_damage: float = 5.0
 @export var dp_knockfly_vertical_speed: float = -650.0
-@export var dp_knockfly_gravity: float = 2500000.0
+@export var dp_knockfly_gravity: float = 2000000.0
 @export var dp_hitstun: float = 0.65
 
 # Core flags

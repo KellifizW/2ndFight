@@ -17,9 +17,9 @@ var is_knockfly_animation_finished: bool = false
 @export_group("Knockfly Physics")
 @export var default_knockfly_gravity: float = 500000.0
 @export var default_knockfly_vertical_speed: float = -100.0
-@export var default_knockfly_horizontal_speed: float = 300.0
+@export var default_knockfly_horizontal_speed: float = 400.0
 @export var default_air_friction: float = 10.0
-@export var default_knockfly_duration: float = 0.3833
+@export var default_knockfly_duration: float = 0.4
 
 # ── Knockfly 執行時實際值 ─────────────────
 var knockfly_gravity: float = default_knockfly_gravity
@@ -73,6 +73,9 @@ var knockfly_timer: float = 0.0
 # ── 推擠參數 ──────────────────────────────
 @export_group("Push Parameters")
 @export var block_push_distance: float = 20.0
+var is_immune_to_floor_snap: bool = false
+var floor_snap_immunity_timer: float = 0.0
+@export var floor_snap_immunity_duration: float = 0.1  # 約 6 幀 @ 60fps
 var block_push_timer: float = 0.0
 var initial_blockstun: float = 0.0
 var block_push_velocity: float = 0.0
@@ -198,6 +201,11 @@ func _physics_process(delta: float) -> void:
 	
 	if just_jumped and fixed_velocity.y > 0:
 		just_jumped = false
+	
+	if floor_snap_immunity_timer > 0:
+		floor_snap_immunity_timer -= delta
+		if floor_snap_immunity_timer <= 0:
+			is_immune_to_floor_snap = false
 	
 	var is_landing_state: bool = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
 	if not (is_attacking or landing_facing_lock or is_landing_state):

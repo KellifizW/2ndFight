@@ -218,10 +218,10 @@ func _physics_process(delta: float) -> void:
 				if overlap_fixed_y > 0:
 					var world = get_tree().get_first_node_in_group("world")
 					if world:
-						if abs(parent.fixed_position.y - world.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE):
+						if not parent.is_immune_to_floor_snap and abs(parent.fixed_position.y - world.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE):
 							parent.fixed_position.y = world.FLOOR_Y
 							parent.fixed_velocity.y = 0
-						if abs(other.fixed_position.y - world.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE):
+						if not other.is_immune_to_floor_snap and abs(other.fixed_position.y - world.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE):
 							other.fixed_position.y = world.FLOOR_Y
 							other.fixed_velocity.y = 0
 				

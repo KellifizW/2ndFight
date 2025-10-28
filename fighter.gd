@@ -114,6 +114,8 @@ func take_hit(
 
 		is_knockfly = true
 		knockfly_timer = max(params.duration, min_hitstun_duration)
+		is_immune_to_floor_snap = true
+		floor_snap_immunity_timer = floor_snap_immunity_duration
 		knockfly_gravity = params.gravity
 		knockfly_vertical_speed = params.vertical_speed
 		knockfly_horizontal_speed = params.horizontal_speed
