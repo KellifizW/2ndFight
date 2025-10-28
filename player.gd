@@ -319,7 +319,6 @@ func _on_hitbox_area_entered(area: Area2D):
 	var target = area.get_parent()
 	var target_name = target.name
 	var move_set = $MoveSet if has_node("MoveSet") else null
-	var is_blocked = target.is_blocking
 	var was_in_stun = target.is_hit or target.is_knockfly
 	
 	var hitstun: float = 0.35
@@ -328,6 +327,7 @@ func _on_hitbox_area_entered(area: Area2D):
 	var skip_push: bool = false
 	var force_knockfly: bool = false
 	var knockfly_params: Dictionary = {}
+	var dp_blocked: bool = false   # 暫存 DP 的原始 is_blocked
 	
 	if not world:
 		return
@@ -384,7 +384,8 @@ func _on_hitbox_area_entered(area: Area2D):
 		hitstun = 0.65
 		blockstun = powerkk_blockstun
 		damage = move_set.dp_damage
-		force_knockfly = not is_blocked
+		dp_blocked = target.is_blocking                     # 先記錄原始狀態
+		force_knockfly = !dp_blocked                         # 依原始狀態決定是否強制擊飛
 		knockfly_params = {
 			"gravity": move_set.dp_knockfly_gravity,
 			"vertical_speed": move_set.dp_knockfly_vertical_speed,
@@ -392,6 +393,8 @@ func _on_hitbox_area_entered(area: Area2D):
 		}
 	
 	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly, knockfly_params)
+	
+	var is_blocked: bool = target.is_blocking                 # 最終 ordinary block 結果
 	
 	var stun_duration = blockstun if is_blocked else hitstun
 	hit_detected.emit(target_name, stun_duration, is_blocked, was_in_stun)

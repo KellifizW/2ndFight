@@ -73,7 +73,8 @@ func take_hit(
 	if is_spmove:
 		move_set.stop_special_move()
 
-	if is_blocking or ((is_holding_back or is_crouch_blocking) and is_on_floor() and not is_spmove):
+	# 修改點1: 只檢查攻擊瞬間的 holding_back 條件，忽略先前的 is_blocking (來自 proximity)
+	if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_spmove:
 		is_blocking = true
 		is_crouch_blocking = input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0
 		initial_blockstun = max(blockstun_duration, min_hitstun_duration)
@@ -88,6 +89,11 @@ func take_hit(
 		_update_animation_state(0, input_data.crouch_pressed)
 		print("Debug: Block detected, no damage applied for %s" % name)
 		return
+	else:
+		# 修改點2: 如果先前有 proximity block 但現在不 holding_back，重置 is_blocking 避免狀態殘留
+		if is_blocking:
+			is_blocking = false
+			block_type = "none"
 
 	var hurt_grunt_player = $HurtGruntPlayer if has_node("HurtGruntPlayer") else null
 	if hurt_grunt_player:
