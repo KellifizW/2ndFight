@@ -14,11 +14,11 @@ class_name MoveSet extends Node
 @export var super_jump_vertical_speed: float = -210.0
 @export var dp_duration: float = 1.0
 @export var dp_jump_delay: float = 0.0667
-@export var dp_horizontal_move: float = 280.0
+@export var dp_horizontal_move: float = 80.0
 @export var dp_vertical_speed: float = -700.0
-@export var dp_damage: float = 15.0
-@export var dp_knockfly_vertical_speed: float = -400.0  # DP 擊飛對手的垂直初速
-@export var dp_knockfly_gravity: float = 1500000.0  # DP 擊飛對手的重力
+@export var dp_damage: float = 5.0
+@export var dp_knockfly_vertical_speed: float = -550.0  # DP 擊飛對手的垂直初速
+@export var dp_knockfly_gravity: float = 2500000.0  # DP 擊飛對手的重力
 @export var dp_hitstun: float = 0.65  # DP 專屬擊暈持續時間，讓擊飛更持久
 
 var is_super: bool = false

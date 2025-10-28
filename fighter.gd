@@ -9,7 +9,7 @@ var is_being_pushed: bool = false
 var current_damage: float = 0.0
 var air_hit_knockfly_speed: float = 53.33
 @export var air_knockback_horizontal_speed: float = 100.0
-@export var air_knockback_vertical_speed: float = -600.0
+@export var air_knockback_vertical_speed: float = -100.0
 @export var air_friction: float = 10.0
 @export var min_hitstun_duration: float = 8.0 / 60.0
 
