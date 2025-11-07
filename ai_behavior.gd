@@ -1,40 +1,48 @@
+# ai_behavior.gd
 class_name AIBehavior extends Node
 
-@export var reaction_delay: float = 0.4  # AI狀態切換延遲（秒），0.4-0.6以穩定狀態
-@export var attack_decision_delay: float = 0.3  # 攻擊指令選擇延遲（秒），0.3-0.5以減少指令閃爍
-@export var defend_decision_delay: float = 0.3  # 防守指令選擇延遲（秒），0.3-0.5以減少蹲下切換
-@export var global_jump_chance: float = 0.02  # 全局跳躍機率（大幅降低）
-@export var p1_dp_chance: float = 0.15  # P1 使用 DP 的機率（Inspector 可調）
+@export var reaction_delay: float = 0.4
+@export var attack_decision_delay: float = 0.3
+@export var defend_decision_delay: float = 0.3
+@export var global_jump_chance: float = 0.01
+@export var p1_dp_chance: float = 0.15
+
+# 格擋參數
+@export var block_distance: float = 80.0
+@export var block_chance: float = 0.75
+@export var crouch_block_chance: float = 0.4
 
 var ai_enabled: bool = false
-var opponent: Node = null  # 對手引用
-var decision_timer: float = 0.0  # 狀態決策計時器
-var attack_decision_timer: float = 0.0  # 攻擊指令計時器
-var defend_decision_timer: float = 0.0  # 防守指令計時器
-var state_timer: float = 0.0 : set = _set_state_timer  # 兼容world.gd，指向decision_timer
-var last_action_time: float = 0.0  # 占位符，兼容world.gd
-var random_action_chance: float = 0.25  # 隨機動作機率，控制攻擊多樣性
-var parent: Node  # 父節點（Player）
-var opponent_search_timer: float = 0.0  # 對手查找重試計時器
-var world: Node = null  # world 引用
+var opponent: Node = null
+var decision_timer: float = 0.0
+var attack_decision_timer: float = 0.0
+var defend_decision_timer: float = 0.0
+var state_timer: float = 0.0 : set = _set_state_timer
+var last_action_time: float = 0.0
+var random_action_chance: float = 0.25
+var parent: Node
+var opponent_search_timer: float = 0.0
+var world: Node = null
 
-# 用於懲罰反擊的變數
-var punish_timer: float = 0.0  # 計時器，等 blockstun 結束後反擊
-var last_blockstun_duration: float = 0.0  # 記錄最近的 blockstun 時間
-var punish_opportunity: bool = false  # 是否有懲罰機會
-var punish_attack: String = "st_mk"  # 動態選擇的最佳反擊招式（初始為 P2 最快）
+# 懲罰反擊
+var punish_timer: float = 0.0
+var last_blockstun_duration: float = 0.0
+var punish_opportunity: bool = false
+var punish_attack: String = "st_mk"
 
-# 簡單狀態機，讓AI行為更結構化
-var current_state: String = "idle"  # 狀態：idle（初始）、approach（接近）、attack（攻擊）、defend（防守）
-var previous_state: String = ""  # 用來偵測狀態改變，觸發除錯 print
-var current_attack: String = "none"  # 當前選擇的攻擊類型，保持到下次更新
-var current_crouch: bool = false  # 當前蹲下狀態，保持到下次更新
+# 狀態機
+var current_state: String = "idle"
+var previous_state: String = ""
+var current_attack: String = "none"
+var current_crouch: bool = false
 
-# frame data 字典，分開 P1 和 P2，新增 startup 以優化選擇
+# frame data
 var frame_data: Dictionary = {
 	"p1": {
 		"st_mp": {"startup": 0.1, "recovery": 0.2667, "blockstun": 0.267},
 		"st_mk": {"startup": 0.2, "recovery": 0.4003, "blockstun": 0.3},
+		"cr_mp": {"startup": 0.1, "recovery": 0.2667, "blockstun": 0.267},
+		"cr_mk": {"startup": 0.2, "recovery": 0.4003, "blockstun": 0.3},
 		"jump_mp": {"startup": 0.1333, "recovery": 0.2, "blockstun": 0.267},
 		"jump_mk": {"startup": 0.1, "recovery": 0.3, "blockstun": 0.267},
 		"powerkk": {"startup": 0.3, "recovery": 0.5, "blockstun": 0.267},
@@ -43,6 +51,8 @@ var frame_data: Dictionary = {
 	"p2": {
 		"st_mp": {"startup": 0.2, "recovery": 0.3667, "blockstun": 0.267},
 		"st_mk": {"startup": 0.1, "recovery": 0.2667, "blockstun": 0.3},
+		"cr_mp": {"startup": 0.2, "recovery": 0.3667, "blockstun": 0.267},
+		"cr_mk": {"startup": 0.1, "recovery": 0.2667, "blockstun": 0.3},
 		"jump_mp": {"startup": 0.1, "recovery": 0.2333, "blockstun": 0.267},
 		"jump_mk": {"startup": 0.1, "recovery": 0.267, "blockstun": 0.267},
 		"spnk": {"startup": 0.2, "recovery": 0.4667, "blockstun": 0.267},
@@ -50,10 +60,9 @@ var frame_data: Dictionary = {
 	}
 }
 
-# 用於 P1 st_mp 連技取消的計時器（模擬 player.gd 的 cancel_window_duration = 0.3s）
-var cancel_window_timer_ai: float = 0.0  # AI 專用取消窗口計時器
+var cancel_window_timer_ai: float = 0.0
 
-func _ready():
+func _ready() -> void:
 	parent = get_parent()
 	world = get_tree().get_first_node_in_group("world")
 	if parent:
@@ -67,7 +76,7 @@ func _ready():
 		print("Warning: AIBehavior parent not found")
 	opponent_search_timer = 0.1
 
-func _process(delta):
+func _process(delta: float) -> void:
 	if not opponent and opponent_search_timer > 0:
 		opponent_search_timer -= delta
 		if opponent_search_timer <= 0:
@@ -85,10 +94,10 @@ func _process(delta):
 		if cancel_window_timer_ai <= 0:
 			cancel_window_timer_ai = 0.0
 
-func _set_state_timer(value: float):
+func _set_state_timer(value: float) -> void:
 	decision_timer = value
 
-func set_ai_enabled(enabled: bool):
+func set_ai_enabled(enabled: bool) -> void:
 	ai_enabled = enabled
 	if ai_enabled:
 		print("AI enabled for %s" % parent.name)
@@ -98,7 +107,7 @@ func set_ai_enabled(enabled: bool):
 		current_attack = "none"
 		current_crouch = false
 
-func find_opponent():
+func find_opponent() -> void:
 	var players = get_tree().get_nodes_in_group("players")
 	for player in players:
 		if player != parent:
@@ -109,35 +118,28 @@ func find_opponent():
 			return
 	print("Warning: No opponent found for %s" % parent.name)
 
-func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
+func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool) -> void:
 	if ai_enabled and opponent and is_blocked and target == parent.name:
 		var opponent_attack = opponent.attack_type if "attack_type" in opponent else "st_mp"
 		var move_set = opponent.get_node("MoveSet") if opponent.has_node("MoveSet") else null
 		if move_set:
-			if move_set.is_powerkk:
-				opponent_attack = "powerkk"
-			elif move_set.is_spnk:
-				opponent_attack = "spnk"
-			elif move_set.is_fireball:
-				opponent_attack = "fireball"
-			elif move_set.is_super:
-				opponent_attack = "super"
-			elif move_set.is_dp:
-				opponent_attack = "dp"
-		
+			if move_set.is_powerkk: opponent_attack = "powerkk"
+			elif move_set.is_spnk: opponent_attack = "spnk"
+			elif move_set.is_fireball: opponent_attack = "fireball"
+			elif move_set.is_super: opponent_attack = "super"
+			elif move_set.is_dp: opponent_attack = "dp"
 		var recovery = frame_data[opponent.player_id].get(opponent_attack, {}).get("recovery", 0.4)
 		var blockstun = frame_data[opponent.player_id].get(opponent_attack, {}).get("blockstun", 0.267)
 		var advantage = blockstun - recovery
 		print("Debug: %s blocked %s's %s, advantage: %.2f" % [parent.name, opponent.name, opponent_attack, advantage])
-		
 		punish_timer = blockstun
 		last_blockstun_duration = blockstun
 		punish_attack = _select_punish_attack(advantage)
 
 func _select_punish_attack(advantage: float) -> String:
 	var available_attacks = frame_data[parent.player_id]
-	var best_attack = ""
-	var best_startup = INF
+	var best_attack: String = ""
+	var best_startup: float = INF
 	for attack in available_attacks:
 		var startup = available_attacks[attack]["startup"]
 		if startup < best_startup and startup <= advantage:
@@ -145,7 +147,7 @@ func _select_punish_attack(advantage: float) -> String:
 			best_attack = attack
 	return best_attack if best_attack else "st_mp"
 
-func _on_self_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
+func _on_self_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool) -> void:
 	if parent.player_id == "p1" and parent.attack_type == "st_mp" and not is_blocked:
 		cancel_window_timer_ai = 0.3
 		print("Debug: AI P1 st_mp hit detected, cancel window started")
@@ -170,47 +172,79 @@ func is_near_right_corner() -> bool:
 	var distance_to_right = (world.arena_right / world.SIMULATION_SCALE) - parent.global_position.x
 	return distance_to_right <= 50.0
 
+func can_jump_attack_hit() -> bool:
+	# 判斷跳躍攻擊是否能打中：距離在 40-70 之間，且對手在地面可被空中攻擊打中
+	var distance = abs(parent.global_position.x - opponent.global_position.x)
+	var opponent_on_ground = opponent.is_on_floor() if opponent.has_method("is_on_floor") else true
+	return distance >= 40 and distance <= 70 and opponent_on_ground
+
 func get_ai_input() -> Dictionary:
 	if not ai_enabled or not opponent:
 		return {}
 	
-	var input_dir: int = 0
-	var crouch_pressed: bool = false
-	var jump_pressed: bool = false
-	var st_mp_pressed: bool = false
-	var st_mk_pressed: bool = false
-	var spm1_pressed: bool = false
-	var spm2_pressed: bool = false
-	var dp_pressed: bool = false
-	var super_pressed: bool = false
+	var input: Dictionary = {
+		"input_dir": 0,
+		"crouch_pressed": false,
+		"jump_pressed": false,
+		"st_mp_pressed": false,
+		"st_mk_pressed": false,
+		"spm1_pressed": false,
+		"spm2_pressed": false,
+		"dp_pressed": false,
+		"super_pressed": false,
+		"block_pressed": false
+	}
 	
 	var distance = abs(parent.global_position.x - opponent.global_position.x)
 	var relative_dir = sign(opponent.global_position.x - parent.global_position.x)
 	var is_at_corner = is_at_left_corner() or is_at_right_corner()
 	var is_near_corner = is_near_left_corner() or is_near_right_corner()
 	
+	# 格擋判定（最優先）
+	var opponent_attacking: bool = (
+		opponent.is_attacking or
+		(opponent.move_set and opponent.move_set.is_spmove)
+	)
+	if (opponent_attacking and distance <= block_distance and
+		current_state != "attack" and not input.spm1_pressed and not input.dp_pressed):
+		if randf() < block_chance:
+			input.block_pressed = true
+			input.input_dir = -int(relative_dir)
+			input.crouch_pressed = randf() < crouch_block_chance
+	
+	# 狀態切換（大幅提高防守機率）
 	decision_timer -= get_process_delta_time()
 	if decision_timer <= 0:
 		decision_timer = reaction_delay + randf_range(0.0, 0.2)
 		previous_state = current_state
-		match randi() % 4:
-			0: current_state = "approach"
-			1: current_state = "attack"
-			2: current_state = "defend"
-			3: current_state = "idle"
+		var rand_state = randf()
+		if distance > 100:
+			# 遠距離：傾向防守（60%）
+			if rand_state < 0.6: current_state = "defend"
+			elif rand_state < 0.8: current_state = "approach"
+			elif rand_state < 0.95: current_state = "attack"
+			else: current_state = "idle"
+		else:
+			# 近距離：防守機率更高（50%）
+			if rand_state < 0.5: current_state = "defend"
+			elif rand_state < 0.7: current_state = "attack"
+			elif rand_state < 0.95: current_state = "approach"
+			else: current_state = "idle"
 		if previous_state != current_state:
 			print("Debug: %s state changed to %s" % [parent.name, current_state])
 	
+	# 懲罰反擊
 	if punish_opportunity:
 		current_state = "attack"
 		if parent.player_id == "p1" and randf() < 0.5:
 			current_attack = "dp"
-			dp_pressed = true
+			input.dp_pressed = true
 		else:
 			current_attack = punish_attack
 		punish_opportunity = false
 		print("Debug: Punish opportunity triggered, attacking with %s" % current_attack)
 	
+	# 攻擊選擇
 	if current_state == "attack":
 		attack_decision_timer -= get_process_delta_time()
 		if attack_decision_timer <= 0:
@@ -224,21 +258,24 @@ func get_ai_input() -> Dictionary:
 				if randf() < 0.5:
 					current_attack = punish_attack
 				else:
-					current_attack = "st_mp" if parent.player_id == "p2" else "st_mk"
+					current_attack = "cr_mp" if parent.player_id == "p2" else "cr_mk"
 			else:
 				if randf() < random_action_chance:
-					match randi() % 4:
+					match randi() % 6:
 						0: current_attack = "st_mk"
 						1: current_attack = "spm1"
 						2: current_attack = "spm2"
-						3:
+						3: current_attack = "cr_mp"
+						4: current_attack = "cr_mk"
+						5:
 							if parent.player_id == "p1":
 								current_attack = "dp"
-								dp_pressed = true
+								input.dp_pressed = true
 				else:
 					current_attack = "spm1"
 			print("Debug: %s in attack, selected: %s" % [parent.name, current_attack])
 	
+	# 防守蹲下
 	if current_state == "defend":
 		defend_decision_timer -= get_process_delta_time()
 		if defend_decision_timer <= 0:
@@ -248,85 +285,82 @@ func get_ai_input() -> Dictionary:
 				current_crouch = randf() < 0.3
 			print("Debug: %s in defend, crouch: %s" % [parent.name, "true" if current_crouch else "false"])
 	
-	if distance < 120 and randf() < global_jump_chance and parent.is_on_floor():
-		jump_pressed = true
-		input_dir = -int(relative_dir) if current_state == "defend" else int(relative_dir)
-		print("Debug: AI jump triggered globally for escape/attack, dir=%d" % input_dir)
+	# === 嚴格控制跳躍：僅反擊 + 角落逃脫 ===
+	var jump_for_attack = can_jump_attack_hit() and randf() < 0.4 and parent.is_on_floor()
+	var corner_escape = is_at_corner and randf() < 0.15 and parent.is_on_floor()  # 降低到15%
 	
+	if jump_for_attack:
+		input.jump_pressed = true
+		input.input_dir = int(relative_dir)
+		# 自動搭配空中攻擊
+		if randf() < 0.6:
+			input.st_mp_pressed = true
+		else:
+			input.st_mk_pressed = true
+		print("Debug: Jump attack triggered (can hit), distance=%.1f" % distance)
+	elif corner_escape:
+		input.jump_pressed = true
+		input.input_dir = -int(relative_dir)
+		print("Debug: Corner escape jump triggered")
+	
+	# 狀態動作
 	match current_state:
 		"approach":
-			input_dir = int(relative_dir)
-			if distance > 150 and randf() < 0.2 and parent.is_on_floor():
-				jump_pressed = true
-			print("Debug: %s in approach, input_dir: %d, opponent at x: %.1f, self at x: %.1f" % [parent.name, input_dir, opponent.global_position.x, parent.global_position.x])
+			input.input_dir = int(relative_dir)
+			print("Debug: %s in approach, input_dir: %d" % [parent.name, input.input_dir])
 		"attack":
 			match current_attack:
-				"st_mp": st_mp_pressed = true
-				"st_mk": st_mk_pressed = true
-				"spm1": spm1_pressed = true
-				"spm2": spm2_pressed = true
-				"dp": dp_pressed = true
+				"st_mp": input.st_mp_pressed = true
+				"st_mk": input.st_mk_pressed = true
+				"cr_mp":
+					input.crouch_pressed = true
+					input.st_mp_pressed = true
+				"cr_mk":
+					input.crouch_pressed = true
+					input.st_mk_pressed = true
+				"spm1": input.spm1_pressed = true
+				"spm2": input.spm2_pressed = true
+				"dp": input.dp_pressed = true
 		"defend":
-			input_dir = -int(relative_dir)
-			crouch_pressed = current_crouch
-			if randf() < 0.15 and parent.is_on_floor():
-				jump_pressed = true
-				input_dir = -int(relative_dir)
+			input.input_dir = -int(relative_dir)
+			input.crouch_pressed = current_crouch
 		"idle": pass
 	
-	if is_at_corner and randf() < 0.9 and parent.is_on_floor():
-		jump_pressed = true
-		input_dir = int(relative_dir)
-		st_mp_pressed = false
-		st_mk_pressed = false
-		spm1_pressed = false
-		spm2_pressed = false
-		dp_pressed = false
-		crouch_pressed = false
-		print("Debug: Corner jump triggered for %s" % parent.name)
-	
+	# 空中攻擊（僅落地前）
 	if not parent.is_on_floor() and parent.velocity.y > 0 and parent.global_position.y < 50:
 		if distance < 50 and randf() < 0.3:
 			if randf() < 0.5:
-				st_mp_pressed = true
+				input.st_mp_pressed = true
 			else:
-				st_mk_pressed = true
-			var attack_name = "jump_mp" if st_mp_pressed else "jump_mk"
-			print("Debug: AI aerial attack triggered near landing, attack=%s, y=%.1f" % [attack_name, parent.global_position.y])
+				input.st_mk_pressed = true
+			print("Debug: Aerial attack near landing")
 	
+	# 取消窗口連招
 	if cancel_window_timer_ai > 0:
-		spm1_pressed = true
-		st_mp_pressed = false
-		st_mk_pressed = false
-		spm2_pressed = false
-		dp_pressed = false
-		print("Debug: AI P1 triggering spm1 in cancel window for combo")
+		input.spm1_pressed = true
+		input.st_mp_pressed = false
+		input.st_mk_pressed = false
+		input.spm2_pressed = false
+		input.dp_pressed = false
+		print("Debug: AI P1 cancel combo")
 	
+	# P1 近距離 DP
 	if parent.player_id == "p1" and (current_state == "attack" or current_state == "defend") and distance < 50 and randf() < p1_dp_chance and parent.is_on_floor():
-		dp_pressed = true
+		input.dp_pressed = true
 		current_attack = "dp"
-		st_mp_pressed = false
-		st_mk_pressed = false
-		spm1_pressed = false
-		spm2_pressed = false
-		print("Debug: AI P1 triggering DP (spmove3) in %s state, distance=%.1f" % [current_state, distance])
+		input.st_mp_pressed = false
+		input.st_mk_pressed = false
+		input.spm1_pressed = false
+		input.spm2_pressed = false
+		print("Debug: AI P1 DP close range")
 	
-	var attack_type = "st_mp" if st_mp_pressed else "st_mk" if st_mk_pressed else "dp" if dp_pressed else "none"
+	# 輸出
+	var attack_type = "st_mp" if input.st_mp_pressed else "st_mk" if input.st_mk_pressed else "dp" if input.dp_pressed else "none"
 	var move_set = parent.get_node("MoveSet") if parent.has_node("MoveSet") else null
-	var blockstun_duration = frame_data[parent.player_id][current_attack]["blockstun"] if move_set and current_attack in frame_data[parent.player_id] else 0.2
-	var damage = move_set.get_special_damage() if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball or move_set.is_dp) else (10.0 if (st_mp_pressed or st_mk_pressed) else 0.0)
+	var blockstun_duration = frame_data[parent.player_id].get(current_attack, {}).get("blockstun", 0.2)
+	var damage = move_set.get_special_damage() if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball or move_set.is_dp) else (10.0 if (input.st_mp_pressed or input.st_mk_pressed) else 0.0)
 	
-	return {
-		"input_dir": input_dir,
-		"crouch_pressed": crouch_pressed,
-		"jump_pressed": jump_pressed,
-		"st_mp_pressed": st_mp_pressed,
-		"st_mk_pressed": st_mk_pressed,
-		"attack_type": attack_type,
-		"blockstun_duration": blockstun_duration,
-		"damage": damage,
-		"spm1_pressed": spm1_pressed,
-		"spm2_pressed": spm2_pressed,
-		"dp_pressed": dp_pressed,
-		"super_pressed": super_pressed
-	}
+	input["attack_type"] = attack_type
+	input["blockstun_duration"] = blockstun_duration
+	input["damage"] = damage
+	return input

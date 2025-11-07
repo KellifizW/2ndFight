@@ -9,7 +9,7 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @export var cancel_window_duration: float = 0.3
 @export var skip_pushbox: bool = false
 @export var attack_data: AttackData
-# ── 參數表（資料驅動，取代舊版多個 export） ─────────────────────
+
 @onready var ATTACK_TABLE: Dictionary = {
 	"st_mp": attack_data.st_mp,
 	"st_mk": attack_data.st_mk,
@@ -119,22 +119,18 @@ var player_anim_resets: Dictionary = {
 func _ready() -> void:
 	super._ready()
 	world = get_tree().get_first_node_in_group("world")
-	
-	# 角色差異：僅調整 hitstun（p1 更強）
 	if player_id == "p1":
 		ATTACK_TABLE["st_mp"].hitstun = 0.40
 		ATTACK_TABLE["st_mk"].hitstun = 0.65
 	else:
 		ATTACK_TABLE["st_mp"].hitstun = 0.35
 		ATTACK_TABLE["st_mk"].hitstun = 0.45
-	
 	if has_node("Hitbox"):
 		$Hitbox.area_entered.connect(_on_hitbox_area_entered)
 	if animation_tree:
 		animation_tree.animation_finished.connect(_on_animation_tree_finished)
 		animation_tree.active = true
 		animation_state.travel("Walk")
-	
 	add_to_group("players")
 	if player_controller:
 		player_controller.player_id = player_id
@@ -144,13 +140,12 @@ func _ready() -> void:
 func set_input_data(data: Dictionary) -> void:
 	special_input_data = data
 
-# ── 輸入處理（不再寫入 damage / attack_type） ─────────────────────
 var default_input: Dictionary = {
 	"input_dir": 0,
 	"crouch_pressed": false,
 	"jump_pressed": false,
 	"st_mp_pressed": false,
-	"st_mk_pressed": false,
+	"st_mk_pressed":  false,
 	"spm1_pressed": false,
 	"spm2_pressed": false,
 	"dp_pressed": false,
@@ -170,51 +165,50 @@ func get_input() -> Dictionary:
 		return data
 	return default_input.duplicate()
 
-# ── 主流程（完全保留舊版移動與攻擊邏輯） ─────────────────────
 func _physics_process(delta: float) -> void:
 	if has_node("InputManager"):
 		$InputManager.update_input()
 	super._physics_process(delta)
 	if not world: return
-	
+
 	if is_air_attacking and is_on_floor():
 		is_air_attacking = false
 		has_air_attacked = false
-	
+
 	if cancel_window_timer > 0:
 		cancel_window_timer -= delta
 		if cancel_window_timer <= 0:
 			cancel_window_timer = 0.0
-	
+
 	var input_data = get_input()
 	input_data.merge(special_input_data, true)
-	
+
 	if input_data.spm2_pressed or input_data.dp_pressed or input_data.spm1_pressed or input_data.super_pressed:
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
-	
+
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup and not is_layground
-	
+
 	if move_set and move_set.is_spmove:
 		is_attacking = false
 		attack_type = "none"
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
-	
+
 	if is_attacking and animation_state.get_current_node() in ["st_mp", "st_mk", "cr_mp", "cr_mk"]:
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
-	
+
 	if player_id == "p1" and is_attacking and attack_type == "st_mp" and cancel_window_timer > 0 and input_data.spm1_pressed:
 		stop_attack()
-	
+
 	if move_set and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
-	
+
 	if cancel_window_timer > 0:
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
-	
+
 	if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_ground_state:
 		force_update_facing_direction()
 		if is_crouching:
@@ -237,7 +231,7 @@ func _physics_process(delta: float) -> void:
 				attack_type = "st_mk"
 		if not is_push_back:
 			fixed_velocity.x = 0
-	
+
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked and not is_layground
 	if input_data.st_mp_pressed and is_valid_air_state:
 		current_damage = ATTACK_TABLE["jump_mp"].damage
@@ -249,7 +243,7 @@ func _physics_process(delta: float) -> void:
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mk"
-	
+
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
 		if is_landing and (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or
@@ -260,7 +254,7 @@ func _physics_process(delta: float) -> void:
 			landing_facing_lock = false
 			update_facing_direction()
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-	
+
 	if not (landing_lock_timer > 0):
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
@@ -278,25 +272,27 @@ func _physics_process_jump(delta: float) -> void:
 			else:
 				fixed_velocity.x = 0
 
+# ← 關鍵：必須在 super 之前檢查 landing
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	if is_layground: return "layground"
 	if is_knockfly: return "knockfly"
 	if is_wakeup_locked: return "wakeup"
 	if is_hit: return "hit"
-	
+
 	if move_set and move_set.is_spmove:
 		if move_set.is_super: return "super"
 		elif player_id == "p1" and move_set.is_powerkk: return "powerkk"
 		elif player_id == "p1" and move_set.is_dp: return "dp"
 		elif player_id == "p2" and move_set.is_spnk: return "spnk"
 		elif move_set.is_fireball: return "fireball"
-	
+
 	if is_blocking:
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
-	
+
+	# ← 必須在此處返回 landing
 	if is_landing and landing_lock_timer > 0:
 		return "landing"
-	
+
 	if not on_floor and (is_jumping or is_air_attacking):
 		if is_air_attacking or has_air_attacked:
 			return attack_type
@@ -304,7 +300,7 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 			if anim_jump_dir > 0: return "Jump_F"
 			elif anim_jump_dir < 0: return "Jump_B"
 			else: return "Jump_V"
-	
+
 	return super._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
@@ -324,17 +320,17 @@ func _on_animation_tree_finished(anim_name: String) -> void:
 		if anim_name in player_anim_resets:
 			player_anim_resets[anim_name].call()
 
-# ── 擊中處理（完全恢復舊版邏輯：先 take_hit → 再判斷 is_blocked → 正確 VFX + 角落推攻擊者） ─────────────────────
+# ── 擊中處理（保持原版） ─────────────────────
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	if area.name != "Hurtbox" or not area.get_parent().is_in_group("players") or area.get_parent() == self:
 		return
 	var target = area.get_parent()
 	var was_in_stun = target.is_hit or target.is_knockfly
 	if not world: return
-	
+
 	var slowmo = world.get_node_or_null("SlowMoController")
 	if slowmo: slowmo.request_hit_freeze()
-	
+
 	var hitstun := 0.35
 	var blockstun := 0.267
 	var damage := current_damage
@@ -342,14 +338,12 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 	var force_knockfly := false
 	var knockfly_params := {}
 	var dp_blocked := false
-	
-	# 普通招式直接讀 ATTACK_TABLE
+
 	if ATTACK_TABLE.has(attack_type):
 		var a = ATTACK_TABLE[attack_type]
 		hitstun = a.hitstun
 		blockstun = a.blockstun
 		damage = a.damage
-	# 特殊技覆蓋（保留原有邏輯）
 	elif move_set:
 		if move_set.is_powerkk:
 			hitstun = 0.65
@@ -379,25 +373,23 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 			knockfly_params = {
 				"gravity": move_set.dp_knockfly_gravity,
 				"vertical_speed": move_set.dp_knockfly_vertical_speed,
+				"horizontal_speed": move_set.dp_knockfly_horizontal_speed,
 				"duration": hitstun
 			}
-	
-	# 先讓目標進入受擊/格擋狀態
+
 	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly, knockfly_params)
-	
-	# 再判斷最終是否格擋
+
 	var is_blocked: bool = target.is_blocking
 	var stun_duration = blockstun if is_blocked else hitstun
 	hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
-	
-	# 音效 & VFX（依最終 is_blocked）
+
 	var hit_sound = $HitSoundPlayer if has_node("HitSoundPlayer") else null
 	var block_sound = $BlockSoundPlayer if has_node("BlockSoundPlayer") else null
 	if is_blocked and block_sound:
 		block_sound.play()
 	elif not is_blocked and hit_sound:
 		hit_sound.play()
-	
+
 	var vfx_type = "block" if is_blocked else "hit"
 	var contact = get_contact_point($Hitbox, area)
 	if contact == Vector2.ZERO:
@@ -405,8 +397,7 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 	if not target.is_on_floor():
 		contact.y += 10
 	VFXImpact.spawn_vfx(world, vfx_type, contact, facing_direction)
-	
-	# 角落推擠：推開攻擊者（self）
+
 	if move_set and (move_set.is_spnk or move_set.is_powerkk or move_set.is_dp):
 		return
 	var push_manager = get_tree().get_first_node_in_group("push_manager")

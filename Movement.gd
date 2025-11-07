@@ -342,6 +342,7 @@ func _handle_gravity(delta: float, move_set) -> void:
 			fixed_velocity.y = 0
 			fixed_position.y = world.FLOOR_Y if world else 200000
 
+# Movement.gd → _handle_landing 函式內
 func _handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
 	if not just_jumped and fixed_position.y >= floor_y and jump_delay_timer <= 0 and fixed_velocity.y >= 0 and is_jumping:
 		fixed_position.y = floor_y
@@ -353,11 +354,24 @@ func _handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void
 		pending_dash_dir = 0
 		last_input_dir = 0
 		landing_facing_lock = false
-		if "is_landing" in self and "landing_lock_timer" in self:
-			if not (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed):
-				self.is_landing = true
-				self.landing_lock_timer = landing_duration
-				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+
+		# ── 修正：先取 move_set，避免 undeclared 錯誤 ──
+		var move_set = $MoveSet if has_node("MoveSet") else null
+
+		# ── 簡潔判斷：特殊招式中 → 直接跳過 landing ──
+		if move_set and move_set.is_spmove:
+			# 強制清除 landing 狀態（避免殘留）
+			if "is_landing" in self:
+				self.is_landing = false
+				self.landing_lock_timer = 0.0
+		else:
+			# 原有邏輯：普通跳躍才觸發 landing
+			if "is_landing" in self and "landing_lock_timer" in self:
+				if not (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed):
+					self.is_landing = true
+					self.landing_lock_timer = landing_duration
+					_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+
 		var push_manager = get_tree().get_first_node_in_group("push_manager")
 		if push_manager:
 			push_manager._physics_process(delta)

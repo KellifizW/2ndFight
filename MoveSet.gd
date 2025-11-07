@@ -12,14 +12,15 @@ class_name MoveSet extends Node
 @export var super_gravity: float = 200000.0
 @export var super_jump_delay: float = 0.9
 @export var super_jump_vertical_speed: float = -210.0
-@export var dp_duration: float = 0.6
+@export var dp_duration: float = 0.7
 @export var dp_jump_delay: float = 0.0667
-@export var dp_horizontal_move: float = 80.0
+@export var dp_horizontal_move: float = 30.0
 @export var dp_vertical_speed: float = -800.0
 @export var dp_damage: float = 5.0
 @export var dp_knockfly_vertical_speed: float = -650.0
 @export var dp_knockfly_gravity: float = 2000000.0
 @export var dp_hitstun: float = 0.65
+@export var dp_knockfly_horizontal_speed: float = 100.0
 
 # Core flags
 var is_super: bool = false

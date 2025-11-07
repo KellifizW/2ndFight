@@ -118,9 +118,10 @@ func _process(delta):
 			is_tracking = false
 		print("Debug: Exited airborne state for %s, jump_frame_count=%d, is_on_floor=%s" % [target_player.name, jump_frame_count, is_on_floor])
 	
-	# 監聽的動畫清單
+	# 監聽的動畫清單（已加入 dp 與 super）
 	var tracked_animations = [
 		"st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball",
+		"dp", "super",
 		"Dash", "Backdash",
 		"block", "cr_block",
 		"Jump_F", "Jump_B", "Jump_V",
@@ -198,9 +199,9 @@ func _process(delta):
 		if current_frame >= frame_data.size():
 			frame_data.resize(current_frame + 1)
 		
-		# 根據動畫類型設定 state
+		# 根據動畫類型設定 state（僅 DP 空中改 Recovery）
 		var state: int = -1
-		if anim_name in ["st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball"]:
+		if anim_name in ["st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball", "dp", "super"]:
 			if hitbox_shape.shape == null or hitbox_shape.disabled:
 				if not was_active:
 					state = 0  # Startup
@@ -219,6 +220,10 @@ func _process(delta):
 			state = 6
 		elif anim_name == "knockfly":
 			state = 7
+		
+		# === DP 空中強制 Recovery（僅此一改） ===
+		if anim_name == "dp" and not is_on_floor:
+			state = 2
 		
 		if state != -1:
 			frame_data[current_frame] = state
@@ -271,7 +276,7 @@ func _draw():
 				8: color = Color.WHITE
 			var rect = Rect2(i * frame_width, 0, frame_width, bar_height)
 			draw_rect(rect, color, true)
-	
+
 func reset_frame_bar():
 	value = 0
 	current_frame = 0
@@ -285,7 +290,6 @@ func reset_frame_bar():
 	jump_to_attack_offset = 0
 	is_jump_attack_active = false
 	queue_redraw()
-	# 移除設置 "Reset" 文字，讓標籤保留最後的數據
 
 func update_frame_count_label(anim_name: String):
 	if not frame_count_label:
@@ -294,11 +298,11 @@ func update_frame_count_label(anim_name: String):
 	
 	var tracked_animations = [
 		"st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball",
+		"dp", "super",
 		"Dash", "Backdash", "block", "cr_block", "Jump_F", "Jump_B", "Jump_V",
 		"hit", "knockfly", "landing"
 	]
 	if anim_name not in tracked_animations:
-		# 對於非追蹤動畫，不更新標籤，保留上一個文字
 		return
 	
 	var anim_length = animation_player.get_animation(anim_name).length if animation_player.has_animation(anim_name) else 0.5
@@ -343,7 +347,7 @@ func update_frame_count_label(anim_name: String):
 	var label_text = anim_name + ": "
 	if anim_name == "landing":
 		label_text += "Jump: %dF Total: %dF" % [jump_frame_count, jump_frame_count]
-	elif anim_name in ["st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball"]:
+	elif anim_name in ["st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball", "dp", "super"]:
 		var stages = []
 		if is_jump_attack and stage_counts["Jump"] > 0:
 			stages.append("Jump: %dF" % stage_counts["Jump"])
@@ -376,6 +380,7 @@ func update_frame_count_label(anim_name: String):
 func _on_animation_finished(anim_name: String):
 	var tracked_animations = [
 		"st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball",
+		"dp", "super",
 		"Dash", "Backdash",
 		"block", "cr_block",
 		"Jump_F", "Jump_B", "Jump_V",
@@ -403,7 +408,7 @@ func _on_animation_finished(anim_name: String):
 			for i in range(min(extra_frames, total_frames)):
 				if frame_data.size() <= i:
 					frame_data.resize(i + 1)
-				if anim_name in ["st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball"]:
+				if anim_name in ["st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball", "dp", "super"]:
 					frame_data[i] = 2
 				elif anim_name in ["Dash", "Backdash"]:
 					frame_data[i] = 3
@@ -420,7 +425,7 @@ func _on_animation_finished(anim_name: String):
 			for i in range(current_frame + 1, display_frames):
 				if frame_data.size() <= i:
 					frame_data.resize(i + 1)
-				if anim_name in ["st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball"]:
+				if anim_name in ["st_mp", "st_mk", "jump_mp", "jump_mk", "powerkk", "spnk", "fireball", "dp", "super"]:
 					frame_data[i] = 2
 				elif anim_name in ["Dash", "Backdash"]:
 					frame_data[i] = 3
