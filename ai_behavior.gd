@@ -9,8 +9,8 @@ class_name AIBehavior extends Node
 
 # 格擋參數
 @export var block_distance: float = 80.0
-@export var block_chance: float = 0.75
-@export var crouch_block_chance: float = 0.4
+@export var block_chance: float = 0.85  # 提高格擋機率
+@export var crouch_block_chance: float = 0.5  # 提高蹲防機率
 
 var ai_enabled: bool = false
 var opponent: Node = null
@@ -94,6 +94,17 @@ func _process(delta: float) -> void:
 		if cancel_window_timer_ai <= 0:
 			cancel_window_timer_ai = 0.0
 
+	# === 修正：血量為零時完全停用 AI ===
+	var ui = get_tree().get_first_node_in_group("ui")
+	if ui:
+		var parent_healthbar = ui.get_node_or_null("%sHealthbar" % parent.name)
+		var opponent_healthbar = ui.get_node_or_null("%sHealthbar" % opponent.name) if opponent else null
+		var parent_health = parent_healthbar.current_health if parent_healthbar else 100
+		var opponent_health = opponent_healthbar.current_health if opponent_healthbar else 100
+		if parent_health <= 0 or opponent_health <= 0:
+			ai_enabled = false
+			return  # 直接結束本幀處理，停止所有 AI 行為
+
 func _set_state_timer(value: float) -> void:
 	decision_timer = value
 
@@ -119,7 +130,8 @@ func find_opponent() -> void:
 	print("Warning: No opponent found for %s" % parent.name)
 
 func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool) -> void:
-	if ai_enabled and opponent and is_blocked and target == parent.name:
+	if not ai_enabled: return
+	if opponent and is_blocked and target == parent.name:
 		var opponent_attack = opponent.attack_type if "attack_type" in opponent else "st_mp"
 		var move_set = opponent.get_node("MoveSet") if opponent.has_node("MoveSet") else null
 		if move_set:
@@ -173,14 +185,24 @@ func is_near_right_corner() -> bool:
 	return distance_to_right <= 50.0
 
 func can_jump_attack_hit() -> bool:
-	# 判斷跳躍攻擊是否能打中：距離在 40-70 之間，且對手在地面可被空中攻擊打中
 	var distance = abs(parent.global_position.x - opponent.global_position.x)
 	var opponent_on_ground = opponent.is_on_floor() if opponent.has_method("is_on_floor") else true
 	return distance >= 40 and distance <= 70 and opponent_on_ground
 
 func get_ai_input() -> Dictionary:
 	if not ai_enabled or not opponent:
-		return {}
+		var default_input: Dictionary = {
+			"input_dir": 0,
+			"crouch_pressed": false,
+			"jump_pressed": false,
+			"st_mp_pressed": false,
+			"st_mk_pressed": false,
+			"spm1_pressed": false,
+			"spm2_pressed": false,
+			"dp_pressed": false,
+			"super_pressed": false
+		}
+		return default_input
 	
 	var input: Dictionary = {
 		"input_dir": 0,
@@ -219,15 +241,15 @@ func get_ai_input() -> Dictionary:
 		previous_state = current_state
 		var rand_state = randf()
 		if distance > 100:
-			# 遠距離：傾向防守（60%）
-			if rand_state < 0.6: current_state = "defend"
-			elif rand_state < 0.8: current_state = "approach"
+			# 遠距離：防守 70%
+			if rand_state < 0.7: current_state = "defend"
+			elif rand_state < 0.85: current_state = "approach"
 			elif rand_state < 0.95: current_state = "attack"
 			else: current_state = "idle"
 		else:
-			# 近距離：防守機率更高（50%）
-			if rand_state < 0.5: current_state = "defend"
-			elif rand_state < 0.7: current_state = "attack"
+			# 近距離：防守 65%
+			if rand_state < 0.65: current_state = "defend"
+			elif rand_state < 0.8: current_state = "attack"
 			elif rand_state < 0.95: current_state = "approach"
 			else: current_state = "idle"
 		if previous_state != current_state:
@@ -280,19 +302,18 @@ func get_ai_input() -> Dictionary:
 		defend_decision_timer -= get_process_delta_time()
 		if defend_decision_timer <= 0:
 			defend_decision_timer = defend_decision_delay + randf_range(0.0, 0.2)
-			current_crouch = randf() < 0.6
+			current_crouch = randf() < 0.7  # 防守時更常蹲下
 			if is_near_corner:
-				current_crouch = randf() < 0.3
+				current_crouch = randf() < 0.4
 			print("Debug: %s in defend, crouch: %s" % [parent.name, "true" if current_crouch else "false"])
 	
 	# === 嚴格控制跳躍：僅反擊 + 角落逃脫 ===
 	var jump_for_attack = can_jump_attack_hit() and randf() < 0.4 and parent.is_on_floor()
-	var corner_escape = is_at_corner and randf() < 0.15 and parent.is_on_floor()  # 降低到15%
+	var corner_escape = is_at_corner and randf() < 0.15 and parent.is_on_floor()
 	
 	if jump_for_attack:
 		input.jump_pressed = true
 		input.input_dir = int(relative_dir)
-		# 自動搭配空中攻擊
 		if randf() < 0.6:
 			input.st_mp_pressed = true
 		else:
@@ -323,6 +344,7 @@ func get_ai_input() -> Dictionary:
 				"dp": input.dp_pressed = true
 		"defend":
 			input.input_dir = -int(relative_dir)
+			input.block_pressed = true  # 防守時持續格擋
 			input.crouch_pressed = current_crouch
 		"idle": pass
 	
