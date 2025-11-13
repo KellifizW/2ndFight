@@ -2217,7 +2217,7 @@ advance_condition = &"Backdash"
 
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_s33xd"]
 switch_mode = 2
-advance_mode = 2
+advance_condition = &"wakeup"
 
 [sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_mbed6"]
 states/Backdash/node = SubResource("AnimationNodeAnimation_3h1ys")
@@ -2298,6 +2298,7 @@ advance_expression_base_node = NodePath("..")
 anim_player = NodePath("../AnimationPlayer")
 parameters/conditions/Backdash = false
 parameters/conditions/Dash = false
+parameters/conditions/wakeup = false
 parameters/Walk/blend_position = -0.1618452
 
 [node name="Hitbox" type="Area2D" parent="."]

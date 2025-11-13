@@ -2021,7 +2021,6 @@ advance_mode = 2
 
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_r433l"]
 switch_mode = 2
-advance_mode = 2
 
 [sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_mbed6"]
 states/Backdash/node = SubResource("AnimationNodeAnimation_3h1ys")
@@ -2072,7 +2071,7 @@ states/st_mp/position = Vector2(594, 142)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-52, 185)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_aiihl"), "layground", "wakeup", SubResource("AnimationNodeStateMachineTransition_r433l")]
-graph_offset = Vector2(-228, 107)
+graph_offset = Vector2(-272, 68)
 
 [node name="Player2" type="CharacterBody2D"]
 collision_layer = 2

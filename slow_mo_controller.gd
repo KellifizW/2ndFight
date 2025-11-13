@@ -6,7 +6,7 @@ signal time_scale_changed(new_time_scale: float)
 
 # 時間縮放參數
 var normal_time_scale: float = 1.0
-var slowmo_time_scale: float = 0.1  # 慢動作速度（40%正常速度）
+var slowmo_time_scale: float = 0.6  # 慢動作速度（40%正常速度）
 var hit_slowmo_time_scale: float = 0.02  # 擊中慢動作速度（2%正常速度）
 var slowmo_enter_time: float = 0.1   # 進入慢動作的過渡時間（秒），僅用於手動切換
 var slowmo_exit_time: float = 0.15   # 退出慢動作的過渡時間（秒），僅用於手動切換

@@ -306,7 +306,7 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	super._update_animation_state(dir_x, crouch_input)
 
-func _on_animation_tree_finished(anim_name: String) -> void:
+func _on_animation_tree_finished(anim_name: StringName) -> void:
 	if anim_name == "layground" and is_layground:
 		var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 		if healthbar and healthbar.current_health <= 0:
