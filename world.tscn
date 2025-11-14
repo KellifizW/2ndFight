@@ -139,10 +139,10 @@ text = "P2 Advantage: 0.000"
 [node name="FrameBarP1" parent="UI" instance=ExtResource("7_wse8f")]
 
 [node name="FrameBarP2" parent="UI" instance=ExtResource("7_wse8f")]
-offset_left = 240.0
-offset_top = 30.0
-offset_right = 420.0
-offset_bottom = 40.0
+offset_left = 166.0
+offset_top = 32.0
+offset_right = 346.0
+offset_bottom = 42.0
 
 [node name="CPUController" type="Node" parent="."]
 script = ExtResource("6_dwbse")

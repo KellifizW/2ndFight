@@ -1,4 +1,4 @@
-[gd_scene load_steps=92 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=90 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Resource" uid="uid://dsdxakjhgv04k" path="res://data/p1_attack_data.tres" id="2_lyl3y"]
@@ -915,15 +915,15 @@ tracks/1/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_y0uv2"]
-size = Vector2(20, 60)
+size = Vector2(30, 60)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0aqdq"]
 size = Vector2(80, 20)
 
 [sub_resource type="Animation" id="Animation_cmdsw"]
 resource_name = "dp"
-length = 0.7
-step = 0.0667
+length = 0.9
+step = 0.0167
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
@@ -931,7 +931,7 @@ tracks/0/path = NodePath("Sprite2D:frame_coords")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.06666667, 0.13333334, 0.20000002, 0.26666668, 0.33333334, 0.4, 0.46666667, 0.6, 0.6333334),
+"times": PackedFloat32Array(0, 0.13333334, 0.2, 0.26666668, 0.3, 0.33333334, 0.38333333, 0.41666666, 0.51666665, 0.65),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [Vector2i(0, 17), Vector2i(1, 17), Vector2i(2, 17), Vector2i(3, 17), Vector2i(4, 17), Vector2i(5, 17), Vector2i(6, 17), Vector2i(7, 17), Vector2i(7, 6), Vector2i(6, 3)]
@@ -943,7 +943,7 @@ tracks/1/path = NodePath("Hitbox/HitShape:shape")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
-"times": PackedFloat32Array(0.06666667, 0.26666668),
+"times": PackedFloat32Array(0.13333334, 0.3),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [SubResource("RectangleShape2D_y0uv2"), null]
@@ -955,9 +955,9 @@ tracks/2/path = NodePath("Hitbox/HitShape:shape:size")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0.06666667, 0.20000002),
+"times": PackedFloat32Array(0.13333334, 0.23333333),
 "transitions": PackedFloat32Array(1, 1),
-"update": 0,
+"update": 1,
 "values": [Vector2(30, 60), Vector2(20, 60)]
 }
 tracks/3/type = "value"
@@ -967,9 +967,9 @@ tracks/3/path = NodePath("Hitbox/HitShape:position")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.06666667, 0.20000002),
+"times": PackedFloat32Array(0, 0.13333334, 0.23333333),
 "transitions": PackedFloat32Array(1, 1, 1),
-"update": 0,
+"update": 1,
 "values": [Vector2(15, 0), Vector2(15, -15), Vector2(10, -15)]
 }
 tracks/4/type = "value"
@@ -991,7 +991,7 @@ tracks/5/path = NodePath("Proximitybox/ProxShape:shape")
 tracks/5/interp = 1
 tracks/5/loop_wrap = true
 tracks/5/keys = {
-"times": PackedFloat32Array(0, 0.26666668),
+"times": PackedFloat32Array(0, 0.3),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [SubResource("RectangleShape2D_0aqdq"), null]
@@ -1428,7 +1428,7 @@ tracks/0/path = NodePath("Sprite2D:frame_coords")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.116667, 0.2, 0.283333),
+"times": PackedFloat32Array(0, 0.13333334, 0.21666667, 0.3),
 "transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
 "values": [Vector2i(0, 3), Vector2i(1, 3), Vector2i(2, 3), Vector2i(3, 3)]
@@ -1476,7 +1476,7 @@ tracks/0/keys = {
 
 [sub_resource type="Animation" id="Animation_ak627"]
 resource_name = "layground"
-length = 0.3833
+length = 0.2
 step = 0.0167
 tracks/0/type = "value"
 tracks/0/imported = false
@@ -1485,7 +1485,7 @@ tracks/0/path = NodePath("Sprite2D:frame_coords")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.099999994, 0.21666703),
+"times": PackedFloat32Array(0, 0.03333333, 0.16666667),
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
 "values": [Vector2i(4, 3), Vector2i(5, 3), Vector2i(4, 3)]
@@ -2042,7 +2042,7 @@ tracks/4/keys = {
 
 [sub_resource type="Animation" id="Animation_g4e5n"]
 resource_name = "wakeup"
-length = 0.2333
+length = 0.5
 step = 0.0167
 tracks/0/type = "value"
 tracks/0/imported = false
@@ -2051,7 +2051,7 @@ tracks/0/path = NodePath("Sprite2D:frame_coords")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.116666675),
+"times": PackedFloat32Array(0, 0.28333333),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [Vector2i(1, 6), Vector2i(4, 2)]
@@ -2075,7 +2075,7 @@ tracks/2/path = NodePath("Sprite2D:offset")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0, 0.11666667),
+"times": PackedFloat32Array(0, 0.28333333),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [Vector2(0, 0), Vector2(0, -3)]
@@ -2203,10 +2203,6 @@ animation = &"wakeup"
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_meopb"]
 advance_mode = 2
 
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_c5mkm"]
-switch_mode = 2
-advance_mode = 2
-
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_lyl3y"]
 advance_mode = 2
 advance_condition = &"Dash"
@@ -2214,10 +2210,6 @@ advance_condition = &"Dash"
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_ak627"]
 advance_mode = 2
 advance_condition = &"Backdash"
-
-[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_s33xd"]
-switch_mode = 2
-advance_condition = &"wakeup"
 
 [sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_mbed6"]
 states/Backdash/node = SubResource("AnimationNodeAnimation_3h1ys")
@@ -2269,8 +2261,8 @@ states/super/node = SubResource("AnimationNodeAnimation_ak627")
 states/super/position = Vector2(300, 222)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-108, 193)
-transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "wakeup", "Walk", SubResource("AnimationNodeStateMachineTransition_c5mkm"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627"), "layground", "wakeup", SubResource("AnimationNodeStateMachineTransition_s33xd")]
-graph_offset = Vector2(-220, 78)
+transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627")]
+graph_offset = Vector2(-269, 80)
 
 [node name="Player1" type="CharacterBody2D"]
 collision_mask = 0

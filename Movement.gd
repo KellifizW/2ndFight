@@ -9,16 +9,16 @@ var world: Node
 # ── 基本狀態 ──────────────────────────────
 @export var landing_duration: float = 0.2
 var is_layground: bool = false
-@export var layground_duration: float = 0.3833
+@export var layground_duration: float = 0.2
 var layground_timer: float = 0.0
 var is_knockfly_animation_finished: bool = false
 
 # ── Knockfly 物理參數（預設值） ────────────
 @export_group("Knockfly Physics")
-@export var default_knockfly_gravity: float = 500000.0
-@export var default_knockfly_vertical_speed: float = -100.0
-@export var default_knockfly_horizontal_speed: float = 400.0
-@export var default_air_friction: float = 10.0
+@export var default_knockfly_gravity: float = 1200000.0
+@export var default_knockfly_vertical_speed: float = -120.0
+@export var default_knockfly_horizontal_speed: float = 600.0
+@export var default_air_friction: float = 500.0
 @export var default_knockfly_duration: float = 0.4
 
 # ── Knockfly 執行時實際值 ─────────────────
@@ -559,12 +559,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		target_state = "layground"
 		animation_state.travel("layground") # 強制回到 layground
 		return # 直接跳出，阻止任何其他轉換
-	# ── 除錯：記錄每次動畫狀態計算與轉換 ──
-	if curr_state != target_state:
-		print("Debug: Animation transition: %s → %s (on_floor=%s, is_layground=%s, health=%.1f)" % [
-			curr_state, target_state, on_floor, is_layground,
-			healthbar.current_health if healthbar else -1
-		])
+
 	if target_state == "Walk" and not on_floor and is_jumping:
 		target_state = "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
 	_set_animation_conditions(target_state, on_floor, crouch_input)
@@ -585,13 +580,14 @@ func _reset_layground_with_health_check() -> void:
 		is_knockfly = false
 		is_knockfly_animation_finished = false
 		# 不呼叫 animation_state.travel("wakeup")
-		return
+		return # 直接跳出，阻止任何其他轉換
 	print("Debug: Health > 0. Proceeding to wakeup for %s." % name)
 	is_layground = false
 	is_knockfly = false
 	is_knockfly_animation_finished = false
-	# 只有在有 Player 父節點時才觸發 wakeup（Player 專屬）
-	if get_parent() is Player:
-		get_parent().is_wakeup = true
-		get_parent().is_wakeup_locked = true
+	# 只有在 self 有 wakeup 旗標時才觸發（Player 專屬）
+	if "is_wakeup" in self and "is_wakeup_locked" in self:
+		self.is_wakeup = true
+		self.is_wakeup_locked = true
+		animation_state.travel("wakeup")
 	_update_animation_state(0, false)
