@@ -72,15 +72,15 @@ var knockfly_timer: float = 0.0
 
 # ── 推擠參數 ──────────────────────────────
 @export_group("Push Parameters")
-@export var block_push_distance: float = 20.0
+@export var block_push_distance: float = 0.0
 var is_immune_to_floor_snap: bool = false
 var floor_snap_immunity_timer: float = 0.0
 @export var floor_snap_immunity_duration: float = 0.1 # 約 6 幀 @ 60fps
 var block_push_timer: float = 0.0
 var initial_blockstun: float = 0.0
 var block_push_velocity: float = 0.0
-@export var hit_push_distance: float = 20.0
-var hit_push_timer: float = 0.0
+@export var hit_push_distance: float = 0.0
+var hit_push_timer: float = 1.0
 var initial_hitstun: float = 0.0
 var hit_push_velocity: float = 0.0
 
