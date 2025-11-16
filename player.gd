@@ -119,12 +119,15 @@ var player_anim_resets: Dictionary = {
 func _ready() -> void:
 	super._ready()
 	world = get_tree().get_first_node_in_group("world")
+	# ── 移除 p2 的硬編碼覆蓋，讓 tres 完全控制 ──
+	# 只保留 p1 的（若你想保持差異）
 	if player_id == "p1":
 		ATTACK_TABLE["st_mp"].hitstun = 0.40
 		ATTACK_TABLE["st_mk"].hitstun = 0.65
-	else:
-		ATTACK_TABLE["st_mp"].hitstun = 0.35
-		ATTACK_TABLE["st_mk"].hitstun = 0.45
+	# p2 不再覆蓋：ATTACK_TABLE 直接用 p2_attack_data.tres 的值
+	# 加 debug 確認載入
+	print("[DEBUG] %s ATTACK_TABLE st_mk → hitstun: %.3f (from tres)" % [player_id, ATTACK_TABLE["st_mk"].hitstun])
+	# ── 其餘 _ready() 程式碼不變 ──
 	if has_node("Hitbox"):
 		$Hitbox.area_entered.connect(_on_hitbox_area_entered)
 	if animation_tree:
@@ -277,7 +280,10 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 	if is_layground: return "layground"
 	if is_knockfly: return "knockfly"
 	if is_wakeup_locked: return "wakeup"
-	if is_hit: return "hit"
+	if is_hit:
+		if not on_floor and ("is_air_hit_backjump" in self and self.is_air_hit_backjump):
+			return "Jump_B"
+		return "hit" if on_floor else "Jump_B"
 
 	if move_set and move_set.is_spmove:
 		if move_set.is_super: return "super"
@@ -289,7 +295,6 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 	if is_blocking:
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
 
-	# ← 必須在此處返回 landing
 	if is_landing and landing_lock_timer > 0:
 		return "landing"
 
@@ -302,7 +307,7 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 			else: return "Jump_V"
 
 	return super._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
-
+	
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	super._update_animation_state(dir_x, crouch_input)
 
@@ -320,7 +325,7 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 		if anim_name in player_anim_resets:
 			player_anim_resets[anim_name].call()
 
-# ── 擊中處理（保持原版） ─────────────────────
+# ── 擊中處理（加入除錯訊息） ─────────────────────
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	if area.name != "Hurtbox" or not area.get_parent().is_in_group("players") or area.get_parent() == self:
 		return
@@ -408,7 +413,6 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		initial_push_back = push_duration
 		push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
 		fixed_velocity.x = int(-push_back_velocity * get_facing_multiplier())
-
 func _on_hit_detected(_target: String, _stun_duration: float, _is_blocked: bool, _was_in_stun: bool) -> void:
 	if player_id == "p1" and attack_type == "st_mp" and is_attacking:
 		cancel_window_timer = cancel_window_duration

@@ -27,6 +27,12 @@ var knockfly_vertical_speed: float = default_knockfly_vertical_speed
 var knockfly_horizontal_speed: float = default_knockfly_horizontal_speed
 var air_friction: float = default_air_friction
 var knockfly_duration: float = default_knockfly_duration
+@export var air_hit_backjump_speed: float = 400.0
+@export var air_hit_backjump_duration: float = 0.2
+@export var air_hit_backjump_up_speed: float = -800.0  # ← 新增：後跳升起初速（負值向上）
+var is_air_hit_backjump: bool = false
+var air_hit_backjump_timer: float = 0.0
+var pending_jump_b_seek: float = -1.0
 
 # ── 空中受擊專用 ─────────────────────────
 var is_air_hit_knockfly: bool = false
@@ -72,15 +78,15 @@ var knockfly_timer: float = 0.0
 
 # ── 推擠參數 ──────────────────────────────
 @export_group("Push Parameters")
-@export var block_push_distance: float = 0.0
+@export var block_push_distance: float = 50.0
 var is_immune_to_floor_snap: bool = false
 var floor_snap_immunity_timer: float = 0.0
 @export var floor_snap_immunity_duration: float = 0.1 # 約 6 幀 @ 60fps
 var block_push_timer: float = 0.0
 var initial_blockstun: float = 0.0
 var block_push_velocity: float = 0.0
-@export var hit_push_distance: float = 0.0
-var hit_push_timer: float = 1.0
+@export var hit_push_distance: float = 50.0
+var hit_push_timer: float = 0.0
 var initial_hitstun: float = 0.0
 var hit_push_velocity: float = 0.0
 
@@ -235,6 +241,12 @@ func _handle_timers(delta: float) -> void:
 			fixed_velocity.y = int(jump_vertical_speed * (world.SIMULATION_SCALE if world else 1000))
 			just_jumped = true
 			fixed_position.y = (world.FLOOR_Y if world else 200000) - 1
+	if air_hit_backjump_timer > 0:
+		air_hit_backjump_timer -= delta
+		if air_hit_backjump_timer <= 0:
+			is_air_hit_backjump = false
+			fixed_velocity.x = 0
+			fixed_velocity.y = 0
 
 func _handle_blocking(input_dir: int, is_special_moving: bool) -> void:
 	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_layground):
@@ -295,10 +307,27 @@ func _handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor
 			fixed_velocity.x = 0
 
 func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
+	if is_air_hit_backjump:
+		air_hit_backjump_timer -= delta
+		# 正常重力（讓升起後自然落下）
+		var gravity: int = world.GRAVITY if world else 1800000
+		fixed_velocity.y += int(gravity * delta)
+		# 水平空氣摩擦
+		var friction_amount = int(default_air_friction * (world.SIMULATION_SCALE if world else 1000.0) * delta)
+		if fixed_velocity.x > 0:
+			fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
+		elif fixed_velocity.x < 0:
+			fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
+		
+		if air_hit_backjump_timer <= 0 or is_on_floor():
+			is_air_hit_backjump = false
+			is_hit = true  # 接續 hitstun 狀態
+		return
+
+	# 原有 knockfly/layground 邏輯不變
 	if is_knockfly:
 		knockfly_timer -= delta
 		fixed_velocity.y += int(knockfly_gravity * delta)
-		# 空中摩擦
 		var friction_amount = int(air_friction * (world.SIMULATION_SCALE if world else 1000.0) * delta)
 		if fixed_velocity.x > 0:
 			fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
@@ -555,10 +584,9 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	# ── 新增：血量歸零時，強制鎖定在 layground ──
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 	if healthbar and healthbar.current_health <= 0 and is_layground:
-		print("Debug: BLOOD ZERO! Forcing stay in layground for %s. Blocking transition from %s to %s" % [name, curr_state, target_state])
 		target_state = "layground"
-		animation_state.travel("layground") # 強制回到 layground
-		return # 直接跳出，阻止任何其他轉換
+		animation_state.travel("layground") 
+		return 
 
 	if target_state == "Walk" and not on_floor and is_jumping:
 		target_state = "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
@@ -575,7 +603,6 @@ func _reset_layground_with_health_check() -> void:
 	print("Debug: layground reset triggered for %s. Checking health before wakeup transition." % name)
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 	if healthbar and healthbar.current_health <= 0:
-		print("Debug: BLOOD ZERO DETECTED! Skipping wakeup. %s stays in layground." % name)
 		is_layground = true # 強制保持
 		is_knockfly = false
 		is_knockfly_animation_finished = false

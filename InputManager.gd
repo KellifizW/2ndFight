@@ -131,8 +131,6 @@ func get_current_raw_input() -> int:
 	var back = Input.is_action_pressed(("move_left" if input_side > 0 else "move_right") + suffix)
 	
 	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
-	if player_id == "p1" and (down or forward or back):
-		print("Debug: [%s] down = %s, forward = %s, back = %s, input_side = %d, suffix = %s" % [player_id, down, forward, back, input_side, suffix])
 	
 	if down and forward and not back:
 		dir = DirectionalInputs.DOWN_FORWARD
@@ -164,9 +162,7 @@ func insert_to_history(raw_input: int):
 	input_history[current_history] = InputRegistry.new()
 	input_history[current_history].raw_input = raw_input
 	input_history[current_history].duration = 1
-	if player_id == "p1" and raw_input != 0:
-		print("Debug: [%s] New input inserted at history[%d]: %d (duration=1)" % [player_id, current_history, raw_input])
-
+	
 func check_fireball_input() -> bool:
 	return check_motion(fireball_motion)
 

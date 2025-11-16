@@ -63,6 +63,8 @@ func take_hit(
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
 
+	print("[DEBUG] take_hit() 接收 → hitstun: %.3f, blockstun: %.3f, damage: %.1f, force_knockfly: %s" % [hitstun_duration, blockstun_duration, damage, force_knockfly])
+
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove
 
@@ -95,63 +97,70 @@ func take_hit(
 			is_blocking = false
 			block_type = "none"
 
-	var hurt_grunt_player = $HurtGruntPlayer if has_node("HurtGruntPlayer") else null
-	if hurt_grunt_player:
-		hurt_grunt_player.play()
-		print("Debug: Hurt grunt sound played for %s (player_id=%s)" % [name, get("player_id") if "player_id" in self else "unknown"])
+		var hurt_grunt_player = $HurtGruntPlayer if has_node("HurtGruntPlayer") else null
+		if hurt_grunt_player:
+			hurt_grunt_player.play()
+			print("Debug: Hurt grunt sound played for %s (player_id=%s)" % [name, get("player_id") if "player_id" in self else "unknown"])
 
-	if not is_on_floor():
-		update_facing_direction()
+		if not is_on_floor():
+			update_facing_direction()
 
-	if healthbar:
-		healthbar.take_damage(damage)
-		print("Debug: Damage applied: %s to %s, current_health=%s" % [damage, name, healthbar.current_health])
+		if healthbar:
+			healthbar.take_damage(damage)
+			print("Debug: Damage applied: %s to %s, current_health=%s" % [damage, name, healthbar.current_health])
 
-	var facing_mult = get_facing_multiplier()
+		var facing_mult = get_facing_multiplier()
 
-	if force_knockfly or damage > 10.0 or (healthbar and healthbar.current_health <= 0):
-		var params = {
-			"gravity": default_knockfly_gravity,
-			"vertical_speed": default_knockfly_vertical_speed,
-			"horizontal_speed": default_knockfly_horizontal_speed,
-			"duration": default_knockfly_duration
-		}
-		params.merge(knockfly_params, true)
+		if force_knockfly or damage > 10.0 or (healthbar and healthbar.current_health <= 0):
+			var params = {
+				"gravity": default_knockfly_gravity,
+				"vertical_speed": default_knockfly_vertical_speed,
+				"horizontal_speed": default_knockfly_horizontal_speed,
+				"duration": default_knockfly_duration
+			}
+			params.merge(knockfly_params, true)
 
-		is_knockfly = true
-		knockfly_timer = max(params.duration, min_hitstun_duration)
-		is_immune_to_floor_snap = true
-		floor_snap_immunity_timer = floor_snap_immunity_duration
-		knockfly_gravity = params.gravity
-		knockfly_vertical_speed = params.vertical_speed
-		knockfly_horizontal_speed = params.horizontal_speed
+			is_knockfly = true
+			knockfly_timer = max(params.duration, min_hitstun_duration)
+			is_immune_to_floor_snap = true
+			floor_snap_immunity_timer = floor_snap_immunity_duration
+			knockfly_gravity = params.gravity
+			knockfly_vertical_speed = params.vertical_speed
+			knockfly_horizontal_speed = params.horizontal_speed
 
-		fixed_velocity.y = int(params.vertical_speed * world.SIMULATION_SCALE)
-		fixed_position.y -= 1
-		is_jumping = true
+			fixed_velocity.y = int(params.vertical_speed * world.SIMULATION_SCALE)
+			fixed_position.y -= 1
+			is_jumping = true
 
-		if not skip_push:
-			knockfly_velocity_x = -knockfly_horizontal_speed * world.SIMULATION_SCALE * facing_mult
-
-		print("Debug: Knockfly triggered for %s, force_knockfly=%s, velocity.y=%s, position.y=%s, gravity=%s, v_speed=%s, timer=%s" %
-			[name, force_knockfly, fixed_velocity.y, fixed_position.y, params.gravity, params.vertical_speed, knockfly_timer])
-	else:
-		is_hit = true
-		initial_hitstun = max(hitstun_duration, min_hitstun_duration)
-		hit_timer = initial_hitstun
-		if is_on_floor():
 			if not skip_push:
-				hit_push_timer = initial_hitstun
-				hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
-			fixed_velocity.x = 0
-			fixed_velocity.y = 0
+				knockfly_velocity_x = -knockfly_horizontal_speed * world.SIMULATION_SCALE * facing_mult
+
+			print("Debug: Knockfly triggered for %s, force_knockfly=%s, velocity.y=%s, position.y=%s, gravity=%s, v_speed=%s, timer=%s" %
+				[name, force_knockfly, fixed_velocity.y, fixed_position.y, params.gravity, params.vertical_speed, knockfly_timer])
 		else:
-			fixed_velocity.y = int(default_knockfly_vertical_speed * world.SIMULATION_SCALE)
-			fixed_velocity.x = int(-default_knockfly_horizontal_speed * world.SIMULATION_SCALE * facing_mult)
-		print("Debug: Normal hit for %s, hitstun=%s" % [name, initial_hitstun])
+			is_hit = true
+			initial_hitstun = max(hitstun_duration, min_hitstun_duration)
+			hit_timer = initial_hitstun
+			if is_on_floor():
+				if not skip_push:
+					hit_push_timer = initial_hitstun
+					hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
+				fixed_velocity.x = 0
+				fixed_velocity.y = 0
+			else:
+				# ← 空中受擊：後跳升起效果（一半距離 + 明顯向上初速）
+				is_air_hit_backjump = true
+				air_hit_backjump_timer = air_hit_backjump_duration
+				
+				fixed_velocity.x = int(-air_hit_backjump_speed * world.SIMULATION_SCALE * facing_mult)
+				fixed_velocity.y = int(air_hit_backjump_up_speed * world.SIMULATION_SCALE)  # 強制向上初速 → 明顯升起
+				is_immune_to_floor_snap = true
+				floor_snap_immunity_timer = floor_snap_immunity_duration
+				fixed_position.y -= 2  # 立即向上偏移，視覺更明顯
+			print("Debug: Normal hit for %s, hitstun=%s" % [name, initial_hitstun])
 
 	_update_animation_state(0, input_data.crouch_pressed)
-
+	
 func take_knockfly():
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove

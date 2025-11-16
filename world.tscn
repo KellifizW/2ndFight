@@ -43,15 +43,9 @@ zoom = Vector2(1.333, 1.333)
 
 [node name="Player1" parent="." instance=ExtResource("1_f3sb7")]
 position = Vector2(190, 200)
-corner_push_distance = 5.0
-block_push_distance = 10.0
-hit_push_distance = 10.0
 
 [node name="Player2" parent="." instance=ExtResource("3_tlwt5")]
 position = Vector2(290, 200)
-corner_push_distance = 5.0
-block_push_distance = 10.0
-hit_push_distance = 10.0
 jump_delay_duration = 0.1
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]

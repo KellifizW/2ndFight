@@ -579,7 +579,6 @@ tracks/6/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_7gy1f"]
-size = Vector2(40, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_iwfv5"]
 size = Vector2(40, 20)
@@ -1016,6 +1015,9 @@ tracks/1/keys = {
 "update": 1,
 "values": [Vector2(0, -5)]
 }
+
+[sub_resource type="Animation" id="Animation_iwfv5"]
+resource_name = "fw_mp"
 
 [sub_resource type="Animation" id="Animation_5b203"]
 resource_name = "hit"
@@ -1986,9 +1988,6 @@ tracks/2/keys = {
 "values": [true]
 }
 
-[sub_resource type="Animation" id="Animation_iwfv5"]
-resource_name = "fw_mp"
-
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_46qut"]
 _data = {
 &"RESET": SubResource("Animation_3ch2m"),
@@ -2203,7 +2202,6 @@ shape = SubResource("RectangleShape2D_bhnal")
 debug_color = Color(1.44392e-06, 0.569045, 0.850655, 0.42)
 
 [node name="AttackHurtShape" type="CollisionShape2D" parent="Hurtbox"]
-position = Vector2(15, 10)
 debug_color = Color(0.9954062, 0, 0.21373373, 0.41960785)
 
 [node name="Proximitybox" type="Area2D" parent="."]

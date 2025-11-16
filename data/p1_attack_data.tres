@@ -4,4 +4,14 @@
 
 [resource]
 script = ExtResource("1_6mkls")
+st_mk = {
+"blockstun": 0.3,
+"damage": 9.0,
+"hitstun": 0.8
+}
+jump_mk = {
+"blockstun": 0.3,
+"damage": 8.0,
+"hitstun": 2.0
+}
 metadata/_custom_type_script = "uid://ccjfweg28wskh"
