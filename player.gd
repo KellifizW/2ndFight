@@ -119,15 +119,6 @@ var player_anim_resets: Dictionary = {
 func _ready() -> void:
 	super._ready()
 	world = get_tree().get_first_node_in_group("world")
-	# ── 移除 p2 的硬編碼覆蓋，讓 tres 完全控制 ──
-	# 只保留 p1 的（若你想保持差異）
-	if player_id == "p1":
-		ATTACK_TABLE["st_mp"].hitstun = 0.40
-		ATTACK_TABLE["st_mk"].hitstun = 0.65
-	# p2 不再覆蓋：ATTACK_TABLE 直接用 p2_attack_data.tres 的值
-	# 加 debug 確認載入
-	print("[DEBUG] %s ATTACK_TABLE st_mk → hitstun: %.3f (from tres)" % [player_id, ATTACK_TABLE["st_mk"].hitstun])
-	# ── 其餘 _ready() 程式碼不變 ──
 	if has_node("Hitbox"):
 		$Hitbox.area_entered.connect(_on_hitbox_area_entered)
 	if animation_tree:

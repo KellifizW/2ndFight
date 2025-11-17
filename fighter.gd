@@ -39,13 +39,10 @@ func _physics_process(delta):
 	var input_data = get_input()
 	var is_valid_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping
 
-	if is_hit or is_knockfly or is_blocking:
-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-	else:
-		if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_state:
-			current_damage = input_data.damage
-			is_attacking = true
-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+	# 修正：統一由 Movement._physics_process 末尾處理動畫更新
+	if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_state and not (is_hit or is_knockfly or is_blocking):
+		current_damage = input_data.damage
+		is_attacking = true
 
 func post_physics_process(delta):
 	pass
@@ -88,7 +85,6 @@ func take_hit(
 			block_push_timer = initial_blockstun
 			block_push_velocity = 2.0 * block_push_distance * world.SIMULATION_SCALE / initial_blockstun
 		block_detected.emit(name, block_type)
-		_update_animation_state(0, input_data.crouch_pressed)
 		print("Debug: Block detected, no damage applied for %s" % name)
 		return
 	else:
@@ -119,7 +115,6 @@ func take_hit(
 				"duration": default_knockfly_duration
 			}
 			params.merge(knockfly_params, true)
-
 			is_knockfly = true
 			knockfly_timer = max(params.duration, min_hitstun_duration)
 			is_immune_to_floor_snap = true
@@ -127,20 +122,19 @@ func take_hit(
 			knockfly_gravity = params.gravity
 			knockfly_vertical_speed = params.vertical_speed
 			knockfly_horizontal_speed = params.horizontal_speed
-
 			fixed_velocity.y = int(params.vertical_speed * world.SIMULATION_SCALE)
 			fixed_position.y -= 1
 			is_jumping = true
-
 			if not skip_push:
 				knockfly_velocity_x = -knockfly_horizontal_speed * world.SIMULATION_SCALE * facing_mult
-
 			print("Debug: Knockfly triggered for %s, force_knockfly=%s, velocity.y=%s, position.y=%s, gravity=%s, v_speed=%s, timer=%s" %
 				[name, force_knockfly, fixed_velocity.y, fixed_position.y, params.gravity, params.vertical_speed, knockfly_timer])
 		else:
 			is_hit = true
 			initial_hitstun = max(hitstun_duration, min_hitstun_duration)
 			hit_timer = initial_hitstun
+			print("[FIX DEBUG] %s 設定 hit_timer = %.3f 秒（預期 %d 幀）" % [name, hit_timer, round(hit_timer * 60)])
+			
 			if is_on_floor():
 				if not skip_push:
 					hit_push_timer = initial_hitstun
@@ -159,8 +153,6 @@ func take_hit(
 				fixed_position.y -= 2  # 立即向上偏移，視覺更明顯
 			print("Debug: Normal hit for %s, hitstun=%s" % [name, initial_hitstun])
 
-	_update_animation_state(0, input_data.crouch_pressed)
-	
 func take_knockfly():
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove
@@ -170,7 +162,6 @@ func take_knockfly():
 			move_set.stop_special_move()
 		is_knockfly = true
 		knockfly_timer = max(default_knockfly_duration, min_hitstun_duration)
-		_update_animation_state(0, is_crouching)
 
 func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
 	var hit_shape_node = hit_area.get_node_or_null("HitShape") as CollisionShape2D

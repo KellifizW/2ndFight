@@ -6,6 +6,13 @@ var world: Node
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer if has_node("AnimationPlayer") else null
 
+# ── 除錯：hit 動畫精確計時（遊戲時間 + 真實世界時間） ──────────────────────
+var _debug_hit_game_time: float = 0.0          # 遊戲內累積時間（受 delta 影響）
+var _debug_hit_real_time: float = 0.0          # 真實世界累積時間（不受 pause / slowmo 影響）
+var _debug_hit_start_game_frame: int = -1      # 開始時的遊戲幀數
+var _debug_hit_start_real_ms: int = -1         # 開始時的真實毫秒時間戳
+var _debug_hit_cause: String = ""              # 觸發原因（例如 "PlayerP1 的 cr_mp"）
+
 # ── 基本狀態 ──────────────────────────────
 @export var landing_duration: float = 0.2
 var is_layground: bool = false
@@ -29,7 +36,7 @@ var air_friction: float = default_air_friction
 var knockfly_duration: float = default_knockfly_duration
 @export var air_hit_backjump_speed: float = 400.0
 @export var air_hit_backjump_duration: float = 0.2
-@export var air_hit_backjump_up_speed: float = -800.0  # ← 新增：後跳升起初速（負值向上）
+@export var air_hit_backjump_up_speed: float = -800.0
 var is_air_hit_backjump: bool = false
 var air_hit_backjump_timer: float = 0.0
 var pending_jump_b_seek: float = -1.0
@@ -81,7 +88,7 @@ var knockfly_timer: float = 0.0
 @export var block_push_distance: float = 50.0
 var is_immune_to_floor_snap: bool = false
 var floor_snap_immunity_timer: float = 0.0
-@export var floor_snap_immunity_duration: float = 0.1 # 約 6 幀 @ 60fps
+@export var floor_snap_immunity_duration: float = 0.1
 var block_push_timer: float = 0.0
 var initial_blockstun: float = 0.0
 var block_push_velocity: float = 0.0
@@ -190,6 +197,7 @@ func _physics_process(delta: float) -> void:
 	var is_special_moving: bool = move_set.is_special_moving if move_set and "is_special_moving" in move_set else false
 	var scale_factor: float = world.SIMULATION_SCALE if world else 1000.0
 	var floor_y: int = world.FLOOR_Y if world else 200000
+
 	_handle_timers(delta)
 	_handle_blocking(input_dir, is_special_moving)
 	_handle_dash(input_dir, scale_factor, is_special_moving)
@@ -200,12 +208,14 @@ func _physics_process(delta: float) -> void:
 	fixed_position += Vector2i(roundi(fixed_velocity.x * delta), roundi(fixed_velocity.y * delta))
 	_handle_landing(input_data, floor_y, delta)
 	global_position = world.to_scaled_vector2(fixed_position) if world else Vector2(float(fixed_position.x) / 1000.0, float(fixed_position.y) / 1000.0)
+
 	if just_jumped and fixed_velocity.y > 0:
 		just_jumped = false
 	if floor_snap_immunity_timer > 0:
 		floor_snap_immunity_timer -= delta
 		if floor_snap_immunity_timer <= 0:
 			is_immune_to_floor_snap = false
+
 	var is_landing_state: bool = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
 	if not (is_attacking or landing_facing_lock or is_landing_state):
 		update_facing_direction()
@@ -219,6 +229,73 @@ func _physics_process(delta: float) -> void:
 		_update_animation_state(input_dir, crouch_pressed)
 	post_physics_process(delta)
 
+func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
+	var prev_state: String = animation_state.get_current_node() if animation_state else ""
+	var on_floor: bool = is_on_floor()
+	var anim_dir: float = dir_x * facing_direction
+	var anim_jump_dir: float = jump_dir * facing_direction
+	var target_state: String = _compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
+
+	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
+	if healthbar and healthbar.current_health <= 0 and is_layground:
+		target_state = "layground"
+		animation_state.travel("layground")
+		return
+
+	if target_state == "Walk" and not on_floor and is_jumping:
+		target_state = "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
+
+	_set_animation_conditions(target_state, on_floor, crouch_input)
+
+	if prev_state != target_state:
+		if not (target_state == "knockfly" and is_knockfly_animation_finished and not is_on_floor()):
+			animation_state.travel(target_state)
+
+		# ── 開始播放 hit 動畫 ──────────────────────
+		if target_state == "hit" and prev_state != "hit":
+			_debug_hit_game_time = 0.0
+			_debug_hit_real_time = 0.0
+			_debug_hit_start_game_frame = Engine.get_physics_frames()
+			_debug_hit_start_real_ms = Time.get_ticks_msec()
+
+			var attacker = null
+			for p in get_tree().get_nodes_in_group("players"):
+				if p != self:
+					attacker = p
+					break
+			var cause := "unknown"
+			if attacker and attacker.is_attacking and "attack_type" in attacker and attacker.attack_type == "cr_mp":
+				cause = "%s 的 cr_mp" % attacker.name
+			elif attacker and attacker.is_attacking and "attack_type" in attacker:
+				cause = "%s 的 %s" % [attacker.name, attacker.attack_type]
+			_debug_hit_cause = cause
+
+			print("[HIT ANIM START] %s 開始播放 hit 動畫 ← 由 %s 引起" % [name, cause])
+
+		# ── 離開 hit 動畫，輸出完整統計 ──────────────────────
+		if prev_state == "hit" and target_state != "hit":
+			var game_frames := Engine.get_physics_frames() - _debug_hit_start_game_frame
+			var real_ms := Time.get_ticks_msec() - _debug_hit_start_real_ms
+			var real_sec := real_ms / 1000.0
+
+			print("=====================================================================")
+			print("[HIT ANIM END] %s 的 hit 動畫結束！由 %s 引起" % [name, _debug_hit_cause])
+			print("   遊戲內時間 (delta 累積)      : %.6f 秒 (%d 幀)" % [_debug_hit_game_time, game_frames])
+			print("   真實世界時間 (不受 pause/slowmo 影響): %.6f 秒 (%d ms)" % [real_sec, real_ms])
+			print("   差異                        : %.6f 秒" % (_debug_hit_game_time - real_sec))
+			print("=====================================================================")
+
+	if target_state == "Walk":
+		animation_tree.set("parameters/Walk/blend_position", anim_dir)
+	if is_jumping and on_floor:
+		is_jumping = false
+
+	# ── 每幀累加計時（僅在播放 hit 動畫時） ──────────────────────
+	if animation_state.get_current_node() == "hit":
+		_debug_hit_game_time += get_physics_process_delta_time()
+		_debug_hit_real_time += get_process_delta_time()  # 真實時間用 process delta（更穩定）
+
+# 其餘函式完全不變（以下為原檔案其餘內容）
 func _handle_timers(delta: float) -> void:
 	if neutral_timer > 0:
 		neutral_timer -= delta
@@ -309,22 +386,17 @@ func _handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor
 func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
 	if is_air_hit_backjump:
 		air_hit_backjump_timer -= delta
-		# 正常重力（讓升起後自然落下）
 		var gravity: int = world.GRAVITY if world else 1800000
 		fixed_velocity.y += int(gravity * delta)
-		# 水平空氣摩擦
 		var friction_amount = int(default_air_friction * (world.SIMULATION_SCALE if world else 1000.0) * delta)
 		if fixed_velocity.x > 0:
 			fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
 		elif fixed_velocity.x < 0:
 			fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
-		
 		if air_hit_backjump_timer <= 0 or is_on_floor():
 			is_air_hit_backjump = false
-			is_hit = true  # 接續 hitstun 狀態
+			is_hit = true
 		return
-
-	# 原有 knockfly/layground 邏輯不變
 	if is_knockfly:
 		knockfly_timer -= delta
 		fixed_velocity.y += int(knockfly_gravity * delta)
@@ -371,16 +443,12 @@ func _handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void
 		pending_dash_dir = 0
 		last_input_dir = 0
 		landing_facing_lock = false
-		# ── 修正：先取 move_set，避免 undeclared 錯誤 ──
 		var move_set = $MoveSet if has_node("MoveSet") else null
-		# ── 簡潔判斷：特殊招式中 → 直接跳過 landing ──
 		if move_set and move_set.is_spmove:
-			# 強制清除 landing 狀態（避免殘留）
 			if "is_landing" in self:
 				self.is_landing = false
 				self.landing_lock_timer = 0.0
 		else:
-			# 原有邏輯：普通跳躍才觸發 landing
 			if "is_landing" in self and "landing_lock_timer" in self:
 				if not (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed):
 					self.is_landing = true
@@ -575,44 +643,18 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 				return "Jump_V"
 	return "Walk"
 
-func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	var curr_state: String = animation_state.get_current_node() if animation_state else ""
-	var on_floor: bool = is_on_floor()
-	var anim_dir: float = dir_x * facing_direction
-	var anim_jump_dir: float = jump_dir * facing_direction
-	var target_state: String = _compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
-	# ── 新增：血量歸零時，強制鎖定在 layground ──
-	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
-	if healthbar and healthbar.current_health <= 0 and is_layground:
-		target_state = "layground"
-		animation_state.travel("layground") 
-		return 
-
-	if target_state == "Walk" and not on_floor and is_jumping:
-		target_state = "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
-	_set_animation_conditions(target_state, on_floor, crouch_input)
-	if curr_state != target_state:
-		if not (target_state == "knockfly" and is_knockfly_animation_finished and not is_on_floor()):
-			animation_state.travel(target_state)
-	if target_state == "Walk":
-		animation_tree.set("parameters/Walk/blend_position", anim_dir)
-	if is_jumping and on_floor:
-		is_jumping = false
-
 func _reset_layground_with_health_check() -> void:
 	print("Debug: layground reset triggered for %s. Checking health before wakeup transition." % name)
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 	if healthbar and healthbar.current_health <= 0:
-		is_layground = true # 強制保持
+		is_layground = true
 		is_knockfly = false
 		is_knockfly_animation_finished = false
-		# 不呼叫 animation_state.travel("wakeup")
-		return # 直接跳出，阻止任何其他轉換
+		return
 	print("Debug: Health > 0. Proceeding to wakeup for %s." % name)
 	is_layground = false
 	is_knockfly = false
 	is_knockfly_animation_finished = false
-	# 只有在 self 有 wakeup 旗標時才觸發（Player 專屬）
 	if "is_wakeup" in self and "is_wakeup_locked" in self:
 		self.is_wakeup = true
 		self.is_wakeup_locked = true

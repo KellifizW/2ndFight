@@ -43,6 +43,7 @@ zoom = Vector2(1.333, 1.333)
 
 [node name="Player1" parent="." instance=ExtResource("1_f3sb7")]
 position = Vector2(190, 200)
+min_hitstun_duration = 0.0
 
 [node name="Player2" parent="." instance=ExtResource("3_tlwt5")]
 position = Vector2(290, 200)

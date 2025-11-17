@@ -710,7 +710,7 @@ tracks/16/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_lyl3y"]
-size = Vector2(20, 45)
+size = Vector2(30, 60)
 
 [sub_resource type="Animation" id="Animation_6flp4"]
 resource_name = "cr_mp"
@@ -1740,7 +1740,7 @@ tracks/10/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_woueq"]
-size = Vector2(80, 20)
+size = Vector2(20, 45)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_bjfdx"]
 size = Vector2(35, 20)
