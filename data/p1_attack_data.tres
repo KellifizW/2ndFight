@@ -17,7 +17,7 @@ st_mk = {
 cr_mp = {
 "blockstun": 2.0,
 "damage": 8.0,
-"hitstun": 10.0
+"hitstun": 2.0
 }
 jump_mk = {
 "blockstun": 0.3,

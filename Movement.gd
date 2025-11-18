@@ -7,11 +7,11 @@ var world: Node
 @onready var animation_player = $AnimationPlayer if has_node("AnimationPlayer") else null
 
 # ── 除錯：hit 動畫精確計時（遊戲時間 + 真實世界時間） ──────────────────────
-var _debug_hit_game_time: float = 0.0          # 遊戲內累積時間（受 delta 影響）
-var _debug_hit_real_time: float = 0.0          # 真實世界累積時間（不受 pause / slowmo 影響）
-var _debug_hit_start_game_frame: int = -1      # 開始時的遊戲幀數
-var _debug_hit_start_real_ms: int = -1         # 開始時的真實毫秒時間戳
-var _debug_hit_cause: String = ""              # 觸發原因（例如 "PlayerP1 的 cr_mp"）
+var _debug_hit_game_time: float = 0.0
+var _debug_hit_real_time: float = 0.0
+var _debug_hit_start_game_frame: int = -1
+var _debug_hit_start_real_ms: int = -1
+var _debug_hit_cause: String = ""
 
 # ── 基本狀態 ──────────────────────────────
 @export var landing_duration: float = 0.2
@@ -131,8 +131,13 @@ var animation_conditions: Array = [
 
 var anim_resets: Dictionary = {
 	"layground": func(): _reset_layground_with_health_check(),
-	"knockfly": func(): _reset_knockfly(),
-	"st_mp": func(): _reset_attack()
+	"knockfly":   func(): _reset_knockfly(),
+	"st_mp":      func(): _reset_attack(),
+	"st_mk":      func(): _reset_attack(),
+	"cr_mp":      func(): _reset_attack(),
+	"cr_mk":      func(): _reset_attack(),
+	# 明確禁止 hit 動畫結束時自動重置 is_hit
+	"hit":        func(): pass
 }
 
 func _reset_layground() -> void:
@@ -251,7 +256,6 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		if not (target_state == "knockfly" and is_knockfly_animation_finished and not is_on_floor()):
 			animation_state.travel(target_state)
 
-		# ── 開始播放 hit 動畫 ──────────────────────
 		if target_state == "hit" and prev_state != "hit":
 			_debug_hit_game_time = 0.0
 			_debug_hit_real_time = 0.0
@@ -272,7 +276,6 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 
 			print("[HIT ANIM START] %s 開始播放 hit 動畫 ← 由 %s 引起" % [name, cause])
 
-		# ── 離開 hit 動畫，輸出完整統計 ──────────────────────
 		if prev_state == "hit" and target_state != "hit":
 			var game_frames := Engine.get_physics_frames() - _debug_hit_start_game_frame
 			var real_ms := Time.get_ticks_msec() - _debug_hit_start_real_ms
@@ -290,12 +293,10 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	if is_jumping and on_floor:
 		is_jumping = false
 
-	# ── 每幀累加計時（僅在播放 hit 動畫時） ──────────────────────
 	if animation_state.get_current_node() == "hit":
 		_debug_hit_game_time += get_physics_process_delta_time()
-		_debug_hit_real_time += get_process_delta_time()  # 真實時間用 process delta（更穩定）
+		_debug_hit_real_time += get_process_delta_time()
 
-# 其餘函式完全不變（以下為原檔案其餘內容）
 func _handle_timers(delta: float) -> void:
 	if neutral_timer > 0:
 		neutral_timer -= delta
@@ -597,8 +598,13 @@ func _set_animation_conditions(target_state: String, on_floor: bool, crouch_inpu
 		animation_tree.set("parameters/conditions/" + c, condition_value)
 
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
+	# 【修復】只要 is_hit=true，就強制鎖定 "hit" 動畫（無需檢查 hitstun_real_duration_ms）
+	if is_hit:
+		return "hit"
+	
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var player_id = get_parent().player_id if get_parent() and "player_id" in get_parent() else "unknown"
+	
 	if is_layground:
 		return "layground"
 	if is_knockfly:
@@ -616,8 +622,6 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 			return "spnk"
 		elif move_set.is_fireball:
 			return "fireball"
-	if is_hit:
-		return "hit" if on_floor else "Jump_B"
 	if is_blocking:
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
 	if is_attacking:

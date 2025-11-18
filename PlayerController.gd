@@ -65,17 +65,8 @@ func get_input_data() -> Dictionary:
 		"st_mk" if st_mk_pressed else
 		"none"
 	)
-	var blockstun_duration = (
-		0.4 if move_set and ((move_set.is_powerkk and player_id == "p1") or (move_set.is_spnk and player_id == "p2")) else
-		0.3 if move_set and move_set.is_fireball else
-		0.2
-	)
-	var damage = (
-		move_set.get_special_damage() if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball or move_set.is_dp) else
-		10.0 if (st_mp_pressed or st_mk_pressed) else
-		0.0
-	)
-	
+
+
 	return {
 		"input_dir": input_dir,
 		"crouch_pressed": crouch_pressed,
@@ -83,8 +74,6 @@ func get_input_data() -> Dictionary:
 		"st_mp_pressed": st_mp_pressed,
 		"st_mk_pressed": st_mk_pressed,
 		"attack_type": attack_type,
-		"blockstun_duration": blockstun_duration,
-		"damage": damage,
 		"spm1_pressed": spm1_pressed,
 		"spm2_pressed": spm2_pressed,
 		"super_pressed": super_pressed,
