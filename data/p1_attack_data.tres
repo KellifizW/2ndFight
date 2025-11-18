@@ -7,17 +7,17 @@ script = ExtResource("1_6mkls")
 st_mp = {
 "blockstun": 0.267,
 "damage": 10.0,
-"hitstun": 1.0
+"hitstun": 0.45
 }
 st_mk = {
 "blockstun": 2.0,
 "damage": 9.0,
-"hitstun": 1.0
+"hitstun": 0.7
 }
 cr_mp = {
 "blockstun": 2.0,
 "damage": 8.0,
-"hitstun": 2.0
+"hitstun": 0.5
 }
 jump_mk = {
 "blockstun": 0.3,

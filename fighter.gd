@@ -9,11 +9,12 @@ var is_being_pushed: bool = false
 var current_damage: float = 0.0
 @export var min_hitstun_duration: float = 8.0 / 60.0
 
-# ── 真實時間 hitstun / blockstun 變數 ──────────────────────────────
-var hitstun_real_start_ms: int = 0
-var hitstun_real_duration_ms: int = 0
-var blockstun_real_start_ms: int = 0
-var blockstun_real_duration_ms: int = 0
+# ── 只用固定幀數控制 hitstun，blockstun 保留舊版 timer 邏輯（確保格擋動畫正常） ──
+var hitstun_frames: int = 0          # 僅 hitstun 用固定幀數
+const FPS: int = 60
+
+func sec_to_frames(seconds: float) -> int:
+	return int(round(seconds * FPS))
 
 func _ready():
 	super._ready()
@@ -28,76 +29,64 @@ func _ready():
 	add_to_group("players")
 
 func _physics_process(delta):
-	print("Fighter %s _physics_process: is_hit=%s, hitstun_real_duration_ms=%d" % [name, is_hit, hitstun_real_duration_ms])
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
-	
-	# 先讓父類別跑完
-	super._physics_process(delta)
-	
-	# ── 真實時間 hitstun 檢查 ──────────────────────
-	if hitstun_real_duration_ms > 0:
-		var elapsed_real_ms = Time.get_ticks_msec() - hitstun_real_start_ms
-		var total_duration_sec = hitstun_real_duration_ms / 1000.0
-		var remaining_real_sec = max(0, (hitstun_real_duration_ms - elapsed_real_ms)) / 1000.0
-		
-		# 強制鎖定狀態
+
+	# ── 【僅 hitstun 用固定幀數】前置檢查（不影響格擋）
+	if hitstun_frames > 0:
+		hitstun_frames -= 1
 		is_hit = true
 		if animation_state and animation_state.get_current_node() != "hit":
 			animation_state.travel("hit")
-		
-		# 每 100ms 印一次
-		if int(elapsed_real_ms) % 100 == 0:
-			print("[REAL-TIME HITSTUN] %s 剩餘 %.3f 秒 (已過 %.3f/%.3f 秒)" % [name, remaining_real_sec, elapsed_real_ms/1000.0, total_duration_sec])
-		
-		# ★★★ 修復：先檢查再重置，避免 print 錯誤 ★★★
-		if elapsed_real_ms >= hitstun_real_duration_ms:
-			print("[REAL-TIME HITSTUN END] %s 真實 hitstun 結束！總計 %.3f 秒" % [name, total_duration_sec])
+		if hitstun_frames % 60 == 0:
+			print("[FIXED-FRAME HITSTUN] %s 剩餘 %d 幀 (%.1f秒)" % [name, hitstun_frames, hitstun_frames / 60.0])
+		if hitstun_frames <= 0:
+			print("[FIXED-FRAME HITSTUN END] %s 完全結束！" % name)
 			is_hit = false
-			hit_timer = 0.0
-			hitstun_real_duration_ms = 0
-			hitstun_real_start_ms = 0
-			if animation_state:
-				animation_state.travel("Walk")
-	
-	# ── blockstun 檢查 ──────────────────────
-	if is_blocking and blockstun_real_duration_ms > 0:
-		var elapsed_real_ms = Time.get_ticks_msec() - blockstun_real_start_ms
-		var total_block_duration = blockstun_real_duration_ms / 1000.0
-		if elapsed_real_ms >= blockstun_real_duration_ms:
-			print("[REAL-TIME BLOCKSTUN END] %s 結束！總計 %.3f 秒" % [name, total_block_duration])
-			is_blocking = false
-			is_crouch_blocking = false
-			block_timer = 0.0
-			block_type = "none"
-			blockstun_real_duration_ms = 0
-	
-	# 空中摩擦（放在最後）
+	else:
+		is_hit = false
+
+	# ── 【完全對齊舊版】super 先執行（block_timer 在這裡減，格擋動畫自然結束）
+	super._physics_process(delta)
+
+	# ── 【完全對齊舊版】空中摩擦
 	if (is_knockfly or is_hit) and not is_on_floor():
 		var friction_amount = int(default_air_friction * world.SIMULATION_SCALE * delta)
 		if fixed_velocity.x > 0:
 			fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
 		elif fixed_velocity.x < 0:
 			fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
-	
+
+	# ── 【完全對齊舊版】攻擊輸入檢查
 	var input_data = get_input()
 	var is_valid_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping
+
 	if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_state and not (is_hit or is_knockfly or is_blocking):
-		current_damage = input_data.damage
+		if input_data.has("damage"):
+			current_damage = input_data.damage
+		else:
+			current_damage = 10.0
 		is_attacking = true
-		
+
+	# ── 【完全對齊舊版】動畫更新邏輯（格擋動畫依賴 block_timer，自然結束）
+	if is_hit or is_knockfly or is_blocking:
+		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+	else:
+		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+
 func post_physics_process(delta):
 	pass
 
+# ── 【關鍵修復】take_hit：hitstun 用幀數，blockstun 保留舊版 timer（動畫完美） ──
 func take_hit(
-	hitstun_duration: float = 0.35,
-	blockstun_duration: float = 0.267,
-	damage: float = 10.0,
-	skip_push: bool = false,
-	force_knockfly: bool = false,
-	knockfly_params: Dictionary = {}
+		hitstun_duration: float = 0.35,
+		blockstun_duration: float = 0.267,
+		damage: float = 10.0,
+		skip_push: bool = false,
+		force_knockfly: bool = false,
+		knockfly_params: Dictionary = {}
 ):
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
@@ -108,6 +97,7 @@ func take_hit(
 
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove
+
 	var input_data = get_input()
 
 	if is_attacking:
@@ -115,25 +105,22 @@ func take_hit(
 	if is_spmove:
 		move_set.stop_special_move()
 
-	# ── Block 判定 ──────────────────────
+	# ── 【完全保留舊版格擋邏輯】blockstun 用 timer（動畫自然結束）
 	if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_spmove:
 		is_blocking = true
 		is_crouch_blocking = input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0
-
-		blockstun_real_start_ms = Time.get_ticks_msec()
-		blockstun_real_duration_ms = int(blockstun_duration * 1000)
 		initial_blockstun = max(blockstun_duration, min_hitstun_duration)
-		block_timer = initial_blockstun
+		block_timer = initial_blockstun  # ← 舊版邏輯，確保動畫正常
 		block_type = "ordinary"
-
-		print("[REAL-TIME BLOCKSTUN START] %s 進入 block，預計真實持續 %.3f 秒 (%d ms)" % [name, blockstun_duration, blockstun_real_duration_ms])
-
+		print("[BLOCKSTUN START] %s 進入 block，timer=%.3f秒" % [name, block_timer])
+		
 		fixed_velocity.x = 0
 		fixed_velocity.y = 0
 		if not skip_push:
 			block_push_timer = initial_blockstun
 			block_push_velocity = 2.0 * block_push_distance * world.SIMULATION_SCALE / initial_blockstun
 		block_detected.emit(name, block_type)
+		_update_animation_state(0, input_data.crouch_pressed)
 		print("Debug: Block detected, no damage applied for %s" % name)
 		return
 	else:
@@ -163,6 +150,7 @@ func take_hit(
 				"duration": default_knockfly_duration
 			}
 			params.merge(knockfly_params, true)
+
 			is_knockfly = true
 			knockfly_timer = max(params.duration, min_hitstun_duration)
 			is_immune_to_floor_snap = true
@@ -170,23 +158,26 @@ func take_hit(
 			knockfly_gravity = params.gravity
 			knockfly_vertical_speed = params.vertical_speed
 			knockfly_horizontal_speed = params.horizontal_speed
+
 			fixed_velocity.y = int(params.vertical_speed * world.SIMULATION_SCALE)
 			fixed_position.y -= 1
 			is_jumping = true
+
 			if not skip_push:
 				knockfly_velocity_x = -knockfly_horizontal_speed * world.SIMULATION_SCALE * facing_mult
-			print("Debug: Knockfly triggered for %s, force_knockfly=%s" % [name, force_knockfly])
+
+			print("Debug: Knockfly triggered for %s, force_knockfly=%s, velocity.y=%s, position.y=%s, gravity=%s, v_speed=%s, timer=%s" %
+				[name, force_knockfly, fixed_velocity.y, fixed_position.y, params.gravity, params.vertical_speed, knockfly_timer])
 		else:
-			# ── 真實時間 hitstun ──────────────────────
 			is_hit = true
-			hitstun_real_start_ms = Time.get_ticks_msec()
-			hitstun_real_duration_ms = int(hitstun_duration * 1000)
-			initial_hitstun = max(hitstun_duration, min_hitstun_duration)
+			# ── 【僅 hitstun 用固定幀數】確保 4秒精準
+			var hit_frames = max(sec_to_frames(hitstun_duration), sec_to_frames(min_hitstun_duration))
+			hitstun_frames = hit_frames
+			initial_hitstun = hitstun_duration  # 保留舊變數（相容 Movement）
 			hit_timer = initial_hitstun
-
-			print("[REAL-TIME HITSTUN START] %s 進入 hit，預計真實持續 %.3f 秒 (%d ms)" % [name, hitstun_duration, hitstun_real_duration_ms])
-			print("[FIX DEBUG] %s 設定真實 hitstun = %.3f 秒，推擠仍用遊戲時間 %.3f 秒" % [name, hitstun_duration, initial_hitstun])
-
+			
+			print("[FIXED-FRAME HITSTUN START] %s 進入 hit，%d 幀 (%.3f秒)" % [name, hit_frames, hitstun_duration])
+			
 			if is_on_floor():
 				if not skip_push:
 					hit_push_timer = initial_hitstun
@@ -201,7 +192,9 @@ func take_hit(
 				is_immune_to_floor_snap = true
 				floor_snap_immunity_timer = floor_snap_immunity_duration
 				fixed_position.y -= 2
-			print("Debug: Normal hit for %s, hitstun=%.3f" % [name, initial_hitstun])
+			print("Debug: Normal hit for %s, hitstun=%s" % [name, initial_hitstun])
+
+	_update_animation_state(0, input_data.crouch_pressed)
 
 func take_knockfly():
 	var move_set = $MoveSet if has_node("MoveSet") else null
@@ -212,7 +205,9 @@ func take_knockfly():
 			move_set.stop_special_move()
 		is_knockfly = true
 		knockfly_timer = max(default_knockfly_duration, min_hitstun_duration)
+		_update_animation_state(0, is_crouching)
 
+# ── get_contact_point 完全保留舊版 ──
 func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
 	var hit_shape_node = hit_area.get_node_or_null("HitShape") as CollisionShape2D
 	var hurt_shape_node = hurt_area.get_node_or_null("HurtShape") as CollisionShape2D
@@ -275,3 +270,6 @@ func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
 
 	print("Warning: Physics query failed, using fallback midpoint position")
 	return (hit_area.global_position + hurt_area.global_position) / 2.0
+	
+func is_in_hitstun() -> bool:
+	return hitstun_frames > 0

@@ -8,7 +8,6 @@ const FLOOR_Y: int = 200000
 const GRAVITY: int = 3000000
 
 @export var bgm_max_volume_db: float = -6.0  # 導出變數，控制最大音量，預設 -6 dB (50% 音量)
-
 @onready var hit_label = $UI/HitLabel
 @onready var fps_label = $UI/FPS
 @onready var player1 = $Player1
@@ -148,34 +147,46 @@ func _physics_process(delta):
 	
 	if attacker and target_player and not advantage_calculated:
 		if attacker_recover_time == 0.0:
-			var move_set = attacker.get_node_or_null("MoveSet")
-			var animation_player = attacker.get_node_or_null("AnimationPlayer")
-			var is_recovered = not attacker.is_attacking
-			if move_set:
-				is_recovered = is_recovered and not (move_set.is_special_moving or move_set.is_spmove)
-			if animation_player and animation_player.is_playing():
-				var current_anim = animation_player.current_animation
-				if current_anim in ["powerkk", "spnk", "fireball"]:
-					is_recovered = false
-			if is_recovered:
-				attacker_recover_time = Time.get_unix_time_from_system()
-				print("Debug: Attacker %s recovered at %s" % [attacker.name, attacker_recover_time])
-		
-		if target_recover_time == 0.0 and not (target_player.is_hit or target_player.is_blocking):
-			target_recover_time = Time.get_unix_time_from_system()
-			print("Debug: Target %s recovered at %s" % [target_player.name, target_recover_time])
-		
-		if attacker_recover_time > 0 and target_recover_time > 0:
-			var advantage_time = (target_recover_time - hit_time) - (attacker_recover_time - hit_time)
-			var advantage_frames = int(advantage_time * TICKS_PER_SECOND)
-			if attacker == player1:
-				p1_advantage_label.text = "P1 Adv: " + ("+" if advantage_frames > 0 else "") + str(advantage_frames)
-				p2_advantage_label.text = "P2 Adv: " + ("+" if -advantage_frames > 0 else "") + str(-advantage_frames)
-			else:
-				p1_advantage_label.text = "P1 Adv: " + ("+" if -advantage_frames > 0 else "") + str(-advantage_frames)
-				p2_advantage_label.text = "P2 Adv: " + ("+" if advantage_frames > 0 else "") + str(advantage_frames)
-			print("Debug: Advantage frames: %d (time diff: %.4f)" % [advantage_frames, advantage_time])
-			advantage_calculated = true
+			# 安全檢查 attacker 是否還存在 + 是否已結束攻擊
+			if is_instance_valid(attacker) and not attacker.is_attacking:
+				var move_set = attacker.get_node_or_null("MoveSet")
+				var is_recovered = true
+				if move_set:
+					is_recovered = not (move_set.is_special_moving or move_set.is_spmove)
+				if is_recovered:
+					attacker_recover_time = Time.get_unix_time_from_system()
+					print("Debug: Attacker %s recovered at %.3f" % [attacker.name, attacker_recover_time])
+
+		# ── 關鍵修正：安全檢查 target_player 是否存在 + 用 is_in_hitstun() 判斷真正的 hitstun 結束 ──
+		if target_recover_time == 0.0 and is_instance_valid(target_player):
+			var still_in_hitstun := false
+			
+			# 方法1：如果 Fighter 有實作 is_in_hitstun()（新版固定幀數）→ 優先使用
+			if target_player.has_method("is_in_hitstun"):
+				still_in_hitstun = target_player.is_in_hitstun()
+			# 方法2：舊版只有 is_hit 旗標時的保險
+			elif "is_hit" in target_player:
+				still_in_hitstun = target_player.is_hit
+			
+			# 只要還在 hitstun 或 blocking 就不算 recover
+			if not still_in_hitstun and not target_player.is_blocking:
+				target_recover_time = Time.get_unix_time_from_system()
+				print("Debug: Target %s recovered at %.3f" % [target_player.name, target_recover_time])
+				
+				# 計算優勢（這段保持原樣）
+				if attacker_recover_time > 0.0:
+					var advantage_sec = target_recover_time - attacker_recover_time
+					var advantage_frames = int(round(advantage_sec * 60))
+					print("Debug: Advantage frames: %d (time diff: %.4f)" % [advantage_frames, advantage_sec])
+					
+					if attacker == player1:
+						p1_advantage_label.text = "P1 Adv: %d" % advantage_frames
+						p2_advantage_label.text = "P2 Adv: %d" % -advantage_frames
+					else:
+						p2_advantage_label.text = "P2 Adv: %d" % advantage_frames
+						p1_advantage_label.text = "P1 Adv: %d" % -advantage_frames
+					
+					advantage_calculated = true
 
 func to_scaled_vector2(vector: Vector2i) -> Vector2:
 	return Vector2(

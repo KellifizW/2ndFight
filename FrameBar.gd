@@ -166,7 +166,8 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 func _get_player_flags() -> Dictionary:
 	return {
 		blocking = target_player.is_blocking if target_player.has_signal("is_blocking") else false,
-		hit = target_player.is_hit if "is_hit" in target_player else false,
+		hit = ("is_hit" in target_player and target_player.is_hit) or \
+	 (target_player.has_method("is_in_hitstun") and target_player.is_in_hitstun()),
 		knockfly = target_player.is_knockfly if "is_knockfly" in target_player else false,
 		layground = target_player.is_layground if "is_layground" in target_player else false,
 		wakeup = target_player.is_wakeup_locked if "is_wakeup_locked" in target_player else false
