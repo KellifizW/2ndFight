@@ -176,7 +176,7 @@ func _physics_process(delta):
 				# 計算優勢（這段保持原樣）
 				if attacker_recover_time > 0.0:
 					var advantage_sec = target_recover_time - attacker_recover_time
-					var advantage_frames = int(round(advantage_sec * 60))
+					var advantage_frames = int(round(advantage_sec * 60.0))
 					print("Debug: Advantage frames: %d (time diff: %.4f)" % [advantage_frames, advantage_sec])
 					
 					if attacker == player1:

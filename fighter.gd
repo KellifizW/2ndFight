@@ -1,4 +1,8 @@
 class_name Fighter extends Movement
+static var PHYSICS_FPS: int = 60
+const DISPLAY_FPS: int = 60
+func _enter_tree() -> void:
+	PHYSICS_FPS = Engine.physics_ticks_per_second   # 這裡才真正賦值
 
 @onready var collision_shape = $Pushbox
 @onready var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
@@ -14,7 +18,7 @@ var hitstun_frames: int = 0          # 僅 hitstun 用固定幀數
 const FPS: int = 60
 
 func sec_to_frames(seconds: float) -> int:
-	return int(round(seconds * FPS))
+	return int(round(seconds * PHYSICS_FPS))
 
 func _ready():
 	super._ready()

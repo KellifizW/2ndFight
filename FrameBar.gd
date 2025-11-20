@@ -1,5 +1,5 @@
 extends ProgressBar
-
+const DISPLAY_FPS: int = 60
 # ── 變數宣告 ─────────────────────
 var target_player: Node = null
 var animation_tree: AnimationTree = null
@@ -189,10 +189,10 @@ func _calc_frame(anim_name: String, pos: float, timer_driven: bool, knockfly_cha
 	if timer_driven or knockfly_chain or block_hit_chain_active:
 		return frame_data.size()
 	if is_jump_attack_active:
-		return min(jump_to_attack_offset + int(pos * 60), total_frames - 1)
+		return min(jump_to_attack_offset + int(pos * DISPLAY_FPS), total_frames - 1)
 	if anim_name in JUMP_ANIMS:
 		return jump_frame_count
-	return min(int(pos * 60), total_frames - 1)
+	return min(int(pos * DISPLAY_FPS), total_frames - 1)
 
 func _get_state(anim_name: String, flags: Dictionary, on_floor: bool) -> int:
 	# 【核心修復】blockstun 優先用動畫 + 連續幀確認，絕對穩定
@@ -364,7 +364,7 @@ func _on_animation_finished(anim_name: String) -> void:
 	
 	reset_delay_timer = 0.05
 	var len := animation_player.get_animation(anim_name).length if animation_player.has_animation(anim_name) else 0.5
-	var frames := int(len * 60)
+	var frames := int(len * DISPLAY_FPS)
 	if anim_name in ["jump_mp","jump_mk"] and last_animation in JUMP_ANIMS:
 		frames += jump_frame_count
 	
