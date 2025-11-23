@@ -1,5 +1,6 @@
 extends ProgressBar
 const DISPLAY_FPS: int = 60
+
 # ── 變數宣告 ─────────────────────
 var target_player: Node = null
 var animation_tree: AnimationTree = null
@@ -39,7 +40,7 @@ var knockfly_wakeup_frames: int = 0
 var block_hit_chain_active: bool = false
 var block_hit_chain_type: int = -1  # 4=Block, 6=Hit
 
-# 【新增】用來穩定追蹤 blockstun 的連續幀計數器
+# 用來穩定追蹤 blockstun 的連續幀計數器
 var blockstun_active_frames: int = 0
 
 # 常數表
@@ -53,7 +54,6 @@ const JUMP_ANIMS := ["Jump_F","Jump_B","Jump_V"]
 
 @onready var frame_count_label: Label = $FrameCountLabel
 
-# ── 初始化（Godot 4.5 正確寫法）─────────────────────
 func _ready() -> void:
 	max_value = total_frames
 	value = 0
@@ -67,7 +67,7 @@ func _ready() -> void:
 	bg.border_width_bottom = 2
 	
 	add_theme_stylebox_override("background", bg)
-	add_theme_stylebox_override("fill", StyleBoxFlat.new())  # 清空預設填滿
+	add_theme_stylebox_override("fill", StyleBoxFlat.new())
 	visible = true
 	
 	if frame_count_label:
@@ -92,12 +92,10 @@ func _process(delta: float) -> void:
 	
 	var flags := _get_player_flags()
 	
-	# 擴大 timer_driven 範圍：包含 block 動畫本身，確保全程使用逐幀計數
 	var timer_driven: bool = flags.blocking or flags.hit or flags.knockfly or \
 							flags.layground or flags.wakeup or \
 							current_animation in ["block", "cr_block"]
 	
-	# Buffer 窗口
 	if reset_delay_timer > 0:
 		reset_delay_timer -= delta
 		current_frame = buffer_start_frame + white_frames_added
@@ -146,7 +144,6 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 	if is_airborne:
 		jump_frame_count += 1
 	
-	# 【關鍵】更新 blockstun 持續計數器
 	if anim_name in ["block", "cr_block"]:
 		blockstun_active_frames += 1
 	else:
@@ -158,19 +155,20 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 	var state := _get_state(anim_name, flags, on_floor)
 	if state != -1:
 		frame_data[current_frame] = state
-		value = min(current_frame + 1, total_frames)
-		queue_redraw()
-		update_frame_count_label(anim_name)
+	
+	value = min(current_frame + 1, total_frames)
+	queue_redraw()
+	update_frame_count_label(anim_name)
 
 # ── 輔助函式 ─────────────────────
 func _get_player_flags() -> Dictionary:
 	return {
-		blocking = target_player.is_blocking if target_player.has_signal("is_blocking") else false,
+		blocking = "is_blocking" in target_player and target_player.is_blocking,
 		hit = ("is_hit" in target_player and target_player.is_hit) or \
-	 (target_player.has_method("is_in_hitstun") and target_player.is_in_hitstun()),
-		knockfly = target_player.is_knockfly if "is_knockfly" in target_player else false,
-		layground = target_player.is_layground if "is_layground" in target_player else false,
-		wakeup = target_player.is_wakeup_locked if "is_wakeup_locked" in target_player else false
+			  (target_player.has_method("is_in_hitstun") and target_player.is_in_hitstun()),
+		knockfly = "is_knockfly" in target_player and target_player.is_knockfly,
+		layground = "is_layground" in target_player and target_player.is_layground,
+		wakeup = "is_wakeup_locked" in target_player and target_player.is_wakeup_locked
 	}
 
 func _update_airborne(anim_name: String, on_floor: bool) -> void:
@@ -195,39 +193,35 @@ func _calc_frame(anim_name: String, pos: float, timer_driven: bool, knockfly_cha
 	return min(int(pos * DISPLAY_FPS), total_frames - 1)
 
 func _get_state(anim_name: String, flags: Dictionary, on_floor: bool) -> int:
-	# 【核心修復】blockstun 優先用動畫 + 連續幀確認，絕對穩定
 	if anim_name in ["block", "cr_block"] and blockstun_active_frames > 0:
 		return 4
-	if flags.blocking:
-		return 4
-	if flags.hit:
-		return 6
-	if flags.knockfly:
-		return 7
-	if flags.layground:
-		return 9
-	if flags.wakeup:
-		return 10
+	if flags.blocking: return 4
+	if flags.hit: return 6
+	if flags.knockfly: return 7
+	if flags.layground: return 9
+	if flags.wakeup: return 10
 	
+	# 關鍵修復：恢復你舊版正確的邏輯，同時解決拖尾問題
 	if anim_name in ATTACK_ANIMS:
-		if hitbox_shape.disabled or hitbox_shape.shape == null:
-			return 0 if not was_active else 2
-		was_active = true
-		return 1
-	if anim_name in ["Dash","Backdash"]:
-		return 3
-	if anim_name in JUMP_ANIMS:
-		return 5
-	if anim_name == "hit":
-		return 6
-	if anim_name == "knockfly":
-		return 7
-	if anim_name == "layground":
-		return 9
-	if anim_name == "wakeup":
-		return 10
-	if anim_name == "dp" and not on_floor:
-		return 2
+		if not hitbox_shape or hitbox_shape.disabled or hitbox_shape.shape == null:
+			# Hitbox 已關閉
+			return 0 if not was_active else 2      # 第一次關閉 = Startup，之後 = Recovery
+		else:
+			# Hitbox 開啟 → 記錄為 Active，並把前面未填的補成 Startup
+			if not was_active:
+				was_active = true
+				for i in range(frame_data.size()):
+					if frame_data[i] == -1:
+						frame_data[i] = 0             # 補藍色 Startup
+			return 1                                      # 紅色 Active
+	
+	if anim_name in ["Dash","Backdash"]: return 3
+	if anim_name in JUMP_ANIMS: return 5
+	if anim_name == "hit": return 6
+	if anim_name == "knockfly": return 7
+	if anim_name == "layground": return 9
+	if anim_name == "wakeup": return 10
+	if anim_name == "dp" and not on_floor: return 2
 	return -1
 
 func _handle_block_hit_chain(flags: Dictionary) -> void:
@@ -250,7 +244,7 @@ func _start_new_block_hit_chain(type: int) -> void:
 	reset_delay_timer = 0.0
 	white_frames_added = 0
 	buffer_start_frame = 0
-	blockstun_active_frames = 0  # 重置
+	blockstun_active_frames = 0
 
 func _start_new_animation(anim_name: String) -> void:
 	was_active = false
@@ -279,9 +273,9 @@ func _start_new_animation(anim_name: String) -> void:
 	is_jump_attack_active = false
 	jump_to_attack_offset = 0
 	last_finished_animation = ""
-	blockstun_active_frames = 0  # 重置
+	blockstun_active_frames = 0
 
-# ── 繪製（Godot 4.5）─────────────────────
+# ── 繪製 ─────────────────────
 func _draw() -> void:
 	var w := size.x / float(total_frames)
 	draw_rect(Rect2(0, 0, size.x, size.y), Color.BLACK, true)
@@ -314,7 +308,7 @@ func reset_frame_bar() -> void:
 	is_jump_attack_active = false
 	knockfly_chain_active = false
 	block_hit_chain_active = false
-	blockstun_active_frames = 0  # 重置
+	blockstun_active_frames = 0
 	queue_redraw()
 
 func update_frame_count_label(anim_name: String) -> void:
@@ -343,15 +337,15 @@ func update_frame_count_label(anim_name: String) -> void:
 		text += "%dF" % frame_data.size()
 	frame_count_label.text = text
 
-# ── 動畫結束 ─────────────────────
+# ── 動畫結束：只重置，不強制填滿（解決拖尾問題）────────────────────
 func _on_animation_finished(anim_name: String) -> void:
 	if anim_name == last_finished_animation or anim_name not in TRACKED_ANIMS:
 		return
 	last_finished_animation = anim_name
-	buffer_start_frame = frame_data.size()
-	_ensure_size(frame_data.size() + 1)
-	frame_data[frame_data.size() - 1] = 8
-	queue_redraw()
+	
+	if anim_name in ATTACK_ANIMS:
+		was_active = false
+		is_tracking = false
 	
 	if anim_name == "wakeup" and knockfly_chain_active:
 		knockfly_chain_completed = true
@@ -362,25 +356,5 @@ func _on_animation_finished(anim_name: String) -> void:
 			elif s == 10: knockfly_wakeup_frames += 1
 		knockfly_chain_active = false
 	
-	reset_delay_timer = 0.05
-	var len := animation_player.get_animation(anim_name).length if animation_player.has_animation(anim_name) else 0.5
-	var frames := int(len * DISPLAY_FPS)
-	if anim_name in ["jump_mp","jump_mk"] and last_animation in JUMP_ANIMS:
-		frames += jump_frame_count
-	
-	var fill := 2
-	if anim_name in ["Dash","Backdash"]: fill = 3
-	elif anim_name in ["block","cr_block"]: fill = 4
-	elif anim_name in JUMP_ANIMS: fill = 5
-	elif anim_name == "hit": fill = 6
-	elif anim_name == "knockfly": fill = 7
-	elif anim_name == "layground": fill = 9
-	elif anim_name == "wakeup": fill = 10
-	
-	for i in range(current_frame + 1, min(frames, total_frames)):
-		_ensure_size(i + 1)
-		frame_data[i] = fill
-	
-	value = min(frames, total_frames)
-	queue_redraw()
 	update_frame_count_label(anim_name)
+	queue_redraw()

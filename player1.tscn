@@ -1282,7 +1282,7 @@ tracks/3/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_md12c"]
-size = Vector2(80, 20)
+size = Vector2(35, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_c5mkm"]
 size = Vector2(30, 30)
@@ -1740,7 +1740,7 @@ tracks/10/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_woueq"]
-size = Vector2(20, 45)
+size = Vector2(35, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_bjfdx"]
 size = Vector2(35, 20)
@@ -1882,6 +1882,18 @@ tracks/10/keys = {
 "update": 1,
 "values": [Vector2(17, 12)]
 }
+tracks/11/type = "value"
+tracks/11/imported = false
+tracks/11/enabled = true
+tracks/11/path = NodePath("Hitbox/HitShape:disabled")
+tracks/11/interp = 1
+tracks/11/loop_wrap = true
+tracks/11/keys = {
+"times": PackedFloat32Array(0, 0.20000002, 0.26666668),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 1,
+"values": [true, false, true]
+}
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_yev3d"]
 size = Vector2(30, 20)
@@ -1985,6 +1997,18 @@ tracks/7/keys = {
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
 "values": [Vector2(0, -3), Vector2(3, -3), Vector2(0, -3)]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("Hitbox/HitShape:disabled")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0, 0.10000001, 0.13333334),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 1,
+"values": [true, false, true]
 }
 
 [sub_resource type="Animation" id="Animation_0aqdq"]
