@@ -1,6 +1,8 @@
 class_name Fighter extends Movement
+
 static var PHYSICS_FPS: int = 60
 const DISPLAY_FPS: int = 60
+
 func _enter_tree() -> void:
 	PHYSICS_FPS = Engine.physics_ticks_per_second   # 這裡才真正賦值
 
@@ -13,8 +15,11 @@ var is_being_pushed: bool = false
 var current_damage: float = 0.0
 @export var min_hitstun_duration: float = 8.0 / 60.0
 
-# ── 只用固定幀數控制 hitstun，blockstun 保留舊版 timer 邏輯（確保格擋動畫正常） ──
-var hitstun_frames: int = 0          # 僅 hitstun 用固定幀數
+# ── 固定幀數控制（hitstun & blockstun 都使用）──
+var hitstun_frames: int = 0          # hitstun 固定幀數
+var blockstun_frames: int = 0        # blockstun 固定幀數（新增）
+var initial_blockstun_frames: int = 0 # 用於 push 計算
+
 const FPS: int = 60
 
 func sec_to_frames(seconds: float) -> int:
@@ -38,24 +43,35 @@ func _physics_process(delta):
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
 
-	# ── 【僅 hitstun 用固定幀數】前置檢查（不影響格擋）
+	# ── 【固定幀數 hitstun】──
 	if hitstun_frames > 0:
 		hitstun_frames -= 1
 		is_hit = true
 		if animation_state and animation_state.get_current_node() != "hit":
 			animation_state.travel("hit")
-		if hitstun_frames % 60 == 0:
-			print("[FIXED-FRAME HITSTUN] %s 剩餘 %d 幀 (%.1f秒)" % [name, hitstun_frames, hitstun_frames / 60.0])
 		if hitstun_frames <= 0:
 			print("[FIXED-FRAME HITSTUN END] %s 完全結束！" % name)
 			is_hit = false
 	else:
 		is_hit = false
 
-	# ── 【完全對齊舊版】super 先執行（block_timer 在這裡減，格擋動畫自然結束）
+	# ── 【固定幀數 blockstun】與 hitstun 完全一致──
+	if blockstun_frames > 0:
+		blockstun_frames -= 1
+		is_blocking = true
+		if blockstun_frames <= 0:
+			is_blocking = false
+			block_type = "none"
+			print("[FIXED-FRAME BLOCKSTUN END] %s 格擋結束！" % name)
+	else:
+		# 只有在完全沒有固定幀數時才允許關閉（防止被其他地方誤關）
+		if blockstun_frames <= 0:
+			is_blocking = false
+
+	# ── super 先執行（舊的 block_timer 仍然會被減，但我們不再依賴它控制狀態）──
 	super._physics_process(delta)
 
-	# ── 【完全對齊舊版】空中摩擦
+	# ── 【空中摩擦】保持舊版行為──
 	if (is_knockfly or is_hit) and not is_on_floor():
 		var friction_amount = int(default_air_friction * world.SIMULATION_SCALE * delta)
 		if fixed_velocity.x > 0:
@@ -63,7 +79,7 @@ func _physics_process(delta):
 		elif fixed_velocity.x < 0:
 			fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
 
-	# ── 【完全對齊舊版】攻擊輸入檢查
+	# ── 【攻擊輸入檢查】保持舊版──
 	var input_data = get_input()
 	var is_valid_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping
 
@@ -74,7 +90,7 @@ func _physics_process(delta):
 			current_damage = 10.0
 		is_attacking = true
 
-	# ── 【完全對齊舊版】動畫更新邏輯（格擋動畫依賴 block_timer，自然結束）
+	# ── 【動畫更新】保持舊版邏輯──
 	if is_hit or is_knockfly or is_blocking:
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 	else:
@@ -83,7 +99,7 @@ func _physics_process(delta):
 func post_physics_process(delta):
 	pass
 
-# ── 【關鍵修復】take_hit：hitstun 用幀數，blockstun 保留舊版 timer（動畫完美） ──
+# ── 【關鍵修復】take_hit：hitstun & blockstun 都使用固定幀數──
 func take_hit(
 		hitstun_duration: float = 0.35,
 		blockstun_duration: float = 0.267,
@@ -97,7 +113,7 @@ func take_hit(
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
 
-	print("[DEBUG] take_hit() 接收 → hitstun: %.3f, blockstun: %.3f, damage: %.1f, force_knockfly: %s" % [hitstun_duration, blockstun_duration, damage, force_knockfly])
+	print("[DEBUG] take_hit() 接收 → hitstun: %.3f, blockstun: %.3f, damage: %.1f" % [hitstun_duration, blockstun_duration, damage])
 
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove
@@ -109,25 +125,33 @@ func take_hit(
 	if is_spmove:
 		move_set.stop_special_move()
 
-	# ── 【完全保留舊版格擋邏輯】blockstun 用 timer（動畫自然結束）
+	# ── 【格擋：固定幀數 blockstun】與 hitstun 完全一致 ──
 	if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_spmove:
 		is_blocking = true
 		is_crouch_blocking = input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0
-		initial_blockstun = max(blockstun_duration, min_hitstun_duration)
-		block_timer = initial_blockstun  # ← 舊版邏輯，確保動畫正常
-		block_type = "ordinary"
-		print("[BLOCKSTUN START] %s 進入 block，timer=%.3f秒" % [name, block_timer])
+		
+		# 轉成固定幀數
+		var block_frames = max(sec_to_frames(blockstun_duration), sec_to_frames(min_hitstun_duration))
+		blockstun_frames = block_frames
+		initial_blockstun_frames = block_frames
+		initial_blockstun = blockstun_duration                  # 保留給舊 push 計算 & 動畫用
+		block_timer = blockstun_duration                         # 保留給動畫機使用（不會影響實際狀態）
+
+		print("[FIXED-FRAME BLOCKSTUN START] %s 進入格擋，%d 幀 (%.3f秒)" % [name, block_frames, blockstun_duration])
 		
 		fixed_velocity.x = 0
 		fixed_velocity.y = 0
+		
 		if not skip_push:
 			block_push_timer = initial_blockstun
 			block_push_velocity = 2.0 * block_push_distance * world.SIMULATION_SCALE / initial_blockstun
+		
 		block_detected.emit(name, block_type)
 		_update_animation_state(0, input_data.crouch_pressed)
 		print("Debug: Block detected, no damage applied for %s" % name)
 		return
 	else:
+		# 確保離開格擋狀態
 		if is_blocking:
 			is_blocking = false
 			block_type = "none"
@@ -135,14 +159,12 @@ func take_hit(
 		var hurt_grunt_player = $HurtGruntPlayer if has_node("HurtGruntPlayer") else null
 		if hurt_grunt_player:
 			hurt_grunt_player.play()
-			print("Debug: Hurt grunt sound played for %s (player_id=%s)" % [name, get("player_id") if "player_id" in self else "unknown"])
 
 		if not is_on_floor():
 			update_facing_direction()
 
 		if healthbar:
 			healthbar.take_damage(damage)
-			print("Debug: Damage applied: %s to %s, current_health=%s" % [damage, name, healthbar.current_health])
 
 		var facing_mult = get_facing_multiplier()
 
@@ -169,15 +191,11 @@ func take_hit(
 
 			if not skip_push:
 				knockfly_velocity_x = -knockfly_horizontal_speed * world.SIMULATION_SCALE * facing_mult
-
-			print("Debug: Knockfly triggered for %s, force_knockfly=%s, velocity.y=%s, position.y=%s, gravity=%s, v_speed=%s, timer=%s" %
-				[name, force_knockfly, fixed_velocity.y, fixed_position.y, params.gravity, params.vertical_speed, knockfly_timer])
 		else:
 			is_hit = true
-			# ── 【僅 hitstun 用固定幀數】確保 4秒精準
 			var hit_frames = max(sec_to_frames(hitstun_duration), sec_to_frames(min_hitstun_duration))
 			hitstun_frames = hit_frames
-			initial_hitstun = hitstun_duration  # 保留舊變數（相容 Movement）
+			initial_hitstun = hitstun_duration
 			hit_timer = initial_hitstun
 			
 			print("[FIXED-FRAME HITSTUN START] %s 進入 hit，%d 幀 (%.3f秒)" % [name, hit_frames, hitstun_duration])
@@ -196,9 +214,8 @@ func take_hit(
 				is_immune_to_floor_snap = true
 				floor_snap_immunity_timer = floor_snap_immunity_duration
 				fixed_position.y -= 2
-			print("Debug: Normal hit for %s, hitstun=%s" % [name, initial_hitstun])
 
-	_update_animation_state(0, input_data.crouch_pressed)
+		_update_animation_state(0, input_data.crouch_pressed)
 
 func take_knockfly():
 	var move_set = $MoveSet if has_node("MoveSet") else null
@@ -211,13 +228,11 @@ func take_knockfly():
 		knockfly_timer = max(default_knockfly_duration, min_hitstun_duration)
 		_update_animation_state(0, is_crouching)
 
-# ── get_contact_point 完全保留舊版 ──
 func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
 	var hit_shape_node = hit_area.get_node_or_null("HitShape") as CollisionShape2D
 	var hurt_shape_node = hurt_area.get_node_or_null("HurtShape") as CollisionShape2D
 
 	if not hit_shape_node or not hurt_shape_node or not (hit_shape_node.shape is RectangleShape2D) or not (hurt_shape_node.shape is RectangleShape2D):
-		print("Warning: Invalid shapes for contact point calculation in get_contact_point for %s" % name)
 		return (hit_area.global_position + hurt_area.global_position) / 2.0
 
 	var world = get_tree().get_first_node_in_group("world")
@@ -246,34 +261,22 @@ func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
 	if overlap_left <= overlap_right + TOLERANCE and overlap_bottom <= overlap_top + TOLERANCE:
 		var median_x = (overlap_left + overlap_right) / 2.0 / SIMULATION_SCALE
 		var median_y = (overlap_bottom + overlap_top) / 2.0 / SIMULATION_SCALE
-		var contact_point = Vector2(median_x, median_y)
-		print("Debug: Contact point calculated: %s" % contact_point)
-		return contact_point
+		return Vector2(median_x, median_y)
 
-	print("Warning: No overlap detected in get_contact_point for %s vs %s" % [hit_area.get_parent().name, hurt_area.get_parent().name])
 	var space_state = get_world_2d().direct_space_state
 	var query = PhysicsShapeQueryParameters2D.new()
 	query.set_shape(hit_shape_node.shape)
 	query.transform = hit_shape_node.global_transform
 	query.collision_mask = hurt_area.collision_layer
 	var result = space_state.intersect_shape(query, 1)
-	if result and result[0].has("point"):
-		var collision_point = result[0].point
-		print("Debug: Physics query found collision point: %s" % collision_point)
-		return collision_point
+	if result and result.size() > 0 and result[0].has("point"):
+		return result[0].point
 
-	var hurt_left_edge = Vector2(hurt_shape_pos.x - hurt_half_size.x, hurt_shape_pos.y)
-	var point_query = PhysicsPointQueryParameters2D.new()
-	point_query.position = hurt_left_edge
-	point_query.collision_mask = hit_area.collision_layer
-	var point_result = space_state.intersect_point(point_query, 1)
-	if point_result and point_result[0].has("collider"):
-		var collision_point = hurt_left_edge
-		print("Debug: Point query found collision at Hurtbox left edge: %s" % collision_point)
-		return collision_point
-
-	print("Warning: Physics query failed, using fallback midpoint position")
 	return (hit_area.global_position + hurt_area.global_position) / 2.0
-	
+
 func is_in_hitstun() -> bool:
 	return hitstun_frames > 0
+
+# 可選：如果你想知道是否在 blockstun
+func is_in_blockstun() -> bool:
+	return blockstun_frames > 0

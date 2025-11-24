@@ -7,6 +7,7 @@ var animation_tree: AnimationTree = null
 var playback: AnimationNodeStateMachinePlayback = null
 var animation_player: AnimationPlayer = null
 var hitbox_shape: CollisionShape2D = null
+var display_frame_counter: int = 0
 
 var current_animation: String = ""
 var last_animation: String = ""
@@ -42,6 +43,12 @@ var block_hit_chain_type: int = -1  # 4=Block, 6=Hit
 
 # 用來穩定追蹤 blockstun 的連續幀計數器
 var blockstun_active_frames: int = 0
+
+# ── 除錯用變數（hit / block 幀數追蹤） ─────────────────────
+var _last_hitstun_frames: int = 0
+var _hitstun_start_logged: bool = false
+var _last_block_timer: float = 0.0
+var _blockstun_start_logged: bool = false
 
 # 常數表
 const TRACKED_ANIMS := [
@@ -90,8 +97,38 @@ func _process(delta: float) -> void:
 	if not playback or not animation_player or not target_player or not hitbox_shape:
 		return
 	
-	var flags := _get_player_flags()
+	# ── 除錯：hitstun（固定幀數）追蹤 ─────────────────────
+	if target_player.has_method("is_in_hitstun"):
+		var cur_frames = target_player.hitstun_frames if "hitstun_frames" in target_player else 0
+		if cur_frames > 0 and not _hitstun_start_logged:
+			var display_frames: int = int(round(cur_frames / 2.0))
+			var real_seconds: float = cur_frames / float(Engine.physics_ticks_per_second)
+			print("[HITSTUN] %s 進入 hitstun → %d 物理幀 (%d 顯示幀 / %.3f秒) ← 120 physics ticks" % [
+				target_player.name, cur_frames, display_frames, real_seconds
+			])
+			_hitstun_start_logged = true
+		elif cur_frames <= 0 and _hitstun_start_logged:
+			var display_frames: int = int(round(_last_hitstun_frames / 2.0))
+			print("[HITSTUN] %s hitstun 結束，共 %d 物理幀 (%d 顯示幀)" % [
+				target_player.name, _last_hitstun_frames, display_frames
+			])
+			_hitstun_start_logged = false
+		_last_hitstun_frames = cur_frames
 	
+	# ── 除錯：blockstun（舊版 timer）追蹤 ─────────────────────
+	if "block_timer" in target_player:
+		var cur_timer = target_player.block_timer
+		if cur_timer > 0 and not _blockstun_start_logged:
+			print("[BLOCKSTUN] %s 進入 blockstun → %.3f秒 (約 %d 幀) ← 使用 Movement.gd block_timer" % [
+				target_player.name, cur_timer, int(cur_timer * Engine.physics_ticks_per_second)
+			])
+			_blockstun_start_logged = true
+		elif cur_timer <= 0 and _blockstun_start_logged:
+			print("[BLOCKSTUN] %s blockstun 結束" % target_player.name)
+			_blockstun_start_logged = false
+		_last_block_timer = cur_timer
+	
+	var flags := _get_player_flags()
 	var timer_driven: bool = flags.blocking or flags.hit or flags.knockfly or \
 							flags.layground or flags.wakeup or \
 							current_animation in ["block", "cr_block"]
@@ -124,8 +161,14 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 	var jump_to_attack := last_animation in JUMP_ANIMS and anim_name in ["jump_mp","jump_mk"]
 	var knockfly_chain := knockfly_chain_active and anim_name in ["knockfly","layground","wakeup"]
 	
+	# 只有第一次進入 knockfly 時才清空並歸零計數器
 	if anim_name == "knockfly" and not knockfly_chain_active:
 		knockfly_chain_active = true
+		display_frame_counter = 0
+		history_frame_data.clear()
+		frame_data.clear()
+		current_frame = 0
+		is_tracking = true
 	
 	_handle_block_hit_chain(flags)
 	
@@ -156,6 +199,10 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 	if state != -1:
 		frame_data[current_frame] = state
 	
+	# 每物理幀遞增計數器（120 → 60 FPS 顯示）
+	if timer_driven or knockfly_chain or block_hit_chain_active:
+		display_frame_counter += 1
+	
 	value = min(current_frame + 1, total_frames)
 	queue_redraw()
 	update_frame_count_label(anim_name)
@@ -185,7 +232,7 @@ func _ensure_size(size: int) -> void:
 
 func _calc_frame(anim_name: String, pos: float, timer_driven: bool, knockfly_chain: bool) -> int:
 	if timer_driven or knockfly_chain or block_hit_chain_active:
-		return frame_data.size()
+		return display_frame_counter / 2
 	if is_jump_attack_active:
 		return min(jump_to_attack_offset + int(pos * DISPLAY_FPS), total_frames - 1)
 	if anim_name in JUMP_ANIMS:
@@ -201,19 +248,16 @@ func _get_state(anim_name: String, flags: Dictionary, on_floor: bool) -> int:
 	if flags.layground: return 9
 	if flags.wakeup: return 10
 	
-	# 關鍵修復：恢復你舊版正確的邏輯，同時解決拖尾問題
 	if anim_name in ATTACK_ANIMS:
 		if not hitbox_shape or hitbox_shape.disabled or hitbox_shape.shape == null:
-			# Hitbox 已關閉
-			return 0 if not was_active else 2      # 第一次關閉 = Startup，之後 = Recovery
+			return 0 if not was_active else 2
 		else:
-			# Hitbox 開啟 → 記錄為 Active，並把前面未填的補成 Startup
 			if not was_active:
 				was_active = true
 				for i in range(frame_data.size()):
 					if frame_data[i] == -1:
-						frame_data[i] = 0             # 補藍色 Startup
-			return 1                                      # 紅色 Active
+						frame_data[i] = 0
+			return 1
 	
 	if anim_name in ["Dash","Backdash"]: return 3
 	if anim_name in JUMP_ANIMS: return 5
@@ -239,6 +283,7 @@ func _start_new_block_hit_chain(type: int) -> void:
 	history_frame_data.clear()
 	frame_data.clear()
 	current_frame = 0
+	display_frame_counter = 0
 	was_active = false
 	is_tracking = true
 	reset_delay_timer = 0.0
@@ -337,7 +382,7 @@ func update_frame_count_label(anim_name: String) -> void:
 		text += "%dF" % frame_data.size()
 	frame_count_label.text = text
 
-# ── 動畫結束：只重置，不強制填滿（解決拖尾問題）────────────────────
+# ── 動畫結束 ─────────────────────
 func _on_animation_finished(anim_name: String) -> void:
 	if anim_name == last_finished_animation or anim_name not in TRACKED_ANIMS:
 		return
