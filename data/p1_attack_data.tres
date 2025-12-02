@@ -15,13 +15,13 @@ st_mk = {
 "hitstun": 0.5
 }
 cr_mp = {
-"blockstun": 0.5,
+"blockstun": 0.4,
 "damage": 8.0,
 "hitstun": 0.5
 }
 jump_mk = {
 "blockstun": 0.3,
 "damage": 8.0,
-"hitstun": 2.0
+"hitstun": 0.6
 }
 metadata/_custom_type_script = "uid://ccjfweg28wskh"

@@ -8,6 +8,7 @@ const FLOOR_Y: int = 200000
 const GRAVITY: int = 3000000
 
 @export var bgm_max_volume_db: float = -6.0  # 導出變數，控制最大音量，預設 -6 dB (50% 音量)
+
 @onready var hit_label = $UI/HitLabel
 @onready var fps_label = $UI/FPS
 @onready var player1 = $Player1
@@ -30,7 +31,7 @@ var combo_target: String = ""
 var combo_reset_timer: float = 0.0
 const COMBO_BUFFER: float = 0.2
 
-# 用於計算優勢時間的變數
+# ── Hit Advantage 變數 ─────────────────────
 var hit_time: float = 0.0
 var attacker: Node = null
 var target_player: Node = null
@@ -38,19 +39,28 @@ var attacker_recover_time: float = 0.0
 var target_recover_time: float = 0.0
 var advantage_calculated: bool = false
 
+# ── Block Advantage 變數 ─────────────────────
+var block_attacker: Node = null      # 出招被擋的一方
+var blocker: Node = null             # 成功格擋的一方
+var block_attack_recover_time: float = 0.0
+var block_defend_recover_time: float = 0.0
+var block_advantage_calculated: bool = false
+
 # 背景音樂控制變數
 var is_fading_out: bool = false
-var is_bgm_enabled: bool = true  # 追蹤背景音樂開關狀態
+var is_bgm_enabled: bool = true
 
-func _ready():
+func _ready() -> void:
 	add_to_group("world")
 	print("Debug: World added to group 'world'. Group members: ", get_tree().get_nodes_in_group("world"))
 	if not is_in_group("world"):
 		print("Error: World failed to join 'world' group")
+	
 	player1.hit_detected.connect(_on_hit_detected)
 	player2.hit_detected.connect(_on_hit_detected)
 	player1.block_detected.connect(_on_block_detected)
 	player2.block_detected.connect(_on_block_detected)
+	
 	if not player1 or not player2:
 		print("Error: Player1 or Player2 node not found in world")
 	if not slowmo_controller:
@@ -81,7 +91,7 @@ func _ready():
 		print("Debug: BGM fade-in started at %s ms" % Time.get_ticks_msec())
 	else:
 		print("Warning: BGMPlayer node not found in world")
-
+	
 	initial_p1_pos = Vector2(190.0, float(FLOOR_Y) / SIMULATION_SCALE)
 	initial_p2_pos = Vector2(290.0, float(FLOOR_Y) / SIMULATION_SCALE)
 	player1.fixed_position = Vector2i(int(190.0 * SIMULATION_SCALE), FLOOR_Y)
@@ -104,18 +114,18 @@ func _ready():
 	else:
 		print("Error: FrameBarP2 not found in UI")
 
-func _input(event):
+func _input(event) -> void:
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_R:
 			reset_players()
 		if event.keycode == KEY_M and not slowmo_triggered:
 			slowmo_controller.request_slowmo_change()
 			print("Debug: M key pressed, requesting slow motion change at %s ms" % Time.get_ticks_msec())
-		if Input.is_action_just_pressed("toggle_bgm"):  # 使用 Input Map 檢測
+		if Input.is_action_just_pressed("toggle_bgm"):
 			toggle_bgm()
 			print("Debug: toggle_bgm action triggered, BGM state: %s at %s ms" % [is_bgm_enabled, Time.get_ticks_msec()])
 
-func _process(delta):
+func _process(delta: float) -> void:
 	fps_label.text = "FPS: %d" % (1.0 / delta)
 	
 	if animation_label:
@@ -123,7 +133,7 @@ func _process(delta):
 		var p2_anim = player2.animation_state.get_current_node() if player2.animation_state else "none"
 		animation_label.text = "P1: %s, P2: %s" % [p1_anim, p2_anim]
 	
-	# 檢查玩家血量並觸發音樂淡出（僅當音樂開啟時）
+	# 檢查玩家血量並觸發音樂淡出
 	if not slowmo_triggered and not is_fading_out and is_bgm_enabled:
 		if (player1.healthbar and player1.healthbar.current_health <= 0) or \
 		   (player2.healthbar and player2.healthbar.current_health <= 0):
@@ -139,60 +149,120 @@ func _process(delta):
 			slowmo_controller.request_slowmo_change()
 			print("Debug: Slow motion triggered due to player health <= 0 at %s ms" % Time.get_ticks_msec())
 
-func _physics_process(delta):
+func _physics_process(delta: float) -> void:
 	if combo_reset_timer > 0:
 		combo_reset_timer -= delta
 		if combo_reset_timer <= 0:
 			reset_combo()
 	
+	# Hit Advantage 計算
 	if attacker and target_player and not advantage_calculated:
-		if attacker_recover_time == 0.0:
-			# 安全檢查 attacker 是否還存在 + 是否已結束攻擊
-			if is_instance_valid(attacker) and not attacker.is_attacking:
-				var move_set = attacker.get_node_or_null("MoveSet")
-				var is_recovered = true
-				if move_set:
-					is_recovered = not (move_set.is_special_moving or move_set.is_spmove)
-				if is_recovered:
-					attacker_recover_time = Time.get_unix_time_from_system()
-					print("Debug: Attacker %s recovered at %.3f" % [attacker.name, attacker_recover_time])
+		_calculate_hit_advantage()
+	
+	# Block Advantage 計算
+	if block_attacker and blocker and not block_advantage_calculated:
+		_calculate_block_advantage()
 
-		# ── 關鍵修正：安全檢查 target_player 是否存在 + 用 is_in_hitstun() 判斷真正的 hitstun 結束 ──
-		if target_recover_time == 0.0 and is_instance_valid(target_player):
-			var still_in_hitstun := false
+# ── Hit Advantage 計算 ─────────────────────
+func _calculate_hit_advantage() -> void:
+	if attacker_recover_time == 0.0 and is_instance_valid(attacker) and not attacker.is_attacking:
+		var move_set = attacker.get_node_or_null("MoveSet")
+		var recovered = true
+		if move_set:
+			recovered = not (move_set.is_special_moving or move_set.is_spmove)
+		if recovered:
+			attacker_recover_time = Time.get_unix_time_from_system()
+			print("Debug: Attacker %s recovered at %.3f" % [attacker.name, attacker_recover_time])
+	
+	if target_recover_time == 0.0 and is_instance_valid(target_player):
+		var still_in_hitstun := false
+		if target_player.has_method("is_in_hitstun"):
+			still_in_hitstun = target_player.is_in_hitstun()
+		elif "is_hit" in target_player:
+			still_in_hitstun = target_player.is_hit
+		
+		if not still_in_hitstun and not target_player.is_blocking:
+			target_recover_time = Time.get_unix_time_from_system()
+			print("Debug: Target %s recovered at %.3f" % [target_player.name, target_recover_time])
 			
-			# 方法1：如果 Fighter 有實作 is_in_hitstun()（新版固定幀數）→ 優先使用
-			if target_player.has_method("is_in_hitstun"):
-				still_in_hitstun = target_player.is_in_hitstun()
-			# 方法2：舊版只有 is_hit 旗標時的保險
-			elif "is_hit" in target_player:
-				still_in_hitstun = target_player.is_hit
-			
-			# 只要還在 hitstun 或 blocking 就不算 recover
-			if not still_in_hitstun and not target_player.is_blocking:
-				target_recover_time = Time.get_unix_time_from_system()
-				print("Debug: Target %s recovered at %.3f" % [target_player.name, target_recover_time])
-				
-				# 計算優勢（這段保持原樣）
-				if attacker_recover_time > 0.0:
-					var advantage_sec = target_recover_time - attacker_recover_time
-					var advantage_frames = int(round(advantage_sec * 60.0))
-					print("Debug: Advantage frames: %d (time diff: %.4f)" % [advantage_frames, advantage_sec])
-					
-					if attacker == player1:
-						p1_advantage_label.text = "P1 Adv: %d" % advantage_frames
-						p2_advantage_label.text = "P2 Adv: %d" % -advantage_frames
-					else:
-						p2_advantage_label.text = "P2 Adv: %d" % advantage_frames
-						p1_advantage_label.text = "P1 Adv: %d" % -advantage_frames
-					
-					advantage_calculated = true
+			if attacker_recover_time > 0.0:
+				var adv_sec = target_recover_time - attacker_recover_time
+				var adv_frames = int(round(adv_sec * 60.0))
+				_update_advantage_labels(attacker, adv_frames)
+				advantage_calculated = true
+
+# ── Block Advantage 計算（正確版本：誰先恢復誰有利） ─────────────────────
+func _calculate_block_advantage() -> void:
+	var valid = is_instance_valid(block_attacker) and is_instance_valid(blocker)
+	if not valid: return
+	
+	# 攻擊方恢復
+	if block_attack_recover_time == 0.0 and not block_attacker.is_attacking:
+		var move_set = block_attacker.get_node_or_null("MoveSet")
+		var recovered = true
+		if move_set:
+			recovered = not (move_set.is_special_moving or move_set.is_spmove)
+		if recovered:
+			block_attack_recover_time = Time.get_unix_time_from_system()
+	
+	# 防守方恢復（blockstun 結束）
+	if block_defend_recover_time == 0.0:
+		var recovered = false
+		if blocker.has_method("is_in_blockstun"):
+			recovered = not blocker.is_in_blockstun()
+		elif "block_timer" in blocker and blocker.block_timer <= 0.0:
+			recovered = true
+		else:
+			var anim = blocker.animation_state.get_current_node() if blocker.animation_state else ""
+			recovered = anim not in ["block", "cr_block"]
+		
+		if recovered:
+			block_defend_recover_time = Time.get_unix_time_from_system()
+	
+	# 兩邊都恢復 → 計算真正優勢
+	if block_attack_recover_time > 0.0 and block_defend_recover_time > 0.0:
+		# 正確公式：防守者恢復時間 - 攻擊者恢復時間
+		var advantage_sec = block_defend_recover_time - block_attack_recover_time
+		var advantage_frames = int(round(advantage_sec * 60.0))
+		
+		# 直接傳「攻擊者」當基準，正數表示攻擊者有利（和 Hit 完全一致）
+		_update_advantage_labels(block_attacker, advantage_frames, true)
+		block_advantage_calculated = true
+
+# ── 統一更新 Label（顯示 + 號） ─────────────────────
+func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_block: bool = false) -> void:
+	# advantage_frames > 0 → 攻擊者有利 → attacker_node 顯示 + 
+	# advantage_frames < 0 → 防守者有利 → 對方顯示 +
+	var p1_frames = 0
+	var p2_frames = 0
+	
+	if attacker_node == player1:
+		p1_frames = advantage_frames
+		p2_frames = -advantage_frames
+	else:
+		p2_frames = advantage_frames
+		p1_frames = -advantage_frames
+	
+	var p1_text = "P1 Adv: "
+	var p2_text = "P2 Adv: "
+	
+	p1_text += ("+%d" % p1_frames) if p1_frames > 0 else str(p1_frames)
+	p2_text += ("+%d" % p2_frames) if p2_frames > 0 else str(p2_frames)
+	
+	if p1_advantage_label:
+		p1_advantage_label.text = p1_text
+	if p2_advantage_label:
+		p2_advantage_label.text = p2_text
+	
+	var type = "Block" if is_block else "Hit"
+	print("[ADVANTAGE] %s → 攻擊者優勢 %s%dF → P1: %s / P2: %s" % [
+		type,
+		"+" if advantage_frames > 0 else "", advantage_frames,
+		p1_text, p2_text
+	])
 
 func to_scaled_vector2(vector: Vector2i) -> Vector2:
-	return Vector2(
-		float(vector.x) / SIMULATION_SCALE,
-		float(vector.y) / SIMULATION_SCALE
-	)
+	return Vector2(float(vector.x) / SIMULATION_SCALE, float(vector.y) / SIMULATION_SCALE)
 
 func reset_player_animation(player: Node, target_state: String) -> void:
 	var animation_tree = player.get_node_or_null("AnimationTree")
@@ -200,7 +270,7 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 	var animation_player = player.get_node_or_null("AnimationPlayer")
 	var move_set = player.get_node_or_null("MoveSet")
 	var player_id = player.player_id if "player_id" in player else "p1"
-
+	
 	if not animation_tree or not animation_state or not animation_player:
 		print("Warning: AnimationTree, animation_state, or animation_player not found for %s" % player.name)
 		return
@@ -239,7 +309,7 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 	animation_state.travel(target_state)
 	print("Debug: %s animation reset to %s at %s ms" % [player.name, target_state, Time.get_ticks_msec()])
 
-func reset_players():
+func reset_players() -> void:
 	player1.global_position = initial_p1_pos
 	player2.global_position = initial_p2_pos
 	player1.fixed_position = Vector2i(int(initial_p1_pos.x * SIMULATION_SCALE), FLOOR_Y)
@@ -296,7 +366,6 @@ func reset_players():
 		Engine.time_scale = slowmo_controller.normal_time_scale
 		print("Debug: Slow motion and hit slowmo states reset, time_scale=%s at %s ms" % [Engine.time_scale, Time.get_ticks_msec()])
 	
-	# 重置背景音樂
 	if bgm_player:
 		bgm_player.stop()
 		if is_bgm_enabled:
@@ -315,16 +384,23 @@ func reset_players():
 		animation_label.text = "P1: Walk, P2: Walk"
 	
 	reset_combo()
-	
 	if debug_label:
 		debug_label.text = ""
 	
+	# 重置所有優勢計算
 	hit_time = 0.0
 	attacker = null
 	target_player = null
 	attacker_recover_time = 0.0
 	target_recover_time = 0.0
 	advantage_calculated = false
+	
+	block_attacker = null
+	blocker = null
+	block_attack_recover_time = 0.0
+	block_defend_recover_time = 0.0
+	block_advantage_calculated = false
+	
 	if p1_advantage_label:
 		p1_advantage_label.text = "P1 Adv: 0"
 	if p2_advantage_label:
@@ -335,13 +411,15 @@ func reset_players():
 	if frame_bar_p2:
 		frame_bar_p2.reset_frame_bar()
 	
-	print("Debug: Players reset! Positions, health, animations, frame bars, and slow motion restored at %s ms" % Time.get_ticks_msec())
+	print("Debug: Players reset! Positions, health, animations, frame bars, and advantages restored at %s ms" % Time.get_ticks_msec())
 
-func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool):
+func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool) -> void:
 	var hit_time_ms = Time.get_ticks_msec()
+	
 	if not is_blocked:
+		# Hit
 		hit_label.text = "Hits: " + target + " was hit!"
-		print("Debug: %s was hit at %s ms, updating HitLabel, stun_duration=%s" % [target, hit_time_ms, stun_duration])
+		print("Debug: %s was hit at %s ms, stun_duration=%s" % [target, hit_time_ms, stun_duration])
 		
 		if was_in_stun and combo_target == target and current_combo > 0:
 			current_combo += 1
@@ -350,38 +428,61 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 			combo_target = target
 		combo_reset_timer = stun_duration + COMBO_BUFFER
 		update_combo_label()
+		
+		# Hit Advantage 設定
+		attacker = player1 if target == "Player2" else player2
+		target_player = player2 if target == "Player2" else player1
+		attacker_recover_time = 0.0
+		target_recover_time = 0.0
+		advantage_calculated = false
+		
+		# 清空 Block Advantage
+		block_attacker = null
+		blocker = null
+		block_attack_recover_time = 0.0
+		block_defend_recover_time = 0.0
+		block_advantage_calculated = false
+		
 	else:
-		hit_label.text = target + " blocked! Stun: " + str(stun_duration)
-		print("Debug: %s blocked at %s ms with stun duration %s, updating HitLabel" % [target, hit_time_ms, stun_duration])
+		# Block
+		hit_label.text = target + " blocked!"
+		print("Debug: %s blocked at %s ms" % [target, hit_time_ms])
 		reset_combo()
+		
+		# Block Advantage 設定
+		block_attacker = player1 if target == "Player2" else player2   # 出招者
+		blocker        = player2 if target == "Player2" else player1   # 格擋者
+		block_attack_recover_time = 0.0
+		block_defend_recover_time = 0.0
+		block_advantage_calculated = false
+		
+		# 清空 Hit Advantage
+		attacker = null
+		target_player = null
+		advantage_calculated = true
 	
-	hit_time = Time.get_unix_time_from_system()
-	attacker = player1 if target == "Player2" else player2
-	target_player = player2 if target == "Player2" else player1
-	attacker_recover_time = 0.0
-	target_recover_time = 0.0
-	advantage_calculated = false
-	print("Debug: Hit detected at %s ms, attacker=%s, target=%s, requesting slowmo" % [hit_time_ms, attacker.name, target_player.name])
+	print("Debug: Hit detected at %s ms, attacker=%s, target=%s" % [hit_time_ms, 
+		(attacker.name if attacker else "none"), (target_player.name if target_player else "none")])
 
-func _on_block_detected(target: String, block_type: String):
+func _on_block_detected(target: String, block_type: String) -> void:
 	var block_time_ms = Time.get_ticks_msec()
 	if block_type == "proximity":
 		hit_label.text = target + " blocked (proximity)!"
-		print("Debug: %s triggered proximity block at %s ms, updating HitLabel" % [target, block_time_ms])
+		print("Debug: %s triggered proximity block at %s ms" % [target, block_time_ms])
 	reset_combo()
 
-func update_combo_label():
+func update_combo_label() -> void:
 	if current_combo >= 2:
 		combo_label.text = str(current_combo) + " Hit !"
 	else:
 		combo_label.text = ""
 
-func reset_combo():
+func reset_combo() -> void:
 	current_combo = 0
 	combo_target = ""
 	update_combo_label()
 
-func toggle_bgm():
+func toggle_bgm() -> void:
 	if not bgm_player:
 		print("Warning: BGMPlayer node not found, cannot toggle BGM")
 		return

@@ -499,7 +499,7 @@ size = Vector2(40, 15)
 size = Vector2(30, 15)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ak627"]
-size = Vector2(40, 15)
+size = Vector2(80, 20)
 
 [sub_resource type="Animation" id="Animation_s33xd"]
 resource_name = "cr_mk"
@@ -710,7 +710,7 @@ tracks/16/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_lyl3y"]
-size = Vector2(30, 60)
+size = Vector2(20, 45)
 
 [sub_resource type="Animation" id="Animation_6flp4"]
 resource_name = "cr_mp"

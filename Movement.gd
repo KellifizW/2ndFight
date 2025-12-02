@@ -29,7 +29,7 @@ var air_friction: float = default_air_friction
 var knockfly_duration: float = default_knockfly_duration
 @export var air_hit_backjump_speed: float = 400.0
 @export var air_hit_backjump_duration: float = 0.2
-@export var air_hit_backjump_up_speed: float = -800.0  # ← 新增：後跳升起初速（負值向上）
+@export var air_hit_backjump_up_speed: float = -800.0
 var is_air_hit_backjump: bool = false
 var air_hit_backjump_timer: float = 0.0
 var pending_jump_b_seek: float = -1.0
@@ -76,12 +76,15 @@ var hit_timer: float = 0.0
 var block_timer: float = 0.0
 var knockfly_timer: float = 0.0
 
+# ── Proximity Block 專用旗標（不吃 stun，只負責姿勢與禁止後退） ──
+var is_proximity_blocking: bool = false
+
 # ── 推擠參數 ──────────────────────────────
 @export_group("Push Parameters")
 @export var block_push_distance: float = 50.0
 var is_immune_to_floor_snap: bool = false
 var floor_snap_immunity_timer: float = 0.0
-@export var floor_snap_immunity_duration: float = 0.1 # 約 6 幀 @ 60fps
+@export var floor_snap_immunity_duration: float = 0.1
 var block_push_timer: float = 0.0
 var initial_blockstun: float = 0.0
 var block_push_velocity: float = 0.0
@@ -93,7 +96,7 @@ var hit_push_velocity: float = 0.0
 # ── 方向與防禦 ───────────────────────────
 var facing_direction: float = 1.0
 var dash_direction: float = 0.0
-var is_blocking: bool = false
+var is_blocking: bool = false          # 真正被打到時吃的 blockstun
 var is_holding_back: bool = false
 var is_crouch_blocking: bool = false
 var is_opponent_proximity: bool = false
@@ -190,6 +193,7 @@ func _physics_process(delta: float) -> void:
 	var is_special_moving: bool = move_set.is_special_moving if move_set and "is_special_moving" in move_set else false
 	var scale_factor: float = world.SIMULATION_SCALE if world else 1000.0
 	var floor_y: int = world.FLOOR_Y if world else 200000
+
 	_handle_timers(delta)
 	_handle_blocking(input_dir, is_special_moving)
 	_handle_dash(input_dir, scale_factor, is_special_moving)
@@ -200,12 +204,14 @@ func _physics_process(delta: float) -> void:
 	fixed_position += Vector2i(roundi(fixed_velocity.x * delta), roundi(fixed_velocity.y * delta))
 	_handle_landing(input_data, floor_y, delta)
 	global_position = world.to_scaled_vector2(fixed_position) if world else Vector2(float(fixed_position.x) / 1000.0, float(fixed_position.y) / 1000.0)
+
 	if just_jumped and fixed_velocity.y > 0:
 		just_jumped = false
 	if floor_snap_immunity_timer > 0:
 		floor_snap_immunity_timer -= delta
 		if floor_snap_immunity_timer <= 0:
 			is_immune_to_floor_snap = false
+
 	var is_landing_state: bool = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
 	if not (is_attacking or landing_facing_lock or is_landing_state):
 		update_facing_direction()
@@ -215,8 +221,10 @@ func _physics_process(delta: float) -> void:
 	if is_on_floor() and prev_position.x != global_position.x and not is_special_moving and not is_landing_state and not is_jumping and not landing_facing_lock:
 		update_facing_direction()
 	prev_position = global_position
+
 	if not ("landing_lock_timer" in self and self.landing_lock_timer > 0) and not is_layground:
 		_update_animation_state(input_dir, crouch_pressed)
+
 	post_physics_process(delta)
 
 func _handle_timers(delta: float) -> void:
@@ -281,7 +289,8 @@ func _handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) 
 func _handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
 	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and not is_crouching:
 		if input_dir != 0:
-			if input_dir * facing_direction < 0 and is_blocking and is_opponent_proximity and block_type == "proximity":
+			# Proximity Block 時禁止後退
+			if is_proximity_blocking and input_dir * facing_direction < 0:
 				fixed_velocity.x = 0
 			else:
 				var move_speed: float = walk_speed if input_dir * facing_direction > 0 else back_speed
@@ -444,20 +453,16 @@ func get_is_knockfly() -> bool:
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = true
-		if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_blocking:
-			is_blocking = true
-			is_crouch_blocking = get_input().crouch_pressed and get_input().input_dir * facing_direction < 0
-			block_type = "proximity"
-			fixed_velocity = Vector2i.ZERO
-			block_detected.emit(name, block_type)
+		# 只有輸入往對方方向走才進入 Proximity Block（不吃 stun）
+		var input_dir: int = get_input().input_dir
+		if input_dir * facing_direction < 0 and is_on_floor() and not (is_hit or is_knockfly or is_layground):
+			is_proximity_blocking = true
+			fixed_velocity.x = 0
 
 func _on_hurtbox_area_exited(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = false
-		if is_blocking and block_type == "proximity":
-			is_blocking = false
-			is_crouch_blocking = false
-			block_type = "none"
+		is_proximity_blocking = false
 
 func update_facing_direction() -> void:
 	var move_set = $MoveSet if has_node("MoveSet") else null
@@ -532,50 +537,45 @@ func _set_animation_conditions(target_state: String, on_floor: bool, crouch_inpu
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	if is_hit:
 		return "hit" if on_floor else "Jump_B"
-		# ──────────────────────── 以下全部保持原樣不動 ────────────────────────
+
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var player_id = get_parent().player_id if get_parent() and "player_id" in get_parent() else "unknown"
-	
-	if is_layground:
-		return "layground"
-	if is_knockfly:
-		return "knockfly"
-	if "is_wakeup_locked" in self and self.is_wakeup_locked:
-		return "wakeup"
+
+	if is_layground: return "layground"
+	if is_knockfly: return "knockfly"
+	if "is_wakeup_locked" in self and self.is_wakeup_locked: return "wakeup"
+
 	if move_set and move_set.is_spmove:
-		if move_set.is_super:
-			return "super"
-		elif player_id == "p1" and move_set.is_powerkk:
-			return "powerkk"
-		elif player_id == "p1" and move_set.is_dp:
-			return "dp"
-		elif player_id == "p2" and move_set.is_spnk:
-			return "spnk"
-		elif move_set.is_fireball:
-			return "fireball"
+		if move_set.is_super: return "super"
+		elif player_id == "p1" and move_set.is_powerkk: return "powerkk"
+		elif player_id == "p1" and move_set.is_dp: return "dp"
+		elif player_id == "p2" and move_set.is_spnk: return "spnk"
+		elif move_set.is_fireball: return "fireball"
+
+	# Proximity Block 優先顯示格擋動畫（純視覺）
+	if is_proximity_blocking:
+		return "cr_block" if is_crouching else "block"
+
+	# 真正被打到吃 blockstun 時
 	if is_blocking:
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
+
 	if is_attacking:
 		var atype = get("attack_type") if "attack_type" in self else "none"
 		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk", "super", "dp"]:
 			return atype
 		return "Walk"
-	if is_dashing:
-		return "Dash"
-	if is_backdashing:
-		return "Backdash"
-	if crouch_input and on_floor and not is_blocking:
-		return "Crouch"
+	if is_dashing: return "Dash"
+	if is_backdashing: return "Backdash"
+	if crouch_input and on_floor and not is_blocking: return "Crouch"
+
 	if not on_floor and (is_jumping or ("is_air_attacking" in self and self.is_air_attacking)):
 		if "is_air_attacking" in self and (self.is_air_attacking or ("has_air_attacked" in self and self.has_air_attacked)):
 			return get("attack_type") if "attack_type" in self else "jump_mp"
 		else:
-			if anim_jump_dir > 0:
-				return "Jump_F"
-			elif anim_jump_dir < 0:
-				return "Jump_B"
-			else:
-				return "Jump_V"
+			if anim_jump_dir > 0: return "Jump_F"
+			elif anim_jump_dir < 0: return "Jump_B"
+			else: return "Jump_V"
 	return "Walk"
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:

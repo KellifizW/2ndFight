@@ -2231,7 +2231,6 @@ shape = SubResource("RectangleShape2D_bhnal")
 debug_color = Color(1.44392e-06, 0.569045, 0.850655, 0.42)
 
 [node name="AttackHurtShape" type="CollisionShape2D" parent="Hurtbox"]
-position = Vector2(25, 20)
 debug_color = Color(0.9954062, 0, 0.21373373, 0.41960785)
 
 [node name="Proximitybox" type="Area2D" parent="."]
