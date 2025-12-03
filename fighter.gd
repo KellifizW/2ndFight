@@ -1,5 +1,5 @@
 class_name Fighter extends Movement
-
+signal block_detected(target: String, block_type: String)
 static var PHYSICS_FPS: int = 60
 const DISPLAY_FPS: int = 60
 
@@ -38,7 +38,6 @@ func _ready():
 	add_to_group("players")
 
 func _physics_process(delta):
-	var world = get_tree().get_first_node_in_group("world")
 	if not world:
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
@@ -96,7 +95,7 @@ func _physics_process(delta):
 	else:
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
-func post_physics_process(delta):
+func post_physics_process(_delta):
 	pass
 
 # ── 【關鍵修復】take_hit：hitstun & blockstun 都使用固定幀數──
@@ -108,7 +107,6 @@ func take_hit(
 		force_knockfly: bool = false,
 		knockfly_params: Dictionary = {}
 ):
-	var world = get_tree().get_first_node_in_group("world")
 	if not world:
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
@@ -235,7 +233,6 @@ func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
 	if not hit_shape_node or not hurt_shape_node or not (hit_shape_node.shape is RectangleShape2D) or not (hurt_shape_node.shape is RectangleShape2D):
 		return (hit_area.global_position + hurt_area.global_position) / 2.0
 
-	var world = get_tree().get_first_node_in_group("world")
 	var SIMULATION_SCALE = world.SIMULATION_SCALE if world else 1000.0
 	var TOLERANCE = 2.0 * SIMULATION_SCALE
 

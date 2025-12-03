@@ -252,7 +252,7 @@ func _physics_process(delta: float) -> void:
 	if not (landing_lock_timer > 0):
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
-func _physics_process_jump(delta: float) -> void:
+func _physics_process_jump(_delta: float) -> void:
 	var input_data = get_input()
 	if input_data.jump_pressed and is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_hit and not is_knockfly and not is_blocking and not is_layground:
 		is_jumping = true
@@ -304,7 +304,7 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 
 func _on_animation_tree_finished(anim_name: StringName) -> void:
 	if anim_name == "layground" and is_layground:
-		var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
+		var player_healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 		if healthbar and healthbar.current_health <= 0:
 			return
 		is_layground = false

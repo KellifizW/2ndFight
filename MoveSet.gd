@@ -31,6 +31,7 @@ var is_dp: bool = false
 var is_spmove: bool = false
 var is_special_moving: bool = false
 var is_spmove_animation_playing: bool = false
+var is_hdk: bool = false
 
 # Timers
 var super_timer: float = 0.0
@@ -41,6 +42,7 @@ var fireball_timer: float = 0.0
 var fireball_spawn_timer: float = 0.0
 var powerkk_timer: float = 0.0
 var spnk_timer: float = 0.0
+var hdk_timer: float = 0.0             # ← 新增：hdk 專用計時器
 
 # Jump flags
 var has_jumped_in_super: bool = false
@@ -92,7 +94,8 @@ func _ready() -> void:
 		push_warning("MoveSet initialization failed: missing required nodes")
 	
 	if animation_player:
-		for anim_name in ["powerkk", "spnk", "fireball", "super", "dp"]:
+		# ← 修改：檢查清單加 hdk（檢查動畫衝突）
+		for anim_name in ["powerkk", "spnk", "fireball", "super", "dp", "hdk"]:
 			if animation_player.has_animation(anim_name):
 				var anim = animation_player.get_animation(anim_name)
 				for i in anim.get_track_count():
@@ -215,6 +218,11 @@ func start_dp() -> void:
 	dp_initial_facing = parent.facing_direction
 	is_dp_penetrable = true
 
+func start_hdk() -> void:
+	_start_special("hdk", "p2", 5.0, 1.1, 50.0)
+	is_hdk = true                   # 這一行決定動畫能不能切！
+	_play_special_sound(false)
+
 # === Fireball starter (P1 & P2 both allowed) ===
 func _start_fireball() -> void:
 	if parent.is_attacking or is_fireball or is_powerkk or is_spnk: return
@@ -235,13 +243,14 @@ func resume_after_freeze() -> void:
 
 # === Stop all special moves ===
 func stop_special_move() -> void:
-	if not (is_powerkk or is_spnk or is_fireball or is_super or is_dp): return
+	if not (is_powerkk or is_spnk or is_fireball or is_super or is_dp or is_hdk): return  # ← 修改：加 is_hdk 檢查
 	
 	is_powerkk = false
 	is_spnk = false
 	is_fireball = false
 	is_super = false
 	is_dp = false
+	is_hdk = false
 	is_spmove = false
 	is_special_moving = false
 	is_spmove_animation_playing = false
@@ -253,6 +262,7 @@ func stop_special_move() -> void:
 	dp_jump_timer = 0.0
 	powerkk_timer = 0.0
 	spnk_timer = 0.0
+	hdk_timer = 0.0             # ← 新增：復歸 hdk 計時器
 	has_jumped_in_super = false
 	has_jumped_in_dp = false
 	
@@ -316,6 +326,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if input_data.spm1_pressed and not parent.is_attacking and not (is_powerkk or is_spnk or is_fireball):
 		if player_id == "p1": start_powerkk()
 		elif player_id == "p2": start_spnk()
+		return true
+	if input_data.spm3_pressed and player_id == "p2" and not parent.is_attacking and not is_spmove:
+		start_hdk()                    # ← 呼叫我們新寫的函數
 		return true
 	
 	# === DP ===
@@ -395,11 +408,27 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		if timer_ref <= 0: stop_special_move()
 		return true
 	
+	# === 新增：hdk 持續處理（跟 spnk 一樣，沒跳躍） ===
+	if is_hdk:
+		if parent.fixed_position.y < world.FLOOR_Y:
+			parent.fixed_velocity.y += int(world.GRAVITY * delta)
+			if parent.fixed_position.y >= world.FLOOR_Y:
+				parent.fixed_position.y = world.FLOOR_Y
+				parent.fixed_velocity.y = 0
+		
+		parent.fixed_position.x += int(parent.fixed_velocity.x * delta)
+		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
+		
+		hdk_timer -= delta
+		if hdk_timer <= 0: stop_special_move()
+		return true
+	
 	return false
 
 # === Animation finished ===
 func _on_spmove_animation_finished(anim_name: String) -> void:
-	if anim_name in ["powerkk", "spnk", "fireball", "super", "dp"] and is_spmove_animation_playing:
+	# ← 修改：檢查清單加 hdk（讓動畫播完能自動結束）
+	if anim_name in ["powerkk", "spnk", "fireball", "super", "dp", "hdk"] and is_spmove_animation_playing:
 		is_spmove_animation_playing = false
 		if "is_special_moving" in parent: parent.is_special_moving = false
 		

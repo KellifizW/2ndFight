@@ -36,31 +36,12 @@ var previous_state: String = ""
 var current_attack: String = "none"
 var current_crouch: bool = false
 
-# frame data
-var frame_data: Dictionary = {
-	"p1": {
-		"st_mp": {"startup": 0.1, "recovery": 0.2667, "blockstun": 0.267},
-		"st_mk": {"startup": 0.2, "recovery": 0.4003, "blockstun": 0.3},
-		"cr_mp": {"startup": 0.1, "recovery": 0.2667, "blockstun": 0.267},
-		"cr_mk": {"startup": 0.2, "recovery": 0.4003, "blockstun": 0.3},
-		"jump_mp": {"startup": 0.1333, "recovery": 0.2, "blockstun": 0.267},
-		"jump_mk": {"startup": 0.1, "recovery": 0.3, "blockstun": 0.267},
-		"powerkk": {"startup": 0.3, "recovery": 0.5, "blockstun": 0.267},
-		"fireball": {"startup": 0.3, "recovery": 0.4667, "blockstun": 0.267}
-	},
-	"p2": {
-		"st_mp": {"startup": 0.2, "recovery": 0.3667, "blockstun": 0.267},
-		"st_mk": {"startup": 0.1, "recovery": 0.2667, "blockstun": 0.3},
-		"cr_mp": {"startup": 0.2, "recovery": 0.3667, "blockstun": 0.267},
-		"cr_mk": {"startup": 0.1, "recovery": 0.2667, "blockstun": 0.3},
-		"jump_mp": {"startup": 0.1, "recovery": 0.2333, "blockstun": 0.267},
-		"jump_mk": {"startup": 0.1, "recovery": 0.267, "blockstun": 0.267},
-		"spnk": {"startup": 0.2, "recovery": 0.4667, "blockstun": 0.267},
-		"fireball": {"startup": 0.3, "recovery": 0.3667, "blockstun": 0.267}
-	}
-}
-
 var cancel_window_timer_ai: float = 0.0
+
+# 新增：FrameBar 與 AttackData 引用
+var opponent_framebar: Node = null      # 對手的 FrameBar (p1 → FrameBarP1, p2 → FrameBarP2)
+var my_framebar: Node = null            # 自己的 FrameBar
+var opponent_attack_data: AttackData = null
 
 # 防重複列印用的追蹤變數
 var _last_logged_state: String = ""
@@ -77,6 +58,7 @@ var _last_logged_cancel: bool = false
 func _ready() -> void:
 	parent = get_parent()
 	world = get_tree().get_first_node_in_group("world")
+	
 	if parent:
 		if parent.player_id == "p1":
 			punish_attack = "st_mp"
@@ -86,7 +68,26 @@ func _ready() -> void:
 			parent.hit_detected.connect(_on_self_hit_detected)
 	else:
 		print("Warning: AIBehavior parent not found")
+	
 	opponent_search_timer = 0.1
+	
+	# 載入對手的 AttackData
+	if parent.player_id == "p1":
+		opponent_attack_data = load("res://p2_attack_data.tres") as AttackData
+	else:
+		opponent_attack_data = load("res://p1_attack_data.tres") as AttackData
+	
+	# 取得兩個 FrameBar
+	var ui = get_tree().get_first_node_in_group("ui")
+	if ui:
+		if parent.player_id == "p1":
+			opponent_framebar = ui.get_node("FrameBarP2")
+			my_framebar       = ui.get_node("FrameBarP1")
+		else:
+			opponent_framebar = ui.get_node("FrameBarP1")
+			my_framebar       = ui.get_node("FrameBarP2")
+	else:
+		push_error("AIBehavior 找不到 UI 節點，FrameBar 無法連結")
 
 func _process(delta: float) -> void:
 	if not opponent and opponent_search_timer > 0:
@@ -140,41 +141,64 @@ func find_opponent() -> void:
 			return
 	print("Warning: No opponent found for %s" % parent.name)
 
-func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool) -> void:
-	if not ai_enabled: return
-	if opponent and is_blocked and target == parent.name:
-		var opponent_attack = opponent.attack_type if "attack_type" in opponent else "st_mp"
-		var move_set = opponent.get_node("MoveSet") if opponent.has_node("MoveSet") else null
-		if move_set:
-			if move_set.is_powerkk: opponent_attack = "powerkk"
-			elif move_set.is_spnk: opponent_attack = "spnk"
-			elif move_set.is_fireball: opponent_attack = "fireball"
-			elif move_set.is_super: opponent_attack = "super"
-			elif move_set.is_dp: opponent_attack = "dp"
-		var recovery = frame_data[opponent.player_id].get(opponent_attack, {}).get("recovery", 0.4)
-		var blockstun = frame_data[opponent.player_id].get(opponent_attack, {}).get("blockstun", 0.267)
-		var advantage = blockstun - recovery
-		print("Debug: %s blocked %s's %s, advantage: %.2f" % [parent.name, opponent.name, opponent_attack, advantage])
-		punish_timer = blockstun
-		last_blockstun_duration = blockstun
-		punish_attack = _select_punish_attack(advantage)
+# 從對手 FrameBar 取得 startup / recovery（秒）
+func _get_opponent_startup(anim: String) -> float:
+	if opponent_framebar and opponent_framebar.current_animation == anim and opponent_framebar.frame_data.size() > 0:
+		var count = 0
+		for s in opponent_framebar.frame_data:
+			if s == 0: count += 1
+		return count / 60.0
+	return 0.2
 
-func _select_punish_attack(advantage: float) -> String:
-	var available_attacks = frame_data[parent.player_id]
-	var best_attack: String = ""
-	var best_startup: float = INF
-	for attack in available_attacks:
-		var startup = available_attacks[attack]["startup"]
-		if startup < best_startup and startup <= advantage:
-			best_startup = startup
-			best_attack = attack
-	return best_attack if best_attack else "st_mp"
+func _get_opponent_recovery(anim: String) -> float:
+	if opponent_framebar and opponent_framebar.current_animation == anim and opponent_framebar.frame_data.size() > 0:
+		var count = 0
+		for s in opponent_framebar.frame_data:
+			if s == 2: count += 1
+		return count / 60.0
+	return 0.35
 
-func _on_self_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool) -> void:
+func _get_opponent_blockstun(anim: String) -> float:
+	if opponent_attack_data and opponent_attack_data.has(anim):
+		return opponent_attack_data[anim].get("blockstun", 0.267)
+	return 0.267
+
+func _on_hit_detected(_target: String, _stun_duration: float, is_blocked: bool, _was_in_stun: bool) -> void:
+	if not ai_enabled or not is_blocked or _target != parent.name: return
+	
+	var attack = opponent.attack_type
+	var move_set = opponent.get_node("MoveSet") if opponent.has_node("MoveSet") else null
+	if move_set:
+		if move_set.is_powerkk: attack = "powerkk"
+		elif move_set.is_spnk:   attack = "spnk"
+		elif move_set.is_dp:     attack = "dp"
+		elif move_set.is_fireball: attack = "fireball"
+		elif move_set.is_super:  attack = "super"
+	
+	var recovery  = _get_opponent_recovery(attack)
+	var blockstun = _get_opponent_blockstun(attack)
+	var advantage = blockstun - recovery
+	
+	print("[AI] %s 被 %s 的 %s block → advantage %.3f (blockstun %.3f - recovery %.3f)" % [
+		parent.name, opponent.name, attack, advantage, blockstun, recovery
+	])
+	
+	punish_timer = blockstun
+	punish_opportunity = true
+	
+	if advantage >= 0.25:
+		punish_attack = "dp" if parent.player_id == "p1" else "spnk"
+	elif advantage >= 0.15:
+		punish_attack = "st_mk"
+	else:
+		punish_attack = "st_mp"
+
+func _on_self_hit_detected(_target: String, _stun_duration: float, is_blocked: bool, _was_in_stun: bool) -> void:
 	if parent.player_id == "p1" and parent.attack_type == "st_mp" and not is_blocked:
 		cancel_window_timer_ai = 0.3
 		print("Debug: AI P1 st_mp hit detected, cancel window started")
 
+# 其餘函式（角落判定、跳躍等）完全不變
 func is_at_left_corner() -> bool:
 	if not world: return false
 	var distance_to_left = parent.global_position.x - (world.arena_left / world.SIMULATION_SCALE)
@@ -249,17 +273,19 @@ func get_ai_input() -> Dictionary:
 	# 懲罰反擊
 	if punish_opportunity and not _last_logged_punish:
 		current_state = "attack"
-		if parent.player_id == "p1" and randf() < 0.5:
-			current_attack = "dp"
-			input.dp_pressed = true
-		else:
-			current_attack = punish_attack
+		current_attack = punish_attack
+		match current_attack:
+			"st_mp": input.st_mp_pressed = true
+			"st_mk": input.st_mk_pressed = true
+			"dp": input.dp_pressed = true
+			"spnk": input.spm1_pressed = true
 		print("Debug: %s 懲罰反擊！使用 %s" % [parent.name, current_attack])
 		_last_logged_punish = true
+		punish_opportunity = false
 	elif not punish_opportunity:
 		_last_logged_punish = false
 	
-	# 攻擊選擇
+	# 攻擊選擇（其餘邏輯不變）
 	if current_state == "attack":
 		attack_decision_timer -= get_process_delta_time()
 		if attack_decision_timer <= 0:
@@ -297,7 +323,7 @@ func get_ai_input() -> Dictionary:
 				print("Debug: %s 防守蹲下: %s" % [parent.name, "true" if current_crouch else "false"])
 				_last_logged_crouch = current_crouch
 	
-	# 跳躍
+	# 跳躍、空中攻擊、取消連招、P1近距離DP 等其餘邏輯完全保留（與原版一致）
 	var jump_for_attack = can_jump_attack_hit() and randf() < 0.4 and parent.is_on_floor()
 	var corner_escape = (is_at_left_corner() or is_at_right_corner()) and randf() < 0.15 and parent.is_on_floor()
 	
@@ -319,7 +345,6 @@ func get_ai_input() -> Dictionary:
 	elif not corner_escape:
 		_last_logged_corner_escape = false
 	
-	# 狀態動作
 	match current_state:
 		"approach":
 			input.input_dir = int(relative_dir)
@@ -345,7 +370,6 @@ func get_ai_input() -> Dictionary:
 		"idle":
 			_log_state(current_state, input.input_dir)
 	
-	# 空中攻擊
 	if not parent.is_on_floor() and parent.velocity.y > 0 and parent.global_position.y < 50:
 		if distance < 50 and randf() < 0.3 and not _last_logged_aerial_attack:
 			input.st_mp_pressed = randf() < 0.5
@@ -355,7 +379,6 @@ func get_ai_input() -> Dictionary:
 	elif parent.is_on_floor():
 		_last_logged_aerial_attack = false
 	
-	# 取消連招
 	if cancel_window_timer_ai > 0 and not _last_logged_cancel:
 		input.spm1_pressed = true
 		input.st_mp_pressed = false
@@ -367,7 +390,6 @@ func get_ai_input() -> Dictionary:
 	elif cancel_window_timer_ai <= 0:
 		_last_logged_cancel = false
 	
-	# P1 近距離 DP
 	if parent.player_id == "p1" and (current_state == "attack" or current_state == "defend") and distance < 50 and randf() < p1_dp_chance and parent.is_on_floor() and not _last_logged_dp:
 		input.dp_pressed = true
 		current_attack = "dp"
@@ -380,13 +402,10 @@ func get_ai_input() -> Dictionary:
 	elif not (distance < 50 and parent.is_on_floor()):
 		_last_logged_dp = false
 	
-	# 輸出
 	var attack_type = "st_mp" if input.st_mp_pressed else "st_mk" if input.st_mk_pressed else "dp" if input.dp_pressed else "none"
 	var move_set = parent.get_node("MoveSet") if parent.has_node("MoveSet") else null
-	var blockstun_duration = frame_data[parent.player_id].get(current_attack, {}).get("blockstun", 0.2)
 	var damage = move_set.get_special_damage() if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball or move_set.is_dp) else (10.0 if (input.st_mp_pressed or input.st_mk_pressed) else 0.0)
 	
 	input["attack_type"] = attack_type
-	input["blockstun_duration"] = blockstun_duration
 	input["damage"] = damage
 	return input

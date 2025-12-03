@@ -4,6 +4,11 @@
 
 [resource]
 script = ExtResource("1_e6rab")
+st_mp = {
+"blockstun": 0.267,
+"damage": 7.0,
+"hitstun": 0.3
+}
 st_mk = {
 "blockstun": 0.267,
 "damage": 6.0,

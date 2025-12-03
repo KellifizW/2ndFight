@@ -114,15 +114,13 @@ var landing_facing_lock: bool = false
 var jump_delay_timer: float = 0.0
 @export var jump_delay_duration: float = 0.067
 
-signal block_detected(target: String, block_type: String)
-
 var animation_conditions: Array = [
 	"Walk", "Crouch", "Dash", "Backdash",
 	"st_mp", "st_mk", "cr_mp", "cr_mk",
 	"Jump_F", "Jump_B", "Jump_V",
 	"hit", "knockfly", "block", "cr_block",
 	"powerkk", "spnk", "fireball",
-	"jump_mp", "jump_mk", "landing", "wakeup", "super", "dp", "layground"
+	"jump_mp", "jump_mk", "landing", "wakeup", "super", "dp", "hdk", "layground"
 ]
 
 var anim_resets: Dictionary = {
@@ -315,7 +313,7 @@ func _handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor
 		else:
 			fixed_velocity.x = 0
 
-func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
+func _handle_knockfly_layground(delta: float, _floor_y: int) -> void:
 	if is_air_hit_backjump:
 		air_hit_backjump_timer -= delta
 		# 正常重力（讓升起後自然落下）
@@ -429,7 +427,7 @@ func get_input() -> Dictionary:
 func update_hitbox_position() -> void:
 	pass
 
-func post_physics_process(delta: float) -> void:
+func post_physics_process(_delta: float) -> void:
 	pass
 
 func get_facing_multiplier() -> float:
@@ -465,7 +463,6 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 		is_proximity_blocking = false
 
 func update_facing_direction() -> void:
-	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_attacking_state = is_attacking
 	var is_landing_state = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
 	if is_attacking_state or landing_facing_lock or is_landing_state or is_layground:
@@ -534,41 +531,41 @@ func _set_animation_conditions(target_state: String, on_floor: bool, crouch_inpu
 		animation_tree.set("parameters/conditions/" + c, condition_value)
 
 # 只改這一整個 function（替換原本的 _compute_target_state）
-func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
+func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	if is_hit:
 		return "hit" if on_floor else "Jump_B"
-
+	
 	var move_set = $MoveSet if has_node("MoveSet") else null
-	var player_id = get_parent().player_id if get_parent() and "player_id" in get_parent() else "unknown"
-
+	var player_id = self.player_id if "player_id" in self else "unknown"  # ← 修改這一行，用 self 取 player_id
+	
 	if is_layground: return "layground"
 	if is_knockfly: return "knockfly"
 	if "is_wakeup_locked" in self and self.is_wakeup_locked: return "wakeup"
-
+	
 	if move_set and move_set.is_spmove:
 		if move_set.is_super: return "super"
 		elif player_id == "p1" and move_set.is_powerkk: return "powerkk"
 		elif player_id == "p1" and move_set.is_dp: return "dp"
 		elif player_id == "p2" and move_set.is_spnk: return "spnk"
+		elif player_id == "p2" and move_set.is_hdk: return "hdk"          # ← 新增這一行！
 		elif move_set.is_fireball: return "fireball"
-
-	# Proximity Block 優先顯示格擋動畫（純視覺）
+	
+	# Proximity Block 優先顯示格擋動畫
 	if is_proximity_blocking:
 		return "cr_block" if is_crouching else "block"
-
-	# 真正被打到吃 blockstun 時
 	if is_blocking:
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
-
+	
 	if is_attacking:
 		var atype = get("attack_type") if "attack_type" in self else "none"
-		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk", "super", "dp"]:
+		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk", "super", "dp", "hdk"]:  # ← 這裡也要加上 hdk
 			return atype
 		return "Walk"
+	
 	if is_dashing: return "Dash"
 	if is_backdashing: return "Backdash"
 	if crouch_input and on_floor and not is_blocking: return "Crouch"
-
+	
 	if not on_floor and (is_jumping or ("is_air_attacking" in self and self.is_air_attacking)):
 		if "is_air_attacking" in self and (self.is_air_attacking or ("has_air_attacked" in self and self.has_air_attacked)):
 			return get("attack_type") if "attack_type" in self else "jump_mp"
@@ -576,8 +573,9 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 			if anim_jump_dir > 0: return "Jump_F"
 			elif anim_jump_dir < 0: return "Jump_B"
 			else: return "Jump_V"
+	
 	return "Walk"
-
+	
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var curr_state: String = animation_state.get_current_node() if animation_state else ""
 	var on_floor: bool = is_on_floor()
