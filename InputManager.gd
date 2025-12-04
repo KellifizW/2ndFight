@@ -52,6 +52,12 @@ const DP_SEQUENCE3: Array[Dictionary] = [
 	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
 ]
 
+const HDK_SEQUENCE: Array[Dictionary] = [
+	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
+	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.ST_MK, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
+]
+
 var fireball_motion: Dictionary = {
 	"ValidInputs": [FIREBALL_SEQUENCE, FIREBALL_SEQUENCE2],
 	"InputBuffer": INPUT_BUFFER,
@@ -72,6 +78,12 @@ var spnk_motion: Dictionary = {
 
 var dp_motion: Dictionary = {
 	"ValidInputs": [DP_SEQUENCE1, DP_SEQUENCE2, DP_SEQUENCE3],
+	"InputBuffer": INPUT_BUFFER,
+	"AbsoluteDirection": false
+}
+
+var hdk_motion: Dictionary = {
+	"ValidInputs": [HDK_SEQUENCE],
 	"InputBuffer": INPUT_BUFFER,
 	"AbsoluteDirection": false
 }
@@ -111,10 +123,6 @@ func update_input():
 		else:
 			if check_fireball_input():
 				input_data["spm2_pressed"] = true
-	elif Input.is_action_just_pressed("st_mk" + suffix):
-		if player_id == "p2":
-			if check_spnk_input():
-				input_data["spm1_pressed"] = true
 	
 	# 設置輸入數據（只包含 true 的鍵值）
 	parent.set_input_data(input_data)
@@ -155,13 +163,15 @@ func get_current_raw_input() -> int:
 	return (dir << 8) | buttons
 
 func insert_to_history(raw_input: int):
-	var parent = get_parent()
-	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
-	
 	current_history = (current_history + 1) % INPUT_HISTORY_SIZE
 	input_history[current_history] = InputRegistry.new()
 	input_history[current_history].raw_input = raw_input
 	input_history[current_history].duration = 1
+	
+	# 新增：除錯輸出，顯示當前輸入（dir 和 buttons）
+	var dir = raw_input >> 8
+	var buttons = raw_input & 0xFF
+	print("輸入記錄: 方向=%d (0=中立,1=下,2=下前,3=前,4=下後,5=後), 按鈕=%d (0=無,1=中拳,2=中踢)" % [dir, buttons])
 	
 func check_fireball_input() -> bool:
 	return check_motion(fireball_motion)
@@ -178,6 +188,12 @@ func check_spnk_input() -> bool:
 	if player_id != "p2": return false
 	return check_motion(spnk_motion)
 
+func check_hdk_input() -> bool:
+	var parent = get_parent()
+	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
+	if player_id != "p2": return false
+	return check_motion(hdk_motion)
+
 func check_dp_input() -> bool:
 	var parent = get_parent()
 	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
@@ -190,7 +206,6 @@ func check_motion(motion: Dictionary) -> bool:
 	
 	var found = false
 	for seq in motion.ValidInputs:
-		# 檢查序列的最後輸入是否包含對應按鈕 (ST_MP 或 ST_MK)
 		var last_buttons = input_history[current_history].raw_input & 0xFF
 		var target_button = seq.back().buttons
 		if last_buttons != target_button:
@@ -200,60 +215,38 @@ func check_motion(motion: Dictionary) -> bool:
 		var hist_pos = current_history
 		var total_frames = 0
 		var matched = true
-		var has_back_input = false
-		var has_forward_input = false
 		
 		while seq_idx >= 0 and matched:
 			var step = seq[seq_idx]
 			var step_matched = false
 			var step_frames = 0
+			
 			while hist_pos >= 0 and not step_matched and step_frames < INPUT_BUFFER:
 				var hist = input_history[hist_pos]
 				var hist_dir = hist.raw_input >> 8
 				step_frames += hist.duration
 				total_frames += hist.duration
+				
 				if total_frames > MAX_TOTAL_FRAMES:
-					if player_id == "p1":
-						print("Debug: [%s] Total frames exceeded for %s: total_frames=%d" % [player_id, "Fireball" if "fireball" in motion else "PowerKK" if "powerkk" in motion else "Spnk" if "spnk" in motion else "DP", total_frames])
 					matched = false
 					break
 				
-				if hist_dir == DirectionalInputs.BACK or hist_dir == DirectionalInputs.DOWN_BACK:
-					has_back_input = true
-				if hist_dir == DirectionalInputs.FORWARD or hist_dir == DirectionalInputs.DOWN_FORWARD:
-					has_forward_input = true
-				
-				# 如果檢查 fireball 或 dp 且有 BACK 或 DOWN_BACK，立即終止
-				if ("fireball" in motion or "dp" in motion) and has_back_input:
-					if player_id == "p1":
-						print("Debug: [%s] %s check aborted due to BACK or DOWN_BACK at history[%d]: hist_dir=%d" % [player_id, "Fireball" if "fireball" in motion else "DP", hist_pos, hist_dir])
-					matched = false
-					break
-				# 如果檢查 powerkk 或 spnk 且有 FORWARD 或 DOWN_FORWARD，立即終止
-				if ("powerkk" in motion or "spnk" in motion) and has_forward_input:
-					if player_id == "p1":
-						print("Debug: [%s] %s check aborted due to FORWARD or DOWN_FORWARD at history[%d]: hist_dir=%d" % [player_id, "PowerKK" if "powerkk" in motion else "Spnk", hist_pos, hist_dir])
-					matched = false
-					break
+				# ← 完全移除 has_forward_input / has_back_input 的防誤發邏輯
+				# 因為每個 motion 都是獨立定義，互相不會誤觸
 				
 				if check_input(hist_pos, step.directional, step.buttons if "buttons" in step else 0, step.dir_mode, step.but_mode if "but_mode" in step else ButtonMode.PRESS):
 					if hist.duration <= INPUT_BUFFER:
-						if player_id == "p1":
-							print("Debug: [%s] Step matched for %s: seq_idx=%d, hist_pos=%d, directional=%d, buttons=%d" % [player_id, "Fireball" if "fireball" in motion else "PowerKK" if "powerkk" in motion else "Spnk" if "spnk" in motion else "DP", seq_idx, hist_pos, step.directional, step.buttons if "buttons" in step else 0])
 						step_matched = true
 						seq_idx -= 1
 				
 				hist_pos = (hist_pos - 1 + INPUT_HISTORY_SIZE) % INPUT_HISTORY_SIZE
 			
 			if not step_matched:
-				if player_id == "p1":
-					print("Debug: [%s] Step not matched for %s: seq_idx=%d, directional=%d, buttons=%d" % [player_id, "Fireball" if "fireball" in motion else "PowerKK" if "powerkk" in motion else "Spnk" if "spnk" in motion else "DP", seq_idx, step.directional, step.buttons if "buttons" in step else 0])
 				matched = false
 		
 		if matched:
 			found = true
-			if player_id == "p1" or player_id == "p2":
-				print("Debug: [%s] Sequence matched for %s! History checked: %d to %d" % [player_id, "PowerKK" if "powerkk" in motion else "Spnk" if "spnk" in motion else "Fireball" if "fireball" in motion else "DP", hist_pos, current_history])
+			print("Debug: [%s] Sequence matched for HDK!" % player_id)
 			break
 	
 	return found

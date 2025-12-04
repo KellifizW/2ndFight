@@ -1,3 +1,4 @@
+# MoveSet.gd
 class_name MoveSet extends Node
 
 @export var is_powerkk_penetrable: bool = false
@@ -314,20 +315,20 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		return false
 	
 	# Input triggers
-	if input_data.super_pressed and not parent.is_attacking and not is_spmove and player_id == "p1":
+	if input_data.get("super_pressed", false) and not parent.is_attacking and not is_spmove and player_id == "p1":
 		start_super(); return true
-	if input_data.dp_pressed and not parent.is_attacking and not is_spmove and player_id == "p1":
+	if input_data.get("dp_pressed", false) and not parent.is_attacking and not is_spmove and player_id == "p1":
 		start_dp(); return true
 	
 	# Fireball: P1 & P2 both allowed
-	if input_data.spm2_pressed and not parent.is_attacking and not (is_fireball or is_powerkk or is_spnk):
+	if input_data.get("spm2_pressed", false) and not parent.is_attacking and not (is_fireball or is_powerkk or is_spnk):
 		_start_fireball(); return true
 	
-	if input_data.spm1_pressed and not parent.is_attacking and not (is_powerkk or is_spnk or is_fireball):
+	if input_data.get("spm1_pressed", false) and not parent.is_attacking and not (is_powerkk or is_spnk or is_fireball):
 		if player_id == "p1": start_powerkk()
 		elif player_id == "p2": start_spnk()
 		return true
-	if input_data.spm3_pressed and player_id == "p2" and not parent.is_attacking and not is_spmove:
+	if input_data.get("spm3_pressed", false) and player_id == "p2" and not parent.is_attacking and not is_spmove:
 		start_hdk()                    # ← 呼叫我們新寫的函數
 		return true
 	
