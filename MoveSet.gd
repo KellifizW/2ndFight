@@ -56,8 +56,8 @@ var fireball_damage: float = 10.0
 var super_damage: float = 5.0
 
 # Move distances
-var powerkk_move_distance: float = 100.0
-var spnk_move_distance: float = 90.0
+var powerkk_move_distance: float = 80.0
+var spnk_move_distance: float = 70.0
 
 # Freeze
 var super_freeze_time: float = 0.3

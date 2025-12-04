@@ -167,12 +167,7 @@ func insert_to_history(raw_input: int):
 	input_history[current_history] = InputRegistry.new()
 	input_history[current_history].raw_input = raw_input
 	input_history[current_history].duration = 1
-	
-	# 新增：除錯輸出，顯示當前輸入（dir 和 buttons）
-	var dir = raw_input >> 8
-	var buttons = raw_input & 0xFF
-	print("輸入記錄: 方向=%d (0=中立,1=下,2=下前,3=前,4=下後,5=後), 按鈕=%d (0=無,1=中拳,2=中踢)" % [dir, buttons])
-	
+		
 func check_fireball_input() -> bool:
 	return check_motion(fireball_motion)
 
