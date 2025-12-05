@@ -3,13 +3,14 @@ class_name Player extends Fighter
 
 signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool)
 
+var _current_hit_targets: Dictionary = {}  # key: 目標名稱 → true（本段已擊中）
 @export var player_id: String = "p1"
 @export var is_ai_controlled: bool = false
 @export var corner_push_distance: float = 50.0
 @export var cancel_window_duration: float = 0.3
 @export var skip_pushbox: bool = false
 @export var attack_data: AttackData
-
+@onready var hit_shape: CollisionShape2D = $Hitbox/HitShape if has_node("Hitbox/HitShape") else null
 @onready var ATTACK_TABLE: Dictionary = {
 	"st_mp": attack_data.st_mp,
 	"st_mk": attack_data.st_mk,
@@ -49,6 +50,7 @@ func reset_attack_state() -> void:
 	is_attacking = false
 	attack_type = "none"
 	cancel_window_timer = 0.0
+	_current_hit_targets.clear()  # 攻擊結束時清空
 	update_facing_direction()
 	_update_animation_state(0, false)
 
@@ -121,6 +123,9 @@ func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
 	if has_node("Hitbox"):
 		$Hitbox.area_entered.connect(_on_hitbox_area_entered)
+	if hit_shape:
+		hit_shape.set_meta("was_disabled", hit_shape.disabled)  # 初始狀態
+		# 用 process 監測 disabled 變化（Godot 沒有 direct signal）
 	if animation_tree:
 		animation_tree.animation_finished.connect(_on_animation_tree_finished)
 		animation_tree.active = true
@@ -160,6 +165,15 @@ func get_input() -> Dictionary:
 	return default_input.duplicate()
 
 func _physics_process(delta: float) -> void:
+	if hit_shape and hit_shape.disabled == false:
+		var was_disabled = hit_shape.get_meta("was_disabled", true)
+		if was_disabled:  # 從 disabled → enabled 的瞬間！
+			_current_hit_targets.clear()  # 清空！允許重新打到人（多段技關鍵！）
+			print("[HIT RESET] %s 的新一段攻擊開始，已清空擊中記錄" % attack_type)
+		hit_shape.set_meta("was_disabled", false)
+	else:
+		if hit_shape:
+			hit_shape.set_meta("was_disabled", true)
 	if has_node("InputManager"):
 		$InputManager.update_input()
 	super._physics_process(delta)
@@ -317,10 +331,23 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 			player_anim_resets[anim_name].call()
 
 # ── 擊中處理（加入除錯訊息） ─────────────────────
+# ── 完全取代原來的 _on_hitbox_area_entered ──
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	if area.name != "Hurtbox" or not area.get_parent().is_in_group("players") or area.get_parent() == self:
 		return
+		
 	var target = area.get_parent()
+	var target_name = target.name
+
+	# ── 核心判斷：這「一段」有沒有打過這人？ ──
+	if _current_hit_targets.has(target_name):
+		return  # 同一段內重複碰到 → 無視（防止連續掉血）
+	
+	# 第一次擊中！標記起來
+	_current_hit_targets[target_name] = true
+	print("[HIT] %s → %s (攻擊: %s)" % [self.name, target_name, attack_type])
+
+	# ── 以下完全保留你原版的邏輯（傷害、擊退、音效、VFX...）──
 	var was_in_stun = target.is_hit or target.is_knockfly
 	if not world: return
 
@@ -379,6 +406,7 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 	var stun_duration = blockstun if is_blocked else hitstun
 	hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
 
+	# 音效與特效（不變）
 	var hit_sound = $HitSoundPlayer if has_node("HitSoundPlayer") else null
 	var block_sound = $BlockSoundPlayer if has_node("BlockSoundPlayer") else null
 	if is_blocked and block_sound:
@@ -394,6 +422,7 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		contact.y += 10
 	VFXImpact.spawn_vfx(world, vfx_type, contact, facing_direction)
 
+	# 角落推擠（不變）
 	if move_set and (move_set.is_spnk or move_set.is_powerkk or move_set.is_dp):
 		return
 	var push_manager = get_tree().get_first_node_in_group("push_manager")
@@ -404,6 +433,7 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		initial_push_back = push_duration
 		push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
 		fixed_velocity.x = int(-push_back_velocity * get_facing_multiplier())
+
 func _on_hit_detected(_target: String, _stun_duration: float, _is_blocked: bool, _was_in_stun: bool) -> void:
 	if player_id == "p1" and attack_type == "st_mp" and is_attacking:
 		cancel_window_timer = cancel_window_duration
