@@ -4,7 +4,7 @@ extends Camera2D
 @export var min_zoom: float = 1.0             # 最小縮放（完整480x240視口）
 @export var max_zoom: float = 1.8             # 最大縮放（約240x120視口）
 @export var initial_zoom_factor: float = 1.44 # 初始縮放因子，相對於360x180
-@export var base_y_offset: float = 50.0       # 基礎y軸偏移，讓角色位於畫面下半部
+@export var base_y_offset: float = 120.0       # 基礎y軸偏移，讓角色位於畫面下半部
 @export var smooth_speed: float = 20.0        # x軸和縮放的平滑速度
 @export var y_smooth_speed: float = 10.0      # y軸平滑速度，較慢以實現遲緩效果
 @export var y_move_scale: float = 1        # y軸移動縮減因子（向下時使用，向上時調整為較小值）
