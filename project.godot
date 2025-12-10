@@ -17,8 +17,8 @@ config/icon="uid://1i85jxk02qj2"
 
 [display]
 
-window/size/viewport_width=480
-window/size/viewport_height=240
+window/size/viewport_width=1280
+window/size/viewport_height=720
 window/stretch/mode="viewport"
 
 [input]
@@ -145,4 +145,4 @@ common/physics_ticks_per_second=120
 
 [rendering]
 
-textures/canvas_textures/default_texture_filter=0
+anti_aliasing/quality/msaa_2d=1

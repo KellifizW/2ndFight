@@ -5,7 +5,7 @@ const SIMULATION_SCALE: float = 1000.0
 @export var PUSH_FRICTION: float = 66.0
 @export var collision_epsilon: float = 5.0
 @export var arena_left: float = 0.0
-@export var arena_right: float = 480.0
+@export var arena_right: float = 960.0
 
 var players: Array = []
 

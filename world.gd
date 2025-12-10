@@ -2,10 +2,10 @@ extends Node2D
 
 const TICKS_PER_SECOND: int = 60
 const SIMULATION_SCALE: int = 1000
-const WALL_LIMIT: int = 24000
+const WALL_LIMIT: int = 48000
 const STARTING_POSITION: int = 7500
-const FLOOR_Y: int = 200000
-const GRAVITY: int = 3000000
+const FLOOR_Y: int = 270000
+const GRAVITY: int = 4000000
 
 @export var bgm_max_volume_db: float = -6.0  # 導出變數，控制最大音量，預設 -6 dB (50% 音量)
 

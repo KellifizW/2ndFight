@@ -47,10 +47,10 @@ var colbox_half_width: float = 0.0
 var colbox_half_height: float = 0.0
 
 # ── 移動參數 ──────────────────────────────
-var walk_speed: float = 100.0
+var walk_speed: float = 200.0
 var back_speed: float = walk_speed * 0.75
-var jump_vertical_speed: float = -810.0
-var jump_horizontal_speed: float = 120.0
+var jump_vertical_speed: float = -1500.0
+var jump_horizontal_speed: float = 240.0
 var jump_dir: float = 0.0
 var is_jumping: bool = false
 
@@ -317,7 +317,7 @@ func _handle_knockfly_layground(delta: float, _floor_y: int) -> void:
 	if is_air_hit_backjump:
 		air_hit_backjump_timer -= delta
 		# 正常重力（讓升起後自然落下）
-		var gravity: int = world.GRAVITY if world else 1800000
+		var gravity: int = world.GRAVITY if world else 2000000
 		fixed_velocity.y += int(gravity * delta)
 		# 水平空氣摩擦
 		var friction_amount = int(default_air_friction * (world.SIMULATION_SCALE if world else 1000.0) * delta)
