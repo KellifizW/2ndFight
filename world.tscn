@@ -30,24 +30,24 @@ script = ExtResource("1_aqk2v")
 
 [node name="TextureRect" type="TextureRect" parent="."]
 modulate = Color(1, 0.898039, 0.670588, 0.772549)
-offset_left = -564.0
-offset_top = -183.0
-offset_right = 2636.0
-offset_bottom = 1037.0
-scale = Vector2(0.5, 0.5)
+offset_left = -300.0
+offset_top = -350.0
+offset_right = 2900.0
+offset_bottom = 870.0
+scale = Vector2(0.65, 0.65)
 texture = ExtResource("1_fj7yv")
 
 [node name="FollowCamera" parent="." instance=ExtResource("3_gbfbk")]
-position = Vector2(450, 154)
+position = Vector2(775, 160)
 scale = Vector2(1e-05, 1e-05)
 zoom = Vector2(1.333, 1.333)
 
 [node name="Player1" parent="." instance=ExtResource("1_f3sb7")]
-position = Vector2(190, 280)
+position = Vector2(500, 280)
 min_hitstun_duration = 0.0
 
 [node name="Player2" parent="." instance=ExtResource("3_tlwt5")]
-position = Vector2(290, 280)
+position = Vector2(700, 280)
 jump_delay_duration = 0.1
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
