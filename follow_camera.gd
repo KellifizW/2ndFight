@@ -1,8 +1,8 @@
 extends Camera2D
 
 @export var zoom_factor: float = 120.0        # 保留，供未來微調靈敏度
-@export var min_zoom: float = 1.0             # 最小縮放（完整480x240視口）
-@export var max_zoom: float = 1.8             # 最大縮放（約240x120視口）
+@export var min_zoom: float = 1.4            # 最小縮放（完整480x240視口）
+@export var max_zoom: float = 1.7            # 最大縮放（約240x120視口）
 @export var initial_zoom_factor: float = 1.44 # 初始縮放因子，相對於360x180
 @export var base_y_offset: float = 120.0       # 基礎y軸偏移，讓角色位於畫面下半部
 @export var smooth_speed: float = 20.0        # x軸和縮放的平滑速度
@@ -12,7 +12,7 @@ extends Camera2D
 var players = []
 var target_position: Vector2
 var target_zoom: float
-var world_bounds = Rect2(0, 0, 480, 240)     # 世界邊界，基於項目設置
+var world_bounds = Rect2(0, 0, 1280, 720)     # 世界邊界，基於項目設置
 var y_target_buffer: float                   # 緩衝y軸目標位置
 
 func _ready():
