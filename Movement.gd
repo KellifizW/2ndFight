@@ -27,9 +27,9 @@ var knockfly_vertical_speed: float = default_knockfly_vertical_speed
 var knockfly_horizontal_speed: float = default_knockfly_horizontal_speed
 var air_friction: float = default_air_friction
 var knockfly_duration: float = default_knockfly_duration
-@export var air_hit_backjump_speed: float = 200.0
+@export var air_hit_backjump_speed: float = 400.0
 @export var air_hit_backjump_duration: float = 0.2
-@export var air_hit_backjump_up_speed: float = -700.0
+@export var air_hit_backjump_up_speed: float = -800.0
 var is_air_hit_backjump: bool = false
 var air_hit_backjump_timer: float = 0.0
 var pending_jump_b_seek: float = -1.0
@@ -530,47 +530,42 @@ func _set_animation_conditions(target_state: String, on_floor: bool, crouch_inpu
 			condition_value = condition_value and is_crouch_blocking and crouch_input
 		animation_tree.set("parameters/conditions/" + c, condition_value)
 
-# Movement.gd → 直接整個替換 _compute_target_state 函數
+# 只改這一整個 function（替換原本的 _compute_target_state）
 func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
-	# 血量歸零鎖 layground
-	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
-	if healthbar and healthbar.current_health <= 0 and is_layground:
-		return "layground"
-
+	if is_hit:
+		return "hit" if on_floor else "Jump_B"
+	
+	var move_set = $MoveSet if has_node("MoveSet") else null
+	var player_id = self.player_id if "player_id" in self else "unknown"  # ← 修改這一行，用 self 取 player_id
+	
 	if is_layground: return "layground"
 	if is_knockfly: return "knockfly"
 	if "is_wakeup_locked" in self and self.is_wakeup_locked: return "wakeup"
-
-	if is_air_hit_backjump and not is_on_floor():
-		return "Jump_B"
-
-	var move_set = $MoveSet if has_node("MoveSet") else null
-	var player_id = self.player_id if "player_id" in self else "unknown"
+	
 	if move_set and move_set.is_spmove:
 		if move_set.is_super: return "super"
 		elif player_id == "p1" and move_set.is_powerkk: return "powerkk"
 		elif player_id == "p1" and move_set.is_dp: return "dp"
 		elif player_id == "p2" and move_set.is_spnk: return "spnk"
-		elif player_id == "p2" and move_set.is_hdk: return "hdk"
+		elif player_id == "p2" and move_set.is_hdk: return "hdk"          # ← 新增這一行！
 		elif move_set.is_fireball: return "fireball"
-
+	
+	# Proximity Block 優先顯示格擋動畫
 	if is_proximity_blocking:
 		return "cr_block" if is_crouching else "block"
 	if is_blocking:
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
-
-	if is_hit:
-		return "hit" if on_floor else "hit"   # 空中普通 hit 也播 hit（不是 Jump_B）
-
+	
 	if is_attacking:
 		var atype = get("attack_type") if "attack_type" in self else "none"
-		if atype in ["st_mp","st_mk","cr_mp","cr_mk","jump_mp","jump_mk"]:
+		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk", "super", "dp", "hdk"]:  # ← 這裡也要加上 hdk
 			return atype
-
+		return "Walk"
+	
 	if is_dashing: return "Dash"
 	if is_backdashing: return "Backdash"
 	if crouch_input and on_floor and not is_blocking: return "Crouch"
-
+	
 	if not on_floor and (is_jumping or ("is_air_attacking" in self and self.is_air_attacking)):
 		if "is_air_attacking" in self and (self.is_air_attacking or ("has_air_attacked" in self and self.has_air_attacked)):
 			return get("attack_type") if "attack_type" in self else "jump_mp"
@@ -578,12 +573,10 @@ func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, an
 			if anim_jump_dir > 0: return "Jump_F"
 			elif anim_jump_dir < 0: return "Jump_B"
 			else: return "Jump_V"
+	
 	return "Walk"
 	
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	if is_air_hit_backjump and not is_on_floor():
-		if animation_state and animation_state.get_current_node() == "Jump_B":
-			return   # 直接跳出，不再執行後面的 travel 邏輯
 	var curr_state: String = animation_state.get_current_node() if animation_state else ""
 	var on_floor: bool = is_on_floor()
 	var anim_dir: float = dir_x * facing_direction

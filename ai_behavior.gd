@@ -7,10 +7,6 @@ class_name AIBehavior extends Node
 @export var global_jump_chance: float = 0.01
 @export var p1_dp_chance: float = 0.15
 
-# 新增：P2 使用 HDK 的機率（可自行調整）
-@export var p2_hdk_chance: float = 0.25          
-@export var p2_hdk_corner_chance: float = 0.40   
-
 # 格擋參數
 @export var block_distance: float = 80.0
 @export var block_chance: float = 0.85
@@ -58,7 +54,6 @@ var _last_logged_attack_choice: String = ""
 var _last_logged_punish: bool = false
 var _last_logged_dp: bool = false
 var _last_logged_cancel: bool = false
-var _last_logged_hdk: bool = false        # 新增：防止 HDK 重複列印
 
 func _ready() -> void:
 	parent = get_parent()
@@ -241,14 +236,13 @@ func get_ai_input() -> Dictionary:
 			"input_dir": 0, "crouch_pressed": false, "jump_pressed": false,
 			"st_mp_pressed": false, "st_mk_pressed": false,
 			"spm1_pressed": false, "spm2_pressed": false,
-			"spm3_pressed": false,      # 新增 spm3 (HDK)
 			"dp_pressed": false, "super_pressed": false
 		}
 	
 	var input: Dictionary = {
 		"input_dir": 0, "crouch_pressed": false, "jump_pressed": false,
 		"st_mp_pressed": false, "st_mk_pressed": false,
-		"spm1_pressed": false, "spm2_pressed": false, "spm3_pressed": false,
+		"spm1_pressed": false, "spm2_pressed": false,
 		"dp_pressed": false, "super_pressed": false, "block_pressed": false
 	}
 	
@@ -257,7 +251,7 @@ func get_ai_input() -> Dictionary:
 	
 	# 格擋判定
 	var opponent_attacking: bool = opponent.is_attacking or (opponent.move_set and opponent.move_set.is_spmove)
-	if opponent_attacking and distance <= block_distance and current_state != "attack" and not input.spm1_pressed and not input.dp_pressed and not input.spm3_pressed:
+	if opponent_attacking and distance <= block_distance and current_state != "attack" and not input.spm1_pressed and not input.dp_pressed:
 		if randf() < block_chance:
 			input.block_pressed = true
 			input.input_dir = -int(relative_dir)
@@ -291,61 +285,29 @@ func get_ai_input() -> Dictionary:
 	elif not punish_opportunity:
 		_last_logged_punish = false
 	
-	# 攻擊選擇（重點新增 P2 HDK 邏輯）
+	# 攻擊選擇（其餘邏輯不變）
 	if current_state == "attack":
 		attack_decision_timer -= get_process_delta_time()
 		if attack_decision_timer <= 0:
 			attack_decision_timer = attack_decision_delay + randf_range(0.0, 0.2)
-			
-			# === P2 專屬 HDK 判定 ===
-			if parent.player_id == "p2":
-				if is_at_left_corner() or is_at_right_corner():
-					# 被壓角時 HDK 機率大幅提高
-					if randf() < p2_hdk_corner_chance:
-						current_attack = "hdk"
-					else:
-						current_attack = "spm1" if randf() < 0.7 else punish_attack
-				elif distance < 50:
-					# 近距離普通情況
-					var r = randf()
-					if r < p2_hdk_chance:
-						current_attack = "hdk"
-					elif r < p2_hdk_chance + 0.3:
-						current_attack = "spm1"      # spnk
-					else:
-						current_attack = "st_mk"
-				else:
-					# 遠距離沿用原本邏輯
-					if randf() < random_action_chance:
-						match randi() % 6:
-							0: current_attack = "st_mk"
-							1: current_attack = "spm1"
-							2: current_attack = "spm2"
-							3: current_attack = "cr_mp"
-							4: current_attack = "cr_mk"
-					else:
-						current_attack = "spm1"
+			if is_at_left_corner() or is_at_right_corner():
+				current_attack = "spm1" if randf() < 0.7 else punish_attack
+			elif distance < 30:
+				current_attack = punish_attack if randf() < 0.5 else ("cr_mp" if parent.player_id == "p2" else "cr_mk")
 			else:
-				# P1 保持原邏輯
-				if is_at_left_corner() or is_at_right_corner():
-					current_attack = "spm1" if randf() < 0.7 else punish_attack
-				elif distance < 30:
-					current_attack = punish_attack if randf() < 0.5 else ("cr_mp" if parent.player_id == "p2" else "cr_mk")
+				if randf() < random_action_chance:
+					match randi() % 6:
+						0: current_attack = "st_mk"
+						1: current_attack = "spm1"
+						2: current_attack = "spm2"
+						3: current_attack = "cr_mp"
+						4: current_attack = "cr_mk"
+						5:
+							if parent.player_id == "p1":
+								current_attack = "dp"
+								input.dp_pressed = true
 				else:
-					if randf() < random_action_chance:
-						match randi() % 6:
-							0: current_attack = "st_mk"
-							1: current_attack = "spm1"
-							2: current_attack = "spm2"
-							3: current_attack = "cr_mp"
-							4: current_attack = "cr_mk"
-							5:
-								if parent.player_id == "p1":
-									current_attack = "dp"
-									input.dp_pressed = true
-					else:
-						current_attack = "spm1"
-			
+					current_attack = "spm1"
 			if current_attack != _last_logged_attack_choice:
 				print("Debug: %s 攻擊選擇 → %s" % [parent.name, current_attack])
 				_last_logged_attack_choice = current_attack
@@ -361,7 +323,7 @@ func get_ai_input() -> Dictionary:
 				print("Debug: %s 防守蹲下: %s" % [parent.name, "true" if current_crouch else "false"])
 				_last_logged_crouch = current_crouch
 	
-	# 跳躍、空中攻擊、取消連招、P1近距離DP 等其餘邏輯完全保留
+	# 跳躍、空中攻擊、取消連招、P1近距離DP 等其餘邏輯完全保留（與原版一致）
 	var jump_for_attack = can_jump_attack_hit() and randf() < 0.4 and parent.is_on_floor()
 	var corner_escape = (is_at_left_corner() or is_at_right_corner()) and randf() < 0.15 and parent.is_on_floor()
 	
@@ -400,11 +362,6 @@ func get_ai_input() -> Dictionary:
 				"spm1": input.spm1_pressed = true
 				"spm2": input.spm2_pressed = true
 				"dp": input.dp_pressed = true
-				"hdk":
-					input.spm3_pressed = true
-					if not _last_logged_hdk:
-						print("Debug: %s 出 HDK！！！" % parent.name)
-						_last_logged_hdk = true
 		"defend":
 			input.input_dir = -int(relative_dir)
 			input.block_pressed = true
@@ -421,7 +378,6 @@ func get_ai_input() -> Dictionary:
 			_last_logged_aerial_attack = true
 	elif parent.is_on_floor():
 		_last_logged_aerial_attack = false
-		_last_logged_hdk = false   # 落地後重置 HDK 訊息旗標
 	
 	if cancel_window_timer_ai > 0 and not _last_logged_cancel:
 		input.spm1_pressed = true
@@ -446,10 +402,9 @@ func get_ai_input() -> Dictionary:
 	elif not (distance < 50 and parent.is_on_floor()):
 		_last_logged_dp = false
 	
-	# attack_type 與 damage 判斷也支援 hdk
-	var attack_type = "hdk" if input.spm3_pressed else "st_mp" if input.st_mp_pressed else "st_mk" if input.st_mk_pressed else "dp" if input.dp_pressed else "none"
+	var attack_type = "st_mp" if input.st_mp_pressed else "st_mk" if input.st_mk_pressed else "dp" if input.dp_pressed else "none"
 	var move_set = parent.get_node("MoveSet") if parent.has_node("MoveSet") else null
-	var damage = move_set.get_special_damage() if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball or move_set.is_dp or move_set.is_hdk) else (10.0 if (input.st_mp_pressed or input.st_mk_pressed) else 0.0)
+	var damage = move_set.get_special_damage() if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball or move_set.is_dp) else (10.0 if (input.st_mp_pressed or input.st_mk_pressed) else 0.0)
 	
 	input["attack_type"] = attack_type
 	input["damage"] = damage
