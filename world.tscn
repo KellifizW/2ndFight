@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://c0j8o4o3jtun1"]
+[gd_scene load_steps=19 format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
 [ext_resource type="PackedScene" uid="uid://bw2666uj5f0gw" path="res://player1.tscn" id="1_f3sb7"]
@@ -15,6 +15,7 @@
 [ext_resource type="Script" uid="uid://cydy3y7rrkibl" path="res://PushManager.gd" id="9_ioo17"]
 [ext_resource type="Script" uid="uid://cmi0ksd8w268l" path="res://ControlHistory.gd" id="11_ic0uy"]
 [ext_resource type="AudioStream" uid="uid://edw4r0cjrhy6" path="res://audio/bgm.mp3" id="12_k3n1d"]
+[ext_resource type="PackedScene" uid="uid://c5l4a1b0wwbtl" path="res://assets/ingameUI/countdown_timer.tscn" id="16_2u3nc"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_036b0"]
 
@@ -156,6 +157,12 @@ pivot_offset = Vector2(0, 0)
 offset_top = 80.0
 offset_right = 100.0
 offset_bottom = 130.0
+
+[node name="CountdownTimer" parent="UI" instance=ExtResource("16_2u3nc")]
+offset_left = 609.0
+offset_top = 78.0
+offset_right = 609.0
+offset_bottom = 78.0
 
 [node name="CPUController" type="Node" parent="."]
 script = ExtResource("6_dwbse")

@@ -118,6 +118,7 @@ func _ready() -> void:
 		position_label.text = "P1: (0, 0)\nP2: (0, 0)"
 	else:
 		print("Warning: PositionLabel not found in UI")
+	$UI/CountdownTimer.countdown_finished.connect(_on_countdown_finished)
 
 func _input(event) -> void:
 	if event is InputEventKey and event.pressed:
@@ -515,3 +516,6 @@ func toggle_bgm() -> void:
 	
 	tween.tween_callback(func(): is_fading_out = false)
 	tween.play()
+
+func _on_countdown_finished() -> void:
+	print("對戰時間結束")
