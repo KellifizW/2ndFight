@@ -16,8 +16,8 @@ var is_knockfly_animation_finished: bool = false
 # ── Knockfly 物理參數（預設值） ────────────
 @export_group("Knockfly Physics")
 @export var default_knockfly_gravity: float = 1200000.0
-@export var default_knockfly_vertical_speed: float = -120.0
-@export var default_knockfly_horizontal_speed: float = 600.0
+@export var default_knockfly_vertical_speed: float = -300.0
+@export var default_knockfly_horizontal_speed: float = 1900.0
 @export var default_air_friction: float = 500.0
 @export var default_knockfly_duration: float = 0.4
 
@@ -47,10 +47,10 @@ var colbox_half_width: float = 0.0
 var colbox_half_height: float = 0.0
 
 # ── 移動參數 ──────────────────────────────
-var walk_speed: float = 200.0
+var walk_speed: float = 270.0
 var back_speed: float = walk_speed * 0.75
-var jump_vertical_speed: float = -1500.0
-var jump_horizontal_speed: float = 240.0
+var jump_vertical_speed: float = -2100.0
+var jump_horizontal_speed: float = 350.0
 var jump_dir: float = 0.0
 var is_jumping: bool = false
 
@@ -58,8 +58,8 @@ var is_jumping: bool = false
 var is_dashing: bool = false
 var is_backdashing: bool = false
 var is_attacking: bool = false
-var dash_speed: float = 170.0
-var backdash_speed: float = 140.0
+var dash_speed: float = 500.0
+var backdash_speed: float = 400.0
 var dash_time: float = 0.35
 var backdash_time: float = 0.35
 var dash_timer: float = 0.0
@@ -317,7 +317,7 @@ func _handle_knockfly_layground(delta: float, _floor_y: int) -> void:
 	if is_air_hit_backjump:
 		air_hit_backjump_timer -= delta
 		# 正常重力（讓升起後自然落下）
-		var gravity: int = world.GRAVITY if world else 2000000
+		var gravity: int = world.GRAVITY if world else 6000000
 		fixed_velocity.y += int(gravity * delta)
 		# 水平空氣摩擦
 		var friction_amount = int(default_air_friction * (world.SIMULATION_SCALE if world else 1000.0) * delta)

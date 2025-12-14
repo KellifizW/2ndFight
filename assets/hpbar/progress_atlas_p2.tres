@@ -1,0 +1,9 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3 uid="uid://cg7oq8rcyxuqm"]
+
+[ext_resource type="Texture2D" uid="uid://dfjlocptfmqy3" path="res://assets/hud1.png" id="1_y8vm2"]
+
+[resource]
+atlas = ExtResource("1_y8vm2")
+region = Rect2(60, 141.95, 452.215, 31.245)
+margin = Rect2(0, 1.21, 0, 6.91)
+filter_clip = true

@@ -2,11 +2,11 @@ extends Node2D
 
 const TICKS_PER_SECOND: int = 60
 const SIMULATION_SCALE: int = 1000
-const WALL_LIMIT: int = 48000
-const STARTING_POSITION: int = 7500
-const FLOOR_Y: int = 270000
-const GRAVITY: int = 4000000
-
+const WALL_LIMIT: int = 1280000
+const STARTING_POSITION: int = 10000
+const FLOOR_Y: int = 570000
+const GRAVITY: int = 6000000
+@onready var position_label = $UI/PositionLabel
 @export var bgm_max_volume_db: float = -6.0  # 導出變數，控制最大音量，預設 -6 dB (50% 音量)
 
 @onready var hit_label = $UI/HitLabel
@@ -92,10 +92,10 @@ func _ready() -> void:
 	else:
 		print("Warning: BGMPlayer node not found in world")
 	
-	initial_p1_pos = Vector2(190.0, float(FLOOR_Y) / SIMULATION_SCALE)
-	initial_p2_pos = Vector2(290.0, float(FLOOR_Y) / SIMULATION_SCALE)
-	player1.fixed_position = Vector2i(int(190.0 * SIMULATION_SCALE), FLOOR_Y)
-	player2.fixed_position = Vector2i(int(290.0 * SIMULATION_SCALE), FLOOR_Y)
+	initial_p1_pos = Vector2(600.0, float(FLOOR_Y) / SIMULATION_SCALE)
+	initial_p2_pos = Vector2(1000.0, float(FLOOR_Y) / SIMULATION_SCALE)
+	player1.fixed_position = Vector2i(int(600.0 * SIMULATION_SCALE), FLOOR_Y)
+	player2.fixed_position = Vector2i(int(1000.0 * SIMULATION_SCALE), FLOOR_Y)
 	player1.global_position = to_scaled_vector2(player1.fixed_position)
 	player2.global_position = to_scaled_vector2(player2.fixed_position)
 	print("Debug: Initial positions set - P1: %s, P2: %s" % [player1.global_position, player2.global_position])
@@ -113,6 +113,11 @@ func _ready() -> void:
 		print("Debug: FrameBarP2 initialized at position: %s, z_index: %d" % [frame_bar_p2.position, frame_bar_p2.z_index])
 	else:
 		print("Error: FrameBarP2 not found in UI")
+	
+	if position_label:
+		position_label.text = "P1: (0, 0)\nP2: (0, 0)"
+	else:
+		print("Warning: PositionLabel not found in UI")
 
 func _input(event) -> void:
 	if event is InputEventKey and event.pressed:
@@ -148,6 +153,13 @@ func _process(delta: float) -> void:
 				print("Debug: BGM fade-out started at %s ms due to player health <= 0" % Time.get_ticks_msec())
 			slowmo_controller.request_slowmo_change()
 			print("Debug: Slow motion triggered due to player health <= 0 at %s ms" % Time.get_ticks_msec())
+	if position_label:
+		var p1_pos = player1.global_position
+		var p2_pos = player2.global_position
+		position_label.text = "P1: (%d, %d)\nP2: (%d, %d)" % [
+			int(p1_pos.x), int(p1_pos.y),
+			int(p2_pos.x), int(p2_pos.y)
+		]
 
 func _physics_process(delta: float) -> void:
 	if combo_reset_timer > 0:

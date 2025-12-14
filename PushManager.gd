@@ -5,7 +5,7 @@ const SIMULATION_SCALE: float = 1000.0
 @export var PUSH_FRICTION: float = 66.0
 @export var collision_epsilon: float = 5.0
 @export var arena_left: float = 0.0
-@export var arena_right: float = 960.0
+@export var arena_right: float = 1600.0
 
 var players: Array = []
 
@@ -231,6 +231,26 @@ func _physics_process(delta: float) -> void:
 				other.global_position.x = new_other_fixed_x / SIMULATION_SCALE
 				parent.is_being_pushed = push_vec_self != 0
 				other.is_being_pushed = push_vec_other != 0
+			# 角色間最大距離限制 (1000 像素) - 只限後退 (允許前進 + 推擠)
+		if players.size() == 2:
+			var left_player = players[0] if players[0].fixed_position.x < players[1].fixed_position.x else players[1]
+			var right_player = players[1] if players[0].fixed_position.x < players[1].fixed_position.x else players[0]
+			
+			var dist_pixels = abs(left_player.global_position.x - right_player.global_position.x)
+			if dist_pixels > 1000.0 + collision_epsilon:  # 加 epsilon 防抖動
+				var target_dist_fixed = round(1000.0 * SIMULATION_SCALE)
+				
+				# right_player 後退 = velocity.x > 0 → 鎖 velocity + 拉 position
+				if right_player.fixed_velocity.x > 0:
+					right_player.fixed_velocity.x = 0
+					right_player.fixed_position.x = left_player.fixed_position.x + target_dist_fixed
+					right_player.global_position.x = right_player.fixed_position.x / SIMULATION_SCALE
+				
+				# left_player 後退 = velocity.x < 0 → 鎖 velocity + 拉 position
+				if left_player.fixed_velocity.x < 0:
+					left_player.fixed_velocity.x = 0
+					left_player.fixed_position.x = right_player.fixed_position.x - target_dist_fixed
+					left_player.global_position.x = left_player.fixed_position.x / SIMULATION_SCALE
 
 	# 邊界限制
 	for player in players:

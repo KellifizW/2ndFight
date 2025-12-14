@@ -1,11 +1,9 @@
-[gd_scene load_steps=6 format=3 uid="uid://bsep286kjt22p"]
+[gd_scene load_steps=7 format=3 uid="uid://bsep286kjt22p"]
 
+[ext_resource type="Texture2D" uid="uid://bxiw07ihkyag8" path="res://assets/hpbar/under_atlas.tres" id="1_m858o"]
+[ext_resource type="Texture2D" uid="uid://ct60xx5rsk6q8" path="res://assets/hpbar/over_atlas.tres.tres" id="1_ngjae"]
 [ext_resource type="Script" uid="uid://csdvkbfqmm02k" path="res://healthbar/healthbar.gd" id="1_ubhit"]
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_i4462"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ubhit"]
-bg_color = Color(0.891915, 0.925307, 0.488047, 1)
+[ext_resource type="Texture2D" uid="uid://c0sxocnp25w0r" path="res://assets/hpbar/progress_atlas.tres" id="2_m858o"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_y66kq"]
 bg_color = Color(0, 0, 0, 1)
@@ -19,14 +17,14 @@ shadow_offset = Vector2(0, 1)
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ngjae"]
 bg_color = Color(1, 1, 1, 1)
 
-[node name="Healthbar" type="ProgressBar"]
-z_index = 1
+[node name="Healthbar" type="TextureProgressBar"]
 offset_right = 140.0
 offset_bottom = 12.0
-theme_override_styles/background = SubResource("StyleBoxEmpty_i4462")
-theme_override_styles/fill = SubResource("StyleBoxFlat_ubhit")
 value = 60.0
-show_percentage = false
+texture_under = ExtResource("1_m858o")
+texture_over = ExtResource("1_ngjae")
+texture_progress = ExtResource("2_m858o")
+texture_progress_offset = Vector2(8, 8)
 script = ExtResource("1_ubhit")
 
 [node name="DamageBar" type="ProgressBar" parent="."]
@@ -35,6 +33,10 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -15.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_y66kq")

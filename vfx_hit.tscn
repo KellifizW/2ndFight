@@ -40,8 +40,8 @@ angular_velocity_max = 199.99998
 radial_velocity_min = 19.999977
 radial_velocity_max = 19.999977
 gravity = Vector3(0, 0, 0)
-scale_min = 0.29999998
-scale_max = 0.29999998
+scale_min = 0.79999995
+scale_max = 0.79999995
 scale_curve = SubResource("CurveXYZTexture_qjvhm")
 alpha_curve = SubResource("CurveTexture_h8u72")
 
@@ -74,11 +74,11 @@ initial_velocity_min = 0.5
 initial_velocity_max = 500.0
 radial_velocity_min = -2.2351742e-05
 radial_velocity_max = -2.2351742e-05
-gravity = Vector3(0, 0, 0)
+gravity = Vector3(0, -9, 0)
 scale_min = 0.099999994
-scale_max = 0.5
+scale_max = 0.59999996
 scale_curve = SubResource("CurveXYZTexture_6yqp0")
-color = Color(1, 0.75686276, 0, 1)
+color = Color(1, 0.75686276, 0, 0.78431374)
 
 [sub_resource type="Curve" id="Curve_42wi3"]
 _data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]
@@ -98,8 +98,10 @@ curve = SubResource("Curve_6yyi1")
 resource_local_to_scene = true
 particle_flag_disable_z = true
 gravity = Vector3(0, 0, 0)
+scale_min = 3.0
+scale_max = 3.0
 scale_curve = SubResource("CurveTexture_4dmgk")
-color = Color(4.0059752, 1.2586563, 0, 1)
+color = Color(4.0059752, 1.2586563, 0, 0.5882353)
 alpha_curve = SubResource("CurveTexture_i4h24")
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_4dmgk"]
@@ -122,8 +124,8 @@ curve = SubResource("Curve_11ogm")
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_11ogm"]
 particle_flag_disable_z = true
 gravity = Vector3(0, 0, 0)
-scale_min = 0.089999996
-scale_max = 0.089999996
+scale_min = 0.29999998
+scale_max = 0.29999998
 scale_curve = SubResource("CurveTexture_85awb")
 alpha_curve = SubResource("CurveTexture_any2n")
 
@@ -147,11 +149,10 @@ process_material = SubResource("ParticleProcessMaterial_4dmgk")
 [node name="explode" type="GPUParticles2D" parent="."]
 modulate = Color(1.3945211, 1.3945211, 1.3945211, 1)
 material = SubResource("CanvasItemMaterial_sr76h")
-scale = Vector2(0.4, 0.4)
 emitting = false
-amount = 50
+amount = 100
 texture = ExtResource("1_42wi3")
-lifetime = 0.16
+lifetime = 0.28
 one_shot = true
 explosiveness = 1.0
 fixed_fps = 60
