@@ -1,4 +1,5 @@
-# PlayerController.gd
+# PlayerController.gd（修正版）
+
 class_name PlayerController extends Node
 
 @export var player_id: String = "p1"
@@ -8,20 +9,16 @@ func get_input_data() -> Dictionary:
 	
 	var move_right = Input.is_action_pressed("move_right" + suffix)
 	var move_left  = Input.is_action_pressed("move_left" + suffix)
-	var move_up    = Input.is_action_pressed("jump" + suffix)
-	var move_down  = Input.is_action_pressed("crouch" + suffix)
+	var jump_action = Input.is_action_just_pressed("jump" + suffix)   # ← 改用 just_pressed（跳躍只偵測按下瞬間）
+	var crouch_action = Input.is_action_pressed("crouch" + suffix)   # ← 蹲下保持 pressed（持續按住）
 	
 	var dir_x: int = 0
 	if move_right and not move_left:  dir_x = 1
 	elif move_left and not move_right: dir_x = -1
 	
-	var dir_y: int = 0
-	if move_up and not move_down:     dir_y = -1
-	elif move_down and not move_up:   dir_y = 1
-	
 	var input_dir: int = dir_x
-	var crouch_pressed: bool = dir_y > 0
-	var jump_pressed: bool   = dir_y < 0
+	var crouch_pressed: bool = crouch_action                          # ← 持續按住為 true
+	var jump_pressed: bool   = jump_action                             # ← 只在按下那一幀為 true
 	
 	var st_mp_pressed = Input.is_action_just_pressed("st_mp" + suffix)
 	var st_mk_pressed = Input.is_action_just_pressed("st_mk" + suffix)
@@ -43,7 +40,7 @@ func get_input_data() -> Dictionary:
 			st_mp_pressed = false
 		
 		# P2 招式（注意順序！hdk 優先於 spnk）
-		if player_id == "p2" and input_manager.check_hdk_input():       # ← 這行是關鍵！
+		if player_id == "p2" and input_manager.check_hdk_input():
 			spm3_pressed = true
 			st_mk_pressed = false
 		if player_id == "p2" and input_manager.check_spnk_input():
@@ -65,7 +62,7 @@ func get_input_data() -> Dictionary:
 		"powerkk"  if spm1_pressed and player_id == "p1" else
 		"dp"       if dp_pressed and player_id == "p1" else
 		"spnk"     if spm1_pressed and player_id == "p2" else
-		"hdk"      if spm3_pressed and player_id == "p2" else          # 正確
+		"hdk"      if spm3_pressed and player_id == "p2" else
 		"fireball" if spm2_pressed else
 		"st_mp"    if st_mp_pressed else
 		"st_mk"    if st_mk_pressed else
@@ -74,8 +71,8 @@ func get_input_data() -> Dictionary:
 
 	return {
 		"input_dir": input_dir,
-		"crouch_pressed": crouch_pressed,
-		"jump_pressed": jump_pressed,
+		"crouch_pressed": crouch_pressed,   # ← 持續按住為 true，讓 Movement 能正確偵測「剛進入蹲」
+		"jump_pressed": jump_pressed,       # ← 只在按下瞬間為 true（原本就正確）
 		"st_mp_pressed": st_mp_pressed,
 		"st_mk_pressed": st_mk_pressed,
 		"attack_type": attack_type,

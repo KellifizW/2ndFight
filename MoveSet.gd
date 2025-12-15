@@ -16,7 +16,7 @@ class_name MoveSet extends Node
 @export var dp_duration: float = 0.9
 @export var dp_jump_delay: float = 0.0667
 @export var dp_horizontal_move: float = 30.0
-@export var dp_vertical_speed: float = -700.0
+@export var dp_vertical_speed: float = -2000.0
 @export var dp_damage: float = 5.0
 @export var dp_knockfly_vertical_speed: float = -950.0
 @export var dp_knockfly_gravity: float = 4000000.0

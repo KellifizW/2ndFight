@@ -1,5 +1,5 @@
 class_name Movement extends Node2D
-
+var is_crouch_transition_played: bool = false
 var world: Node
 @onready var animation_tree = $AnimationTree
 @onready var animation_state = animation_tree.get("parameters/playback") if animation_tree else null
@@ -12,6 +12,10 @@ var is_layground: bool = false
 @export var layground_duration: float = 0.2
 var layground_timer: float = 0.0
 var is_knockfly_animation_finished: bool = false
+
+# ── 蹲姿專用旗標（修正版） ───────────────────
+var was_crouching_last_frame: bool = false   # 上一幀是否在蹲（用來偵測進入瞬間）
+var is_crouch_held: bool = false             # 是否已經完成蹲下過渡，可進入持蹲
 
 # ── Knockfly 物理參數（預設值） ────────────
 @export_group("Knockfly Physics")
@@ -76,7 +80,7 @@ var hit_timer: float = 0.0
 var block_timer: float = 0.0
 var knockfly_timer: float = 0.0
 
-# ── Proximity Block 專用旗標（不吃 stun，只負責姿勢與禁止後退） ──
+# ── Proximity Block 專用旗標 ──
 var is_proximity_blocking: bool = false
 
 # ── 推擠參數 ──────────────────────────────
@@ -96,7 +100,7 @@ var hit_push_velocity: float = 0.0
 # ── 方向與防禦 ───────────────────────────
 var facing_direction: float = 1.0
 var dash_direction: float = 0.0
-var is_blocking: bool = false          # 真正被打到時吃的 blockstun
+var is_blocking: bool = false
 var is_holding_back: bool = false
 var is_crouch_blocking: bool = false
 var is_opponent_proximity: bool = false
@@ -114,8 +118,9 @@ var landing_facing_lock: bool = false
 var jump_delay_timer: float = 0.0
 @export var jump_delay_duration: float = 0.067
 
+# ── 動畫條件（已替換 Crouch 為 cr_down 和 cr_idle） ──
 var animation_conditions: Array = [
-	"Walk", "Crouch", "Dash", "Backdash",
+	"Walk", "cr_down", "cr_idle", "Dash", "Backdash",
 	"st_mp", "st_mk", "cr_mp", "cr_mk",
 	"Jump_F", "Jump_B", "Jump_V",
 	"hit", "knockfly", "block", "cr_block",
@@ -187,10 +192,25 @@ func _physics_process(delta: float) -> void:
 	var crouch_pressed: bool = input_data["crouch_pressed"]
 	var jump_pressed: bool = input_data["jump_pressed"]
 	is_crouching = crouch_pressed
+	
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_special_moving: bool = move_set.is_special_moving if move_set and "is_special_moving" in move_set else false
 	var scale_factor: float = world.SIMULATION_SCALE if world else 1000.0
 	var floor_y: int = world.FLOOR_Y if world else 200000
+
+	# ── 蹲姿狀態檢測（加強版：確保從任何狀態進入蹲下都強制播放 cr_down） ──
+	if is_on_floor() and crouch_pressed and not is_blocking:
+		if not was_crouching_last_frame:
+			# 剛開始按下蹲 → 重置旗標，強制播放 cr_down
+			is_crouch_transition_played = false
+		# 持續按著蹲鍵時，允許之後進入 cr_idle
+		is_crouch_held = true
+	else:
+		# 新增這一行：放開蹲鍵時重置，確保下次再蹲會重播 cr_down
+		is_crouch_transition_played = false
+
+	# 更新上一幀狀態（一定要放在最後）
+	was_crouching_last_frame = (is_on_floor() and crouch_pressed and not is_blocking)
 
 	_handle_timers(delta)
 	_handle_blocking(input_dir, is_special_moving)
@@ -287,7 +307,6 @@ func _handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) 
 func _handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
 	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and not is_crouching:
 		if input_dir != 0:
-			# Proximity Block 時禁止後退
 			if is_proximity_blocking and input_dir * facing_direction < 0:
 				fixed_velocity.x = 0
 			else:
@@ -316,22 +335,18 @@ func _handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor
 func _handle_knockfly_layground(delta: float, _floor_y: int) -> void:
 	if is_air_hit_backjump:
 		air_hit_backjump_timer -= delta
-		# 正常重力（讓升起後自然落下）
 		var gravity: int = world.GRAVITY if world else 6000000
 		fixed_velocity.y += int(gravity * delta)
-		# 水平空氣摩擦
 		var friction_amount = int(default_air_friction * (world.SIMULATION_SCALE if world else 1000.0) * delta)
 		if fixed_velocity.x > 0:
 			fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
 		elif fixed_velocity.x < 0:
 			fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
-		
 		if air_hit_backjump_timer <= 0 or is_on_floor():
 			is_air_hit_backjump = false
-			is_hit = true  
-		return
+			is_hit = true
+			return
 
-	# 原有 knockfly/layground 邏輯不變
 	if is_knockfly:
 		knockfly_timer -= delta
 		fixed_velocity.y += int(knockfly_gravity * delta)
@@ -378,16 +393,12 @@ func _handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void
 		pending_dash_dir = 0
 		last_input_dir = 0
 		landing_facing_lock = false
-		# ── 修正：先取 move_set，避免 undeclared 錯誤 ──
 		var move_set = $MoveSet if has_node("MoveSet") else null
-		# ── 簡潔判斷：特殊招式中 → 直接跳過 landing ──
 		if move_set and move_set.is_spmove:
-			# 強制清除 landing 狀態（避免殘留）
 			if "is_landing" in self:
 				self.is_landing = false
 				self.landing_lock_timer = 0.0
 		else:
-			# 原有邏輯：普通跳躍才觸發 landing
 			if "is_landing" in self and "landing_lock_timer" in self:
 				if not (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed):
 					self.is_landing = true
@@ -400,6 +411,11 @@ func _handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void
 func _on_animation_player_finished(anim_name: String) -> void:
 	if anim_name in anim_resets:
 		anim_resets[anim_name].call()
+	if anim_name == "cr_down":
+		is_crouch_transition_played = true
+		# 新增這一行：直接切到 cr_idle，確保一定轉移
+		if animation_state:
+			animation_state.travel("cr_idle")
 
 func is_on_floor() -> bool:
 	if jump_delay_timer > 0 or just_jumped:
@@ -451,7 +467,6 @@ func get_is_knockfly() -> bool:
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = true
-		# 只有輸入往對方方向走才進入 Proximity Block（不吃 stun）
 		var input_dir: int = get_input().input_dir
 		if input_dir * facing_direction < 0 and is_on_floor() and not (is_hit or is_knockfly or is_layground):
 			is_proximity_blocking = true
@@ -530,13 +545,12 @@ func _set_animation_conditions(target_state: String, on_floor: bool, crouch_inpu
 			condition_value = condition_value and is_crouch_blocking and crouch_input
 		animation_tree.set("parameters/conditions/" + c, condition_value)
 
-# 只改這一整個 function（替換原本的 _compute_target_state）
 func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	if is_hit:
 		return "hit" if on_floor else "Jump_B"
 	
 	var move_set = $MoveSet if has_node("MoveSet") else null
-	var player_id = self.player_id if "player_id" in self else "unknown"  # ← 修改這一行，用 self 取 player_id
+	var player_id = self.player_id if "player_id" in self else "unknown"
 	
 	if is_layground: return "layground"
 	if is_knockfly: return "knockfly"
@@ -547,10 +561,9 @@ func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, an
 		elif player_id == "p1" and move_set.is_powerkk: return "powerkk"
 		elif player_id == "p1" and move_set.is_dp: return "dp"
 		elif player_id == "p2" and move_set.is_spnk: return "spnk"
-		elif player_id == "p2" and move_set.is_hdk: return "hdk"          # ← 新增這一行！
+		elif player_id == "p2" and move_set.is_hdk: return "hdk"
 		elif move_set.is_fireball: return "fireball"
 	
-	# Proximity Block 優先顯示格擋動畫
 	if is_proximity_blocking:
 		return "cr_block" if is_crouching else "block"
 	if is_blocking:
@@ -558,13 +571,20 @@ func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, an
 	
 	if is_attacking:
 		var atype = get("attack_type") if "attack_type" in self else "none"
-		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk", "super", "dp", "hdk"]:  # ← 這裡也要加上 hdk
+		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk", "super", "dp", "hdk"]:
 			return atype
 		return "Walk"
 	
 	if is_dashing: return "Dash"
 	if is_backdashing: return "Backdash"
-	if crouch_input and on_floor and not is_blocking: return "Crouch"
+	
+	# ── 蹲姿處理（最終版） ─────────────────────
+	if crouch_input and on_floor and not is_blocking:
+		if not was_crouching_last_frame:
+			# 剛按下蹲這一幀 → 下幀強制播放 cr_down 過渡
+			# 使用 call_deferred 延後一幀執行，避免同一幀內條件被覆蓋
+			animation_state.call_deferred("travel", "cr_down")
+		return "cr_idle"   # 其餘時間一律要求持蹲循環
 	
 	if not on_floor and (is_jumping or ("is_air_attacking" in self and self.is_air_attacking)):
 		if "is_air_attacking" in self and (self.is_air_attacking or ("has_air_attacked" in self and self.has_air_attacked)):
@@ -575,28 +595,32 @@ func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, an
 			else: return "Jump_V"
 	
 	return "Walk"
-	
+
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var curr_state: String = animation_state.get_current_node() if animation_state else ""
 	var on_floor: bool = is_on_floor()
 	var anim_dir: float = dir_x * facing_direction
 	var anim_jump_dir: float = jump_dir * facing_direction
 	var target_state: String = _compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
-	# ── 新增：血量歸零時，強制鎖定在 layground ──
+	
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 	if healthbar and healthbar.current_health <= 0 and is_layground:
 		target_state = "layground"
-		animation_state.travel("layground") 
-		return 
-
+		animation_state.travel("layground")
+		return
+	
 	if target_state == "Walk" and not on_floor and is_jumping:
 		target_state = "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
+	
 	_set_animation_conditions(target_state, on_floor, crouch_input)
+	
 	if curr_state != target_state:
 		if not (target_state == "knockfly" and is_knockfly_animation_finished and not is_on_floor()):
 			animation_state.travel(target_state)
+	
 	if target_state == "Walk":
 		animation_tree.set("parameters/Walk/blend_position", anim_dir)
+	
 	if is_jumping and on_floor:
 		is_jumping = false
 
@@ -604,16 +628,14 @@ func _reset_layground_with_health_check() -> void:
 	print("Debug: layground reset triggered for %s. Checking health before wakeup transition." % name)
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 	if healthbar and healthbar.current_health <= 0:
-		is_layground = true # 強制保持
+		is_layground = true
 		is_knockfly = false
 		is_knockfly_animation_finished = false
-		# 不呼叫 animation_state.travel("wakeup")
-		return # 直接跳出，阻止任何其他轉換
+		return
 	print("Debug: Health > 0. Proceeding to wakeup for %s." % name)
 	is_layground = false
 	is_knockfly = false
 	is_knockfly_animation_finished = false
-	# 只有在 self 有 wakeup 旗標時才觸發（Player 專屬）
 	if "is_wakeup" in self and "is_wakeup_locked" in self:
 		self.is_wakeup = true
 		self.is_wakeup_locked = true
