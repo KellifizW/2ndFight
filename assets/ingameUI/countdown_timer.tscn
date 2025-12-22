@@ -17,12 +17,16 @@ script = ExtResource("1_yymev")
 layout_mode = 0
 offset_right = 124.0
 offset_bottom = 80.0
-scale = Vector2(0.7, 0.7)
 texture = ExtResource("2_mb2pa")
 
 [node name="CountdownLabel" type="RichTextLabel" parent="."]
 layout_mode = 0
-offset_right = 84.0
-offset_bottom = 50.0
+offset_top = -10.0
+offset_right = 126.0
+offset_bottom = 78.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/normal_font_size = 64
+bbcode_enabled = true
 
 [node name="CountdownTimer" type="Timer" parent="."]

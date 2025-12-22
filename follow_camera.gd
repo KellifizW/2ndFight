@@ -16,6 +16,10 @@ extends Camera2D
 # 新增：Y軸緩衝追蹤（減少跳躍晃動）
 @export var y_up_scale: float = 0.05           # 向上（跳起）追蹤比例：極小，避免過度向上
 @export var y_down_scale: float = 0.4          # 向下追蹤比例：中等，讓鏡頭緩慢跟回
+
+# 新增：鏡頭Y軸移動上限（防止過度向上追蹤跳躍）
+@export var max_camera_y: float = -50.0         # 鏡頭position.y 的最小值（越小越向上），可自行調整
+
 var y_target_buffer: float                     # Y軸緩衝目標
 
 var player1: Node2D
@@ -86,7 +90,12 @@ func move_and_offset():
 	
 	# 平滑更新緩衝
 	y_target_buffer += y_delta * current_scale
+	
+	# 先套用緩衝後的Y目標
 	target_position.y = y_target_buffer
+	
+	# 關鍵新增：限制鏡頭Y軸不得向上超過 max_camera_y
+	target_position.y = max(target_position.y, max_camera_y)
 
 func _process(delta):
 	move_and_offset()
@@ -99,9 +108,9 @@ func _process(delta):
 	var clamped = clamp_to_viewport_bounds(target_position, zoom.x)
 	target_position.x = clamped.x
 	
-	# 平滑移動（Y軸已透過緩衝預先遲緩）
+	# 平滑移動（Y軸已透過緩衝與上限限制）
 	position.x = lerp(position.x, target_position.x, smooth_speed * delta)
 	position.y = lerp(position.y, target_position.y, y_smooth_speed * delta)
 	
 	# 除錯資訊
-	get_node("../UI/HitLabel").text = "Zoom: %.2f, Dist: %.0f, YBuf: %.0f" % [zoom.x, abs(players[0].global_position.x - players[1].global_position.x), y_target_buffer]
+	get_node("../UI/HitLabel").text = "Zoom: %.2f, Dist: %.0f, YBuf: %.0f, CamY: %.0f" % [zoom.x, abs(players[0].global_position.x - players[1].global_position.x), y_target_buffer, position.y]
