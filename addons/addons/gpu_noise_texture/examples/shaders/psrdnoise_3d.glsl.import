@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://dv2xgend232nn"
+path="res://.godot/imported/psrdnoise_3d.glsl-e7c83c60d0a4d6b5c88ede8d0b7f62b6.res"
+
+[deps]
+
+source_file="res://addons/addons/gpu_noise_texture/examples/shaders/psrdnoise_3d.glsl"
+dest_files=["res://.godot/imported/psrdnoise_3d.glsl-e7c83c60d0a4d6b5c88ede8d0b7f62b6.res"]
+
+[params]
+

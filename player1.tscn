@@ -1,9 +1,10 @@
-[gd_scene load_steps=324 format=3 uid="uid://bw2666uj5f0gw"]
+[gd_scene load_steps=332 format=3 uid="uid://bw2666uj5f0gw"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_0e34t"]
 [ext_resource type="Resource" uid="uid://dsdxakjhgv04k" path="res://data/p1_attack_data.tres" id="2_lyl3y"]
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="2_yev3d"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://MoveSet.gd" id="3_0e34t"]
+[ext_resource type="Texture2D" uid="uid://dtrspm0lofn8v" path="res://assets/texture/smoke/smoke_01.png" id="3_7t5ht"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai_behavior.gd" id="4_3pafw"]
 [ext_resource type="Texture2D" uid="uid://08q3271jy2rb" path="res://assets/HD_dav/walkB.png" id="4_6flp4"]
 [ext_resource type="Texture2D" uid="uid://cqcy7hmy0jt6r" path="res://assets/HD_dav/cr.png" id="4_cmdsw"]
@@ -1657,10 +1658,10 @@ animations = [{
 }]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
-size = Vector2(65, 240)
+size = Vector2(90, 270)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_kcguo"]
-size = Vector2(80, 270)
+size = Vector2(120, 270)
 
 [sub_resource type="Animation" id="Animation_3ch2m"]
 length = 0.001
@@ -1686,7 +1687,7 @@ tracks/1/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(65, 240)]
+"values": [Vector2(90, 270)]
 }
 tracks/2/type = "value"
 tracks/2/imported = false
@@ -1698,7 +1699,7 @@ tracks/2/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, 0)]
+"values": [Vector2(0, -5)]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
@@ -1734,7 +1735,7 @@ tracks/5/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, 0)]
+"values": [Vector2(10, -5)]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
@@ -1746,7 +1747,7 @@ tracks/6/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(80, 270)]
+"values": [Vector2(120, 270)]
 }
 tracks/7/type = "value"
 tracks/7/imported = false
@@ -2179,110 +2180,110 @@ tracks/0/keys = {
 tracks/1/type = "value"
 tracks/1/imported = false
 tracks/1/enabled = true
-tracks/1/path = NodePath("Pushbox:shape")
+tracks/1/path = NodePath("Sprite2D:offset")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
+"times": PackedFloat32Array(0, 0.06666667),
+"transitions": PackedFloat32Array(1, 1),
 "update": 1,
-"values": [SubResource("RectangleShape2D_0e34t")]
+"values": [Vector2(0, -2), Vector2(0, 0)]
 }
 tracks/2/type = "value"
 tracks/2/imported = false
 tracks/2/enabled = true
-tracks/2/path = NodePath("Pushbox:shape:size")
+tracks/2/path = NodePath("AnimatedSprite2D:scale")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [Vector2(20, 50)]
+"update": 0,
+"values": [Vector2(0.4, 0.4)]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
 tracks/3/enabled = true
-tracks/3/path = NodePath("Pushbox:position")
+tracks/3/path = NodePath("AnimatedSprite2D:frame")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [Vector2(0, 12)]
+"times": PackedFloat32Array(0, 0.016666668, 0.033333335, 0.050000012, 0.06666667, 0.083333336, 0.1, 0.11666667),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1),
+"update": 0,
+"values": [0, 1, 2, 3, 4, 5, 6, 7]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
 tracks/4/enabled = true
-tracks/4/path = NodePath("Hurtbox/HurtShape:position")
+tracks/4/path = NodePath("AnimatedSprite2D:animation")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 1,
-"values": [Vector2(0, 12)]
+"update": 0,
+"values": [&"cr"]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
 tracks/5/enabled = true
-tracks/5/path = NodePath("Hurtbox/HurtShape:shape:size")
+tracks/5/path = NodePath("Pushbox:shape")
 tracks/5/interp = 1
 tracks/5/loop_wrap = true
 tracks/5/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(100, 250)]
+"values": [SubResource("RectangleShape2D_0e34t")]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
 tracks/6/enabled = true
-tracks/6/path = NodePath("Sprite2D:offset")
+tracks/6/path = NodePath("Pushbox:shape:size")
 tracks/6/interp = 1
 tracks/6/loop_wrap = true
 tracks/6/keys = {
-"times": PackedFloat32Array(0, 0.06666667),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, -2), Vector2(0, 0)]
+"values": [Vector2(100, 210)]
 }
 tracks/7/type = "value"
 tracks/7/imported = false
 tracks/7/enabled = true
-tracks/7/path = NodePath("AnimatedSprite2D:scale")
+tracks/7/path = NodePath("Pushbox:position")
 tracks/7/interp = 1
 tracks/7/loop_wrap = true
 tracks/7/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [Vector2(0.45, 0.45)]
+"update": 1,
+"values": [Vector2(0, 25)]
 }
 tracks/8/type = "value"
 tracks/8/imported = false
 tracks/8/enabled = true
-tracks/8/path = NodePath("AnimatedSprite2D:frame")
+tracks/8/path = NodePath("Hurtbox/HurtShape:position")
 tracks/8/interp = 1
 tracks/8/loop_wrap = true
 tracks/8/keys = {
-"times": PackedFloat32Array(0, 0.016666668, 0.033333335, 0.050000012, 0.06666667, 0.083333336, 0.1, 0.11666667),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1),
-"update": 0,
-"values": [0, 1, 2, 3, 4, 5, 6, 7]
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(15, 25)]
 }
 tracks/9/type = "value"
 tracks/9/imported = false
 tracks/9/enabled = true
-tracks/9/path = NodePath("AnimatedSprite2D:animation")
+tracks/9/path = NodePath("Hurtbox/HurtShape:shape:size")
 tracks/9/interp = 1
 tracks/9/loop_wrap = true
 tracks/9/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [&"cr"]
+"update": 1,
+"values": [Vector2(130, 210)]
 }
 
 [sub_resource type="Animation" id="Animation_lyl3y"]
@@ -2363,7 +2364,7 @@ tracks/3/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(20, 50)]
+"values": [Vector2(100, 210)]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -2375,7 +2376,7 @@ tracks/4/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, 12)]
+"values": [Vector2(0, 25)]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
@@ -2387,7 +2388,7 @@ tracks/5/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, 12)]
+"values": [Vector2(15, 25)]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
@@ -2399,7 +2400,31 @@ tracks/6/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(100, 250)]
+"values": [Vector2(130, 210)]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("AnimatedSprite2D:scale")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0.4, 0.4)]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("AnimatedSprite2D:offset")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0, 0)]
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_s33xd"]
@@ -4981,6 +5006,48 @@ states/wakeup/position = Vector2(-108, 193)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627"), "cr_down", "cr_idle", SubResource("AnimationNodeStateMachineTransition_shoen"), "Walk", "cr_down", SubResource("AnimationNodeStateMachineTransition_3c2oy")]
 graph_offset = Vector2(-77, 84)
 
+[sub_resource type="Curve" id="Curve_ixokm"]
+_data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_baprg"]
+curve = SubResource("Curve_ixokm")
+
+[sub_resource type="Curve" id="Curve_awrw5"]
+_data = [Vector2(0, 0.506732), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_q6dtc"]
+_data = [Vector2(0, 0.35556918), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_iifsr"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_dhkov"]
+curve_x = SubResource("Curve_awrw5")
+curve_y = SubResource("Curve_q6dtc")
+curve_z = SubResource("Curve_iifsr")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_6w4w0"]
+particle_flag_disable_z = true
+emission_shape = 3
+emission_box_extents = Vector3(80, 8, 0)
+angle_min = 1.0728835e-05
+angle_max = 1.0728835e-05
+inherit_velocity_ratio = 0.375
+direction = Vector3(0, -1, 0)
+spread = 90.0
+initial_velocity_min = 70.0
+initial_velocity_max = 100.0
+gravity = Vector3(0, 0, 0)
+damping_min = 5.0
+damping_max = 15.000001
+scale_min = 0.19999999
+scale_curve = SubResource("CurveXYZTexture_dhkov")
+alpha_curve = SubResource("CurveTexture_baprg")
+
 [node name="Player1" type="CharacterBody2D"]
 collision_mask = 0
 script = ExtResource("1_0e34t")
@@ -5000,9 +5067,9 @@ hframes = 10
 vframes = 19
 
 [node name="Pushbox" type="CollisionShape2D" parent="."]
-visible = false
+position = Vector2(0, -5)
 shape = SubResource("RectangleShape2D_0e34t")
-debug_color = Color(0, 0.642983, 0.308232, 0.42)
+debug_color = Color(0, 0.6431373, 0.30980393, 0.08235294)
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="."]
 libraries = {
@@ -5024,14 +5091,15 @@ collision_mask = 2
 
 [node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
 position = Vector2(15, -15)
-debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
+debug_color = Color(0.050980393, 0.63529414, 0.41568628, 0)
 
 [node name="Hurtbox" type="Area2D" parent="."]
 collision_mask = 72
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]
-visible = false
+position = Vector2(10, -5)
 shape = SubResource("RectangleShape2D_kcguo")
+debug_color = Color(0, 0.6, 0.69803923, 0.03529412)
 
 [node name="AttackHurtShape" type="CollisionShape2D" parent="Hurtbox"]
 position = Vector2(65, -70)
@@ -5044,6 +5112,17 @@ collision_mask = 0
 [node name="ProxShape" type="CollisionShape2D" parent="Proximitybox"]
 position = Vector2(50, 0)
 debug_color = Color(0.62189, 0.533606, 0, 0.42)
+
+[node name="groundsmoke" type="GPUParticles2D" parent="."]
+z_index = -1
+position = Vector2(0, 140)
+emitting = false
+amount = 10
+texture = ExtResource("3_7t5ht")
+one_shot = true
+explosiveness = 0.9
+fixed_fps = 60
+process_material = SubResource("ParticleProcessMaterial_6w4w0")
 
 [node name="MoveSet" type="Node" parent="."]
 script = ExtResource("3_0e34t")
@@ -5060,15 +5139,16 @@ script = ExtResource("6_woueq")
 
 [node name="HitSoundPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("7_sl0af")
+pitch_scale = 0.8
 
 [node name="BlockSoundPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("8_sl0af")
-pitch_scale = 0.9
+pitch_scale = 1.1
 
 [node name="HurtGruntPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("9_c5mkm")
 volume_db = -5.0
-pitch_scale = 1.2
+pitch_scale = 1.13
 
 [node name="SpecialCallPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("10_sl0af")

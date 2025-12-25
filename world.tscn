@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3 uid="uid://c0j8o4o3jtun1"]
+[gd_scene load_steps=20 format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
 [ext_resource type="PackedScene" uid="uid://bw2666uj5f0gw" path="res://player1.tscn" id="1_f3sb7"]
@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://jla54h8ttkct" path="res://player2.tscn" id="3_tlwt5"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
 [ext_resource type="FontFile" uid="uid://btah83mhaiaaa" path="res://fonts/SSF4 ABUKET.ttf" id="6_70uel"]
-[ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://cpu_controller.gd" id="6_dwbse"]
+[ext_resource type="Script" uid="uid://dwchp2rimawb" path="res://cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://slow_mo_controller.gd" id="7_pkg7o"]
 [ext_resource type="PackedScene" uid="uid://dsnvnd8yxiin5" path="res://FrameBar.tscn" id="7_wse8f"]
@@ -16,6 +16,8 @@
 [ext_resource type="Script" uid="uid://cmi0ksd8w268l" path="res://ControlHistory.gd" id="11_ic0uy"]
 [ext_resource type="AudioStream" uid="uid://edw4r0cjrhy6" path="res://audio/bgm.mp3" id="12_k3n1d"]
 [ext_resource type="PackedScene" uid="uid://c5l4a1b0wwbtl" path="res://assets/ingameUI/countdown_timer.tscn" id="16_2u3nc"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_2u3nc"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_036b0"]
 
@@ -31,6 +33,8 @@ script = ExtResource("1_aqk2v")
 
 [node name="TextureRect" type="TextureRect" parent="."]
 modulate = Color(1, 0.898039, 0.670588, 0.772549)
+z_index = -1
+material = SubResource("ShaderMaterial_2u3nc")
 offset_left = -300.0
 offset_top = -150.0
 offset_right = 2900.0
@@ -41,6 +45,7 @@ texture = ExtResource("1_fj7yv")
 [node name="FollowCamera" parent="." instance=ExtResource("3_gbfbk")]
 position = Vector2(700, 360)
 scale = Vector2(1e-05, 1e-05)
+max_camera_y = 300.0
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
 position = Vector2(750, 700)
@@ -184,7 +189,10 @@ autoplay = true
 [node name="Player1" parent="." instance=ExtResource("1_f3sb7")]
 position = Vector2(515, 563)
 min_hitstun_duration = 0.0
+block_push_distance = 200.0
+hit_push_distance = 200.0
 
 [node name="Player2" parent="." instance=ExtResource("3_tlwt5")]
 position = Vector2(902, 571)
-jump_delay_duration = 0.1
+block_push_distance = 200.0
+hit_push_distance = 200.0

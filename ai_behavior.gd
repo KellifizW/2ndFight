@@ -7,6 +7,10 @@ class_name AIBehavior extends Node
 @export var global_jump_chance: float = 0.01
 @export var p1_dp_chance: float = 0.15
 
+# 新增：遠距離火球相關參數
+@export var fireball_distance: float = 400.0   # 超過此距離才考慮火球
+@export var fireball_chance: float = 0.4       # 遠距離使用火球的機率（大幅提高）
+
 # 格擋參數
 @export var block_distance: float = 80.0
 @export var block_chance: float = 0.85
@@ -19,7 +23,7 @@ var attack_decision_timer: float = 0.0
 var defend_decision_timer: float = 0.0
 var state_timer: float = 0.0 : set = _set_state_timer
 var last_action_time: float = 0.0
-var random_action_chance: float = 0.25
+var random_action_chance: float = 0.3   # 降低特殊招整體出現頻率
 var parent: Node
 var opponent_search_timer: float = 0.0
 var world: Node = null
@@ -38,9 +42,9 @@ var current_crouch: bool = false
 
 var cancel_window_timer_ai: float = 0.0
 
-# 新增：FrameBar 與 AttackData 引用
-var opponent_framebar: Node = null      # 對手的 FrameBar (p1 → FrameBarP1, p2 → FrameBarP2)
-var my_framebar: Node = null            # 自己的 FrameBar
+# FrameBar 與 AttackData 引用
+var opponent_framebar: Node = null
+var my_framebar: Node = null
 var opponent_attack_data: AttackData = null
 
 # 防重複列印用的追蹤變數
@@ -54,6 +58,7 @@ var _last_logged_attack_choice: String = ""
 var _last_logged_punish: bool = false
 var _last_logged_dp: bool = false
 var _last_logged_cancel: bool = false
+var _last_logged_fireball: bool = false   # 新增：避免重複列印火球
 
 func _ready() -> void:
 	parent = get_parent()
@@ -141,7 +146,6 @@ func find_opponent() -> void:
 			return
 	print("Warning: No opponent found for %s" % parent.name)
 
-# 從對手 FrameBar 取得 startup / recovery（秒）
 func _get_opponent_startup(anim: String) -> float:
 	if opponent_framebar and opponent_framebar.current_animation == anim and opponent_framebar.frame_data.size() > 0:
 		var count = 0
@@ -198,7 +202,6 @@ func _on_self_hit_detected(_target: String, _stun_duration: float, is_blocked: b
 		cancel_window_timer_ai = 0.3
 		print("Debug: AI P1 st_mp hit detected, cancel window started")
 
-# 其餘函式（角落判定、跳躍等）完全不變
 func is_at_left_corner() -> bool:
 	if not world: return false
 	var distance_to_left = parent.global_position.x - (world.arena_left / world.SIMULATION_SCALE)
@@ -251,7 +254,7 @@ func get_ai_input() -> Dictionary:
 	
 	# 格擋判定
 	var opponent_attacking: bool = opponent.is_attacking or (opponent.move_set and opponent.move_set.is_spmove)
-	if opponent_attacking and distance <= block_distance and current_state != "attack" and not input.spm1_pressed and not input.dp_pressed:
+	if opponent_attacking and distance <= block_distance and current_state != "attack":
 		if randf() < block_chance:
 			input.block_pressed = true
 			input.input_dir = -int(relative_dir)
@@ -264,13 +267,13 @@ func get_ai_input() -> Dictionary:
 		previous_state = current_state
 		var r = randf()
 		if distance > 100:
-			current_state = "defend" if r < 0.7 else ("approach" if r < 0.85 else ("attack" if r < 0.95 else "idle"))
+			current_state = "defend" if r < 0.6 else ("approach" if r < 0.8 else "attack")
 		else:
-			current_state = "defend" if r < 0.65 else ("attack" if r < 0.8 else ("approach" if r < 0.95 else "idle"))
+			current_state = "defend" if r < 0.65 else ("attack" if r < 0.85 else "approach")
 		if previous_state != current_state:
 			_log_state(current_state, input.input_dir)
 	
-	# 懲罰反擊
+	# 懲罰反擊（優先）
 	if punish_opportunity and not _last_logged_punish:
 		current_state = "attack"
 		current_attack = punish_attack
@@ -285,29 +288,38 @@ func get_ai_input() -> Dictionary:
 	elif not punish_opportunity:
 		_last_logged_punish = false
 	
-	# 攻擊選擇（其餘邏輯不變）
+	# 攻擊選擇
 	if current_state == "attack":
 		attack_decision_timer -= get_process_delta_time()
 		if attack_decision_timer <= 0:
 			attack_decision_timer = attack_decision_delay + randf_range(0.0, 0.2)
-			if is_at_left_corner() or is_at_right_corner():
-				current_attack = "spm1" if randf() < 0.7 else punish_attack
+			
+			# 遠距離優先火球（spm2_pressed）
+			if distance > fireball_distance and randf() < fireball_chance and not _last_logged_fireball:
+				current_attack = "fireball"
+				print("Debug: %s 遠距離發射火球！距離 %.1f" % [parent.name, distance])
+				_last_logged_fireball = true
+			elif _last_logged_fireball:
+				_last_logged_fireball = false
+			
+			# 角落或近距離偏好普通拳腳
+			elif is_at_left_corner() or is_at_right_corner():
+				current_attack = "st_mp" if randf() < 0.6 else "cr_mp"
 			elif distance < 30:
-				current_attack = punish_attack if randf() < 0.5 else ("cr_mp" if parent.player_id == "p2" else "cr_mk")
+				current_attack = "cr_mp" if randf() < 0.6 else "cr_mk"
 			else:
+				# 降低特殊招頻率，增加普通與蹲招
 				if randf() < random_action_chance:
-					match randi() % 6:
-						0: current_attack = "st_mk"
-						1: current_attack = "spm1"
-						2: current_attack = "spm2"
-						3: current_attack = "cr_mp"
-						4: current_attack = "cr_mk"
-						5:
-							if parent.player_id == "p1":
-								current_attack = "dp"
-								input.dp_pressed = true
+					match randi() % 10:
+						0,1,2: current_attack = "st_mp"
+						3,4:   current_attack = "st_mk"
+						5,6:   current_attack = "cr_mp"
+						7:     current_attack = "cr_mk"
+						8:     current_attack = "spm1"   # powerkk / spnk
+						9:     current_attack = "dp"     # 只限 P1
 				else:
-					current_attack = "spm1"
+					current_attack = "st_mp" if randf() < 0.6 else "cr_mp"
+			
 			if current_attack != _last_logged_attack_choice:
 				print("Debug: %s 攻擊選擇 → %s" % [parent.name, current_attack])
 				_last_logged_attack_choice = current_attack
@@ -317,15 +329,11 @@ func get_ai_input() -> Dictionary:
 		defend_decision_timer -= get_process_delta_time()
 		if defend_decision_timer <= 0:
 			defend_decision_timer = defend_decision_delay + randf_range(0.0, 0.2)
-			var new_crouch = randf() < (0.4 if (is_near_left_corner() or is_near_right_corner()) else 0.7)
-			if new_crouch != _last_logged_crouch:
-				current_crouch = new_crouch
-				print("Debug: %s 防守蹲下: %s" % [parent.name, "true" if current_crouch else "false"])
-				_last_logged_crouch = current_crouch
+			current_crouch = randf() < 0.65
 	
-	# 跳躍、空中攻擊、取消連招、P1近距離DP 等其餘邏輯完全保留（與原版一致）
-	var jump_for_attack = can_jump_attack_hit() and randf() < 0.4 and parent.is_on_floor()
-	var corner_escape = (is_at_left_corner() or is_at_right_corner()) and randf() < 0.15 and parent.is_on_floor()
+	# 跳躍攻擊（提高頻率）
+	var jump_for_attack = can_jump_attack_hit() and randf() < 0.55 and parent.is_on_floor()
+	var corner_escape = (is_at_left_corner() or is_at_right_corner()) and randf() < 0.2 and parent.is_on_floor()
 	
 	if jump_for_attack and not _last_logged_jump_attack:
 		input.jump_pressed = true
@@ -345,6 +353,7 @@ func get_ai_input() -> Dictionary:
 	elif not corner_escape:
 		_last_logged_corner_escape = false
 	
+	# 狀態對應輸入
 	match current_state:
 		"approach":
 			input.input_dir = int(relative_dir)
@@ -359,9 +368,10 @@ func get_ai_input() -> Dictionary:
 				"cr_mk":
 					input.crouch_pressed = true
 					input.st_mk_pressed = true
-				"spm1": input.spm1_pressed = true
-				"spm2": input.spm2_pressed = true
+				"spm1": input.spm1_pressed = true          # powerkk (P1) / spnk (P2)
+				"spm2": input.spm2_pressed = true          # fireball (兩角色共用)
 				"dp": input.dp_pressed = true
+				"fireball": input.spm2_pressed = true
 		"defend":
 			input.input_dir = -int(relative_dir)
 			input.block_pressed = true
@@ -370,33 +380,27 @@ func get_ai_input() -> Dictionary:
 		"idle":
 			_log_state(current_state, input.input_dir)
 	
-	if not parent.is_on_floor() and parent.velocity.y > 0 and parent.global_position.y < 50:
-		if distance < 50 and randf() < 0.3 and not _last_logged_aerial_attack:
+	# 空中攻擊（大幅提高頻率）
+	if not parent.is_on_floor() and parent.velocity.y > 0 and distance < 80:
+		if randf() < 0.7 and not _last_logged_aerial_attack:
 			input.st_mp_pressed = randf() < 0.5
 			input.st_mk_pressed = not input.st_mp_pressed
-			print("Debug: %s 空中攻擊（落地前）" % parent.name)
+			print("Debug: %s 空中攻擊觸發" % parent.name)
 			_last_logged_aerial_attack = true
 	elif parent.is_on_floor():
 		_last_logged_aerial_attack = false
 	
+	# 取消連招與 P1 近距離 DP
 	if cancel_window_timer_ai > 0 and not _last_logged_cancel:
 		input.spm1_pressed = true
-		input.st_mp_pressed = false
-		input.st_mk_pressed = false
-		input.spm2_pressed = false
-		input.dp_pressed = false
 		print("Debug: %s 取消連招" % parent.name)
 		_last_logged_cancel = true
 	elif cancel_window_timer_ai <= 0:
 		_last_logged_cancel = false
 	
-	if parent.player_id == "p1" and (current_state == "attack" or current_state == "defend") and distance < 50 and randf() < p1_dp_chance and parent.is_on_floor() and not _last_logged_dp:
+	if parent.player_id == "p1" and distance < 50 and randf() < p1_dp_chance and parent.is_on_floor() and not _last_logged_dp:
 		input.dp_pressed = true
 		current_attack = "dp"
-		input.st_mp_pressed = false
-		input.st_mk_pressed = false
-		input.spm1_pressed = false
-		input.spm2_pressed = false
 		print("Debug: AI P1 近距離升龍拳！")
 		_last_logged_dp = true
 	elif not (distance < 50 and parent.is_on_floor()):

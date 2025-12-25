@@ -1,9 +1,69 @@
-[gd_scene load_steps=13 format=3 uid="uid://ck7d2l0lqx403"]
+[gd_scene load_steps=28 format=3 uid="uid://ck7d2l0lqx403"]
 
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="1_imvl6"]
 [ext_resource type="Script" uid="uid://2srsoq8uppfe" path="res://fireball.gd" id="1_twj7m"]
+[ext_resource type="Shader" uid="uid://deog7x82ywb8r" path="res://P2_fireball_A_shader.tres" id="2_vsxo4"]
 [ext_resource type="AudioStream" uid="uid://rp7ewg5mlgh0" path="res://audio/fireball_spawn.mp3" id="3_ifjvk"]
+[ext_resource type="Texture2D" uid="uid://dfi8ibhnd7tbq" path="res://assets/fireball/T_VFX_Noise_2.PNG" id="3_ymabt"]
 [ext_resource type="AudioStream" uid="uid://dgqp33vjqdvqk" path="res://audio/fireball_vanish.wav" id="4_g8rs3"]
+[ext_resource type="Texture2D" uid="uid://budvrxmxqy1d6" path="res://assets/fireball/T_VFX_PerlinNoise_Tiled.png" id="4_rjkg6"]
+[ext_resource type="Texture2D" uid="uid://2rj5mhuheo8x" path="res://assets/fireball/circle_05.png" id="5_8e0u4"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vsxo4"]
+shader = ExtResource("2_vsxo4")
+shader_parameter/Dissolver_texture = ExtResource("3_ymabt")
+shader_parameter/Flame_Texture = ExtResource("4_rjkg6")
+
+[sub_resource type="Curve" id="Curve_ymabt"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_vwh0f"]
+texture_mode = 1
+curve = SubResource("Curve_ymabt")
+
+[sub_resource type="Gradient" id="Gradient_rjkg6"]
+offsets = PackedFloat32Array(0, 0.6182573, 0.68049794, 1)
+colors = PackedColorArray(0, 0, 10.99762, 1, 0.80580753, 1.228225, 1.3655106, 1, 0.318, 0.956, 2.019, 1, 0, 0.30980393, 0.8901961, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_rs0mt"]
+gradient = SubResource("Gradient_rjkg6")
+
+[sub_resource type="Curve" id="Curve_vsxo4"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_rjkg6"]
+_data = [Vector2(0, 0.6039062), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_8e0u4"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_3bmh0"]
+curve_x = SubResource("Curve_vsxo4")
+curve_y = SubResource("Curve_rjkg6")
+curve_z = SubResource("Curve_8e0u4")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_8e0u4"]
+particle_flag_rotate_y = true
+particle_flag_disable_z = true
+emission_shape = 1
+emission_sphere_radius = 1.0
+angle_min = 1.0728835e-05
+angle_max = 1.0728835e-05
+direction = Vector3(0, 0, 0)
+spread = 0.0
+gravity = Vector3(0, 0, 0)
+linear_accel_min = -2.2351742e-06
+linear_accel_max = -2.2351742e-06
+scale_min = 0.79999995
+scale_max = 0.79999995
+scale_curve = SubResource("CurveXYZTexture_3bmh0")
+color = Color(2.7330875, 3.1229057, 3.111093, 1)
+color_ramp = SubResource("GradientTexture1D_rs0mt")
+alpha_curve = SubResource("CurveTexture_vwh0f")
 
 [sub_resource type="Animation" id="Animation_3ch2m"]
 length = 0.001
@@ -142,12 +202,25 @@ size = Vector2(27, 30)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_twj7m"]
 size = Vector2(40, 20)
 
+[sub_resource type="Environment" id="Environment_3bmh0"]
+glow_enabled = true
+
 [node name="P1Fireball" type="Area2D"]
 collision_layer = 4
 collision_mask = 0
 script = ExtResource("1_twj7m")
 
+[node name="VFX_ball" type="GPUParticles2D" parent="."]
+material = SubResource("ShaderMaterial_vsxo4")
+amount = 20
+texture = ExtResource("5_8e0u4")
+lifetime = 0.5
+speed_scale = 3.0
+fixed_fps = 60
+process_material = SubResource("ParticleProcessMaterial_8e0u4")
+
 [node name="Sprite2D" type="Sprite2D" parent="."]
+visible = false
 scale = Vector2(10, 10)
 texture = ExtResource("1_imvl6")
 offset = Vector2(0, 5)
@@ -192,3 +265,6 @@ stream = ExtResource("3_ifjvk")
 [node name="HitSoundPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("4_g8rs3")
 pitch_scale = 1.1
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_3bmh0")

@@ -5,6 +5,7 @@ var world: Node
 @onready var animation_state = animation_tree.get("parameters/playback") if animation_tree else null
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer if has_node("AnimationPlayer") else null
+@onready var groundsmoke: GPUParticles2D = $groundsmoke if has_node("groundsmoke") else null
 
 # ── 基本狀態 ──────────────────────────────
 @export var landing_duration: float = 0.2
@@ -19,10 +20,10 @@ var is_crouch_held: bool = false             # 是否已經完成蹲下過渡，
 
 # ── Knockfly 物理參數（預設值） ────────────
 @export_group("Knockfly Physics")
-@export var default_knockfly_gravity: float = 1200000.0
-@export var default_knockfly_vertical_speed: float = -300.0
-@export var default_knockfly_horizontal_speed: float = 1900.0
-@export var default_air_friction: float = 500.0
+@export var default_knockfly_gravity: float = 1700000.0
+@export var default_knockfly_vertical_speed: float = -400.0
+@export var default_knockfly_horizontal_speed: float = 6000.0
+@export var default_air_friction: float = 200.0
 @export var default_knockfly_duration: float = 0.4
 
 # ── Knockfly 執行時實際值 ─────────────────
@@ -201,15 +202,11 @@ func _physics_process(delta: float) -> void:
 	# ── 蹲姿狀態檢測（加強版：確保從任何狀態進入蹲下都強制播放 cr_down） ──
 	if is_on_floor() and crouch_pressed and not is_blocking:
 		if not was_crouching_last_frame:
-			# 剛開始按下蹲 → 重置旗標，強制播放 cr_down
 			is_crouch_transition_played = false
-		# 持續按著蹲鍵時，允許之後進入 cr_idle
 		is_crouch_held = true
 	else:
-		# 新增這一行：放開蹲鍵時重置，確保下次再蹲會重播 cr_down
 		is_crouch_transition_played = false
 
-	# 更新上一幀狀態（一定要放在最後）
 	was_crouching_last_frame = (is_on_floor() and crouch_pressed and not is_blocking)
 
 	_handle_timers(delta)
@@ -290,10 +287,16 @@ func _handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) 
 				is_dashing = true
 				dash_timer = dash_time
 				fixed_velocity.x = int(dash_speed * scale_factor * input_dir)
+				if groundsmoke:
+					groundsmoke.scale.x = facing_direction
+					groundsmoke.restart()
 			elif not (is_blocking and is_opponent_proximity and block_type == "proximity"):
 				is_backdashing = true
 				dash_timer = backdash_time
 				fixed_velocity.x = int(backdash_speed * scale_factor * input_dir)
+				if groundsmoke:
+					groundsmoke.scale.x = facing_direction
+					groundsmoke.restart()
 			neutral_timer = 0.0
 			pending_dash_dir = 0
 			last_input_dir = 0
@@ -403,6 +406,9 @@ func _handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void
 				if not (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed):
 					self.is_landing = true
 					self.landing_lock_timer = landing_duration
+		if groundsmoke:
+			groundsmoke.scale.x = facing_direction
+			groundsmoke.restart()
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 	var push_manager = get_tree().get_first_node_in_group("push_manager")
 	if push_manager:
@@ -413,7 +419,6 @@ func _on_animation_player_finished(anim_name: String) -> void:
 		anim_resets[anim_name].call()
 	if anim_name == "cr_down":
 		is_crouch_transition_played = true
-		# 新增這一行：直接切到 cr_idle，確保一定轉移
 		if animation_state:
 			animation_state.travel("cr_idle")
 
@@ -578,13 +583,10 @@ func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, an
 	if is_dashing: return "Dash"
 	if is_backdashing: return "Backdash"
 	
-	# ── 蹲姿處理（最終版） ─────────────────────
 	if crouch_input and on_floor and not is_blocking:
 		if not was_crouching_last_frame:
-			# 剛按下蹲這一幀 → 下幀強制播放 cr_down 過渡
-			# 使用 call_deferred 延後一幀執行，避免同一幀內條件被覆蓋
 			animation_state.call_deferred("travel", "cr_down")
-		return "cr_idle"   # 其餘時間一律要求持蹲循環
+		return "cr_idle"
 	
 	if not on_floor and (is_jumping or ("is_air_attacking" in self and self.is_air_attacking)):
 		if "is_air_attacking" in self and (self.is_air_attacking or ("has_air_attacked" in self and self.has_air_attacked)):

@@ -1,0 +1,52 @@
+[gd_scene load_steps=10 format=3 uid="uid://sytgkjr8vt0l"]
+
+[ext_resource type="Texture2D" uid="uid://dtrspm0lofn8v" path="res://assets/texture/smoke/smoke_01.png" id="1_14adt"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_8h35s"]
+
+[sub_resource type="Curve" id="Curve_j7qqb"]
+_data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_baprg"]
+curve = SubResource("Curve_j7qqb")
+
+[sub_resource type="Curve" id="Curve_b4adl"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_16s6a"]
+_data = [Vector2(0, 0.4908201), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_wlon7"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveXYZTexture" id="CurveXYZTexture_dhkov"]
+curve_x = SubResource("Curve_b4adl")
+curve_y = SubResource("Curve_16s6a")
+curve_z = SubResource("Curve_wlon7")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_o5kxf"]
+particle_flag_disable_z = true
+direction = Vector3(0, -10, 0)
+spread = 60.0
+initial_velocity_min = 435.59998
+initial_velocity_max = 515.6
+gravity = Vector3(0, -10, 0)
+scale_min = 0.29999998
+scale_curve = SubResource("CurveXYZTexture_dhkov")
+alpha_curve = SubResource("CurveTexture_baprg")
+
+[node name="Dash_smoke" type="Node2D"]
+
+[node name="GPUParticles2D" type="GPUParticles2D" parent="."]
+material = SubResource("ShaderMaterial_8h35s")
+amount = 5
+texture = ExtResource("1_14adt")
+lifetime = 0.5
+explosiveness = 0.72
+randomness = 0.52
+fixed_fps = 60
+process_material = SubResource("ParticleProcessMaterial_o5kxf")

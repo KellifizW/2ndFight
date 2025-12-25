@@ -21,7 +21,7 @@ func _ready():
 	
 	# 根據 owner_id 設置火球參數
 	if owner_id == "p1":
-		speed = 600.0
+		speed = 700.0
 		damage = 15.0
 	elif owner_id == "p2":
 		speed = 500.0

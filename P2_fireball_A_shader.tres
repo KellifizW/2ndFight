@@ -1,0 +1,93 @@
+[gd_resource type="VisualShader" load_steps=8 format=3 uid="uid://deog7x82ywb8r"]
+
+[sub_resource type="VisualShaderNodeTexture2DParameter" id="VisualShaderNodeTexture2DParameter_vse0w"]
+parameter_name = "Dissolver_texture"
+texture_type = 1
+texture_repeat = 1
+
+[sub_resource type="VisualShaderNodeTexture" id="VisualShaderNodeTexture_wvyuw"]
+expanded_output_ports = [0]
+source = 5
+texture_type = 1
+
+[sub_resource type="VisualShaderNodeSmoothStep" id="VisualShaderNodeSmoothStep_vx7bb"]
+output_port_for_preview = 0
+default_input_values = [0, -0.615, 1, 1.0, 2, 0.5]
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_v8k8k"]
+expanded_output_ports = [0]
+input_name = "color"
+
+[sub_resource type="VisualShaderNodeFloatOp" id="VisualShaderNodeFloatOp_4yp8y"]
+operator = 2
+
+[sub_resource type="VisualShaderNodeTexture2DParameter" id="VisualShaderNodeTexture2DParameter_bkpe0"]
+parameter_name = "Flame_Texture"
+texture_type = 1
+
+[sub_resource type="VisualShaderNodeTexture" id="VisualShaderNodeTexture_fgpqw"]
+expanded_output_ports = [0]
+source = 5
+texture_type = 1
+
+[resource]
+code = "shader_type canvas_item;
+render_mode blend_mix, unshaded;
+
+uniform sampler2D Dissolver_texture : source_color, repeat_enable;
+uniform sampler2D Flame_Texture : source_color;
+
+
+
+void vertex() {
+// Input:5
+	vec4 n_out5p0 = COLOR;
+	float n_out5p4 = n_out5p0.a;
+
+
+	vec4 n_out3p0;
+// Texture2D:3
+	n_out3p0 = texture(Dissolver_texture, UV);
+	float n_out3p1 = n_out3p0.r;
+
+
+// SmoothStep:4
+	float n_in4p1 = 1.00000;
+	float n_out4p0 = smoothstep(n_out5p4, n_in4p1, n_out3p1);
+
+
+	vec4 n_out8p0;
+// Texture2D:8
+	n_out8p0 = texture(Flame_Texture, UV);
+	float n_out8p1 = n_out8p0.r;
+
+
+// FloatOp:6
+	float n_out6p0 = n_out4p0 * n_out8p1;
+
+
+// Output:0
+	COLOR.a = n_out6p0;
+
+
+}
+"
+mode = 1
+flags/unshaded = true
+flags/light_only = false
+nodes/vertex/0/position = Vector2(740, 80)
+nodes/vertex/2/node = SubResource("VisualShaderNodeTexture2DParameter_vse0w")
+nodes/vertex/2/position = Vector2(-420, 120)
+nodes/vertex/3/node = SubResource("VisualShaderNodeTexture_wvyuw")
+nodes/vertex/3/position = Vector2(-380, -140)
+nodes/vertex/4/node = SubResource("VisualShaderNodeSmoothStep_vx7bb")
+nodes/vertex/4/position = Vector2(40, -20)
+nodes/vertex/5/node = SubResource("VisualShaderNodeInput_v8k8k")
+nodes/vertex/5/position = Vector2(-140, -360)
+nodes/vertex/6/node = SubResource("VisualShaderNodeFloatOp_4yp8y")
+nodes/vertex/6/position = Vector2(420, 0)
+nodes/vertex/7/node = SubResource("VisualShaderNodeTexture2DParameter_bkpe0")
+nodes/vertex/7/position = Vector2(380, 500)
+nodes/vertex/8/node = SubResource("VisualShaderNodeTexture_fgpqw")
+nodes/vertex/8/position = Vector2(340, 220)
+nodes/vertex/connections = PackedInt32Array(2, 0, 3, 2, 3, 1, 4, 2, 5, 4, 4, 0, 4, 0, 6, 0, 7, 0, 8, 2, 8, 1, 6, 1, 6, 0, 0, 3)

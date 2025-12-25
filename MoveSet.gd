@@ -5,7 +5,7 @@ class_name MoveSet extends Node
 @export var is_spnk_penetrable: bool = true
 @export var is_fireball_penetrable: bool = true
 @export var is_dp_penetrable: bool = true
-@export var fireball_y_offset: float = 0.0
+@export var fireball_y_offset: float = -40.0
 @export var fireball_x_offset: float = 15.0
 @export var fireball_spawn_delay: float = 0.2667
 @export var super_duration: float = 2.6
@@ -18,8 +18,8 @@ class_name MoveSet extends Node
 @export var dp_horizontal_move: float = 100.0
 @export var dp_vertical_speed: float = -2000.0
 @export var dp_damage: float = 5.0
-@export var dp_knockfly_vertical_speed: float = -2200.0
-@export var dp_knockfly_gravity: float = 5500000.0
+@export var dp_knockfly_vertical_speed: float = -2500.0
+@export var dp_knockfly_gravity: float = 6000000.0
 @export var dp_hitstun: float = 0.65
 @export var dp_knockfly_horizontal_speed: float = 100.0
 
@@ -57,7 +57,7 @@ var super_damage: float = 5.0
 
 # Move distances
 var powerkk_move_distance: float = 300.0
-var spnk_move_distance: float = 70.0
+var spnk_move_distance: float = 250.0
 
 # Freeze
 var super_freeze_time: float = 0.3
