@@ -2,10 +2,9 @@
 class_name Player extends Fighter
 
 signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool)
-
 @export var player_id: String = "p1"
 @export var is_ai_controlled: bool = false
-@export var corner_push_distance: float = 50.0
+@export var corner_push_distance: float = 250.0
 @export var cancel_window_duration: float = 0.3
 @export var skip_pushbox: bool = false
 @export var attack_data: AttackData
@@ -442,3 +441,31 @@ func force_update_facing_direction() -> void:
 			facing_direction = 1.0
 			scale.x = 1
 		update_hitbox_position()
+		
+func _process(_delta: float) -> void:
+	_sync_shadow_animation()
+
+func _sync_shadow_animation() -> void:
+	var body_sprite = $AnimatedSprite2D
+	if not body_sprite:
+		return
+	
+	var shadow_node_name = "P1ShadowSprite" if player_id == "p1" else "P2ShadowSprite"
+	var shadow_sprite = get_parent().get_node(shadow_node_name)
+	
+	if shadow_sprite and shadow_sprite.material is ShaderMaterial:
+		var mat: ShaderMaterial = shadow_sprite.material
+
+		shadow_sprite.animation = body_sprite.animation
+		shadow_sprite.frame = body_sprite.frame
+		shadow_sprite.offset = body_sprite.offset
+		shadow_sprite.flip_h = facing_direction < 0
+		shadow_sprite.global_position.x = global_position.x
+		shadow_sprite.global_position.y = 570 + 110  # 你目前的完美高度
+		
+		if is_on_floor():
+			mat.set_shader_parameter("blur_factor", 0.0)
+		else:
+			var height = 570.0 - global_position.y  # 離地越高數值越大
+			var blur = clamp(height / 200.0, 0.0, 1.0)  # 200 是你角色最大跳高，可微調
+			mat.set_shader_parameter("blur_factor", blur)

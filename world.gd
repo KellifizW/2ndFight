@@ -370,7 +370,7 @@ func reset_players() -> void:
 		if player.has_node("AIBehavior"):
 			player.get_node("AIBehavior").current_state = "idle"
 			player.get_node("AIBehavior").state_timer = 0.0
-			player.get_node("AIBehavior").last_action_time = 0.0
+
 	
 	if slowmo_controller:
 		slowmo_controller.exit_slowmo_animation()

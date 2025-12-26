@@ -1,25 +1,67 @@
-# PlayerController.gd（修正版）
+# PlayerController.gd（修正版：加入 Dash/Backdash 支援 + 持續按上鍵可連續跳躍）
 
 class_name PlayerController extends Node
 
 @export var player_id: String = "p1"
 
+# Dash / Backdash 雙擊偵測變數
+var last_input_dir: int = 0
+var double_tap_timer: float = 0.0
+const DOUBLE_TAP_TIME: float = 0.3  # 雙擊時間窗口（秒），與 Movement 原設定一致
+
+# 每幀更新雙擊計時器
+func _process(delta: float) -> void:
+	if double_tap_timer > 0:
+		double_tap_timer -= delta
+		if double_tap_timer <= 0:
+			double_tap_timer = 0.0
+			last_input_dir = 0
+
 func get_input_data() -> Dictionary:
 	var suffix = "_p2" if player_id == "p2" else ""
 	
+	# 基本移動輸入
 	var move_right = Input.is_action_pressed("move_right" + suffix)
 	var move_left  = Input.is_action_pressed("move_left" + suffix)
-	var jump_action = Input.is_action_just_pressed("jump" + suffix)   # ← 改用 just_pressed（跳躍只偵測按下瞬間）
-	var crouch_action = Input.is_action_pressed("crouch" + suffix)   # ← 蹲下保持 pressed（持續按住）
+	
+	# 跳躍改為持續按住即可觸發（落地後會立刻再跳）
+	var jump_action = Input.is_action_pressed("jump" + suffix)
+	
+	# 蹲下保持 pressed
+	var crouch_action = Input.is_action_pressed("crouch" + suffix)
 	
 	var dir_x: int = 0
-	if move_right and not move_left:  dir_x = 1
-	elif move_left and not move_right: dir_x = -1
+	if move_right and not move_left:  
+		dir_x = 1
+	elif move_left and not move_right:  
+		dir_x = -1
 	
 	var input_dir: int = dir_x
-	var crouch_pressed: bool = crouch_action                          # ← 持續按住為 true
-	var jump_pressed: bool   = jump_action                             # ← 只在按下那一幀為 true
+	var crouch_pressed: bool = crouch_action
+	var jump_pressed: bool = jump_action  # 持續按住為 true，允許連續跳躍
 	
+	# Dash / Backdash 偵測
+	var dash_pressed: bool = false
+	var backdash_pressed: bool = false
+	
+	if input_dir != 0:
+		# 判斷是否為雙擊（方向相同且在時間窗口內）
+		if input_dir == last_input_dir and double_tap_timer > 0:
+			# 取得角色目前面對方向（從父節點取得）
+			var facing: float = get_parent().facing_direction if get_parent() and "facing_direction" in get_parent() else 1.0
+			if input_dir * facing > 0:
+				dash_pressed = true      # 前衝
+			else:
+				backdash_pressed = true  # 後衝
+			# 觸發後立即重置，避免同一雙擊重複觸發
+			double_tap_timer = 0.0
+			last_input_dir = 0
+		else:
+			# 開始或更新雙擊計時
+			last_input_dir = input_dir
+			double_tap_timer = DOUBLE_TAP_TIME
+	
+	# 攻擊按鍵
 	var st_mp_pressed = Input.is_action_just_pressed("st_mp" + suffix)
 	var st_mk_pressed = Input.is_action_just_pressed("st_mk" + suffix)
 	var spm1_pressed  = Input.is_action_just_pressed("spmove1" + suffix)
@@ -28,7 +70,7 @@ func get_input_data() -> Dictionary:
 	var super_pressed = Input.is_action_just_pressed("super" + suffix)
 	var dp_pressed    = false
 	
-	# === 輸入序列檢測（重點區塊）===
+	# === 輸入序列檢測（保持原邏輯不變）===
 	var input_manager = get_parent().get_node("InputManager") if get_parent().has_node("InputManager") else null
 	if input_manager:
 		# P1 招式
@@ -56,7 +98,7 @@ func get_input_data() -> Dictionary:
 	if player_id == "p1" and spm3_pressed:
 		dp_pressed = true
 	
-	# 攻擊優先級
+	# 攻擊優先級（保持原邏輯）
 	var attack_type = (
 		"super"    if super_pressed else
 		"powerkk"  if spm1_pressed and player_id == "p1" else
@@ -68,11 +110,11 @@ func get_input_data() -> Dictionary:
 		"st_mk"    if st_mk_pressed else
 		"none"
 	)
-
+	
 	return {
 		"input_dir": input_dir,
-		"crouch_pressed": crouch_pressed,   # ← 持續按住為 true，讓 Movement 能正確偵測「剛進入蹲」
-		"jump_pressed": jump_pressed,       # ← 只在按下瞬間為 true（原本就正確）
+		"crouch_pressed": crouch_pressed,
+		"jump_pressed": jump_pressed,      # 現在持續按住 jump 鍵即可連續跳躍
 		"st_mp_pressed": st_mp_pressed,
 		"st_mk_pressed": st_mk_pressed,
 		"attack_type": attack_type,
@@ -80,5 +122,7 @@ func get_input_data() -> Dictionary:
 		"spm2_pressed": spm2_pressed,
 		"spm3_pressed": spm3_pressed,
 		"super_pressed": super_pressed,
-		"dp_pressed": dp_pressed
+		"dp_pressed": dp_pressed,
+		"dash_pressed": dash_pressed,      # 新增：前衝旗標
+		"backdash_pressed": backdash_pressed  # 新增：後衝旗標
 	}
