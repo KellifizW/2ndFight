@@ -1,6 +1,6 @@
 extends Area2D
 
-var speed: float = 600.0  # 預設速度（Player1）
+var speed: float = 800.0  # 預設速度（Player1）
 var direction: int = 1
 var damage: float = 15.0  # 預設傷害（Player1）
 var blockstun_duration: float = 0.3  # 格擋硬直時間，稍短於 powerkk 的 0.4
@@ -21,10 +21,10 @@ func _ready():
 	
 	# 根據 owner_id 設置火球參數
 	if owner_id == "p1":
-		speed = 700.0
+		speed = 800.0
 		damage = 15.0
 	elif owner_id == "p2":
-		speed = 500.0
+		speed = 600.0
 		damage = 11.0
 	
 	if sprite == null:

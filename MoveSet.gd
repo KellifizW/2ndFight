@@ -6,7 +6,7 @@ class_name MoveSet extends Node
 @export var is_fireball_penetrable: bool = true
 @export var is_dp_penetrable: bool = true
 @export var fireball_y_offset: float = -40.0
-@export var fireball_x_offset: float = 15.0
+@export var fireball_x_offset: float = 40.0
 @export var fireball_spawn_delay: float = 0.2667
 @export var super_duration: float = 2.6
 @export var super_move_distance: float = 200.0
