@@ -1,42 +1,58 @@
-# Healthbar.gd  （改寫為 TextureProgressBar 版）
-extends TextureProgressBar   # ← 唯一需要改的繼承類別
+# Healthbar.gd （最終完美修正版：完全相容 TextureProgressBar，並解決型別錯誤）
+
+extends TextureProgressBar
 
 @export var max_health: float = 100.0
-@export var target_node: NodePath  # 仍然保留，讓你可以在編輯器拖角色進來
-var current_health: float = max_health
-var _target: Node
 
-func _ready():
-	_target = get_node_or_null(target_node)
-	if not _target:
-		print("Warning: Target node not found for %s" % name)
-	
-	# 以下全部改用 TextureProgressBar 的屬性
-	max_value = max_health
-	$DamageBar.max_value = max_health         # DamageBar 也必須是 TextureProgressBar
-	value = current_health                     # 主條（你設的黃橘紅漸層）
-	$DamageBar.value = current_health          # 白色延遲條
-	$Timer.wait_time = 0.4
-	$Timer.one_shot = true
-
-func take_damage(damage: float):
-	current_health = max(0, current_health - damage)
-	
-	value = current_health                     # 立即掉血（主條）
-	
-	if current_health < max_health:
-		$Timer.start()                         # 啟動延遲讓白色條追上
-	
-	if current_health <= 0:
-		if _target:
-			print("Debug: %s is defeated!" % _target.name)
+# 公開的血量變數，讓 Player 腳本直接設定
+var current_health: float = max_health :
+	set(value):
+		var new_value = clamp(value, 0.0, max_health)
+		if current_health == new_value:
+			return
+		current_health = new_value
+		
+		# 主血條立即反映新血量
+		self.value = current_health
+		
+		# 當血量減少時啟動延遲條追趕
+		if current_health < max_health:
+			if has_node("Timer") and $Timer.is_stopped():
+				$Timer.start()
 		else:
-			print("Debug: %s is defeated! (No target assigned)" % name)
-	
-	if _target:
-		print("Debug: Health updated to %s for %s" % [current_health, _target.name])
-	else:
-		print("Debug: Health updated to %s for %s" % [current_health, name])
+			# 滿血時立即同步延遲條並停止計時器
+			if damage_bar:
+				damage_bar.value = current_health
+			if has_node("Timer"):
+				$Timer.stop()
+		
+		# 血量歸零提示（可自行移除）
+		if current_health <= 0:
+			print("Debug: Healthbar %s 已歸零！" % name)
 
-func _on_timer_timeout():
-	$DamageBar.value = current_health          # 白色條緩慢追上
+# 延遲條：使用 Node 類型宣告，避免任何型別衝突（因為 ProgressBar 和 TextureProgressBar 都繼承自 Control）
+@onready var damage_bar: Node = $DamageBar
+
+func _ready() -> void:
+	# 設定最大值
+	max_value = max_health
+	if damage_bar and damage_bar is Range:  # 安全檢查，確保它有 value 屬性
+		damage_bar.max_value = max_health
+	
+	# 初始同步兩條血條
+	self.value = current_health
+	if damage_bar and damage_bar is Range:
+		damage_bar.value = current_health
+	
+	# Timer 設定
+	if has_node("Timer"):
+		$Timer.wait_time = 0.4
+		$Timer.one_shot = true
+		$Timer.timeout.connect(_on_timer_timeout)
+	else:
+		push_warning("Healthbar %s 缺少 Timer 子節點，請在場景中新增一個 Timer 並命名為 Timer" % name)
+
+func _on_timer_timeout() -> void:
+	# 延遲條緩慢追上實際血量
+	if damage_bar and damage_bar is Range:
+		damage_bar.value = current_health

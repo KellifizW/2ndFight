@@ -6,13 +6,14 @@ const WALL_LIMIT: int = 1280000
 const STARTING_POSITION: int = 10000
 const FLOOR_Y: int = 570000
 const GRAVITY: int = 6000000
+@export var arena_left: float = 0.0      # 舞台左邊界（像素）
+@export var arena_right: float = 1600.0  # 舞台右邊界（像素）
+
 @onready var position_label = $UI/PositionLabel
-@export var bgm_max_volume_db: float = -6.0  # 導出變數，控制最大音量，預設 -6 dB (50% 音量)
+@export var bgm_max_volume_db: float = -6.0
 
 @onready var hit_label = $UI/HitLabel
 @onready var fps_label = $UI/FPS
-@onready var player1 = $Player1
-@onready var player2 = $Player2
 @onready var slowmo_controller = $SlowMoController
 @onready var animation_label = $UI/AnimationLabel
 @onready var combo_label = $UI/ComboLabel
@@ -23,15 +24,24 @@ const GRAVITY: int = 6000000
 @onready var frame_bar_p2 = $UI/FrameBarP2
 @onready var bgm_player = $BGMPlayer if has_node("BGMPlayer") else null
 
-var initial_p1_pos: Vector2
-var initial_p2_pos: Vector2
+# 選角用角色資源（在編輯器拖入 .character.tres）
+@export var player_a_character: CharacterData
+@export var player_b_character: CharacterData
+
+# 動態生成的玩家
+var player_a: Player
+var player_b: Player
+
+var initial_player_a_pos: Vector2
+var initial_player_b_pos: Vector2
+
 var slowmo_triggered: bool = false
 var current_combo: int = 0
 var combo_target: String = ""
 var combo_reset_timer: float = 0.0
 const COMBO_BUFFER: float = 0.2
 
-# ── Hit Advantage 變數 ─────────────────────
+# Hit Advantage
 var hit_time: float = 0.0
 var attacker: Node = null
 var target_player: Node = null
@@ -39,30 +49,50 @@ var attacker_recover_time: float = 0.0
 var target_recover_time: float = 0.0
 var advantage_calculated: bool = false
 
-# ── Block Advantage 變數 ─────────────────────
-var block_attacker: Node = null      # 出招被擋的一方
-var blocker: Node = null             # 成功格擋的一方
+# Block Advantage
+var block_attacker: Node = null
+var blocker: Node = null
 var block_attack_recover_time: float = 0.0
 var block_defend_recover_time: float = 0.0
 var block_advantage_calculated: bool = false
 
-# 背景音樂控制變數
 var is_fading_out: bool = false
 var is_bgm_enabled: bool = true
 
 func _ready() -> void:
 	add_to_group("world")
 	print("Debug: World added to group 'world'. Group members: ", get_tree().get_nodes_in_group("world"))
-	if not is_in_group("world"):
-		print("Error: World failed to join 'world' group")
 	
-	player1.hit_detected.connect(_on_hit_detected)
-	player2.hit_detected.connect(_on_hit_detected)
-	player1.block_detected.connect(_on_block_detected)
-	player2.block_detected.connect(_on_block_detected)
+	# 關鍵修正：先檢查 CharacterData 是否已正確拖入
+	if not player_a_character:
+		push_error("錯誤：Player A 的 CharacterData 未指定！請在 World 節點的 Inspector 中拖入 DAV.character.tres 或其他角色資源。")
+		return
+	if not player_b_character:
+		push_error("錯誤：Player B 的 CharacterData 未指定！請在 World 節點的 Inspector 中拖入 DEN.character.tres 或其他角色資源。")
+		return
 	
-	if not player1 or not player2:
-		print("Error: Player1 or Player2 node not found in world")
+	if not player_a_character.scene:
+		push_error("錯誤：Player A 的 CharacterData.scene 為空！請確認 .character.tres 資源的 Scene 欄位已拖入角色場景（如 DAV.tscn）。")
+		return
+	if not player_b_character.scene:
+		push_error("錯誤：Player B 的 CharacterData.scene 為空！請確認 .character.tres 資源的 Scene 欄位已拖入角色場景。")
+		return
+	
+	# 生成玩家（順序很重要：先生成玩家，再連接信號）
+	player_a = _spawn_player(player_a_character, Vector2(600.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_a")
+	player_b = _spawn_player(player_b_character, Vector2(1000.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_b")
+	
+	if not player_a or not player_b:
+		push_error("角色生成失敗！請檢查 CharacterData 和場景設定。")
+		return
+	
+	# 連接信號
+	player_a.hit_detected.connect(_on_hit_detected)
+	player_a.block_detected.connect(_on_block_detected)
+	player_b.hit_detected.connect(_on_hit_detected)
+	player_b.block_detected.connect(_on_block_detected)
+	
+	# 其餘初始化（保持不變）
 	if not slowmo_controller:
 		print("Warning: SlowMoController node not found in world")
 	if not animation_label:
@@ -80,7 +110,6 @@ func _ready() -> void:
 	else:
 		print("Warning: Advantage labels not found in UI")
 	
-	# 初始化背景音樂
 	if bgm_player:
 		is_bgm_enabled = true
 		bgm_player.volume_db = -80.0
@@ -92,33 +121,44 @@ func _ready() -> void:
 	else:
 		print("Warning: BGMPlayer node not found in world")
 	
-	initial_p1_pos = Vector2(600.0, float(FLOOR_Y) / SIMULATION_SCALE)
-	initial_p2_pos = Vector2(1000.0, float(FLOOR_Y) / SIMULATION_SCALE)
-	player1.fixed_position = Vector2i(int(600.0 * SIMULATION_SCALE), FLOOR_Y)
-	player2.fixed_position = Vector2i(int(1000.0 * SIMULATION_SCALE), FLOOR_Y)
-	player1.global_position = to_scaled_vector2(player1.fixed_position)
-	player2.global_position = to_scaled_vector2(player2.fixed_position)
-	print("Debug: Initial positions set - P1: %s, P2: %s" % [player1.global_position, player2.global_position])
+	initial_player_a_pos = player_a.global_position
+	initial_player_b_pos = player_b.global_position
+	print("Debug: Initial positions set - Player A: %s, Player B: %s" % [player_a.global_position, player_b.global_position])
 	
 	if frame_bar_p1:
-		frame_bar_p1.initialize(player1, player2)
+		frame_bar_p1.initialize(player_a, player_b)
 		frame_bar_p1.z_index = 10
-		print("Debug: FrameBarP1 initialized at position: %s, z_index: %d" % [frame_bar_p1.position, frame_bar_p1.z_index])
 	else:
 		print("Error: FrameBarP1 not found in UI")
 	
 	if frame_bar_p2:
-		frame_bar_p2.initialize(player2, player1)
+		frame_bar_p2.initialize(player_b, player_a)
 		frame_bar_p2.z_index = 10
-		print("Debug: FrameBarP2 initialized at position: %s, z_index: %d" % [frame_bar_p2.position, frame_bar_p2.z_index])
 	else:
 		print("Error: FrameBarP2 not found in UI")
 	
 	if position_label:
-		position_label.text = "P1: (0, 0)\nP2: (0, 0)"
+		position_label.text = "Player A: (0, 0)\nPlayer B: (0, 0)"
 	else:
 		print("Warning: PositionLabel not found in UI")
+	
 	$UI/CountdownTimer.countdown_finished.connect(_on_countdown_finished)
+
+func _spawn_player(char_data: CharacterData, pos: Vector2, seat: String) -> Player:
+	if not char_data or not char_data.scene:
+		push_error("CharacterData 或場景遺失：%s" % char_data)
+		return null
+	
+	var instance: Player = char_data.scene.instantiate()
+	instance.global_position = pos
+	instance.fixed_position = Vector2i(int(pos.x * SIMULATION_SCALE), FLOOR_Y)
+	instance.seat = seat
+	instance.character_data = char_data   # ← 這一行！關鍵！
+	add_child(instance)
+	return instance
+
+# 其餘函式（_input, _process, _physics_process, advantage 計算, reset_players 等）保持原樣不變
+# （為了節省篇幅這裡省略，但請保留你原本的所有程式碼）
 
 func _input(event) -> void:
 	if event is InputEventKey and event.pressed:
@@ -130,19 +170,20 @@ func _input(event) -> void:
 		if Input.is_action_just_pressed("toggle_bgm"):
 			toggle_bgm()
 			print("Debug: toggle_bgm action triggered, BGM state: %s at %s ms" % [is_bgm_enabled, Time.get_ticks_msec()])
-
+			
 func _process(delta: float) -> void:
 	fps_label.text = "FPS: %d" % (1.0 / delta)
 	
-	if animation_label:
-		var p1_anim = player1.animation_state.get_current_node() if player1.animation_state else "none"
-		var p2_anim = player2.animation_state.get_current_node() if player2.animation_state else "none"
-		animation_label.text = "P1: %s, P2: %s" % [p1_anim, p2_anim]
+	if animation_label and player_a and player_b:
+		var a_anim = player_a.animation_state.get_current_node() if player_a.animation_state else "none"
+		var b_anim = player_b.animation_state.get_current_node() if player_b.animation_state else "none"
+		animation_label.text = "Player A: %s, Player B: %s" % [a_anim, b_anim]
 	
-	# 檢查玩家血量並觸發音樂淡出
-	if not slowmo_triggered and not is_fading_out and is_bgm_enabled:
-		if (player1.healthbar and player1.healthbar.current_health <= 0) or \
-		   (player2.healthbar and player2.healthbar.current_health <= 0):
+	# 修正：安全檢查 healthbar 是否存在，並在 player 生成後才可能有值
+	if not slowmo_triggered and not is_fading_out and is_bgm_enabled and player_a and player_b:
+		var a_defeated: bool = player_a.healthbar != null and player_a.healthbar.current_health <= 0
+		var b_defeated: bool = player_b.healthbar != null and player_b.healthbar.current_health <= 0
+		if a_defeated or b_defeated:
 			slowmo_triggered = true
 			if bgm_player:
 				var tween = create_tween()
@@ -154,12 +195,13 @@ func _process(delta: float) -> void:
 				print("Debug: BGM fade-out started at %s ms due to player health <= 0" % Time.get_ticks_msec())
 			slowmo_controller.request_slowmo_change()
 			print("Debug: Slow motion triggered due to player health <= 0 at %s ms" % Time.get_ticks_msec())
-	if position_label:
-		var p1_pos = player1.global_position
-		var p2_pos = player2.global_position
-		position_label.text = "P1: (%d, %d)\nP2: (%d, %d)" % [
-			int(p1_pos.x), int(p1_pos.y),
-			int(p2_pos.x), int(p2_pos.y)
+	
+	if position_label and player_a and player_b:
+		var a_pos = player_a.global_position
+		var b_pos = player_b.global_position
+		position_label.text = "Player A: (%d, %d)\nPlayer B: (%d, %d)" % [
+			int(a_pos.x), int(a_pos.y),
+			int(b_pos.x), int(b_pos.y)
 		]
 
 func _physics_process(delta: float) -> void:
@@ -168,15 +210,13 @@ func _physics_process(delta: float) -> void:
 		if combo_reset_timer <= 0:
 			reset_combo()
 	
-	# Hit Advantage 計算
 	if attacker and target_player and not advantage_calculated:
 		_calculate_hit_advantage()
 	
-	# Block Advantage 計算
 	if block_attacker and blocker and not block_advantage_calculated:
 		_calculate_block_advantage()
 
-# ── Hit Advantage 計算 ─────────────────────
+# （以下函式保持不變，只修正了血量檢查部分）
 func _calculate_hit_advantage() -> void:
 	if attacker_recover_time == 0.0 and is_instance_valid(attacker) and not attacker.is_attacking:
 		var move_set = attacker.get_node_or_null("MoveSet")
@@ -204,12 +244,10 @@ func _calculate_hit_advantage() -> void:
 				_update_advantage_labels(attacker, adv_frames)
 				advantage_calculated = true
 
-# ── Block Advantage 計算（正確版本：誰先恢復誰有利） ─────────────────────
 func _calculate_block_advantage() -> void:
 	var valid = is_instance_valid(block_attacker) and is_instance_valid(blocker)
 	if not valid: return
 	
-	# 攻擊方恢復
 	if block_attack_recover_time == 0.0 and not block_attacker.is_attacking:
 		var move_set = block_attacker.get_node_or_null("MoveSet")
 		var recovered = true
@@ -218,7 +256,6 @@ func _calculate_block_advantage() -> void:
 		if recovered:
 			block_attack_recover_time = Time.get_unix_time_from_system()
 	
-	# 防守方恢復（blockstun 結束）
 	if block_defend_recover_time == 0.0:
 		var recovered = false
 		if blocker.has_method("is_in_blockstun"):
@@ -232,46 +269,39 @@ func _calculate_block_advantage() -> void:
 		if recovered:
 			block_defend_recover_time = Time.get_unix_time_from_system()
 	
-	# 兩邊都恢復 → 計算真正優勢
 	if block_attack_recover_time > 0.0 and block_defend_recover_time > 0.0:
-		# 正確公式：防守者恢復時間 - 攻擊者恢復時間
 		var advantage_sec = block_defend_recover_time - block_attack_recover_time
 		var advantage_frames = int(round(advantage_sec * 60.0))
-		
-		# 直接傳「攻擊者」當基準，正數表示攻擊者有利（和 Hit 完全一致）
 		_update_advantage_labels(block_attacker, advantage_frames, true)
 		block_advantage_calculated = true
 
-# ── 統一更新 Label（顯示 + 號） ─────────────────────
 func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_block: bool = false) -> void:
-	# advantage_frames > 0 → 攻擊者有利 → attacker_node 顯示 + 
-	# advantage_frames < 0 → 防守者有利 → 對方顯示 +
-	var p1_frames = 0
-	var p2_frames = 0
+	var a_frames = 0
+	var b_frames = 0
 	
-	if attacker_node == player1:
-		p1_frames = advantage_frames
-		p2_frames = -advantage_frames
+	if attacker_node == player_a:
+		a_frames = advantage_frames
+		b_frames = -advantage_frames
 	else:
-		p2_frames = advantage_frames
-		p1_frames = -advantage_frames
+		b_frames = advantage_frames
+		a_frames = -advantage_frames
 	
-	var p1_text = "P1 Adv: "
-	var p2_text = "P2 Adv: "
+	var a_text = "P1 Adv: "
+	var b_text = "P2 Adv: "
 	
-	p1_text += ("+%d" % p1_frames) if p1_frames > 0 else str(p1_frames)
-	p2_text += ("+%d" % p2_frames) if p2_frames > 0 else str(p2_frames)
+	a_text += ("+%d" % a_frames) if a_frames > 0 else str(a_frames)
+	b_text += ("+%d" % b_frames) if b_frames > 0 else str(b_frames)
 	
 	if p1_advantage_label:
-		p1_advantage_label.text = p1_text
+		p1_advantage_label.text = a_text
 	if p2_advantage_label:
-		p2_advantage_label.text = p2_text
+		p2_advantage_label.text = b_text
 	
 	var type = "Block" if is_block else "Hit"
-	print("[ADVANTAGE] %s → 攻擊者優勢 %s%dF → P1: %s / P2: %s" % [
+	print("[ADVANTAGE] %s → 攻擊者優勢 %s%dF → Player A: %s / Player B: %s" % [
 		type,
 		"+" if advantage_frames > 0 else "", advantage_frames,
-		p1_text, p2_text
+		a_text, b_text
 	])
 
 func to_scaled_vector2(vector: Vector2i) -> Vector2:
@@ -282,7 +312,6 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 	var animation_state = animation_tree.get("parameters/playback") if animation_tree else null
 	var animation_player = player.get_node_or_null("AnimationPlayer")
 	var move_set = player.get_node_or_null("MoveSet")
-	var player_id = player.player_id if "player_id" in player else "p1"
 	
 	if not animation_tree or not animation_state or not animation_player:
 		print("Warning: AnimationTree, animation_state, or animation_player not found for %s" % player.name)
@@ -308,8 +337,8 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 		"knockfly": target_state == "knockfly",
 		"block": target_state == "block",
 		"cr_block": target_state == "cr_block",
-		"powerkk": target_state == "powerkk" and player_id == "p1" and move_set and move_set.is_powerkk,
-		"spnk": target_state == "spnk" and player_id == "p2" and move_set and move_set.is_spnk,
+		"powerkk": target_state == "powerkk" and player.character_id == "DAV" and move_set and move_set.is_powerkk,
+		"spnk": target_state == "spnk" and player.character_id == "DEN" and move_set and move_set.is_spnk,
 		"landing": target_state == "landing"
 	}
 	for condition in conditions:
@@ -323,23 +352,22 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 	print("Debug: %s animation reset to %s at %s ms" % [player.name, target_state, Time.get_ticks_msec()])
 
 func reset_players() -> void:
-	player1.global_position = initial_p1_pos
-	player2.global_position = initial_p2_pos
-	player1.fixed_position = Vector2i(int(initial_p1_pos.x * SIMULATION_SCALE), FLOOR_Y)
-	player2.fixed_position = Vector2i(int(initial_p2_pos.x * SIMULATION_SCALE), FLOOR_Y)
-	player1.global_position = to_scaled_vector2(player1.fixed_position)
-	player2.global_position = to_scaled_vector2(player2.fixed_position)
+	if not player_a or not player_b:
+		return
 	
-	for player in [player1, player2]:
-		if player.healthbar:
+	player_a.global_position = initial_player_a_pos
+	player_b.global_position = initial_player_b_pos
+	player_a.fixed_position = Vector2i(int(initial_player_a_pos.x * SIMULATION_SCALE), FLOOR_Y)
+	player_b.fixed_position = Vector2i(int(initial_player_b_pos.x * SIMULATION_SCALE), FLOOR_Y)
+	player_a.global_position = to_scaled_vector2(player_a.fixed_position)
+	player_b.global_position = to_scaled_vector2(player_b.fixed_position)
+	
+	for player in [player_a, player_b]:
+		if player.healthbar != null:
 			player.healthbar.current_health = 100.0
-			if player.healthbar is ProgressBar:
-				player.healthbar.value = 100.0
-			else:
-				player.healthbar.set("value", 100.0)
 			print("Debug: %s health reset to 100.0 at %s ms" % [player.name, Time.get_ticks_msec()])
 	
-	for player in [player1, player2]:
+	for player in [player_a, player_b]:
 		player.is_hit = false
 		player.is_knockfly = false
 		player.is_blocking = false
@@ -354,23 +382,21 @@ func reset_players() -> void:
 		player.hit_timer = 0.0
 		player.block_timer = 0.0
 		player.knockfly_timer = 0.0
-		player.velocity = Vector2.ZERO
 		player.current_mode = "ground_stand"
 		player.attack_type = "none"
 		player.update_facing_direction()
 	
-	for player in [player1, player2]:
+	for player in [player_a, player_b]:
 		if player.has_node("MoveSet"):
 			player.get_node("MoveSet").stop_special_move()
 	
-	for player in [player1, player2]:
+	for player in [player_a, player_b]:
 		reset_player_animation(player, "Walk")
 	
-	for player in [player1, player2]:
+	for player in [player_a, player_b]:
 		if player.has_node("AIBehavior"):
 			player.get_node("AIBehavior").current_state = "idle"
 			player.get_node("AIBehavior").state_timer = 0.0
-
 	
 	if slowmo_controller:
 		slowmo_controller.exit_slowmo_animation()
@@ -394,20 +420,18 @@ func reset_players() -> void:
 		is_fading_out = false
 	
 	if animation_label:
-		animation_label.text = "P1: Walk, P2: Walk"
+		animation_label.text = "Player A: Walk, Player B: Walk"
 	
 	reset_combo()
 	if debug_label:
 		debug_label.text = ""
 	
-	# 重置所有優勢計算
 	hit_time = 0.0
 	attacker = null
 	target_player = null
 	attacker_recover_time = 0.0
 	target_recover_time = 0.0
 	advantage_calculated = false
-	
 	block_attacker = null
 	blocker = null
 	block_attack_recover_time = 0.0
@@ -430,7 +454,6 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 	var hit_time_ms = Time.get_ticks_msec()
 	
 	if not is_blocked:
-		# Hit
 		hit_label.text = "Hits: " + target + " was hit!"
 		print("Debug: %s was hit at %s ms, stun_duration=%s" % [target, hit_time_ms, stun_duration])
 		
@@ -442,14 +465,12 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		combo_reset_timer = stun_duration + COMBO_BUFFER
 		update_combo_label()
 		
-		# Hit Advantage 設定
-		attacker = player1 if target == "Player2" else player2
-		target_player = player2 if target == "Player2" else player1
+		attacker = player_a if target == player_b.name else player_b
+		target_player = player_b if target == player_b.name else player_a
 		attacker_recover_time = 0.0
 		target_recover_time = 0.0
 		advantage_calculated = false
 		
-		# 清空 Block Advantage
 		block_attacker = null
 		blocker = null
 		block_attack_recover_time = 0.0
@@ -457,25 +478,23 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		block_advantage_calculated = false
 		
 	else:
-		# Block
 		hit_label.text = target + " blocked!"
 		print("Debug: %s blocked at %s ms" % [target, hit_time_ms])
 		reset_combo()
 		
-		# Block Advantage 設定
-		block_attacker = player1 if target == "Player2" else player2   # 出招者
-		blocker        = player2 if target == "Player2" else player1   # 格擋者
+		block_attacker = player_a if target == player_b.name else player_b
+		blocker = player_b if target == player_b.name else player_a
 		block_attack_recover_time = 0.0
 		block_defend_recover_time = 0.0
 		block_advantage_calculated = false
 		
-		# 清空 Hit Advantage
 		attacker = null
 		target_player = null
 		advantage_calculated = true
 	
-	print("Debug: Hit detected at %s ms, attacker=%s, target=%s" % [hit_time_ms, 
-		(attacker.name if attacker else "none"), (target_player.name if target_player else "none")])
+	var attacker_name: String = attacker.name if attacker else "none"
+	var target_name: String = target_player.name if target_player else "none"
+	print("Debug: Hit detected at %s ms, attacker=%s, target=%s" % [hit_time_ms, attacker_name, target_name])
 
 func _on_block_detected(target: String, block_type: String) -> void:
 	var block_time_ms = Time.get_ticks_msec()

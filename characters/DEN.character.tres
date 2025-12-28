@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=3 format=3 uid="uid://bnbes5q0352er"]
+
+[ext_resource type="PackedScene" uid="uid://b6x784i20q4tq" path="res://characters/DEN.tscn" id="1_hyr68"]
+[ext_resource type="Script" uid="uid://biahbprhmtfti" path="res://characters/CharacterData.gd" id="1_sm5l7"]
+
+[resource]
+script = ExtResource("1_sm5l7")
+display_name = "Dennis"
+short_id = "DEN"
+scene = ExtResource("1_hyr68")
+metadata/_custom_type_script = "uid://biahbprhmtfti"

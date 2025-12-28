@@ -16,10 +16,10 @@ class_name AIBehavior extends Node
 @export var block_chance: float = 0.85
 @export var crouch_block_chance: float = 0.5
 
-# Dash / Backdash 機率調整
-@export var dash_chance_far: float = 0.75      # 距離 > 200 時前衝機率
-@export var backdash_chance_close: float = 0.65 # 距離 < 70 時後退衝刺機率
-@export var dash_intent_duration: float = 0.25 # 持續輸出方向時間（秒），確保雙擊成功
+# Dash / Backdash 機率調整（降低 backdash 避免自逼角落）
+@export var dash_chance_far: float = 0.75
+@export var backdash_chance_close: float = 0.4
+@export var dash_intent_duration: float = 0.25
 
 # 後備攻擊範圍
 var fallback_attack_ranges: Dictionary = {
@@ -56,9 +56,12 @@ var current_attack: String = "none"
 var current_crouch: bool = false
 var cancel_window_timer_ai: float = 0.0
 
-# 新增：dash 意圖管理（關鍵修正）
+# dash 意圖管理
 var dash_intent_timer: float = 0.0
 var dash_intent_dir: int = 0  # 0=無, 1=前衝, -1=後退衝刺
+
+# 新增：角落逃脫冷卻（防止連續跳）
+var corner_escape_cooldown: float = 0.0
 
 # FrameBar 與 AttackData 引用
 var opponent_framebar: Node = null
@@ -82,7 +85,8 @@ func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
 	
 	if parent:
-		if parent.player_id == "p1":
+		var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
+		if char_id == "DAV":
 			punish_attack = "st_mp"
 		else:
 			punish_attack = "st_mk"
@@ -93,14 +97,16 @@ func _ready() -> void:
 	
 	opponent_search_timer = 0.1
 	
-	if parent.player_id == "p1":
+	var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
+	if char_id == "DAV":
 		opponent_attack_data = load("res://p2_attack_data.tres") as AttackData
 	else:
 		opponent_attack_data = load("res://p1_attack_data.tres") as AttackData
 	
 	var ui = get_tree().get_first_node_in_group("ui")
 	if ui:
-		if parent.player_id == "p1":
+		var my_seat = parent.seat if "seat" in parent else "player_a"
+		if my_seat == "player_a":
 			opponent_framebar = ui.get_node("FrameBarP2")
 			my_framebar = ui.get_node("FrameBarP1")
 		else:
@@ -127,17 +133,20 @@ func _process(delta: float) -> void:
 		if cancel_window_timer_ai <= 0:
 			cancel_window_timer_ai = 0.0
 	
-	# 更新 dash 意圖計時器
 	if dash_intent_timer > 0:
 		dash_intent_timer -= delta
 		if dash_intent_timer <= 0:
 			dash_intent_timer = 0.0
 			dash_intent_dir = 0
 	
+	# 新增：更新角落逃脫冷卻
+	if corner_escape_cooldown > 0:
+		corner_escape_cooldown -= delta
+	
 	var ui = get_tree().get_first_node_in_group("ui")
 	if ui:
-		var parent_healthbar = ui.get_node_or_null("%sHealthbar" % parent.name)
-		var opponent_healthbar = ui.get_node_or_null("%sHealthbar" % opponent.name) if opponent else null
+		var parent_healthbar = ui.get_node_or_null("PlayerAHealthbar" if (parent.seat if "seat" in parent else "player_a") == "player_a" else "PlayerBHealthbar")
+		var opponent_healthbar = ui.get_node_or_null("PlayerAHealthbar" if opponent and (opponent.seat if "seat" in opponent else "player_a") == "player_a" else "PlayerBHealthbar") if opponent else null
 		var parent_health = parent_healthbar.current_health if parent_healthbar else 100
 		var opponent_health = opponent_healthbar.current_health if opponent_healthbar else 100
 		if parent_health <= 0 or opponent_health <= 0:
@@ -230,17 +239,19 @@ func _on_hit_detected(_target: String, _stun_duration: float, is_blocked: bool, 
 	print("[AI] %s 被 %s 的 %s block → advantage %.3f" % [parent.name, opponent.name, attack, advantage])
 	punish_timer = blockstun
 	punish_opportunity = true
+	var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
 	if advantage >= 0.25:
-		punish_attack = "dp" if parent.player_id == "p1" else "spnk"
+		punish_attack = "dp" if char_id == "DAV" else "spnk"
 	elif advantage >= 0.15:
 		punish_attack = "st_mk"
 	else:
 		punish_attack = "st_mp"
 
 func _on_self_hit_detected(_target: String, _stun_duration: float, is_blocked: bool, _was_in_stun: bool) -> void:
-	if parent.player_id == "p1" and parent.attack_type == "st_mp" and not is_blocked:
+	var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
+	if char_id == "DAV" and parent.attack_type == "st_mp" and not is_blocked:
 		cancel_window_timer_ai = 0.3
-		print("Debug: AI P1 st_mp hit detected, cancel window started")
+		print("Debug: AI %s st_mp hit detected, cancel window started" % parent.name)
 
 func is_at_left_corner() -> bool:
 	if not world: return false
@@ -339,9 +350,10 @@ func get_ai_input() -> Dictionary:
 			
 			else:
 				var possible_attacks: Array[String] = []
+				var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
 				for attack in fallback_attack_ranges.keys():
 					if distance <= fallback_attack_ranges[attack] + 30:
-						if attack == "dp" and parent.player_id != "p1": continue
+						if attack == "dp" and char_id != "DAV": continue
 						if attack == "spm2" and distance < 200: continue
 						possible_attacks.append(attack)
 				
@@ -361,7 +373,7 @@ func get_ai_input() -> Dictionary:
 			defend_decision_timer = defend_decision_delay + randf_range(0.0, 0.2)
 			current_crouch = randf() < 0.65
 	
-	# 決定是否要 dash / backdash（只在沒有意圖時重新決定）
+	# dash / backdash 意圖
 	if parent.is_on_floor() and dash_intent_timer <= 0:
 		if distance > 200 and randf() < dash_chance_far:
 			dash_intent_dir = 1
@@ -372,17 +384,14 @@ func get_ai_input() -> Dictionary:
 			dash_intent_timer = dash_intent_duration
 			print("Debug: %s 決定近距離後退衝刺 (backdash)" % parent.name)
 	
-	# 根據意圖持續輸出方向，讓 PlayerController 偵測到雙擊
 	if dash_intent_timer > 0:
 		if dash_intent_dir == 1:
 			input.input_dir = int(relative_dir)
 		elif dash_intent_dir == -1:
 			input.input_dir = -int(relative_dir)
 	
-	# 跳躍攻擊與角落逃脫
+	# 跳躍攻擊
 	var jump_for_attack = can_jump_attack_hit() and randf() < 0.55 and parent.is_on_floor()
-	var corner_escape = (is_at_left_corner() or is_at_right_corner()) and randf() < 0.2 and parent.is_on_floor()
-	
 	if jump_for_attack and not _last_logged_jump_attack:
 		input.jump_pressed = true
 		input.input_dir = int(relative_dir)
@@ -393,15 +402,17 @@ func get_ai_input() -> Dictionary:
 	elif not jump_for_attack:
 		_last_logged_jump_attack = false
 	
-	if corner_escape and not _last_logged_corner_escape:
-		input.jump_pressed = true
-		input.input_dir = -int(relative_dir)
-		print("Debug: %s 角落逃脫跳躍" % parent.name)
-		_last_logged_corner_escape = true
-	elif not corner_escape:
-		_last_logged_corner_escape = false
+	# 角落逃脫（修正：向前跳 + 冷卻）
+	var in_corner = (is_at_left_corner() or is_at_right_corner()) and parent.is_on_floor()
+	var try_escape = in_corner and corner_escape_cooldown <= 0 and randf() < 0.28
 	
-	# 狀態對應基本移動（被 dash 意圖覆蓋優先）
+	if try_escape:
+		input.jump_pressed = true
+		input.input_dir = int(relative_dir)  # 向前跳逃脫
+		corner_escape_cooldown = 0.9  # 冷卻 0.9 秒
+		print("Debug: %s 角落逃脫向前跳躍！" % parent.name)
+	
+	# 狀態對應基本移動
 	match current_state:
 		"approach":
 			if dash_intent_timer <= 0:
@@ -440,7 +451,7 @@ func get_ai_input() -> Dictionary:
 	elif parent.is_on_floor():
 		_last_logged_aerial_attack = false
 	
-	# 取消連招與 P1 近距離 DP
+	# 取消連招（DAV）
 	if cancel_window_timer_ai > 0 and not _last_logged_cancel:
 		input.spm1_pressed = true
 		print("Debug: %s 取消連招" % parent.name)
@@ -448,10 +459,12 @@ func get_ai_input() -> Dictionary:
 	elif cancel_window_timer_ai <= 0:
 		_last_logged_cancel = false
 	
-	if parent.player_id == "p1" and distance < 50 and randf() < p1_dp_chance and parent.is_on_floor() and not _last_logged_dp:
+	# 近距離升龍拳（DAV）
+	var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
+	if char_id == "DAV" and distance < 50 and randf() < p1_dp_chance and parent.is_on_floor() and not _last_logged_dp:
 		input.dp_pressed = true
 		current_attack = "dp"
-		print("Debug: AI P1 近距離升龍拳！")
+		print("Debug: AI %s 近距離升龍拳！" % parent.name)
 		_last_logged_dp = true
 	elif not (distance < 50 and parent.is_on_floor()):
 		_last_logged_dp = false

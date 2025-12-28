@@ -1,10 +1,11 @@
 extends Node2D
-
 class_name VFXImpact
+
+@export var base_scale: Vector2 = Vector2.ONE
 
 var facing_direction: float = 1.0
 
-static func spawn_vfx(parent: Node, vfx_type: String, position: Vector2, facing: float = 1.0) -> VFXImpact:
+static func spawn_vfx(parent: Node, vfx_type: String, pos: Vector2, facing: float = 1.0) -> VFXImpact:
 	var vfx_scene_path: String
 	if vfx_type == "block":
 		vfx_scene_path = "res://vfx_blk.tscn"
@@ -22,27 +23,38 @@ static func spawn_vfx(parent: Node, vfx_type: String, position: Vector2, facing:
 		return null
 	
 	parent.add_child(vfx)
-	vfx.init_vfx(position, facing)
+	vfx.init_vfx(pos, facing)
 	return vfx
 
-func init_vfx(position: Vector2, facing: float) -> void:
+func init_vfx(pos: Vector2, facing: float) -> void:
 	facing_direction = facing
-	global_position = position
-	scale.x = facing_direction
 	
-	# 自動尋找並啟動所有 GPUParticles2D 子節點
+	global_position = pos
+	
+	# 關鍵修正：先套用美術在編輯器設定的 base_scale，再僅翻轉 X 軸方向
+	# 這樣 scale 不會被強制覆蓋成 ±1，可自由調整為 0.5、1.5 等任意值
+	scale = base_scale
+	scale.x *= sign(facing_direction)
+	
+	# 處理所有 GPUParticles2D 子節點
 	for child in get_children():
 		if child is GPUParticles2D:
 			var particles: GPUParticles2D = child
-			particles.scale.x = facing_direction
+			
+			# 保留粒子節點在場景中設定的原始 scale（若美術已調整大小）
+			# 僅額外翻轉 X 軸，避免覆蓋自訂值
+			particles.scale.x *= sign(facing_direction)
+			
 			particles.local_coords = true
 			
-			# 調整方向（如果 process_material 有 direction 屬性）
-			if particles.process_material and "direction" in particles.process_material:
-				var dir = particles.process_material.direction
-				particles.process_material.direction = Vector3(dir.x * facing_direction, dir.y, dir.z)
+			# 安全翻轉 direction（初始發射方向）
+			if particles.process_material != null:
+				var mat: ParticleProcessMaterial = particles.process_material
+				if "direction" in mat:
+					var dir: Vector3 = mat.direction
+					mat.direction = Vector3(dir.x * sign(facing_direction), dir.y, dir.z)
 			
-			# 調整旋轉（某些粒子可能依賴旋轉）
+			# 左向時額外旋轉 180 度，確保大多數不對稱粒子圖案正確鏡像
 			if facing_direction < 0:
 				particles.rotation = PI
 			

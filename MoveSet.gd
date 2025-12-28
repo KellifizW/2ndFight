@@ -1,4 +1,3 @@
-# MoveSet.gd
 class_name MoveSet extends Node
 
 @export var is_powerkk_penetrable: bool = false
@@ -43,7 +42,7 @@ var fireball_timer: float = 0.0
 var fireball_spawn_timer: float = 0.0
 var powerkk_timer: float = 0.0
 var spnk_timer: float = 0.0
-var hdk_timer: float = 0.0             # ← 新增：hdk 專用計時器
+var hdk_timer: float = 0.0
 
 # Jump flags
 var has_jumped_in_super: bool = false
@@ -85,17 +84,11 @@ var fireball_initial_sprite_scale_x: float = 0.0
 @onready var animation_player = parent.get_node("AnimationPlayer") if parent.has_node("AnimationPlayer") else null
 @onready var sprite = parent.get_node("Sprite2D") if parent.has_node("Sprite2D") else null
 
-# Debug toggle
-const DEBUG: bool = false
-func dprint(msg: String) -> void:
-	if DEBUG: print(msg)
-
 func _ready() -> void:
 	if not parent or not hitbox or not animation_player or not sprite:
 		push_warning("MoveSet initialization failed: missing required nodes")
 	
 	if animation_player:
-		# ← 修改：檢查清單加 hdk（檢查動畫衝突）
 		for anim_name in ["powerkk", "spnk", "fireball", "super", "dp", "hdk"]:
 			if animation_player.has_animation(anim_name):
 				var anim = animation_player.get_animation(anim_name)
@@ -118,7 +111,7 @@ func _ready() -> void:
 # === Generic special move starter (no sound) ===
 func _start_special(
 	move_name: String,
-	player_id_req: String,   # "*" = ignore player_id check
+	character_id_req: String,
 	damage: float,
 	default_duration: float,
 	move_distance: float,
@@ -127,43 +120,38 @@ func _start_special(
 	is_freeze: bool = false,
 	is_projectile: bool = false
 ) -> void:
-	var player_id = parent.player_id if "player_id" in parent else "p1"
+	var character_id = parent.character_id if "character_id" in parent else "UNKNOWN"
 	
-	# Skip player_id check when "*" is used
-	if player_id_req != "*" and player_id != player_id_req:
+	if character_id_req != "*" and character_id != character_id_req:
+		print("[MoveSet] %s 嘗試使用 %s，但角色不符（需要 %s）" % [parent.name, move_name, character_id_req])
 		return
 	if parent.is_attacking or is_spmove:
+		print("[MoveSet] %s 無法使用 %s：正在攻擊或已有特殊招" % [parent.name, move_name])
 		return
 	
-	# Set core flags
 	set("is_" + move_name, true)
 	is_spmove = true
 	is_special_moving = true
 	is_spmove_animation_playing = true
 	
-	# Duration
 	var duration = default_duration
 	if animation_player and animation_player.has_animation(move_name):
 		duration = max(animation_player.get_animation(move_name).length, 0.016)
 	set(move_name + "_time", duration)
 	set(move_name + "_timer", duration)
 	
-	# Damage & type
 	parent.current_damage = damage
 	parent.attack_type = move_name
 	
-	# Facing & scale cache
 	set(move_name + "_initial_facing", parent.facing_direction)
 	set(move_name + "_initial_parent_scale_x", parent.scale.x)
 	set(move_name + "_initial_sprite_scale_x", sprite.scale.x)
 	
-	# Lock facing
 	if "is_facing_locked" in parent:
 		parent.is_facing_locked = true
 	if "is_special_moving" in parent:
 		parent.is_special_moving = true
 	
-	# Movement
 	var world = get_tree().get_first_node_in_group("world")
 	if world:
 		if move_distance > 0:
@@ -173,22 +161,19 @@ func _start_special(
 	else:
 		parent.fixed_velocity = Vector2i.ZERO
 	
-	# Animation
 	animation_player.play(move_name)
 	if is_freeze:
 		freeze_game(super_freeze_time)
 	
-	# Jump setup
 	if jump_delay > 0:
 		set(move_name + "_jump_timer", jump_delay)
 		set("has_jumped_in_" + move_name, false)
 	
-	# Projectile-specific
 	if is_projectile:
 		fireball_spawn_timer = fireball_spawn_delay
 		parent.fixed_position.y = world.FLOOR_Y
 	
-	dprint("Special %s triggered for %s" % [move_name, parent.name])
+	print("[MoveSet] 成功啟動 %s！角色：%s，持續時間：%.3f" % [move_name, character_id, duration])
 
 # === Play sound helper ===
 func _play_special_sound(is_projectile: bool) -> void:
@@ -199,34 +184,45 @@ func _play_special_sound(is_projectile: bool) -> void:
 
 # === Individual starters ===
 func start_powerkk() -> void:
-	_start_special("powerkk", "p1", powerkk_damage, 0.933, powerkk_move_distance)
+	_start_special("powerkk", "DAV", powerkk_damage, 0.933, powerkk_move_distance)
 	_play_special_sound(false)
 
 func start_spnk() -> void:
-	_start_special("spnk", "p2", spnk_damage, 1.2, spnk_move_distance)
+	_start_special("spnk", "DEN", spnk_damage, 1.2, spnk_move_distance)
 	_play_special_sound(false)
 
 func start_super() -> void:
-	var player_id = parent.player_id if "player_id" in parent else "p1"
-	if player_id != "p1" or is_super or parent.is_attacking: return
-	_start_special("super", "p1", super_damage, super_duration, super_move_distance, super_jump_delay, super_jump_vertical_speed, true)
+	if parent.character_id != "DAV" or is_super or parent.is_attacking: 
+		print("[MoveSet] Super 被阻止：角色或狀態不允許")
+		return
+	_start_special("super", "DAV", super_damage, super_duration, super_move_distance, super_jump_delay, super_jump_vertical_speed, true)
 	super_initial_facing = parent.facing_direction
 
 func start_dp() -> void:
-	var player_id = parent.player_id if "player_id" in parent else "p1"
-	if player_id != "p1" or is_dp or parent.is_attacking: return
-	_start_special("dp", "p1", dp_damage, dp_duration, dp_horizontal_move, dp_jump_delay, dp_vertical_speed)
+	if parent.character_id != "DAV" or is_dp or parent.is_attacking: 
+		print("[MoveSet] DP 被阻止：角色或狀態不允許")
+		return
+	_start_special("dp", "DAV", dp_damage, dp_duration, dp_horizontal_move, dp_jump_delay, dp_vertical_speed)
 	dp_initial_facing = parent.facing_direction
 	is_dp_penetrable = true
 
 func start_hdk() -> void:
-	_start_special("hdk", "p2", 5.0, 1.1, 50.0)
-	is_hdk = true                   # 這一行決定動畫能不能切！
+	if parent.character_id != "DEN" or is_hdk or parent.is_attacking: 
+		print("[MoveSet] HDK 被阻止：角色或狀態不允許")
+		return
+	_start_special("hdk", "DEN", 5.0, 1.1, 50.0)
+	is_hdk = true
 	_play_special_sound(false)
 
-# === Fireball starter (P1 & P2 both allowed) ===
+# === Fireball starter ===
 func _start_fireball() -> void:
-	if parent.is_attacking or is_fireball or is_powerkk or is_spnk: return
+	if parent.is_attacking:
+		print("[MoveSet] 火球被阻止：正在普通攻擊中")
+	if is_fireball or is_powerkk or is_spnk:
+		print("[MoveSet] 火球被阻止：已有其他特殊招進行中（fireball=%s, powerkk=%s, spnk=%s）" % [is_fireball, is_powerkk, is_spnk])
+	if parent.is_attacking or is_fireball or is_powerkk or is_spnk:
+		return
+	
 	_start_special("fireball", "*", fireball_damage, 0.3, 0.0, 0.0, 0.0, false, true)
 	_play_special_sound(true)
 
@@ -244,7 +240,8 @@ func resume_after_freeze() -> void:
 
 # === Stop all special moves ===
 func stop_special_move() -> void:
-	if not (is_powerkk or is_spnk or is_fireball or is_super or is_dp or is_hdk): return  # ← 修改：加 is_hdk 檢查
+	if not (is_powerkk or is_spnk or is_fireball or is_super or is_dp or is_hdk):
+		return
 	
 	is_powerkk = false
 	is_spnk = false
@@ -263,7 +260,7 @@ func stop_special_move() -> void:
 	dp_jump_timer = 0.0
 	powerkk_timer = 0.0
 	spnk_timer = 0.0
-	hdk_timer = 0.0             # ← 新增：復歸 hdk 計時器
+	hdk_timer = 0.0
 	has_jumped_in_super = false
 	has_jumped_in_dp = false
 	
@@ -308,28 +305,32 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		return false
 	if not is_valid_state: return false
 	
-	var player_id = parent.player_id if "player_id" in parent else "p1"
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
 		push_warning("World node missing")
 		return false
 	
+	# 加強除錯：顯示目前收到的輸入
+	if input_data.get("spm2_pressed", false):
+		print("[MoveSet] 偵測到 spm2_pressed！角色：%s" % parent.character_id)
+	
 	# Input triggers
-	if input_data.get("super_pressed", false) and not parent.is_attacking and not is_spmove and player_id == "p1":
+	if input_data.get("super_pressed", false) and not parent.is_attacking and not is_spmove and parent.character_id == "DAV":
 		start_super(); return true
-	if input_data.get("dp_pressed", false) and not parent.is_attacking and not is_spmove and player_id == "p1":
+	if input_data.get("dp_pressed", false) and not parent.is_attacking and not is_spmove and parent.character_id == "DAV":
 		start_dp(); return true
 	
-	# Fireball: P1 & P2 both allowed
-	if input_data.get("spm2_pressed", false) and not parent.is_attacking and not (is_fireball or is_powerkk or is_spnk):
-		_start_fireball(); return true
+	if input_data.get("spm2_pressed", false):
+		_start_fireball()
+		return true
 	
 	if input_data.get("spm1_pressed", false) and not parent.is_attacking and not (is_powerkk or is_spnk or is_fireball):
-		if player_id == "p1": start_powerkk()
-		elif player_id == "p2": start_spnk()
+		if parent.character_id == "DAV": start_powerkk()
+		elif parent.character_id == "DEN": start_spnk()
 		return true
-	if input_data.get("spm3_pressed", false) and player_id == "p2" and not parent.is_attacking and not is_spmove:
-		start_hdk()                    # ← 呼叫我們新寫的函數
+	
+	if input_data.get("spm3_pressed", false) and parent.character_id == "DEN" and not parent.is_attacking and not is_spmove:
+		start_hdk()
 		return true
 	
 	# === DP ===
@@ -358,13 +359,24 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if is_fireball:
 		fireball_timer -= delta; fireball_spawn_timer -= delta
 		if fireball_spawn_timer <= 0 and fireball_spawn_timer > -delta:
-			var scene_path = "res://P1_fireball.tscn" if player_id == "p1" else "res://P2_fireball.tscn"
-			var fb = load(scene_path).instantiate()
+			var scene_path = "res://%s_fireball.tscn" % parent.character_id
+			var fireball_scene: PackedScene = load(scene_path)
+			
+			if fireball_scene == null:
+				push_error("無法載入火球場景：%s（請確認檔案存在且名稱正確）" % scene_path)
+				stop_special_move()
+				return true
+			
+			var fb = fireball_scene.instantiate()
 			fb.direction = parent.facing_direction
-			fb.owner_id = player_id
+			fb.owner_character_id = parent.character_id
 			fb.global_position = parent.global_position + Vector2(fireball_x_offset * parent.facing_direction, fireball_y_offset)
 			get_tree().current_scene.add_child(fb)
-		if fireball_timer <= 0: stop_special_move()
+			
+			print("[MoveSet] 成功生成火球：%s" % scene_path)
+		
+		if fireball_timer <= 0:
+			stop_special_move()
 		return true
 	
 	# === Super ===
@@ -409,7 +421,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		if timer_ref <= 0: stop_special_move()
 		return true
 	
-	# === 新增：hdk 持續處理（跟 spnk 一樣，沒跳躍） ===
+	# === hdk ===
 	if is_hdk:
 		if parent.fixed_position.y < world.FLOOR_Y:
 			parent.fixed_velocity.y += int(world.GRAVITY * delta)
@@ -428,7 +440,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 
 # === Animation finished ===
 func _on_spmove_animation_finished(anim_name: String) -> void:
-	# ← 修改：檢查清單加 hdk（讓動畫播完能自動結束）
 	if anim_name in ["powerkk", "spnk", "fireball", "super", "dp", "hdk"] and is_spmove_animation_playing:
 		is_spmove_animation_playing = false
 		if "is_special_moving" in parent: parent.is_special_moving = false
@@ -450,9 +461,8 @@ func _on_hit_detected(_target: String, _stun: float, is_blocked: bool, _was_stun
 
 # === Damage getter ===
 func get_special_damage() -> float:
-	var pid = parent.player_id if "player_id" in parent else "p1"
-	if pid == "p1" and is_powerkk: return powerkk_damage
-	if pid == "p2" and is_spnk: return spnk_damage
+	if parent.character_id == "DAV" and is_powerkk: return powerkk_damage
+	if parent.character_id == "DEN" and is_spnk: return spnk_damage
 	if is_fireball: return fireball_damage
 	if is_super: return super_damage
 	if is_dp: return dp_damage

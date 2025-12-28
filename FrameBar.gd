@@ -1,8 +1,10 @@
 extends ProgressBar
+
 const DISPLAY_FPS: int = 60
 
 # ── 變數宣告 ─────────────────────
-var target_player: Node = null
+var target_player: Node = null      # 要追蹤的玩家（FrameBar 所屬玩家）
+var opponent_player: Node = null    # 對手玩家（未來若需要對比用，目前可留空）
 var animation_tree: AnimationTree = null
 var playback: AnimationNodeStateMachinePlayback = null
 var animation_player: AnimationPlayer = null
@@ -82,12 +84,15 @@ func _ready() -> void:
 	else:
 		push_error("FrameCountLabel not found!")
 
-func initialize(p1: Node, _p2: Node) -> void:
-	target_player = p1
-	animation_tree = p1.get_node("AnimationTree")
+# 修改：只傳入要追蹤的目標玩家（對手可選傳入，未來擴充用）
+func initialize(target: Node, opponent: Node = null) -> void:
+	target_player = target
+	opponent_player = opponent
+	
+	animation_tree = target.get_node("AnimationTree")
 	playback = animation_tree.get("parameters/playback") if animation_tree else null
-	animation_player = p1.get_node("AnimationPlayer")
-	hitbox_shape = p1.get_node("Hitbox/HitShape")
+	animation_player = target.get_node("AnimationPlayer")
+	hitbox_shape = target.get_node("Hitbox/HitShape")
 	
 	if playback and not animation_tree.animation_finished.is_connected(_on_animation_finished):
 		animation_tree.animation_finished.connect(_on_animation_finished)
@@ -103,7 +108,7 @@ func _process(delta: float) -> void:
 		if cur_frames > 0 and not _hitstun_start_logged:
 			var display_frames: int = int(round(cur_frames / 2.0))
 			var real_seconds: float = cur_frames / float(Engine.physics_ticks_per_second)
-			print("[HITSTUN] %s 進入 hitstun → %d 物理幀 (%d 顯示幀 / %.3f秒) ← 120 physics ticks" % [
+			print("[HITSTUN] %s 進入 hitstun → %d 物理幀 (%d 顯示幀 / %.3f秒)" % [
 				target_player.name, cur_frames, display_frames, real_seconds
 			])
 			_hitstun_start_logged = true
@@ -119,7 +124,7 @@ func _process(delta: float) -> void:
 	if "block_timer" in target_player:
 		var cur_timer = target_player.block_timer
 		if cur_timer > 0 and not _blockstun_start_logged:
-			print("[BLOCKSTUN] %s 進入 blockstun → %.3f秒 (約 %d 幀) ← 使用 Movement.gd block_timer" % [
+			print("[BLOCKSTUN] %s 進入 blockstun → %.3f秒 (約 %d 幀)" % [
 				target_player.name, cur_timer, int(cur_timer * Engine.physics_ticks_per_second)
 			])
 			_blockstun_start_logged = true
@@ -161,7 +166,6 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 	var jump_to_attack := last_animation in JUMP_ANIMS and anim_name in ["jump_mp","jump_mk"]
 	var knockfly_chain := knockfly_chain_active and anim_name in ["knockfly","layground","wakeup"]
 	
-	# 只有第一次進入 knockfly 時才清空並歸零計數器
 	if anim_name == "knockfly" and not knockfly_chain_active:
 		knockfly_chain_active = true
 		display_frame_counter = 0
@@ -199,7 +203,6 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 	if state != -1:
 		frame_data[current_frame] = state
 	
-	# 每物理幀遞增計數器（120 → 60 FPS 顯示）
 	if timer_driven or knockfly_chain or block_hit_chain_active:
 		display_frame_counter += 1
 	

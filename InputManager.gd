@@ -1,6 +1,5 @@
 class_name InputManager extends Node
 
-# 模仿 Sakuga 的枚舉
 enum DirectionalInputs { NEUTRAL = 0, DOWN = 1, DOWN_FORWARD = 2, FORWARD = 3, DOWN_BACK = 4, BACK = 5 }
 enum ButtonInputs { NONE = 0, ST_MP = 1, ST_MK = 2 }
 enum ButtonMode { PRESS, HOLD }
@@ -101,44 +100,46 @@ func update_input():
 	var raw_input = get_current_raw_input()
 	insert_to_history(raw_input)
 	var parent = get_parent()
-	var suffix = "_p2" if parent and parent.player_id == "p2" else ""
-	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
 	
-	# 初始化輸入數據為空字典，只添加 true 的鍵值
+	# 改用 seat 判斷輸入後綴與特殊招式可用性
+	var suffix = "_p2" if parent.seat == "player_b" else ""
+	var is_dav = parent.character_id == "DAV"   # DAV 擁有 powerkk、dp、fireball
+	var is_den = parent.character_id == "DEN"   # DEN 擁有 spnk、hdk、fireball
+	
+	# 初始化輸入數據
 	var input_data = {}
 	
-	# super_pressed 只在 true 時添加
-	if Input.is_action_just_pressed("super" + suffix) and player_id == "p1":
+	# super 只給 player_a（左邊玩家）用，你可自行調整
+	if Input.is_action_just_pressed("super" + suffix):
 		input_data["super_pressed"] = true
 	
-	# 僅在檢測到 st_mp 或 st_mk 輸入時檢查招式
+	# 普通按鈕輸入
 	if Input.is_action_just_pressed("st_mp" + suffix):
-		if player_id == "p1":
+		# 檢查特殊招式（只檢查該角色擁有的招式）
+		if is_dav:
 			if check_powerkk_input():
 				input_data["spm1_pressed"] = true
 			if check_dp_input():
 				input_data["dp_pressed"] = true
 			if check_fireball_input():
 				input_data["spm2_pressed"] = true
-		else:
+		elif is_den:
 			if check_fireball_input():
 				input_data["spm2_pressed"] = true
 	
-	# 設置輸入數據（只包含 true 的鍵值）
+	# 傳給 Player
 	parent.set_input_data(input_data)
 
 func get_current_raw_input() -> int:
 	var parent = get_parent()
 	var facing = parent.facing_direction if parent and "facing_direction" in parent else 1.0
 	input_side = sign(facing)
-	var suffix = "_p2" if parent and parent.player_id == "p2" else ""
+	var suffix = "_p2" if parent.seat == "player_b" else ""
 	
 	var dir = DirectionalInputs.NEUTRAL
 	var down = Input.is_action_pressed("crouch" + suffix)
 	var forward = Input.is_action_pressed(("move_right" if input_side > 0 else "move_left") + suffix)
 	var back = Input.is_action_pressed(("move_left" if input_side > 0 else "move_right") + suffix)
-	
-	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
 	
 	if down and forward and not back:
 		dir = DirectionalInputs.DOWN_FORWARD
@@ -157,9 +158,6 @@ func get_current_raw_input() -> int:
 	elif Input.is_action_just_pressed("st_mk" + suffix):
 		buttons = ButtonInputs.ST_MK
 	
-	if player_id == "p1" and buttons > 0:
-		print("Debug: [%s] buttons = %d" % [player_id, buttons])
-	
 	return (dir << 8) | buttons
 
 func insert_to_history(raw_input: int):
@@ -172,33 +170,19 @@ func check_fireball_input() -> bool:
 	return check_motion(fireball_motion)
 
 func check_powerkk_input() -> bool:
-	var parent = get_parent()
-	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
-	if player_id != "p1": return false
 	return check_motion(powerkk_motion)
 
 func check_spnk_input() -> bool:
-	var parent = get_parent()
-	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
-	if player_id != "p2": return false
 	return check_motion(spnk_motion)
 
 func check_hdk_input() -> bool:
-	var parent = get_parent()
-	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
-	if player_id != "p2": return false
 	return check_motion(hdk_motion)
 
 func check_dp_input() -> bool:
-	var parent = get_parent()
-	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
-	if player_id != "p1": return false
 	return check_motion(dp_motion)
 
 func check_motion(motion: Dictionary) -> bool:
 	var parent = get_parent()
-	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
-	
 	var found = false
 	for seq in motion.ValidInputs:
 		var last_buttons = input_history[current_history].raw_input & 0xFF
@@ -226,9 +210,6 @@ func check_motion(motion: Dictionary) -> bool:
 					matched = false
 					break
 				
-				# ← 完全移除 has_forward_input / has_back_input 的防誤發邏輯
-				# 因為每個 motion 都是獨立定義，互相不會誤觸
-				
 				if check_input(hist_pos, step.directional, step.buttons if "buttons" in step else 0, step.dir_mode, step.but_mode if "but_mode" in step else ButtonMode.PRESS):
 					if hist.duration <= INPUT_BUFFER:
 						step_matched = true
@@ -241,14 +222,13 @@ func check_motion(motion: Dictionary) -> bool:
 		
 		if matched:
 			found = true
-			print("Debug: [%s] Sequence matched for HDK!" % player_id)
 			break
 	
 	return found
 
 func check_input(index: int, directional: int, buttons: int, dir_mode: int, but_mode: int) -> bool:
 	var parent = get_parent()
-	var suffix = "_p2" if parent and parent.player_id == "p2" else ""
+	var suffix = "_p2" if parent.seat == "player_b" else ""
 	var forward_action = "move_right" + suffix if input_side > 0 else "move_left" + suffix
 	var back_action = "move_left" + suffix if input_side > 0 else "move_right" + suffix
 	var down_action = "crouch" + suffix
@@ -286,12 +266,6 @@ func check_input(index: int, directional: int, buttons: int, dir_mode: int, but_
 			(directional == DirectionalInputs.BACK and back and not (down or forward))
 	
 	var but_match = (buttons == 0) or button
-	
-	var player_id = parent.player_id if parent and "player_id" in parent else "unknown"
-	var hist_buttons = input_history[index].raw_input & 0xFF
-	var hist_dir = input_history[index].raw_input >> 8
-	if (player_id == "p1" or player_id == "p2") and not (dir_match and but_match) and buttons > 0 and hist_buttons > 0:
-		print("Debug: [%s] Input check failed: dir_match=%s, but_match=%s, directional=%d, buttons=%d, hist_dir=%d, hist_buttons=%d" % [player_id, dir_match, but_match, directional, buttons, hist_dir, hist_buttons])
 	
 	return dir_match and but_match
 

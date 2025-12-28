@@ -1,5 +1,7 @@
 class_name Fighter extends Movement
+
 signal block_detected(target: String, block_type: String)
+
 static var PHYSICS_FPS: int = 60
 const DISPLAY_FPS: int = 60
 
@@ -7,7 +9,6 @@ func _enter_tree() -> void:
 	PHYSICS_FPS = Engine.physics_ticks_per_second   # 這裡才真正賦值
 
 @onready var collision_shape = $Pushbox
-@onready var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 @onready var hitbox = $Hitbox/HitShape if has_node("Hitbox/HitShape") else null
 @onready var proximitybox = $Proximitybox/ProxShape if has_node("Proximitybox/ProxShape") else null
 
@@ -17,15 +18,14 @@ var current_damage: float = 0.0
 
 # ── 固定幀數控制（hitstun & blockstun 都使用）──
 var hitstun_frames: int = 0          # hitstun 固定幀數
-var blockstun_frames: int = 0        # blockstun 固定幀數（新增）
+var blockstun_frames: int = 0        # blockstun 固定幀數
 var initial_blockstun_frames: int = 0 # 用於 push 計算
-
 const FPS: int = 60
 
 func sec_to_frames(seconds: float) -> int:
 	return int(round(seconds * PHYSICS_FPS))
 
-func _ready():
+func _ready() -> void:
 	super._ready()
 	if collision_shape and collision_shape.shape is RectangleShape2D:
 		var collision_scale = collision_shape.scale
@@ -33,11 +33,10 @@ func _ready():
 		colbox_half_height = collision_shape.shape.size.y * collision_scale.y / 2.0
 	else:
 		print("Warning: CollisionShape2D not found or invalid for %s" % name)
-	if not healthbar:
-		print("Warning: Healthbar not found for %s" % name)
+	
 	add_to_group("players")
 
-func _physics_process(delta):
+func _physics_process(delta: float) -> void:
 	if not world:
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
@@ -63,7 +62,6 @@ func _physics_process(delta):
 			block_type = "none"
 			print("[FIXED-FRAME BLOCKSTUN END] %s 格擋結束！" % name)
 	else:
-		# 只有在完全沒有固定幀數時才允許關閉（防止被其他地方誤關）
 		if blockstun_frames <= 0:
 			is_blocking = false
 
@@ -95,18 +93,18 @@ func _physics_process(delta):
 	else:
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
-func post_physics_process(_delta):
+func post_physics_process(_delta: float) -> void:
 	pass
 
-# ── 【關鍵修復】take_hit：hitstun & blockstun 都使用固定幀數──
+# ── 【關鍵修復】take_hit：hitstun & blockstun 都使用固定幀數，並改用新版掉血方式──
 func take_hit(
-		hitstun_duration: float = 0.35,
-		blockstun_duration: float = 0.267,
-		damage: float = 10.0,
-		skip_push: bool = false,
-		force_knockfly: bool = false,
-		knockfly_params: Dictionary = {}
-):
+	hitstun_duration: float = 0.35,
+	blockstun_duration: float = 0.267,
+	damage: float = 10.0,
+	skip_push: bool = false,
+	force_knockfly: bool = false,
+	knockfly_params: Dictionary = {}
+) -> void:
 	if not world:
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
@@ -115,7 +113,6 @@ func take_hit(
 
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove
-
 	var input_data = get_input()
 
 	if is_attacking:
@@ -128,13 +125,12 @@ func take_hit(
 		is_blocking = true
 		is_crouch_blocking = input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0
 		
-		# 轉成固定幀數
 		var block_frames = max(sec_to_frames(blockstun_duration), sec_to_frames(min_hitstun_duration))
 		blockstun_frames = block_frames
 		initial_blockstun_frames = block_frames
-		initial_blockstun = blockstun_duration                  # 保留給舊 push 計算 & 動畫用
-		block_timer = blockstun_duration                         # 保留給動畫機使用（不會影響實際狀態）
-
+		initial_blockstun = blockstun_duration
+		block_timer = blockstun_duration
+		
 		print("[FIXED-FRAME BLOCKSTUN START] %s 進入格擋，%d 幀 (%.3f秒)" % [name, block_frames, blockstun_duration])
 		
 		fixed_velocity.x = 0
@@ -161,12 +157,18 @@ func take_hit(
 		if not is_on_floor():
 			update_facing_direction()
 
-		if healthbar:
-			healthbar.take_damage(damage)
+		# 直接減血（healthbar 由 Player.gd 設定）
+		if healthbar != null:
+			healthbar.current_health -= damage
+			print("Debug: %s 受到 %.1f 傷害，剩餘血量 %.1f" % [name, damage, healthbar.current_health])
+		else:
+			print("Warning: healthbar 未設定，無法扣血（%s）" % name)
 
 		var facing_mult = get_facing_multiplier()
 
-		if force_knockfly or damage > 10.0 or (healthbar and healthbar.current_health <= 0):
+		var should_knockfly: bool = force_knockfly or damage > 10.0 or (healthbar != null and healthbar.current_health <= 0)
+
+		if should_knockfly:
 			var params = {
 				"gravity": default_knockfly_gravity,
 				"vertical_speed": default_knockfly_vertical_speed,
@@ -215,7 +217,7 @@ func take_hit(
 
 		_update_animation_state(0, input_data.crouch_pressed)
 
-func take_knockfly():
+func take_knockfly() -> void:
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove
 
@@ -274,6 +276,5 @@ func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
 func is_in_hitstun() -> bool:
 	return hitstun_frames > 0
 
-# 可選：如果你想知道是否在 blockstun
 func is_in_blockstun() -> bool:
 	return blockstun_frames > 0

@@ -1,8 +1,8 @@
-# player.gd
 class_name Player extends Fighter
 
 signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool)
-@export var player_id: String = "p1"
+
+@export var character_data: CharacterData      # 在角色場景中拖入對應的 .character.tres
 @export var is_ai_controlled: bool = false
 @export var corner_push_distance: float = 250.0
 @export var cancel_window_duration: float = 0.3
@@ -22,6 +22,13 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 @onready var player_controller = $PlayerController if has_node("PlayerController") else null
+
+# 新增：由 world.gd 動態生成時設定，決定這個角色是左邊還是右邊玩家
+var seat: String = "player_a"  # "player_a" 或 "player_b"
+
+# 角色唯一 ID（例如 "DAV" 或 "DEN"），用來判斷特殊招式
+var character_id: String:
+	get: return character_data.short_id if character_data else "UNKNOWN"
 
 # ── 狀態旗標 ─────────────────────
 var current_mode: String = "ground_stand"
@@ -126,10 +133,14 @@ func _ready() -> void:
 		animation_state.travel("Walk")
 	add_to_group("players")
 	if player_controller:
-		player_controller.player_id = player_id
+		player_controller.player_seat = seat  # ← 這一行一定要加！
 	hit_detected.connect(_on_hit_detected)
 	skip_pushbox = false
-
+	
+	var ui_root = get_tree().get_first_node_in_group("ui")
+	if ui_root:
+		healthbar = ui_root.get_node("PlayerAHealthbar" if seat == "player_a" else "PlayerBHealthbar")
+		
 func set_input_data(data: Dictionary) -> void:
 	special_input_data = data
 
@@ -192,7 +203,8 @@ func _physics_process(delta: float) -> void:
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
 
-	if player_id == "p1" and is_attacking and attack_type == "st_mp" and cancel_window_timer > 0 and input_data.spm1_pressed:
+	# 取消判定：現在用 character_id 判斷誰有這招（DAV 有 st_mp → powerkk 取消）
+	if character_id == "DAV" and is_attacking and attack_type == "st_mp" and cancel_window_timer > 0 and input_data.spm1_pressed:
 		stop_attack()
 
 	if move_set and move_set.process_move(delta, input_data, is_valid_ground_state):
@@ -265,7 +277,6 @@ func _physics_process_jump(_delta: float) -> void:
 			else:
 				fixed_velocity.x = 0
 
-# ← 關鍵：必須在 super 之前檢查 landing
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	if is_layground: return "layground"
 	if is_knockfly: return "knockfly"
@@ -277,9 +288,9 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 
 	if move_set and move_set.is_spmove:
 		if move_set.is_super: return "super"
-		elif player_id == "p1" and move_set.is_powerkk: return "powerkk"
-		elif player_id == "p1" and move_set.is_dp: return "dp"
-		elif player_id == "p2" and move_set.is_spnk: return "spnk"
+		elif character_id == "DAV" and move_set.is_powerkk: return "powerkk"
+		elif character_id == "DAV" and move_set.is_dp: return "dp"
+		elif character_id == "DEN" and move_set.is_spnk: return "spnk"
 		elif move_set.is_fireball: return "fireball"
 
 	if is_blocking:
@@ -297,13 +308,12 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 			else: return "Jump_V"
 
 	return super._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
-	
+
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	super._update_animation_state(dir_x, crouch_input)
 
 func _on_animation_tree_finished(anim_name: StringName) -> void:
 	if anim_name == "layground" and is_layground:
-		var player_healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
 		if healthbar and healthbar.current_health <= 0:
 			return
 		is_layground = false
@@ -315,7 +325,7 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 		if anim_name in player_anim_resets:
 			player_anim_resets[anim_name].call()
 
-# ── 擊中處理（加入除錯訊息） ─────────────────────
+# ── 擊中處理 ─────────────────────
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	if area.name != "Hurtbox" or not area.get_parent().is_in_group("players") or area.get_parent() == self:
 		return
@@ -403,8 +413,10 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		initial_push_back = push_duration
 		push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
 		fixed_velocity.x = int(-push_back_velocity * get_facing_multiplier())
+
 func _on_hit_detected(_target: String, _stun_duration: float, _is_blocked: bool, _was_in_stun: bool) -> void:
-	if player_id == "p1" and attack_type == "st_mp" and is_attacking:
+	# 只有 DAV 的 st_mp 可以取消成特殊招
+	if character_id == "DAV" and attack_type == "st_mp" and is_attacking:
 		cancel_window_timer = cancel_window_duration
 
 func stop_attack() -> void:
@@ -441,7 +453,7 @@ func force_update_facing_direction() -> void:
 			facing_direction = 1.0
 			scale.x = 1
 		update_hitbox_position()
-		
+
 func _process(_delta: float) -> void:
 	_sync_shadow_animation()
 
@@ -450,7 +462,8 @@ func _sync_shadow_animation() -> void:
 	if not body_sprite:
 		return
 	
-	var shadow_node_name = "P1ShadowSprite" if player_id == "p1" else "P2ShadowSprite"
+	# 陰影節點現在固定用席位名稱，不再用舊的 P1/P2
+	var shadow_node_name = "PlayerAShadowSprite" if seat == "player_a" else "PlayerBShadowSprite"
 	var shadow_sprite = get_parent().get_node(shadow_node_name)
 	
 	if shadow_sprite and shadow_sprite.material is ShaderMaterial:
@@ -461,11 +474,11 @@ func _sync_shadow_animation() -> void:
 		shadow_sprite.offset = body_sprite.offset
 		shadow_sprite.flip_h = facing_direction < 0
 		shadow_sprite.global_position.x = global_position.x
-		shadow_sprite.global_position.y = 570 + 110  # 你目前的完美高度
+		shadow_sprite.global_position.y = 570 + 110
 		
 		if is_on_floor():
 			mat.set_shader_parameter("blur_factor", 0.0)
 		else:
-			var height = 570.0 - global_position.y  # 離地越高數值越大
-			var blur = clamp(height / 200.0, 0.0, 1.0)  # 200 是你角色最大跳高，可微調
+			var height = 570.0 - global_position.y
+			var blur = clamp(height / 200.0, 0.0, 1.0)
 			mat.set_shader_parameter("blur_factor", blur)

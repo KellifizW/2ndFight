@@ -1,19 +1,19 @@
 [gd_scene load_steps=37 format=3 uid="uid://dttoxyilvki3"]
 
-[ext_resource type="Script" uid="uid://2srsoq8uppfe" path="res://fireball.gd" id="1_pr2rl"]
-[ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="2_pr2rl"]
-[ext_resource type="Shader" uid="uid://deog7x82ywb8r" path="res://P2_fireball_A_shader.tres" id="2_vwh0f"]
-[ext_resource type="AudioStream" uid="uid://rp7ewg5mlgh0" path="res://audio/fireball_spawn.mp3" id="3_fm3fg"]
-[ext_resource type="Texture2D" uid="uid://dfi8ibhnd7tbq" path="res://assets/fireball/T_VFX_Noise_2.PNG" id="3_rs0mt"]
-[ext_resource type="Texture2D" uid="uid://budvrxmxqy1d6" path="res://assets/fireball/T_VFX_PerlinNoise_Tiled.png" id="4_ow8pv"]
-[ext_resource type="AudioStream" uid="uid://dgqp33vjqdvqk" path="res://audio/fireball_vanish.wav" id="4_twob4"]
-[ext_resource type="Texture2D" uid="uid://0jpg57h3b6gi" path="res://assets/fireball/fire_01.png" id="5_dkto1"]
-[ext_resource type="Texture2D" uid="uid://2rj5mhuheo8x" path="res://assets/fireball/circle_05.png" id="5_vwh0f"]
+[ext_resource type="Script" uid="uid://2srsoq8uppfe" path="res://fireball.gd" id="1_7yp26"]
+[ext_resource type="Shader" uid="uid://deog7x82ywb8r" path="res://P2_fireball_A_shader.tres" id="2_8ls2c"]
+[ext_resource type="Texture2D" uid="uid://dfi8ibhnd7tbq" path="res://assets/fireball/T_VFX_Noise_2.PNG" id="3_oflsl"]
+[ext_resource type="Texture2D" uid="uid://budvrxmxqy1d6" path="res://assets/fireball/T_VFX_PerlinNoise_Tiled.png" id="4_de437"]
+[ext_resource type="Texture2D" uid="uid://2rj5mhuheo8x" path="res://assets/fireball/circle_05.png" id="5_t7lfi"]
+[ext_resource type="Texture2D" uid="uid://0jpg57h3b6gi" path="res://assets/fireball/fire_01.png" id="6_b28rp"]
+[ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="7_hb4qv"]
+[ext_resource type="AudioStream" uid="uid://rp7ewg5mlgh0" path="res://audio/fireball_spawn.mp3" id="8_blntk"]
+[ext_resource type="AudioStream" uid="uid://dgqp33vjqdvqk" path="res://audio/fireball_vanish.wav" id="9_qlxt4"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_lipj4"]
-shader = ExtResource("2_vwh0f")
-shader_parameter/Dissolver_texture = ExtResource("3_rs0mt")
-shader_parameter/Flame_Texture = ExtResource("4_ow8pv")
+shader = ExtResource("2_8ls2c")
+shader_parameter/Dissolver_texture = ExtResource("3_oflsl")
+shader_parameter/Flame_Texture = ExtResource("4_de437")
 
 [sub_resource type="Curve" id="Curve_123nj"]
 _data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
@@ -51,9 +51,9 @@ color_ramp = SubResource("GradientTexture1D_rs0mt")
 alpha_curve = SubResource("CurveTexture_vwh0f")
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_rs0mt"]
-shader = ExtResource("2_vwh0f")
-shader_parameter/Dissolver_texture = ExtResource("3_rs0mt")
-shader_parameter/Flame_Texture = ExtResource("4_ow8pv")
+shader = ExtResource("2_8ls2c")
+shader_parameter/Dissolver_texture = ExtResource("3_oflsl")
+shader_parameter/Flame_Texture = ExtResource("4_de437")
 
 [sub_resource type="Curve" id="Curve_ow8pv"]
 _data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
@@ -271,29 +271,29 @@ size = Vector2(100, 100)
 [sub_resource type="Environment" id="Environment_vwh0f"]
 glow_enabled = true
 
-[node name="P2Fireball" type="Area2D"]
+[node name="DEN_fireball" type="Area2D"]
 collision_layer = 8
 collision_mask = 0
-script = ExtResource("1_pr2rl")
+script = ExtResource("1_7yp26")
 
 [node name="VFX_ball" type="GPUParticles2D" parent="."]
 material = SubResource("ShaderMaterial_lipj4")
 amount = 10
-texture = ExtResource("5_vwh0f")
-lifetime = 0.09999999999999999
+texture = ExtResource("5_t7lfi")
+lifetime = 0.1
 fixed_fps = 60
 process_material = SubResource("ParticleProcessMaterial_brm45")
 
 [node name="flash" type="GPUParticles2D" parent="."]
 material = SubResource("ShaderMaterial_rs0mt")
 amount = 30
-texture = ExtResource("5_dkto1")
+texture = ExtResource("6_b28rp")
 fixed_fps = 60
 process_material = SubResource("ParticleProcessMaterial_lipj4")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 visible = false
-texture = ExtResource("2_pr2rl")
+texture = ExtResource("7_hb4qv")
 hframes = 10
 vframes = 23
 frame = 190
@@ -337,11 +337,11 @@ shape = SubResource("RectangleShape2D_twj7m")
 debug_color = Color(0.62189, 0.533606, 0, 0.42)
 
 [node name="SpawnSoundPlayer" type="AudioStreamPlayer" parent="."]
-stream = ExtResource("3_fm3fg")
+stream = ExtResource("8_blntk")
 pitch_scale = 1.1
 
 [node name="HitSoundPlayer" type="AudioStreamPlayer" parent="."]
-stream = ExtResource("4_twob4")
+stream = ExtResource("9_qlxt4")
 pitch_scale = 1.1
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]

@@ -1,8 +1,10 @@
-# PlayerController.gd（修正版：加入 Dash/Backdash 支援 + 持續按上鍵可連續跳躍）
+# PlayerController.gd（完全修正版：支援新 seat 系統 + 移除 player_id 依賴）
 
 class_name PlayerController extends Node
 
-@export var player_id: String = "p1"
+# 移除舊的 player_id，改用 seat 來決定輸入後綴
+# seat 會由 Player.gd 在 _ready() 時設定（"player_a" 或 "player_b"）
+var player_seat: String = "player_a"  # 預設值，Player 會覆蓋它
 
 # Dash / Backdash 雙擊偵測變數
 var last_input_dir: int = 0
@@ -18,7 +20,11 @@ func _process(delta: float) -> void:
 			last_input_dir = 0
 
 func get_input_data() -> Dictionary:
-	var suffix = "_p2" if player_id == "p2" else ""
+	# 根據 seat 決定輸入動作後綴
+	# 建議你在 Project Settings → Input Map 中建立兩組動作：
+	#   move_right, move_left, jump, crouch, st_mp, st_mk, spmove1, spmove2, spmove3, super
+	#   move_right_p2, move_left_p2, jump_p2, crouch_p2, ...（第二玩家用）
+	var suffix = "_p2" if player_seat == "player_b" else ""
 	
 	# 基本移動輸入
 	var move_right = Input.is_action_pressed("move_right" + suffix)
@@ -70,22 +76,26 @@ func get_input_data() -> Dictionary:
 	var super_pressed = Input.is_action_just_pressed("super" + suffix)
 	var dp_pressed    = false
 	
-	# === 輸入序列檢測（保持原邏輯不變）===
+	# === 輸入序列檢測（保持原邏輯，但改用 character_id 判斷角色）===
 	var input_manager = get_parent().get_node("InputManager") if get_parent().has_node("InputManager") else null
+	var character_id: String = "UNKNOWN"
+	if get_parent() and "character_id" in get_parent():
+		character_id = get_parent().character_id
+	
 	if input_manager:
-		# P1 招式
-		if player_id == "p1" and input_manager.check_powerkk_input():
+		# DAV（原本 p1）的招式
+		if character_id == "DAV" and input_manager.check_powerkk_input():
 			spm1_pressed = true
 			st_mp_pressed = false
-		if player_id == "p1" and input_manager.check_dp_input():
+		if character_id == "DAV" and input_manager.check_dp_input():
 			dp_pressed = true
 			st_mp_pressed = false
 		
-		# P2 招式（注意順序！hdk 優先於 spnk）
-		if player_id == "p2" and input_manager.check_hdk_input():
+		# DEN（原本 p2）的招式
+		if character_id == "DEN" and input_manager.check_hdk_input():
 			spm3_pressed = true
 			st_mk_pressed = false
-		if player_id == "p2" and input_manager.check_spnk_input():
+		if character_id == "DEN" and input_manager.check_spnk_input():
 			spm1_pressed = true
 			st_mk_pressed = false
 		
@@ -94,17 +104,17 @@ func get_input_data() -> Dictionary:
 			spm2_pressed = true
 			st_mp_pressed = false
 	
-	# P1 的 spmove3 快捷鍵觸發 DP
-	if player_id == "p1" and spm3_pressed:
+	# DAV 的 spmove3 快捷鍵觸發 DP
+	if character_id == "DAV" and spm3_pressed:
 		dp_pressed = true
 	
-	# 攻擊優先級（保持原邏輯）
+	# 攻擊優先級（已移除 player_id 判斷，改用 character_id）
 	var attack_type = (
 		"super"    if super_pressed else
-		"powerkk"  if spm1_pressed and player_id == "p1" else
-		"dp"       if dp_pressed and player_id == "p1" else
-		"spnk"     if spm1_pressed and player_id == "p2" else
-		"hdk"      if spm3_pressed and player_id == "p2" else
+		"powerkk"  if spm1_pressed and character_id == "DAV" else
+		"dp"       if dp_pressed and character_id == "DAV" else
+		"spnk"     if spm1_pressed and character_id == "DEN" else
+		"hdk"      if spm3_pressed and character_id == "DEN" else
 		"fireball" if spm2_pressed else
 		"st_mp"    if st_mp_pressed else
 		"st_mk"    if st_mk_pressed else
@@ -114,7 +124,7 @@ func get_input_data() -> Dictionary:
 	return {
 		"input_dir": input_dir,
 		"crouch_pressed": crouch_pressed,
-		"jump_pressed": jump_pressed,      # 現在持續按住 jump 鍵即可連續跳躍
+		"jump_pressed": jump_pressed,
 		"st_mp_pressed": st_mp_pressed,
 		"st_mk_pressed": st_mk_pressed,
 		"attack_type": attack_type,
@@ -123,6 +133,6 @@ func get_input_data() -> Dictionary:
 		"spm3_pressed": spm3_pressed,
 		"super_pressed": super_pressed,
 		"dp_pressed": dp_pressed,
-		"dash_pressed": dash_pressed,      # 新增：前衝旗標
-		"backdash_pressed": backdash_pressed  # 新增：後衝旗標
+		"dash_pressed": dash_pressed,
+		"backdash_pressed": backdash_pressed
 	}

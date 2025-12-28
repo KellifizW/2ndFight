@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://btah83mhaiaaa"
-path="res://.godot/imported/SSF4 ABUKET.ttf-8e338a85cee865b317a1a15a7d6c6664.fontdata"
+uid="uid://doprqju6a18sf"
+path="res://.godot/imported/Roundex.otf-a432ec3aeb461420cac11b3e0960b39f.fontdata"
 
 [deps]
 
-source_file="res://fonts/SSF4 ABUKET.ttf"
-dest_files=["res://.godot/imported/SSF4 ABUKET.ttf-8e338a85cee865b317a1a15a7d6c6664.fontdata"]
+source_file="res://fonts/Roundex.otf"
+dest_files=["res://.godot/imported/Roundex.otf-a432ec3aeb461420cac11b3e0960b39f.fontdata"]
 
 [params]
 
@@ -30,12 +30,7 @@ Fallbacks=null
 fallbacks=[]
 Compress=null
 compress=true
-preload=[{
-"chars": [],
-"glyphs": [],
-"name": "New Configuration",
-"size": Vector2i(16, 0)
-}]
+preload=[]
 language_support={}
 script_support={}
 opentype_features={}

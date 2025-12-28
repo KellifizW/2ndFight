@@ -1,21 +1,20 @@
-[gd_scene load_steps=25 format=3 uid="uid://c0j8o4o3jtun1"]
+[gd_scene load_steps=24 format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
-[ext_resource type="PackedScene" uid="uid://bw2666uj5f0gw" path="res://player1.tscn" id="1_f3sb7"]
 [ext_resource type="Texture2D" uid="uid://cl5cldwpbfwt6" path="res://assets/stage.png" id="1_fj7yv"]
 [ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://FollowCamera.tscn" id="3_gbfbk"]
-[ext_resource type="PackedScene" uid="uid://jla54h8ttkct" path="res://player2.tscn" id="3_tlwt5"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
-[ext_resource type="FontFile" uid="uid://btah83mhaiaaa" path="res://fonts/SSF4 ABUKET.ttf" id="6_70uel"]
-[ext_resource type="Script" uid="uid://dwchp2rimawb" path="res://cpu_controller.gd" id="6_dwbse"]
+[ext_resource type="FontFile" uid="uid://doprqju6a18sf" path="res://fonts/Roundex.otf" id="4_cbp6q"]
+[ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://slow_mo_controller.gd" id="7_pkg7o"]
 [ext_resource type="PackedScene" uid="uid://dsnvnd8yxiin5" path="res://FrameBar.tscn" id="7_wse8f"]
 [ext_resource type="FontFile" uid="uid://drt5it72nn35m" path="res://fonts/SF_font_file.tres" id="9_hiqwa"]
 [ext_resource type="Script" uid="uid://cydy3y7rrkibl" path="res://PushManager.gd" id="9_ioo17"]
-[ext_resource type="Script" uid="uid://cmi0ksd8w268l" path="res://ControlHistory.gd" id="11_ic0uy"]
 [ext_resource type="AudioStream" uid="uid://edw4r0cjrhy6" path="res://audio/bgm.mp3" id="12_k3n1d"]
+[ext_resource type="Resource" uid="uid://b8qgdymiybxrq" path="res://characters/DAV.character.tres" id="15_26xuy"]
 [ext_resource type="PackedScene" uid="uid://c5l4a1b0wwbtl" path="res://assets/ingameUI/countdown_timer.tscn" id="16_2u3nc"]
+[ext_resource type="Resource" uid="uid://bnbes5q0352er" path="res://characters/DEN.character.tres" id="17_bc84e"]
 [ext_resource type="Shader" uid="uid://di8lua7wssr65" path="res://shadow.gdshader" id="17_cbp6q"]
 [ext_resource type="SpriteFrames" uid="uid://dgdawo56n6mld" path="res://P2Tres/player1.tres" id="18_26xuy"]
 [ext_resource type="SpriteFrames" uid="uid://5q7cfeoprqup" path="res://P2Tres/player2.tres" id="19_bc84e"]
@@ -41,6 +40,8 @@ shader_parameter/blur_factor = 0.0
 
 [node name="World" type="Node2D"]
 script = ExtResource("1_aqk2v")
+player_a_character = ExtResource("15_26xuy")
+player_b_character = ExtResource("17_bc84e")
 
 [node name="TextureRect" type="TextureRect" parent="."]
 modulate = Color(1, 0.898039, 0.670588, 0.772549)
@@ -56,7 +57,6 @@ texture = ExtResource("1_fj7yv")
 [node name="FollowCamera" parent="." instance=ExtResource("3_gbfbk")]
 position = Vector2(700, 360)
 scale = Vector2(1e-05, 1e-05)
-max_camera_y = 300.0
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
 position = Vector2(750, 700)
@@ -82,7 +82,7 @@ offset_right = 74.08
 offset_bottom = -23.800003
 grow_vertical = 0
 pivot_offset = Vector2(20, 10)
-theme_override_fonts/font = ExtResource("6_70uel")
+theme_override_fonts/font = ExtResource("4_cbp6q")
 theme_override_font_sizes/font_size = 60
 
 [node name="HitLabel" type="Label" parent="UI"]
@@ -111,7 +111,7 @@ offset_right = 1178.0
 offset_bottom = 683.0
 label_settings = SubResource("LabelSettings_aqk2v")
 
-[node name="Player1Healthbar" parent="UI" instance=ExtResource("4_036b0")]
+[node name="PlayerAHealthbar" parent="UI" instance=ExtResource("4_036b0")]
 layout_direction = 3
 offset_left = 680.0
 offset_top = 80.0
@@ -121,9 +121,8 @@ value = 100.0
 fill_mode = 1
 nine_patch_stretch = true
 texture_progress_offset = Vector2(-8, 8)
-target_node = NodePath("../../Player1")
 
-[node name="Player2Healthbar" parent="UI" instance=ExtResource("4_036b0")]
+[node name="PlayerBHealthbar" parent="UI" instance=ExtResource("4_036b0")]
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
@@ -135,7 +134,6 @@ grow_horizontal = 0
 value = 100.0
 nine_patch_stretch = true
 texture_progress = ExtResource("7_2o6r5")
-target_node = NodePath("../../Player2")
 
 [node name="P1AdvantageLabel" type="Label" parent="UI"]
 offset_top = 30.0
@@ -191,24 +189,12 @@ script = ExtResource("7_pkg7o")
 script = ExtResource("9_ioo17")
 
 [node name="ControlHistory" type="Node" parent="."]
-script = ExtResource("11_ic0uy")
 
 [node name="BGMPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("12_k3n1d")
 autoplay = true
 
-[node name="Player1" parent="." instance=ExtResource("1_f3sb7")]
-position = Vector2(515, 563)
-min_hitstun_duration = 0.0
-block_push_distance = 200.0
-hit_push_distance = 200.0
-
-[node name="Player2" parent="." instance=ExtResource("3_tlwt5")]
-position = Vector2(902, 571)
-block_push_distance = 200.0
-hit_push_distance = 200.0
-
-[node name="P1ShadowSprite" type="AnimatedSprite2D" parent="."]
+[node name="PlayerAShadowSprite" type="AnimatedSprite2D" parent="."]
 modulate = Color(0.16078432, 0.16078432, 0.16078432, 1)
 z_index = -1
 material = SubResource("ShaderMaterial_wukud")
@@ -216,10 +202,9 @@ position = Vector2(0, 108)
 scale = Vector2(0.45, 0.09)
 sprite_frames = ExtResource("18_26xuy")
 animation = &"idle"
-frame = 5
 offset = Vector2(0, -20)
 
-[node name="P2ShadowSprite" type="AnimatedSprite2D" parent="."]
+[node name="PlayerBShadowSprite" type="AnimatedSprite2D" parent="."]
 modulate = Color(0.07058824, 0.07058824, 0.07058824, 1)
 z_index = -1
 material = SubResource("ShaderMaterial_il2jm")

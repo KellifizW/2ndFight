@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=3 format=3 uid="uid://b8qgdymiybxrq"]
+
+[ext_resource type="Script" uid="uid://biahbprhmtfti" path="res://characters/CharacterData.gd" id="1_h0pw7"]
+[ext_resource type="PackedScene" uid="uid://c1t3ukbrnos3c" path="res://characters/DAV.tscn" id="1_t8s6g"]
+
+[resource]
+script = ExtResource("1_h0pw7")
+scene = ExtResource("1_t8s6g")
+metadata/_custom_type_script = "uid://biahbprhmtfti"
