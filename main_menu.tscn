@@ -1,10 +1,10 @@
 [gd_scene load_steps=6 format=3 uid="uid://l4dd7cip8wrw"]
 
-[ext_resource type="Texture2D" uid="uid://cnqrjlqjm8hbi" path="res://assets/Main_menu.png" id="1_06t4h"]
+[ext_resource type="Texture2D" uid="uid://dc0ehlli278vk" path="res://assets/ui/Main_menu.png" id="1_7vrkn"]
 [ext_resource type="FontFile" uid="uid://doprqju6a18sf" path="res://fonts/Roundex.otf" id="2_7vrkn"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_7vrkn"]
-texture = ExtResource("1_06t4h")
+texture = ExtResource("1_7vrkn")
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_rhts7"]
 bg_color = Color(0.6, 0.6, 0.6, 0.7019608)

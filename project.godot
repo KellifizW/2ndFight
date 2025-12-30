@@ -15,6 +15,10 @@ run/main_scene="uid://c0j8o4o3jtun1"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="uid://db3o0uagobj3k"
 
+[autoload]
+
+SelectedCharacters="*res://characters/CharacterSelectData.gd"
+
 [display]
 
 window/size/viewport_width=1280

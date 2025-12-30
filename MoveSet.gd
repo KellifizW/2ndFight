@@ -357,7 +357,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	
 	# === Fireball ===
 	if is_fireball:
-		fireball_timer -= delta; fireball_spawn_timer -= delta
+		fireball_timer -= delta
+		fireball_spawn_timer -= delta
+		
 		if fireball_spawn_timer <= 0 and fireball_spawn_timer > -delta:
 			var scene_path = "res://%s_fireball.tscn" % parent.character_id
 			var fireball_scene: PackedScene = load(scene_path)
@@ -370,13 +372,15 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			var fb = fireball_scene.instantiate()
 			fb.direction = parent.facing_direction
 			fb.owner_character_id = parent.character_id
+			fb.fireball_owner = parent  # ← 正確名稱（避免與 Area2D 內建 owner 衝突）
 			fb.global_position = parent.global_position + Vector2(fireball_x_offset * parent.facing_direction, fireball_y_offset)
 			get_tree().current_scene.add_child(fb)
 			
-			print("[MoveSet] 成功生成火球：%s" % scene_path)
+			print("[MoveSet] 成功生成火球：%s，fireball_owner 已設定" % scene_path)
 		
 		if fireball_timer <= 0:
 			stop_special_move()
+		
 		return true
 	
 	# === Super ===

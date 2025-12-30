@@ -6,6 +6,7 @@ var damage: float = 15.0          # 預設傷害（DAV）
 var blockstun_duration: float = 0.3
 var is_active: bool = true
 var owner_character_id: String = "DAV"  # 現在使用 character_id 而不是舊的 p1/p2
+var fireball_owner: Node = null           # 發射者的 Player 實例（避免打到自己）
 
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer
@@ -62,13 +63,12 @@ func _ready() -> void:
 	else:
 		push_warning("Warning: SpawnSoundPlayer not found in Fireball!")
 	
-	print("Debug: Fireball initialized, owner_character_id: %s, speed: %s, damage: %s, direction: %s" % 
+	print("Debug: Fireball initialized, owner_character_id: %s, speed: %s, damage: %s, direction: %s" %
 		[owner_character_id, speed, damage, direction])
 
 func _physics_process(delta: float) -> void:
 	if is_active:
 		position.x += speed * direction * delta
-	
 	# 超出畫面自動銷毀
 	if position.x > 2000 or position.x < -2000:
 		print("Fireball out of bounds, destroying at position: %s" % position.x)
@@ -76,6 +76,15 @@ func _physics_process(delta: float) -> void:
 
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	if not is_active: return
+	
+	# 過濾 1: 不要打發射者角色
+	if fireball_owner and area.get_parent() == fireball_owner:
+		return
+	
+	# 過濾 2: 不要打自己的 Hurtbox（內部碰撞）
+	if area.get_parent() == self:
+		return
+	
 	if area.name == "Hurtbox" and area.get_parent().is_in_group("players"):
 		var target = area.get_parent()
 		is_active = false
@@ -89,9 +98,7 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 			if slowmo_controller:
 				slowmo_controller.request_hit_freeze()
 		
-		# 直接使用 fireball_damage（已根據角色設定）
 		target.take_hit(blockstun_duration, blockstun_duration, damage, false)
-		
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		if target.has_signal("hit_detected"):
 			target.hit_detected.emit(name, blockstun_duration, is_blocked)
@@ -105,7 +112,7 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		else:
 			push_warning("Warning: HitSoundPlayer not found in Fireball!")
 		
-		print("Fireball hit %s, is_blocked: %s, damage: %s, owner: %s" % 
+		print("Fireball hit %s, is_blocked: %s, damage: %s, owner: %s" %
 			[target.name, is_blocked, damage, owner_character_id])
 		
 		# VFX
@@ -121,6 +128,15 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if not is_active: return
+	
+	# 過濾 1: 不要被發射者角色打到
+	if fireball_owner and area.get_parent() == fireball_owner:
+		return
+	
+	# 過濾 2: 不要被自己的 Hitbox 打到（內部碰撞）
+	if area.get_parent() == self:
+		return
+	
 	if area.name == "Hitbox" and (area.get_parent().is_in_group("players") or area.get_parent().is_in_group("fireball")):
 		is_active = false
 		if hitbox: hitbox.monitoring = false
@@ -134,6 +150,11 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 
 func _on_proximitybox_area_entered(area: Area2D) -> void:
 	if not is_active: return
+	
+	# 過濾自己，避免近距離格擋自己
+	if fireball_owner and area.get_parent() == fireball_owner:
+		return
+	
 	if area.name == "Hurtbox" and area.get_parent().is_in_group("players"):
 		var target = area.get_parent()
 		if target.is_holding_back or target.is_crouch_blocking:

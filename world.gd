@@ -61,16 +61,24 @@ var is_bgm_enabled: bool = true
 
 func _ready() -> void:
 	add_to_group("world")
-	print("Debug: World added to group 'world'. Group members: ", get_tree().get_nodes_in_group("world"))
+	print("Debug: World _ready() 開始執行")
 	
-	# 關鍵修正：先檢查 CharacterData 是否已正確拖入
-	if not player_a_character:
-		push_error("錯誤：Player A 的 CharacterData 未指定！請在 World 節點的 Inspector 中拖入 DAV.character.tres 或其他角色資源。")
-		return
-	if not player_b_character:
-		push_error("錯誤：Player B 的 CharacterData 未指定！請在 World 節點的 Inspector 中拖入 DEN.character.tres 或其他角色資源。")
-		return
+	# 關鍵修正：優先從選角畫面讀取角色（SelectedCharacters 是 Autoload 全局單例）
+	if SelectedCharacters.p1_character != null and SelectedCharacters.p2_character != null:
+		player_a_character = SelectedCharacters.p1_character
+		player_b_character = SelectedCharacters.p2_character
+		print("從選角畫面成功載入角色：P1 = %s, P2 = %s" % [player_a_character.display_name, player_b_character.display_name])
+	else:
+		# 如果直接執行 world.tscn（測試用），檢查編輯器是否有手動拖入角色
+		if not player_a_character:
+			push_error("錯誤：Player A 的 CharacterData 未指定！請從 CharacterSelect 進入，或在 World 節點的 Inspector 中拖入角色 .tres")
+			return
+		if not player_b_character:
+			push_error("錯誤：Player B 的 CharacterData 未指定！請從 CharacterSelect 進入，或在 World 節點的 Inspector 中拖入角色 .tres")
+			return
+		print("使用編輯器預設角色：P1 = %s, P2 = %s" % [player_a_character.display_name, player_b_character.display_name])
 	
+	# 安全檢查：確保兩個角色都有 PackedScene
 	if not player_a_character.scene:
 		push_error("錯誤：Player A 的 CharacterData.scene 為空！請確認 .character.tres 資源的 Scene 欄位已拖入角色場景（如 DAV.tscn）。")
 		return
@@ -81,7 +89,6 @@ func _ready() -> void:
 	# 生成玩家（順序很重要：先生成玩家，再連接信號）
 	player_a = _spawn_player(player_a_character, Vector2(600.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_a")
 	player_b = _spawn_player(player_b_character, Vector2(1000.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_b")
-	
 	if not player_a or not player_b:
 		push_error("角色生成失敗！請檢查 CharacterData 和場景設定。")
 		return
@@ -109,7 +116,6 @@ func _ready() -> void:
 		p2_advantage_label.text = "P2 Adv: 0"
 	else:
 		print("Warning: Advantage labels not found in UI")
-	
 	if bgm_player:
 		is_bgm_enabled = true
 		bgm_player.volume_db = -80.0
@@ -130,7 +136,6 @@ func _ready() -> void:
 		frame_bar_p1.z_index = 10
 	else:
 		print("Error: FrameBarP1 not found in UI")
-	
 	if frame_bar_p2:
 		frame_bar_p2.initialize(player_b, player_a)
 		frame_bar_p2.z_index = 10
@@ -143,7 +148,7 @@ func _ready() -> void:
 		print("Warning: PositionLabel not found in UI")
 	
 	$UI/CountdownTimer.countdown_finished.connect(_on_countdown_finished)
-
+	
 func _spawn_player(char_data: CharacterData, pos: Vector2, seat: String) -> Player:
 	if not char_data or not char_data.scene:
 		push_error("CharacterData 或場景遺失：%s" % char_data)

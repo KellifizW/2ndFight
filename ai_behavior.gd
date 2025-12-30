@@ -9,7 +9,7 @@ class_name AIBehavior extends Node
 
 # 遠距離火球相關參數
 @export var fireball_distance: float = 400.0
-@export var fireball_chance: float = 0.4
+@export var fireball_chance: float = 0.2
 
 # 格擋參數
 @export var block_distance: float = 80.0

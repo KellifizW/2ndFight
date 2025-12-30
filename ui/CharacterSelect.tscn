@@ -1,0 +1,99 @@
+[gd_scene load_steps=4 format=3 uid="uid://i5216voksqg8"]
+
+[ext_resource type="Script" uid="uid://orrhoo48jjao" path="res://ui/CharacterSelect.gd" id="1_7p8hu"]
+[ext_resource type="Texture2D" uid="uid://cnu4x72p5rv62" path="res://assets/ui/char.sele.png" id="1_x0por"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_7p8hu"]
+texture = ExtResource("1_x0por")
+
+[node name="CharacterSelect" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_7p8hu")
+
+[node name="Panel" type="Panel" parent="."]
+modulate = Color(1, 1, 1, 0.39215687)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_7p8hu")
+
+[node name="MainMargin" type="MarginContainer" parent="."]
+layout_mode = 0
+offset_right = 4260.0
+offset_bottom = 2750.0
+scale = Vector2(0.3, 0.3)
+
+[node name="MainHBox" type="HBoxContainer" parent="MainMargin"]
+layout_mode = 2
+
+[node name="P1Side" type="VBoxContainer" parent="MainMargin/MainHBox"]
+custom_minimum_size = Vector2(400, 800)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="P1LargePreview" type="TextureRect" parent="MainMargin/MainHBox/P1Side"]
+custom_minimum_size = Vector2(400, 600)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="P1Name" type="Label" parent="MainMargin/MainHBox/P1Side"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+
+[node name="CenterSection" type="VBoxContainer" parent="MainMargin/MainHBox"]
+layout_mode = 2
+size_flags_horizontal = 6
+size_flags_vertical = 4
+
+[node name="Label" type="Label" parent="MainMargin/MainHBox/CenterSection"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 96
+text = "角色選擇"
+
+[node name="GridContainer" type="GridContainer" parent="MainMargin/MainHBox/CenterSection"]
+layout_mode = 2
+size_flags_vertical = 4
+columns = 3
+
+[node name="Btn0" type="TextureButton" parent="MainMargin/MainHBox/CenterSection/GridContainer"]
+custom_minimum_size = Vector2(120, 120)
+layout_mode = 2
+stretch_mode = 5
+
+[node name="Btn1" type="TextureButton" parent="MainMargin/MainHBox/CenterSection/GridContainer"]
+custom_minimum_size = Vector2(120, 120)
+layout_mode = 2
+stretch_mode = 5
+
+[node name="Btn2" type="TextureButton" parent="MainMargin/MainHBox/CenterSection/GridContainer"]
+custom_minimum_size = Vector2(120, 120)
+layout_mode = 2
+stretch_mode = 5
+
+[node name="ReadyLabel" type="Label" parent="MainMargin/MainHBox/CenterSection"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 64
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="P2Side" type="VBoxContainer" parent="MainMargin/MainHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="P2LargePreview" type="TextureRect" parent="MainMargin/MainHBox/P2Side"]
+custom_minimum_size = Vector2(400, 600)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="P2Name" type="Label" parent="MainMargin/MainHBox/P2Side"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48

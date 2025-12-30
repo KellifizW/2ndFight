@@ -310,8 +310,8 @@ shape = SubResource("RectangleShape2D_imvl6")
 
 [node name="Hitbox" type="Area2D" parent="."]
 visible = false
-collision_layer = 8
-collision_mask = 17
+collision_layer = 2
+collision_mask = 3
 
 [node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
 visible = false
@@ -320,8 +320,8 @@ debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="."]
 visible = false
-collision_layer = 32
-collision_mask = 4
+collision_layer = 2
+collision_mask = 2
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]
 visible = false

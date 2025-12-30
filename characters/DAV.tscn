@@ -3443,15 +3443,13 @@ parameters/conditions/cr_down = false
 parameters/Walk/blend_position = -0.1618452
 
 [node name="Hitbox" type="Area2D" parent="."]
-collision_layer = 4
-collision_mask = 2
 
 [node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
 position = Vector2(15, -15)
 debug_color = Color(0.050980393, 0.63529414, 0.41568628, 0)
 
 [node name="Hurtbox" type="Area2D" parent="."]
-collision_mask = 72
+collision_mask = 3
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]
 position = Vector2(10, -5)
