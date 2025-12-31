@@ -120,6 +120,7 @@ var player_anim_resets: Dictionary = {
 	"powerkk": func(): reset_special_state(),
 	"spnk": func(): reset_special_state(),
 	"dp": func(): reset_special_state(),
+	"hdk": func(): reset_special_state(),  # ← 加上這一行！
 }
 
 func _ready() -> void:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=97 format=3 uid="uid://b6x784i20q4tq"]
+[gd_scene load_steps=98 format=3 uid="uid://b6x784i20q4tq"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_ix25f"]
 [ext_resource type="Resource" uid="uid://cvb6od4v5o7vq" path="res://data/p2_attack_data.tres" id="2_jo7nc"]
@@ -1434,7 +1434,7 @@ tracks/3/keys = {
 resource_name = "fw_mp"
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_awblj"]
-size = Vector2(40, 20)
+size = Vector2(200, 50)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_rihsh"]
 size = Vector2(40, 20)
@@ -1486,10 +1486,10 @@ tracks/3/path = NodePath("Hitbox/HitShape:shape:size")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0.2, 0.8),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0.2),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(40, 20), Vector2(35, 20)]
+"values": [Vector2(200, 50)]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -1501,7 +1501,7 @@ tracks/4/keys = {
 "times": PackedFloat32Array(0.20000002),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(20, 5)]
+"values": [Vector2(100, -40)]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
@@ -1562,6 +1562,30 @@ tracks/9/keys = {
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
 "values": [Vector2(0, -6), Vector2(10, -2), Vector2(10, -8)]
+}
+tracks/10/type = "value"
+tracks/10/imported = false
+tracks/10/enabled = true
+tracks/10/path = NodePath("AnimatedSprite2D:animation")
+tracks/10/interp = 1
+tracks/10/loop_wrap = true
+tracks/10/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [&"hdk"]
+}
+tracks/11/type = "value"
+tracks/11/imported = false
+tracks/11/enabled = true
+tracks/11/path = NodePath("AnimatedSprite2D:frame")
+tracks/11/interp = 1
+tracks/11/loop_wrap = true
+tracks/11/keys = {
+"times": PackedFloat32Array(0, 0.16666669, 0.26666665, 0.4666667, 0.66666675),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
+"update": 0,
+"values": [0, 1, 2, 4, 0]
 }
 
 [sub_resource type="Animation" id="Animation_5b203"]
@@ -3168,6 +3192,9 @@ advance_condition = &"cr_down"
 switch_mode = 2
 advance_mode = 2
 
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_ix25f"]
+advance_condition = &"hdk"
+
 [sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_mbed6"]
 states/Backdash/node = SubResource("AnimationNodeAnimation_3h1ys")
 states/Backdash/position = Vector2(-73, 86)
@@ -3220,8 +3247,8 @@ states/st_mp/node = SubResource("AnimationNodeAnimation_61wwb")
 states/st_mp/position = Vector2(594, 142)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-52, 185)
-transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "st_mk", SubResource("AnimationNodeStateMachineTransition_uns0w"), "Walk", "cr_down", SubResource("AnimationNodeStateMachineTransition_8yeum"), "cr_down", "cr_idle", SubResource("AnimationNodeStateMachineTransition_2sjhs")]
-graph_offset = Vector2(-191, 24)
+transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "st_mk", SubResource("AnimationNodeStateMachineTransition_uns0w"), "Walk", "cr_down", SubResource("AnimationNodeStateMachineTransition_8yeum"), "cr_down", "cr_idle", SubResource("AnimationNodeStateMachineTransition_2sjhs"), "Walk", "hdk", SubResource("AnimationNodeStateMachineTransition_ix25f")]
+graph_offset = Vector2(-176, 16)
 
 [sub_resource type="Curve" id="Curve_i62jw"]
 _data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]
@@ -3287,6 +3314,7 @@ tree_root = SubResource("AnimationNodeStateMachine_mbed6")
 advance_expression_base_node = NodePath("..")
 anim_player = NodePath("../AnimationPlayer")
 parameters/conditions/cr_down = false
+parameters/conditions/hdk = false
 parameters/conditions/st_mk = false
 parameters/Walk/blend_position = 0.000833988
 
@@ -3352,7 +3380,7 @@ pitch_scale = 1.1
 
 [node name="HurtGruntPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("12_ydrny")
-volume_db = -5.0
+volume_db = -10.0
 
 [node name="SpecialCallPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("13_m8rlt")

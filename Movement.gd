@@ -1,5 +1,7 @@
 class_name Movement extends Node2D
 
+@onready var player: Player = owner as Player
+
 var is_crouch_transition_played: bool = false
 var healthbar: Node = null
 var world: Node
@@ -351,7 +353,7 @@ func _handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor
 		else:
 			fixed_velocity.x = 0
 
-func _handle_knockfly_layground(delta: float, _floor_y: int) -> void:
+func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
 	if is_air_hit_backjump:
 		air_hit_backjump_timer -= delta
 		var gravity: int = world.GRAVITY if world else 6000000
@@ -365,7 +367,7 @@ func _handle_knockfly_layground(delta: float, _floor_y: int) -> void:
 			is_air_hit_backjump = false
 			is_hit = true
 		return
-	
+
 	if is_knockfly:
 		knockfly_timer -= delta
 		fixed_velocity.y += int(knockfly_gravity * delta)
@@ -374,6 +376,8 @@ func _handle_knockfly_layground(delta: float, _floor_y: int) -> void:
 			fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
 		elif fixed_velocity.x < 0:
 			fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
+
+		# 關鍵修正：只要在 knockfly 狀態下著地，就強制進入 layground
 		if is_on_floor():
 			fixed_velocity = Vector2i.ZERO
 			is_knockfly = false
@@ -381,10 +385,14 @@ func _handle_knockfly_layground(delta: float, _floor_y: int) -> void:
 			layground_timer = layground_duration
 			is_knockfly_animation_finished = false
 			_update_animation_state(0, false)
-		elif knockfly_timer <= 0 and not is_on_floor():
+			return
+
+		# timer 結束但仍在空中時，只標記動畫完成
+		if knockfly_timer <= 0 and not is_on_floor():
 			is_knockfly_animation_finished = true
 			fixed_velocity.x = 0
-	
+			return
+
 	if is_layground:
 		layground_timer -= delta
 		fixed_velocity = Vector2i.ZERO
@@ -513,16 +521,16 @@ func update_facing_direction() -> void:
 	
 	var players = get_tree().get_nodes_in_group("players")
 	var other_player = null
-	for player in players:
-		if player != self:
-			other_player = player
+	for p in players:
+		if p != self:
+			other_player = p
 			break
 	
 	if other_player:
 		var self_left = global_position.x - colbox_half_width
 		var self_right = global_position.x + colbox_half_width
 		var other_left = other_player.global_position.x - other_player.colbox_half_width
-		var other_right = other_player.global_position.x + other_player.colbox_half_width
+		var other_right = other_player.global_position.x - other_player.colbox_half_width
 		var old_facing = facing_direction
 		var epsilon = 1.0
 		if self_left > other_right + epsilon:
@@ -587,10 +595,10 @@ func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, an
 	
 	if move_set and move_set.is_spmove:
 		if move_set.is_super: return "super"
-		elif move_set.is_powerkk and get_parent().character_id == "DAV": return "powerkk"
-		elif move_set.is_dp and get_parent().character_id == "DAV": return "dp"
-		elif move_set.is_spnk and get_parent().character_id == "DEN": return "spnk"
-		elif move_set.is_hdk and get_parent().character_id == "DEN": return "hdk"
+		elif player and move_set.is_powerkk and player.character_id == "DAV": return "powerkk"
+		elif player and move_set.is_spnk and player.character_id == "DEN": return "spnk"
+		elif move_set.is_hdk: return "hdk"          # ← 新增這一行
+		elif player and move_set.is_dp and player.character_id == "DAV": return "dp"
 		elif move_set.is_fireball: return "fireball"
 	
 	if is_proximity_blocking:
@@ -600,7 +608,7 @@ func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, an
 	
 	if is_attacking:
 		var atype = get("attack_type") if "attack_type" in self else "none"
-		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk", "super", "dp", "hdk"]:
+		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk", "super", "dp", "powerkk", "spnk", "fireball", "hdk"]:
 			return atype
 		return "Walk"
 	
@@ -653,7 +661,6 @@ func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 func _reset_layground_with_health_check() -> void:
 	print("Debug: layground reset triggered for %s. Checking health before wakeup transition." % name)
 	
-	# 正確方式：使用 Fighter/Player 層已經設定好的 healthbar（由 Player.gd 負責指向正確的 UI 血條）
 	var player_healthbar = self.healthbar
 	
 	if player_healthbar and player_healthbar.current_health <= 0:
@@ -661,14 +668,13 @@ func _reset_layground_with_health_check() -> void:
 		is_layground = true
 		is_knockfly = false
 		is_knockfly_animation_finished = false
-		return  # 關鍵：直接返回，阻止 wakeup
+		return
 	
 	print("Debug: %s 血量仍有剩餘，允許 wakeup。" % name)
 	is_layground = false
 	is_knockfly = false
 	is_knockfly_animation_finished = false
 	
-	# 正常 wakeup 流程
 	if "is_wakeup" in get_parent() and "is_wakeup_locked" in get_parent():
 		get_parent().is_wakeup = true
 		get_parent().is_wakeup_locked = true

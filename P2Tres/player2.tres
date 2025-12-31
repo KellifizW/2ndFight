@@ -1,4 +1,4 @@
-[gd_resource type="SpriteFrames" load_steps=272 format=3 uid="uid://5q7cfeoprqup"]
+[gd_resource type="SpriteFrames" load_steps=277 format=3 uid="uid://5q7cfeoprqup"]
 
 [ext_resource type="Texture2D" uid="uid://clrp6mltttglb" path="res://assets/HD_Den/walka.png" id="1_pg4xv"]
 [ext_resource type="Texture2D" uid="uid://i0icyvmjrxvj" path="res://assets/HD_Den/walkb.png" id="2_sqfb8"]
@@ -441,6 +441,26 @@ region = Rect2(0, 1364, 682, 682)
 [sub_resource type="AtlasTexture" id="AtlasTexture_0k267"]
 atlas = ExtResource("13_m8nou")
 region = Rect2(682, 1364, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8ip25"]
+atlas = ExtResource("26_tk3qv")
+region = Rect2(682, 0, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xidvp"]
+atlas = ExtResource("26_tk3qv")
+region = Rect2(0, 682, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ao3hn"]
+atlas = ExtResource("26_tk3qv")
+region = Rect2(682, 682, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ka22t"]
+atlas = ExtResource("26_tk3qv")
+region = Rect2(1364, 0, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_b47og"]
+atlas = ExtResource("26_tk3qv")
+region = Rect2(0, 1364, 682, 682)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_7wgpr"]
 atlas = ExtResource("14_o7k83")
@@ -1357,6 +1377,26 @@ animations = [{
 }],
 "loop": true,
 "name": &"fireball",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8ip25")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_xidvp")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ao3hn")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ka22t")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_b47og")
+}],
+"loop": true,
+"name": &"hdk",
 "speed": 5.0
 }, {
 "frames": [{
