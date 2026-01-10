@@ -1,4 +1,4 @@
-[gd_scene load_steps=99 format=3 uid="uid://c1t3ukbrnos3c"]
+[gd_scene load_steps=100 format=3 uid="uid://c1t3ukbrnos3c"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_vhfda"]
 [ext_resource type="Resource" uid="uid://dsdxakjhgv04k" path="res://data/p1_attack_data.tres" id="2_rnech"]
@@ -14,6 +14,7 @@
 [ext_resource type="AudioStream" uid="uid://bekh5vxg0gcta" path="res://audio/hurt_grunt_p1.wav" id="12_ubmh5"]
 [ext_resource type="AudioStream" uid="uid://dm1sdatl058bw" path="res://audio/powerkk_call.mp3" id="13_2tjih"]
 [ext_resource type="AudioStream" uid="uid://c60iyk1374qu3" path="res://audio/fireball_call_p1.wav" id="14_smpwk"]
+[ext_resource type="Script" uid="uid://egwxd4vd5koa" path="res://PhysicsHandler.gd" id="15_rnech"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(90, 270)
@@ -3524,3 +3525,7 @@ volume_db = -5.0
 
 [node name="FireballCallPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("14_smpwk")
+
+[node name="PhysicsHandler" type="Node" parent="."]
+script = ExtResource("15_rnech")
+metadata/_custom_type_script = "uid://egwxd4vd5koa"

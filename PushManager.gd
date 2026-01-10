@@ -17,7 +17,7 @@ class Collider:
 		center = c
 		size = s
 	
-	func is_overlapping(other: Collider, x_trigger: int, y_trigger: int) -> bool:
+	func is_overlapping(other: Collider, x_trigger: int = 0, y_trigger: int = 0) -> bool:
 		var left_a = center.x - (size.x / 2)
 		var right_a = center.x + (size.x / 2)
 		var left_b = other.center.x - (other.size.x / 2)
@@ -32,7 +32,7 @@ class Collider:
 		
 		return has_x_overlap and has_y_overlap
 
-func get_depth(a: Collider, b: Collider) -> Vector2i:
+static func get_depth(a: Collider, b: Collider) -> Vector2i:
 	var length = a.center - b.center
 	var depth = (a.size + b.size) / 2
 	depth.x -= abs(length.x)
@@ -49,95 +49,120 @@ func _physics_process(delta: float) -> void:
 	players = get_tree().get_nodes_in_group("players")
 	if players.size() < 2:
 		return
-
-	# 處理計時器
+	
+	# 先處理所有計時器與推力衰減（重要：放在碰撞處理前面）
 	for player in players:
-		if player.is_push_back:
-			if player.push_back_timer > 0:
-				player.fixed_velocity.x = int(-player.push_back_velocity * player.facing_direction * (player.push_back_timer / player.initial_push_back))
-				player.push_back_timer -= delta
-				if player.push_back_timer <= 0:
-					player.is_push_back = false
-					player.push_back_velocity = 0.0
-					player.initial_push_back = 0.0
-					player.fixed_velocity.x = 0
+		var ph = player.get_node_or_null("PhysicsHandler")
+		if not ph:
+			continue
+		
+		# 角落推回（corner pushback）
+		if ph.is_push_back:
+			if ph.push_back_timer > 0:
+				ph.fixed_velocity.x = int(-ph.push_back_velocity * player.facing_direction * (ph.push_back_timer / ph.initial_push_back))
+				ph.push_back_timer -= delta
+			if ph.push_back_timer <= 0:
+				ph.is_push_back = false
+				ph.push_back_velocity = 0.0
+				ph.initial_push_back = 0.0
+				ph.fixed_velocity.x = 0
+		
+		# hit pushback
 		if player.is_hit:
 			if player.hit_timer > 0:
 				player.hit_timer -= delta
-				if player.hit_push_timer > 0:
-					player.fixed_velocity.x = int(-player.hit_push_velocity * player.facing_direction * (player.hit_push_timer / player.initial_hitstun))
-					player.hit_push_timer -= delta
-				if player.hit_timer <= 0:
-					player.is_hit = false
-					player.hit_push_timer = 0.0
-					player.hit_push_velocity = 0.0
-					player.initial_hitstun = 0.0
-					player.fixed_velocity.x = 0
+			if ph.hit_push_timer > 0:
+				ph.fixed_velocity.x = int(-ph.hit_push_velocity * player.facing_direction * (ph.hit_push_timer / ph.initial_hitstun))
+				ph.hit_push_timer -= delta
+			if player.hit_timer <= 0:
+				player.is_hit = false
+				ph.hit_push_timer = 0.0
+				ph.hit_push_velocity = 0.0
+				ph.initial_hitstun = 0.0
+				ph.fixed_velocity.x = 0
+		
+		# block pushback
 		if player.block_timer > 0:
 			player.block_timer -= delta
-			if player.block_push_timer > 0:
-				player.fixed_velocity.x = int(-player.block_push_velocity * player.facing_direction * (player.block_push_timer / player.initial_blockstun))
-				player.block_push_timer -= delta
+			if ph.block_push_timer > 0:
+				ph.fixed_velocity.x = int(-ph.block_push_velocity * player.facing_direction * (ph.block_push_timer / ph.initial_blockstun))
+				ph.block_push_timer -= delta
 			if player.block_timer <= 0:
 				player.is_blocking = false
 				player.is_crouch_blocking = false
 				player.block_type = "none"
-				player.block_push_timer = 0.0
-				player.block_push_velocity = 0.0
-				player.initial_blockstun = 0.0
-				player.fixed_velocity.x = 0
+				ph.block_push_timer = 0.0
+				ph.block_push_velocity = 0.0
+				ph.initial_blockstun = 0.0
+				ph.fixed_velocity.x = 0
+		
+		# knockfly 處理（保持原樣）
 		if player.knockfly_timer > 0:
 			player.knockfly_timer -= delta
-			if player.is_air_hit_knockfly:
-				player.fixed_velocity.x = int(player.knockfly_velocity_x * (player.knockfly_timer / player.knockfly_duration))
+			if ph.is_air_hit_knockfly:
+				ph.fixed_velocity.x = int(ph.knockfly_velocity_x * (player.knockfly_timer / ph.knockfly_duration))
 			else:
-				player.fixed_velocity.x = int(player.knockfly_velocity_x * pow(player.knockfly_timer / player.knockfly_duration, 2))
+				ph.fixed_velocity.x = int(ph.knockfly_velocity_x * pow(player.knockfly_timer / ph.knockfly_duration, 2))
+			
 			var delta_x = abs(player.global_position.x - player.prev_position.x)
-			player.knockfly_accumulated_distance += delta_x
-			if player.knockfly_accumulated_distance >= player.knockfly_max_distance:
-				player.fixed_velocity.x = 0
-				player.knockfly_velocity_x = 0.0
+			ph.knockfly_accumulated_distance += delta_x
+			
+			if ph.knockfly_accumulated_distance >= ph.knockfly_max_distance:
+				ph.fixed_velocity.x = 0
+				ph.knockfly_velocity_x = 0.0
+			
 			if player.knockfly_timer <= 0 and player.is_knockfly:
 				var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % player.name) if get_tree().get_first_node_in_group("ui") else null
 				if healthbar and healthbar.current_health <= 0:
 					pass
 				else:
-					player.fixed_velocity.x = 0
-					player.knockfly_velocity_x = 0.0
-					player.knockfly_accumulated_distance = 0.0
-					if player.animation_player:
-						player.animation_player.speed_scale = 1.0
-
-	# 推開處理
+					ph.fixed_velocity.x = 0
+					ph.knockfly_velocity_x = 0.0
+					ph.knockfly_accumulated_distance = 0.0
+				if player.animation_player:
+					player.animation_player.speed_scale = 1.0
+	
+	# 再處理角色間推開（避免計時器與推開互相干擾）
 	for i in range(players.size()):
 		var parent = players[i]
 		var move_set = parent.get_node_or_null("MoveSet")
 		var is_penetrable = false
+		
 		if move_set:
 			var player_id = parent.player_id if "player_id" in parent else "p1"
 			is_penetrable = (player_id == "p1" and move_set.is_powerkk and move_set.is_powerkk_penetrable) or \
 							(player_id == "p2" and move_set.is_spnk and move_set.is_spnk_penetrable) or \
 							(move_set.is_dp and move_set.is_dp_penetrable)
+		
 		parent.is_being_pushed = false
 		if is_penetrable or parent.skip_pushbox:
 			continue
+		
 		for j in range(i + 1, players.size()):
 			var other = players[j]
 			var other_move_set = other.get_node_or_null("MoveSet")
 			var other_is_penetrable = false
+			
 			if other_move_set:
 				var other_player_id = other.player_id if "player_id" in other else "p1"
 				other_is_penetrable = (other_player_id == "p1" and other_move_set.is_powerkk and other_move_set.is_powerkk_penetrable) or \
 									  (other_player_id == "p2" and other_move_set.is_spnk and other_move_set.is_spnk_penetrable) or \
 									  (other_move_set.is_dp and other_move_set.is_dp_penetrable)
+			
 			if other_is_penetrable or other.skip_pushbox:
 				continue
-
+			
+			var ph_parent = parent.get_node_or_null("PhysicsHandler")
+			var ph_other = other.get_node_or_null("PhysicsHandler")
+			if not ph_parent or not ph_other:
+				continue
+			
 			var fixed_position_a = Vector2i(round(parent.global_position.x * SIMULATION_SCALE), round(parent.global_position.y * SIMULATION_SCALE))
 			var fixed_position_b = Vector2i(round(other.global_position.x * SIMULATION_SCALE), round(other.global_position.y * SIMULATION_SCALE))
 			
 			var pushbox_offset_a = parent.get_node("Pushbox").position if parent.has_node("Pushbox") else Vector2.ZERO
 			var fixed_offset_a = Vector2i(round(pushbox_offset_a.x * SIMULATION_SCALE), round(pushbox_offset_a.y * SIMULATION_SCALE))
+			
 			var pushbox_offset_b = other.get_node("Pushbox").position if other.has_node("Pushbox") else Vector2.ZERO
 			var fixed_offset_b = Vector2i(round(pushbox_offset_b.x * SIMULATION_SCALE), round(pushbox_offset_b.y * SIMULATION_SCALE))
 			
@@ -145,11 +170,11 @@ func _physics_process(delta: float) -> void:
 			var side_b = Vector2i(int(other.facing_direction), 1)
 			
 			var center_a = fixed_position_a + fixed_offset_a * side_a
-			var size_a = Vector2i(round(parent.colbox_half_width * 2 * SIMULATION_SCALE), round(parent.colbox_half_height * 2 * SIMULATION_SCALE))
+			var size_a = Vector2i(round(ph_parent.colbox_half_width * 2 * SIMULATION_SCALE), round(ph_parent.colbox_half_height * 2 * SIMULATION_SCALE))
 			var collider_a = Collider.new(center_a, size_a)
 			
 			var center_b = fixed_position_b + fixed_offset_b * side_b
-			var size_b = Vector2i(round(other.colbox_half_width * 2 * SIMULATION_SCALE), round(other.colbox_half_height * 2 * SIMULATION_SCALE))
+			var size_b = Vector2i(round(ph_other.colbox_half_width * 2 * SIMULATION_SCALE), round(ph_other.colbox_half_height * 2 * SIMULATION_SCALE))
 			var collider_b = Collider.new(center_b, size_b)
 			
 			if collider_a.is_overlapping(collider_b, 0, 0):
@@ -208,7 +233,8 @@ func _physics_process(delta: float) -> void:
 					push_vec_self = normal_x * push_amount
 					push_vec_other = -normal_x * push_amount
 				
-				if parent.just_jumped or parent.is_landing or other.just_jumped or other.is_landing:
+				if ph_parent.just_jumped or ("is_landing" in parent and parent.is_landing) or \
+				   ph_other.just_jumped or ("is_landing" in other and other.is_landing):
 					push_vec_self *= 1.0
 					push_vec_other *= 1.0
 				
@@ -216,61 +242,83 @@ func _physics_process(delta: float) -> void:
 				var new_other_fixed_x = fixed_position_b.x - push_vec_other
 				
 				if overlap_fixed_y > 0:
-					var world = get_tree().get_first_node_in_group("world")
-					if world:
-						if not parent.is_immune_to_floor_snap and abs(parent.fixed_position.y - world.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE):
-							parent.fixed_position.y = world.FLOOR_Y
-							parent.fixed_velocity.y = 0
-						if not other.is_immune_to_floor_snap and abs(other.fixed_position.y - world.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE):
-							other.fixed_position.y = world.FLOOR_Y
-							other.fixed_velocity.y = 0
+					var world_node = get_tree().get_first_node_in_group("world")
+					if world_node:
+						if not ph_parent.is_immune_to_floor_snap and abs(ph_parent.fixed_position.y - world_node.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE):
+							ph_parent.fixed_position.y = world_node.FLOOR_Y
+							ph_parent.fixed_velocity.y = 0
+						if not ph_other.is_immune_to_floor_snap and abs(ph_other.fixed_position.y - world_node.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE):
+							ph_other.fixed_position.y = world_node.FLOOR_Y
+							ph_other.fixed_velocity.y = 0
 				
-				parent.fixed_position.x = new_self_fixed_x
-				other.fixed_position.x = new_other_fixed_x
+				ph_parent.fixed_position.x = new_self_fixed_x
+				ph_other.fixed_position.x = new_other_fixed_x
 				parent.global_position.x = new_self_fixed_x / SIMULATION_SCALE
 				other.global_position.x = new_other_fixed_x / SIMULATION_SCALE
+				
 				parent.is_being_pushed = push_vec_self != 0
 				other.is_being_pushed = push_vec_other != 0
-			# 角色間最大距離限制 (1000 像素) - 只限後退 (允許前進 + 推擠)
-		if players.size() == 2:
-			var left_player = players[0] if players[0].fixed_position.x < players[1].fixed_position.x else players[1]
-			var right_player = players[1] if players[0].fixed_position.x < players[1].fixed_position.x else players[0]
+	
+	# 最大距離限制（只限制後退）
+	if players.size() == 2:
+		var ph0 = players[0].get_node_or_null("PhysicsHandler")
+		var ph1 = players[1].get_node_or_null("PhysicsHandler")
+		if not ph0 or not ph1:
+			return
 			
-			var dist_pixels = abs(left_player.global_position.x - right_player.global_position.x)
-			if dist_pixels > 1000.0 + collision_epsilon:  # 加 epsilon 防抖動
-				var target_dist_fixed = round(1000.0 * SIMULATION_SCALE)
-				
-				# right_player 後退 = velocity.x > 0 → 鎖 velocity + 拉 position
-				if right_player.fixed_velocity.x > 0:
-					right_player.fixed_velocity.x = 0
-					right_player.fixed_position.x = left_player.fixed_position.x + target_dist_fixed
-					right_player.global_position.x = right_player.fixed_position.x / SIMULATION_SCALE
-				
-				# left_player 後退 = velocity.x < 0 → 鎖 velocity + 拉 position
-				if left_player.fixed_velocity.x < 0:
-					left_player.fixed_velocity.x = 0
-					left_player.fixed_position.x = right_player.fixed_position.x - target_dist_fixed
-					left_player.global_position.x = left_player.fixed_position.x / SIMULATION_SCALE
-
+		var left_player = players[0] if ph0.fixed_position.x < ph1.fixed_position.x else players[1]
+		var right_player = players[1] if ph0.fixed_position.x < ph1.fixed_position.x else players[0]
+		
+		var left_ph = left_player.get_node("PhysicsHandler")
+		var right_ph = right_player.get_node("PhysicsHandler")
+		
+		var dist_pixels = abs(left_player.global_position.x - right_player.global_position.x)
+		if dist_pixels > 1000.0 + collision_epsilon:
+			var target_dist_fixed = round(1000.0 * SIMULATION_SCALE)
+			
+			if right_ph.fixed_velocity.x > 0:
+				right_ph.fixed_velocity.x = 0
+				right_ph.fixed_position.x = left_ph.fixed_position.x + target_dist_fixed
+				right_player.global_position.x = right_ph.fixed_position.x / SIMULATION_SCALE
+			
+			if left_ph.fixed_velocity.x < 0:
+				left_ph.fixed_velocity.x = 0
+				left_ph.fixed_position.x = right_ph.fixed_position.x - target_dist_fixed
+				left_player.global_position.x = left_ph.fixed_position.x / SIMULATION_SCALE
+	
 	# 邊界限制
 	for player in players:
+		var ph = player.get_node_or_null("PhysicsHandler")
+		if not ph:
+			continue
+			
 		var arena_left_fixed = round(arena_left * SIMULATION_SCALE)
 		var arena_right_fixed = round(arena_right * SIMULATION_SCALE)
-		var half_fixed = round(player.colbox_half_width * SIMULATION_SCALE)
-		player.fixed_position.x = clampi(player.fixed_position.x, arena_left_fixed + half_fixed, arena_right_fixed - half_fixed)
-		player.global_position.x = player.fixed_position.x / SIMULATION_SCALE
+		var half_fixed = round(ph.colbox_half_width * SIMULATION_SCALE)
+		
+		ph.fixed_position.x = clampi(ph.fixed_position.x, arena_left_fixed + half_fixed, arena_right_fixed - half_fixed)
+		player.global_position.x = ph.fixed_position.x / SIMULATION_SCALE
+		
 		player.skip_pushbox = false
 
 func is_at_corner(player: Node) -> bool:
+	var ph = player.get_node_or_null("PhysicsHandler")
+	if not ph:
+		return false
+		
 	var epsilon_fixed = round(collision_epsilon * SIMULATION_SCALE)
-	var fixed_pos_x = player.fixed_position.x
-	var half_fixed = round(player.colbox_half_width * SIMULATION_SCALE)
+	var fixed_pos_x = ph.fixed_position.x
+	var half_fixed = round(ph.colbox_half_width * SIMULATION_SCALE)
 	var arena_left_fixed = round(arena_left * SIMULATION_SCALE)
 	var arena_right_fixed = round(arena_right * SIMULATION_SCALE)
+	
 	var left_target = arena_left_fixed + half_fixed
 	var right_target = arena_right_fixed - half_fixed
+	
 	var diff_left = abs(fixed_pos_x - left_target)
 	var diff_right = abs(fixed_pos_x - right_target)
+	
 	var self_at_left = diff_left < epsilon_fixed
 	var self_at_right = diff_right < epsilon_fixed
+	
 	return self_at_left or self_at_right
