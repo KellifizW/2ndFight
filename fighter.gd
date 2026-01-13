@@ -1,12 +1,11 @@
 class_name Fighter extends Movement
-
 signal block_detected(target: String, block_type: String)
 
 static var PHYSICS_FPS: int = 60
 const DISPLAY_FPS: int = 60
 
 func _enter_tree() -> void:
-	PHYSICS_FPS = Engine.physics_ticks_per_second   # 這裡才真正賦值
+	PHYSICS_FPS = Engine.physics_ticks_per_second
 
 @onready var collision_shape = $Pushbox
 @onready var hitbox = $Hitbox/HitShape if has_node("Hitbox/HitShape") else null
@@ -17,9 +16,9 @@ var current_damage: float = 0.0
 @export var min_hitstun_duration: float = 8.0 / 60.0
 
 # ── 固定幀數控制（hitstun & blockstun 都使用）──
-var hitstun_frames: int = 0          # hitstun 固定幀數
-var blockstun_frames: int = 0        # blockstun 固定幀數
-var initial_blockstun_frames: int = 0 # 用於 push 計算
+var hitstun_frames: int = 0
+var blockstun_frames: int = 0
+var initial_blockstun_frames: int = 0
 const FPS: int = 60
 
 func sec_to_frames(seconds: float) -> int:
@@ -79,7 +78,6 @@ func _physics_process(delta: float) -> void:
 	# ── 【攻擊輸入檢查】保持舊版──
 	var input_data = get_input()
 	var is_valid_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping
-
 	if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_state and not (is_hit or is_knockfly or is_blocking):
 		if input_data.has("damage"):
 			current_damage = input_data.damage
@@ -123,7 +121,6 @@ func take_hit(
 	
 	# ── 格擋判斷（不變）──
 	if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_spmove:
-		# ...（格擋部分保持原樣，不改動）
 		is_blocking = true
 		is_crouch_blocking = input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0
 		var block_frames = max(sec_to_frames(blockstun_duration), sec_to_frames(min_hitstun_duration))
@@ -166,7 +163,6 @@ func take_hit(
 	
 	# ── 關鍵修正：空中受擊時，強制清除跳躍相關狀態，避免速度疊加 ──
 	if not is_on_floor():
-		# 取消任何正在進行的跳躍延遲或剛跳狀態
 		jump_delay_timer = 0.0
 		just_jumped = false
 		is_jumping = false
@@ -192,11 +188,9 @@ func take_hit(
 		knockfly_vertical_speed = params.vertical_speed
 		knockfly_horizontal_speed = params.horizontal_speed
 		
-		# 強制設定垂直速度（避免任何殘留跳躍速度）
 		fixed_velocity.y = int(params.vertical_speed * world.SIMULATION_SCALE)
 		fixed_position.y -= 1
 		
-		# 記錄並打印垂直速度來源
 		var final_vertical = params.vertical_speed * world.SIMULATION_SCALE
 		print("[KNOCKFLY VERTICAL SPEED] %s 被擊飛 → 垂直速度 = %d (原始: %.1f * SIMULATION_SCALE %.1f)" % [
 			name, final_vertical, params.vertical_speed, world.SIMULATION_SCALE
@@ -210,7 +204,7 @@ func take_hit(
 		_update_animation_state(0, input_data.crouch_pressed)
 		
 	else:
-		# ── 普通空中受擊 → 只觸發後跳，不會進入 knockfly ──
+		# ── 普通受擊（地面 + 非 knockfly）→ 現在加上 hit pushback ──
 		is_hit = true
 		var hit_frames = max(sec_to_frames(hitstun_duration), sec_to_frames(min_hitstun_duration))
 		hitstun_frames = hit_frames
@@ -218,14 +212,11 @@ func take_hit(
 		hit_timer = initial_hitstun
 		print("[FIXED-FRAME HITSTUN START] %s 進入 hit，%d 幀 (%.3f秒)" % [name, hit_frames, hitstun_duration])
 		
-		# 空中普通攻擊：強制使用後跳邏輯
-		is_air_hit_backjump = true
-		air_hit_backjump_timer = air_hit_backjump_duration
-		fixed_velocity.x = int(-air_hit_backjump_speed * world.SIMULATION_SCALE * facing_mult)
-		fixed_velocity.y = int(air_hit_backjump_up_speed * world.SIMULATION_SCALE)  # 只用後跳上升速度
-		is_immune_to_floor_snap = true
-		floor_snap_immunity_timer = floor_snap_immunity_duration
-		fixed_position.y -= 2
+		# 新增：計算 hit pushback（與 block 邏輯一致）
+		if not skip_push:
+			hit_push_timer = hitstun_duration
+			hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / hitstun_duration
+			print("[HIT PUSH] %s 設定 velocity = %d, timer = %.3f" % [name, hit_push_velocity, hit_push_timer])
 		
 		_update_animation_state(0, input_data.crouch_pressed)
 

@@ -204,7 +204,7 @@ func _physics_process(delta: float) -> void:
 					elif other_at_right:
 						push_vec_self = push_amount
 				else:
-					var push_amount = push_distance_fixed * 0.6 + 1
+					var push_amount = push_distance_fixed * 0.5 + 1
 					push_vec_self = normal_x * push_amount
 					push_vec_other = -normal_x * push_amount
 				

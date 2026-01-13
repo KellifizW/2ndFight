@@ -101,7 +101,7 @@ var block_push_velocity: float = 0.0
 @export var hit_push_distance: float = 250.0
 var hit_push_timer: float = 0.0
 var initial_hitstun: float = 0.0
-var hit_push_velocity: float = 0.0
+var hit_push_velocity: float = 100.0
 
 # ── 方向與防禦 ───────────────────────────
 var facing_direction: float = 1.0
