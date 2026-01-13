@@ -91,17 +91,9 @@ var is_proximity_blocking: bool = false
 
 # ── 推擠參數 ──────────────────────────────
 @export_group("Push Parameters")
-@export var block_push_distance: float = 250.0
 var is_immune_to_floor_snap: bool = false
 var floor_snap_immunity_timer: float = 0.0
 @export var floor_snap_immunity_duration: float = 0.1
-var block_push_timer: float = 0.0
-var initial_blockstun: float = 0.0
-var block_push_velocity: float = 0.0
-@export var hit_push_distance: float = 250.0
-var hit_push_timer: float = 0.0
-var initial_hitstun: float = 0.0
-var hit_push_velocity: float = 100.0
 
 # ── 方向與防禦 ───────────────────────────
 var facing_direction: float = 1.0
