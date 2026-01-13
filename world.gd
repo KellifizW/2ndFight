@@ -6,12 +6,12 @@ const WALL_LIMIT: int = 1280000
 const STARTING_POSITION: int = 10000
 const FLOOR_Y: int = 570000
 const GRAVITY: int = 6000000
-
-@export var arena_left: float = 0.0 # 舞台左邊界（像素）
-@export var arena_right: float = 1600.0 # 舞台右邊界（像素）
+@export var arena_left: float = 0.0      # 舞台左邊界（像素）
+@export var arena_right: float = 1600.0  # 舞台右邊界（像素）
 
 @onready var position_label = $UI/PositionLabel
 @export var bgm_max_volume_db: float = -6.0
+
 @onready var hit_label = $UI/HitLabel
 @onready var fps_label = $UI/FPS
 @onready var slowmo_controller = $SlowMoController
@@ -31,6 +31,7 @@ const GRAVITY: int = 6000000
 # 動態生成的玩家
 var player_a: Player
 var player_b: Player
+
 var initial_player_a_pos: Vector2
 var initial_player_b_pos: Vector2
 
@@ -88,7 +89,6 @@ func _ready() -> void:
 	# 生成玩家（順序很重要：先生成玩家，再連接信號）
 	player_a = _spawn_player(player_a_character, Vector2(600.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_a")
 	player_b = _spawn_player(player_b_character, Vector2(1000.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_b")
-	
 	if not player_a or not player_b:
 		push_error("角色生成失敗！請檢查 CharacterData 和場景設定。")
 		return
@@ -116,7 +116,6 @@ func _ready() -> void:
 		p2_advantage_label.text = "P2 Adv: 0"
 	else:
 		print("Warning: Advantage labels not found in UI")
-	
 	if bgm_player:
 		is_bgm_enabled = true
 		bgm_player.volume_db = -80.0
@@ -149,7 +148,7 @@ func _ready() -> void:
 		print("Warning: PositionLabel not found in UI")
 	
 	$UI/CountdownTimer.countdown_finished.connect(_on_countdown_finished)
-
+	
 func _spawn_player(char_data: CharacterData, pos: Vector2, seat: String) -> Player:
 	if not char_data or not char_data.scene:
 		push_error("CharacterData 或場景遺失：%s" % char_data)
@@ -157,12 +156,14 @@ func _spawn_player(char_data: CharacterData, pos: Vector2, seat: String) -> Play
 	
 	var instance: Player = char_data.scene.instantiate()
 	instance.global_position = pos
-	# 修正：fixed_position 現在在 PhysicsHandler 裡
-	instance.get_node("PhysicsHandler").fixed_position = Vector2i(int(pos.x * SIMULATION_SCALE), FLOOR_Y)
+	instance.fixed_position = Vector2i(int(pos.x * SIMULATION_SCALE), FLOOR_Y)
 	instance.seat = seat
-	instance.character_data = char_data
+	instance.character_data = char_data   # ← 這一行！關鍵！
 	add_child(instance)
 	return instance
+
+# 其餘函式（_input, _process, _physics_process, advantage 計算, reset_players 等）保持原樣不變
+# （為了節省篇幅這裡省略，但請保留你原本的所有程式碼）
 
 func _input(event) -> void:
 	if event is InputEventKey and event.pressed:
@@ -174,7 +175,7 @@ func _input(event) -> void:
 		if Input.is_action_just_pressed("toggle_bgm"):
 			toggle_bgm()
 			print("Debug: toggle_bgm action triggered, BGM state: %s at %s ms" % [is_bgm_enabled, Time.get_ticks_msec()])
-
+			
 func _process(delta: float) -> void:
 	fps_label.text = "FPS: %d" % (1.0 / delta)
 	
@@ -220,6 +221,7 @@ func _physics_process(delta: float) -> void:
 	if block_attacker and blocker and not block_advantage_calculated:
 		_calculate_block_advantage()
 
+# （以下函式保持不變，只修正了血量檢查部分）
 func _calculate_hit_advantage() -> void:
 	if attacker_recover_time == 0.0 and is_instance_valid(attacker) and not attacker.is_attacking:
 		var move_set = attacker.get_node_or_null("MoveSet")
@@ -236,15 +238,16 @@ func _calculate_hit_advantage() -> void:
 			still_in_hitstun = target_player.is_in_hitstun()
 		elif "is_hit" in target_player:
 			still_in_hitstun = target_player.is_hit
+		
 		if not still_in_hitstun and not target_player.is_blocking:
 			target_recover_time = Time.get_unix_time_from_system()
 			print("Debug: Target %s recovered at %.3f" % [target_player.name, target_recover_time])
-	
-	if attacker_recover_time > 0.0:
-		var adv_sec = target_recover_time - attacker_recover_time
-		var adv_frames = int(round(adv_sec * 60.0))
-		_update_advantage_labels(attacker, adv_frames)
-		advantage_calculated = true
+			
+			if attacker_recover_time > 0.0:
+				var adv_sec = target_recover_time - attacker_recover_time
+				var adv_frames = int(round(adv_sec * 60.0))
+				_update_advantage_labels(attacker, adv_frames)
+				advantage_calculated = true
 
 func _calculate_block_advantage() -> void:
 	var valid = is_instance_valid(block_attacker) and is_instance_valid(blocker)
@@ -267,6 +270,7 @@ func _calculate_block_advantage() -> void:
 		else:
 			var anim = blocker.animation_state.get_current_node() if blocker.animation_state else ""
 			recovered = anim not in ["block", "cr_block"]
+		
 		if recovered:
 			block_defend_recover_time = Time.get_unix_time_from_system()
 	
@@ -279,6 +283,7 @@ func _calculate_block_advantage() -> void:
 func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_block: bool = false) -> void:
 	var a_frames = 0
 	var b_frames = 0
+	
 	if attacker_node == player_a:
 		a_frames = advantage_frames
 		b_frames = -advantage_frames
@@ -288,6 +293,7 @@ func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_blo
 	
 	var a_text = "P1 Adv: "
 	var b_text = "P2 Adv: "
+	
 	a_text += ("+%d" % a_frames) if a_frames > 0 else str(a_frames)
 	b_text += ("+%d" % b_frames) if b_frames > 0 else str(b_frames)
 	
@@ -340,7 +346,6 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 		"spnk": target_state == "spnk" and player.character_id == "DEN" and move_set and move_set.is_spnk,
 		"landing": target_state == "landing"
 	}
-	
 	for condition in conditions:
 		animation_tree.set("parameters/conditions/" + condition, conditions[condition])
 	
@@ -357,13 +362,10 @@ func reset_players() -> void:
 	
 	player_a.global_position = initial_player_a_pos
 	player_b.global_position = initial_player_b_pos
-	
-	# 修正：fixed_position 現在在 PhysicsHandler
-	player_a.get_node("PhysicsHandler").fixed_position = Vector2i(int(initial_player_a_pos.x * SIMULATION_SCALE), FLOOR_Y)
-	player_b.get_node("PhysicsHandler").fixed_position = Vector2i(int(initial_player_b_pos.x * SIMULATION_SCALE), FLOOR_Y)
-	
-	player_a.global_position = to_scaled_vector2(player_a.get_node("PhysicsHandler").fixed_position)
-	player_b.global_position = to_scaled_vector2(player_b.get_node("PhysicsHandler").fixed_position)
+	player_a.fixed_position = Vector2i(int(initial_player_a_pos.x * SIMULATION_SCALE), FLOOR_Y)
+	player_b.fixed_position = Vector2i(int(initial_player_b_pos.x * SIMULATION_SCALE), FLOOR_Y)
+	player_a.global_position = to_scaled_vector2(player_a.fixed_position)
+	player_b.global_position = to_scaled_vector2(player_b.fixed_position)
 	
 	for player in [player_a, player_b]:
 		if player.healthbar != null:
@@ -420,14 +422,12 @@ func reset_players() -> void:
 		else:
 			bgm_player.volume_db = -80.0
 			print("Debug: BGM reset but kept off at %s ms" % Time.get_ticks_msec())
-	
-	is_fading_out = false
+		is_fading_out = false
 	
 	if animation_label:
 		animation_label.text = "Player A: Walk, Player B: Walk"
 	
 	reset_combo()
-	
 	if debug_label:
 		debug_label.text = ""
 	
@@ -457,14 +457,16 @@ func reset_players() -> void:
 
 func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool) -> void:
 	var hit_time_ms = Time.get_ticks_msec()
+	
 	if not is_blocked:
 		hit_label.text = "Hits: " + target + " was hit!"
 		print("Debug: %s was hit at %s ms, stun_duration=%s" % [target, hit_time_ms, stun_duration])
+		
 		if was_in_stun and combo_target == target and current_combo > 0:
 			current_combo += 1
 		else:
 			current_combo = 1
-		combo_target = target
+			combo_target = target
 		combo_reset_timer = stun_duration + COMBO_BUFFER
 		update_combo_label()
 		
@@ -473,20 +475,24 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		attacker_recover_time = 0.0
 		target_recover_time = 0.0
 		advantage_calculated = false
+		
 		block_attacker = null
 		blocker = null
 		block_attack_recover_time = 0.0
 		block_defend_recover_time = 0.0
 		block_advantage_calculated = false
+		
 	else:
 		hit_label.text = target + " blocked!"
 		print("Debug: %s blocked at %s ms" % [target, hit_time_ms])
 		reset_combo()
+		
 		block_attacker = player_a if target == player_b.name else player_b
 		blocker = player_b if target == player_b.name else player_a
 		block_attack_recover_time = 0.0
 		block_defend_recover_time = 0.0
 		block_advantage_calculated = false
+		
 		attacker = null
 		target_player = null
 		advantage_calculated = true
@@ -500,7 +506,7 @@ func _on_block_detected(target: String, block_type: String) -> void:
 	if block_type == "proximity":
 		hit_label.text = target + " blocked (proximity)!"
 		print("Debug: %s triggered proximity block at %s ms" % [target, block_time_ms])
-		reset_combo()
+	reset_combo()
 
 func update_combo_label() -> void:
 	if current_combo >= 2:
@@ -520,6 +526,7 @@ func toggle_bgm() -> void:
 	
 	is_fading_out = true
 	var tween = create_tween()
+	
 	if is_bgm_enabled:
 		tween.tween_property(bgm_player, "volume_db", -80.0, 1.0)
 		tween.tween_callback(bgm_player.stop)

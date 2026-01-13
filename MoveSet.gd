@@ -4,17 +4,14 @@ class_name MoveSet extends Node
 @export var is_spnk_penetrable: bool = true
 @export var is_fireball_penetrable: bool = true
 @export var is_dp_penetrable: bool = true
-
 @export var fireball_y_offset: float = -40.0
 @export var fireball_x_offset: float = 40.0
 @export var fireball_spawn_delay: float = 0.2667
-
 @export var super_duration: float = 2.6
 @export var super_move_distance: float = 200.0
 @export var super_gravity: float = 200000.0
 @export var super_jump_delay: float = 0.9
 @export var super_jump_vertical_speed: float = -210.0
-
 @export var dp_duration: float = 0.9
 @export var dp_jump_delay: float = 0.0667
 @export var dp_horizontal_move: float = 100.0
@@ -56,12 +53,12 @@ var powerkk_damage: float = 12.0
 var spnk_damage: float = 12.0
 var fireball_damage: float = 10.0
 var super_damage: float = 5.0
-var hdk_damage: float = 15.0
+var hdk_damage: float = 15.0  # ← 新增 HDK 傷害，可自行調整
 
 # Move distances
 var powerkk_move_distance: float = 300.0
 var spnk_move_distance: float = 250.0
-var hdk_move_distance: float = 200.0
+var hdk_move_distance: float = 200.0  # ← 新增 HDK 前衝距離，可自行調整
 
 # Freeze
 var super_freeze_time: float = 0.3
@@ -70,7 +67,7 @@ var super_freeze_time: float = 0.3
 var powerkk_time: float = 0.933
 var spnk_time: float = 1.2
 var fireball_time: float = 0.3
-var hdk_time: float = 1.1
+var hdk_time: float = 1.1  # ← HDK 預設持續時間，可自行調整
 
 # Initial state caches
 var powerkk_initial_facing: float = 0.0
@@ -103,7 +100,6 @@ func _ready() -> void:
 					var path = anim.track_get_path(i)
 					if path.get_subname_count() > 0 and path.get_subname(0) == "Sprite2D:transform/scale.x":
 						push_warning("Animation '%s' modifies Sprite2D scale.x — may conflict with code" % anim_name)
-		
 		if not animation_player.animation_finished.is_connected(_on_spmove_animation_finished):
 			animation_player.animation_finished.connect(_on_spmove_animation_finished)
 	
@@ -111,7 +107,6 @@ func _ready() -> void:
 		parent.hit_detected.connect(_on_hit_detected)
 	
 	is_special_moving = false
-	
 	var special_player = parent.get_node_or_null("SpecialCallPlayer")
 	var fireball_player = parent.get_node_or_null("FireballCallPlayer")
 	if special_player: special_player.volume_db = 0.0
@@ -130,10 +125,10 @@ func _start_special(
 	is_projectile: bool = false
 ) -> void:
 	var character_id = parent.character_id if "character_id" in parent else "UNKNOWN"
+	
 	if character_id_req != "*" and character_id != character_id_req:
 		print("[MoveSet] %s 嘗試使用 %s，但角色不符（需要 %s）" % [parent.name, move_name, character_id_req])
 		return
-	
 	if parent.is_attacking or is_spmove:
 		print("[MoveSet] %s 無法使用 %s：正在攻擊或已有特殊招" % [parent.name, move_name])
 		return
@@ -146,7 +141,6 @@ func _start_special(
 	var duration = default_duration
 	if animation_player and animation_player.has_animation(move_name):
 		duration = max(animation_player.get_animation(move_name).length, 0.016)
-	
 	set(move_name + "_time", duration)
 	set(move_name + "_timer", duration)
 	
@@ -163,18 +157,15 @@ func _start_special(
 		parent.is_special_moving = true
 	
 	var world = get_tree().get_first_node_in_group("world")
-	var ph = parent.get_node("PhysicsHandler")
-	
 	if world:
 		if move_distance > 0:
-			ph.fixed_velocity.x = int((move_distance / duration) * world.SIMULATION_SCALE * parent.facing_direction)
+			parent.fixed_velocity.x = int((move_distance / duration) * world.SIMULATION_SCALE * parent.facing_direction)
 		else:
-			ph.fixed_velocity = Vector2i.ZERO
+			parent.fixed_velocity = Vector2i.ZERO
 	else:
-		ph.fixed_velocity = Vector2i.ZERO
+		parent.fixed_velocity = Vector2i.ZERO
 	
 	animation_player.play(move_name)
-	
 	if is_freeze:
 		freeze_game(super_freeze_time)
 	
@@ -184,6 +175,7 @@ func _start_special(
 	
 	if is_projectile:
 		fireball_spawn_timer = fireball_spawn_delay
+		parent.fixed_position.y = world.FLOOR_Y
 	
 	print("[MoveSet] 成功啟動 %s！角色：%s，持續時間：%.3f" % [move_name, character_id, duration])
 
@@ -263,42 +255,36 @@ func stop_special_move() -> void:
 	powerkk_timer = 0.0
 	spnk_timer = 0.0
 	hdk_timer = 0.0
-	
 	has_jumped_in_super = false
 	has_jumped_in_dp = false
 	
 	animation_player.stop()
 	
-	if "is_facing_locked" in parent:
+	if "is_facing_locked" in parent: 
 		parent.is_facing_locked = false
-	if "is_special_moving" in parent:
+	if "is_special_moving" in parent: 
 		parent.is_special_moving = false
 	
 	parent.force_update_facing_direction()
-	
-	var ph = parent.get_node("PhysicsHandler")
-	ph.fixed_velocity = Vector2i.ZERO
+	parent.fixed_velocity = Vector2i.ZERO
 	
 	var world = get_tree().get_first_node_in_group("world")
-	if world and parent.is_jumping and ph.fixed_position.y >= world.FLOOR_Y:
+	if world and parent.is_jumping and parent.fixed_position.y >= world.FLOOR_Y:
 		parent.is_jumping = false
-		ph.fixed_velocity.y = 0
-		ph.fixed_position.y = world.FLOOR_Y
+		parent.fixed_velocity.y = 0
+		parent.fixed_position.y = world.FLOOR_Y
 
 # === Main process ===
 func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) -> bool:
 	if parent.is_hit or parent.is_knockfly:
 		if is_spmove: stop_special_move()
 		return false
-	
 	if not is_valid_state: return false
 	
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
 		push_warning("World node missing")
 		return false
-	
-	var ph = parent.get_node("PhysicsHandler")
 	
 	# Input triggers
 	if input_data.get("super_pressed", false) and not parent.is_attacking and not is_spmove and parent.character_id == "DAV":
@@ -328,23 +314,21 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if is_dp:
 		dp_timer -= delta
 		dp_jump_timer -= delta
+		parent.fixed_position.x += int(parent.fixed_velocity.x * delta)
+		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		
-		ph.fixed_position.x += int(ph.fixed_velocity.x * delta)
-		parent.global_position = world.to_scaled_vector2(ph.fixed_position)
-		
-		if dp_jump_timer <= 0 and not parent.is_jumping and ph.fixed_position.y == world.FLOOR_Y and not has_jumped_in_dp:
-			ph.fixed_velocity.y = int(dp_vertical_speed * world.SIMULATION_SCALE)
-			ph.fixed_position.y = world.FLOOR_Y - 1
+		if dp_jump_timer <= 0 and not parent.is_jumping and parent.fixed_position.y == world.FLOOR_Y and not has_jumped_in_dp:
+			parent.fixed_velocity.y = int(dp_vertical_speed * world.SIMULATION_SCALE)
+			parent.fixed_position.y = world.FLOOR_Y - 1
 			parent.is_jumping = true
 			has_jumped_in_dp = true
 		
-		if ph.fixed_position.y < world.FLOOR_Y:
-			ph.fixed_velocity.y += int(world.GRAVITY * delta)
-		
-		if ph.fixed_position.y >= world.FLOOR_Y:
-			ph.fixed_position.y = world.FLOOR_Y
-			ph.fixed_velocity.y = 0
-			parent.is_jumping = false
+		if parent.fixed_position.y < world.FLOOR_Y:
+			parent.fixed_velocity.y += int(world.GRAVITY * delta)
+			if parent.fixed_position.y >= world.FLOOR_Y:
+				parent.fixed_position.y = world.FLOOR_Y
+				parent.fixed_velocity.y = 0
+				parent.is_jumping = false
 		
 		if dp_timer <= 0:
 			stop_special_move()
@@ -379,23 +363,21 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if is_super:
 		super_timer -= delta
 		super_jump_timer -= delta
+		parent.fixed_position.x += int(parent.fixed_velocity.x * delta)
+		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		
-		ph.fixed_position.x += int(ph.fixed_velocity.x * delta)
-		parent.global_position = world.to_scaled_vector2(ph.fixed_position)
-		
-		if super_jump_timer <= 0 and not parent.is_jumping and ph.fixed_position.y == world.FLOOR_Y and not has_jumped_in_super:
-			ph.fixed_velocity.y = int(super_jump_vertical_speed * world.SIMULATION_SCALE)
-			ph.fixed_position.y = world.FLOOR_Y - 1
+		if super_jump_timer <= 0 and not parent.is_jumping and parent.fixed_position.y == world.FLOOR_Y and not has_jumped_in_super:
+			parent.fixed_velocity.y = int(super_jump_vertical_speed * world.SIMULATION_SCALE)
+			parent.fixed_position.y = world.FLOOR_Y - 1
 			parent.is_jumping = true
 			has_jumped_in_super = true
 		
-		if ph.fixed_position.y < world.FLOOR_Y:
-			ph.fixed_velocity.y += int(super_gravity * delta)
-		
-		if ph.fixed_position.y >= world.FLOOR_Y:
-			ph.fixed_position.y = world.FLOOR_Y
-			ph.fixed_velocity.y = 0
-			parent.is_jumping = false
+		if parent.fixed_position.y < world.FLOOR_Y:
+			parent.fixed_velocity.y += int(super_gravity * delta)
+			if parent.fixed_position.y >= world.FLOOR_Y:
+				parent.fixed_position.y = world.FLOOR_Y
+				parent.fixed_velocity.y = 0
+				parent.is_jumping = false
 		
 		if super_timer <= 0:
 			stop_special_move()
@@ -405,15 +387,14 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if is_powerkk or is_spnk:
 		var timer_ref = powerkk_timer if is_powerkk else spnk_timer
 		
-		if ph.fixed_position.y < world.FLOOR_Y:
-			ph.fixed_velocity.y += int(world.GRAVITY * delta)
+		if parent.fixed_position.y < world.FLOOR_Y:
+			parent.fixed_velocity.y += int(world.GRAVITY * delta)
+			if parent.fixed_position.y >= world.FLOOR_Y:
+				parent.fixed_position.y = world.FLOOR_Y
+				parent.fixed_velocity.y = 0
 		
-		if ph.fixed_position.y >= world.FLOOR_Y:
-			ph.fixed_position.y = world.FLOOR_Y
-			ph.fixed_velocity.y = 0
-		
-		ph.fixed_position.x += int(ph.fixed_velocity.x * delta)
-		parent.global_position = world.to_scaled_vector2(ph.fixed_position)
+		parent.fixed_position.x += int(parent.fixed_velocity.x * delta)
+		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		
 		timer_ref -= delta
 		if is_powerkk:
@@ -427,15 +408,14 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	
 	# === HDK ===
 	if is_hdk:
-		if ph.fixed_position.y < world.FLOOR_Y:
-			ph.fixed_velocity.y += int(world.GRAVITY * delta)
+		if parent.fixed_position.y < world.FLOOR_Y:
+			parent.fixed_velocity.y += int(world.GRAVITY * delta)
+			if parent.fixed_position.y >= world.FLOOR_Y:
+				parent.fixed_position.y = world.FLOOR_Y
+				parent.fixed_velocity.y = 0
 		
-		if ph.fixed_position.y >= world.FLOOR_Y:
-			ph.fixed_position.y = world.FLOOR_Y
-			ph.fixed_velocity.y = 0
-		
-		ph.fixed_position.x += int(ph.fixed_velocity.x * delta)
-		parent.global_position = world.to_scaled_vector2(ph.fixed_position)
+		parent.fixed_position.x += int(parent.fixed_velocity.x * delta)
+		parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 		
 		hdk_timer -= delta
 		if hdk_timer <= 0:
@@ -475,4 +455,4 @@ func get_special_damage() -> float:
 	if is_fireball: return fireball_damage
 	if is_super: return super_damage
 	if is_dp: return dp_damage
-	return 0.0
+	return 0.0 
