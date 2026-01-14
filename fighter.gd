@@ -11,8 +11,8 @@ func _enter_tree() -> void:
 @onready var collision_shape = $Pushbox
 @onready var hitbox = $Hitbox/HitShape if has_node("Hitbox/HitShape") else null
 @onready var proximitybox = $Proximitybox/ProxShape if has_node("Proximitybox/ProxShape") else null
-@export var block_push_distance: float = 400.0
-@export var hit_push_distance: float = 400.0
+@export var block_push_distance: float = 100.0
+@export var hit_push_distance: float = 100.0
 var block_push_timer: float = 0.0
 var block_push_velocity: float = 0.0
 var initial_blockstun: float = 0.0
