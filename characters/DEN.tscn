@@ -1994,7 +1994,7 @@ tracks/16/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_gwt7q"]
-size = Vector2(180, 50)
+size = Vector2(40, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_fqpan"]
 size = Vector2(40, 20)
@@ -3245,11 +3245,11 @@ states/spnk/position = Vector2(720, 227)
 states/st_mk/node = SubResource("AnimationNodeAnimation_8caby")
 states/st_mk/position = Vector2(612, 90)
 states/st_mp/node = SubResource("AnimationNodeAnimation_61wwb")
-states/st_mp/position = Vector2(594, 142)
+states/st_mp/position = Vector2(595.25, 142.31247)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-52, 185)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "st_mk", SubResource("AnimationNodeStateMachineTransition_uns0w"), "Walk", "cr_down", SubResource("AnimationNodeStateMachineTransition_8yeum"), "cr_down", "cr_idle", SubResource("AnimationNodeStateMachineTransition_2sjhs"), "Walk", "hdk", SubResource("AnimationNodeStateMachineTransition_ix25f")]
-graph_offset = Vector2(-176, 16)
+graph_offset = Vector2(-249, 39)
 
 [sub_resource type="Curve" id="Curve_i62jw"]
 _data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]
