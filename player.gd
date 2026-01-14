@@ -4,7 +4,7 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 
 @export var character_data: CharacterData      # 在角色場景中拖入對應的 .character.tres
 @export var is_ai_controlled: bool = false
-@export var corner_push_distance: float = 250.0
+@export var corner_push_distance: float = 100.0
 @export var cancel_window_duration: float = 0.3
 @export var skip_pushbox: bool = false
 @export var attack_data: AttackData
