@@ -23,14 +23,11 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 @onready var player_controller = $PlayerController if has_node("PlayerController") else null
 
-# 新增：由 world.gd 動態生成時設定，決定這個角色是左邊還是右邊玩家
 var seat: String = "player_a"  # "player_a" 或 "player_b"
 
-# 角色唯一 ID（例如 "DAV" 或 "DEN"），用來判斷特殊招式
 var character_id: String:
 	get: return character_data.short_id if character_data else "UNKNOWN"
 
-# ── 狀態旗標 ─────────────────────
 var current_mode: String = "ground_stand"
 var attack_type: String = "none"
 var is_landing: bool = false
@@ -50,20 +47,19 @@ var special_input_data: Dictionary = {
 	"super_pressed": false
 }
 
-# ── 重置函式 ─────────────────────
 func reset_attack_state() -> void:
 	is_attacking = false
 	attack_type = "none"
 	cancel_window_timer = 0.0
 	update_facing_direction()
-	_update_animation_state(0, false)
+	_call_animation_director_update(0, false)
 
 func reset_landing_state() -> void:
 	is_landing = false
 	landing_lock_timer = 0.0
 	landing_facing_lock = false
 	update_facing_direction()
-	_update_animation_state(0, false)
+	_call_animation_director_update(0, false)
 
 func reset_air_state() -> void:
 	if is_on_floor():
@@ -74,7 +70,7 @@ func reset_air_state() -> void:
 			or input_data.st_mp_pressed or input_data.st_mk_pressed
 			or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed):
 			is_landing = false
-			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+			_call_animation_director_update(input_data.input_dir, input_data.crouch_pressed)
 		else:
 			is_landing = true
 			landing_lock_timer = landing_duration
@@ -84,14 +80,14 @@ func reset_special_state() -> void:
 		move_set.stop_special_move()
 	is_facing_locked = false
 	force_update_facing_direction()
-	_update_animation_state(0, false)
+	_call_animation_director_update(0, false)
 
 var player_anim_resets: Dictionary = {
 	"wakeup": func():
 		is_wakeup = false
 		is_wakeup_locked = false
 		is_landing = false
-		_update_animation_state(0, false),
+		_call_animation_director_update(0, false),
 	"landing": func(): reset_landing_state(),
 	"st_mp": func(): reset_attack_state(),
 	"st_mk": func(): reset_attack_state(),
@@ -109,7 +105,7 @@ var player_anim_resets: Dictionary = {
 				is_landing = false
 				landing_facing_lock = false
 				update_facing_direction()
-				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+				_call_animation_director_update(input_data.input_dir, input_data.crouch_pressed)
 			else:
 				is_landing = true
 				landing_lock_timer = landing_duration,
@@ -120,7 +116,7 @@ var player_anim_resets: Dictionary = {
 	"powerkk": func(): reset_special_state(),
 	"spnk": func(): reset_special_state(),
 	"dp": func(): reset_special_state(),
-	"hdk": func(): reset_special_state(),  # ← 加上這一行！
+	"hdk": func(): reset_special_state(),
 }
 
 func _ready() -> void:
@@ -128,20 +124,22 @@ func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
 	if has_node("Hitbox"):
 		$Hitbox.area_entered.connect(_on_hitbox_area_entered)
-	if animation_tree:
-		animation_tree.animation_finished.connect(_on_animation_tree_finished)
-		animation_tree.active = true
-		animation_state.travel("Walk")
+	
+	# 改為監聽 AnimationDirector 的 animation_finished 信號
+	var anim_director = get_node_or_null("AnimationDirector")
+	if anim_director:
+		anim_director.animation_finished.connect(_on_animation_tree_finished)
+	
 	add_to_group("players")
 	if player_controller:
-		player_controller.player_seat = seat  # ← 這一行一定要加！
+		player_controller.player_seat = seat
 	hit_detected.connect(_on_hit_detected)
 	skip_pushbox = false
 	
 	var ui_root = get_tree().get_first_node_in_group("ui")
 	if ui_root:
 		healthbar = ui_root.get_node("PlayerAHealthbar" if seat == "player_a" else "PlayerBHealthbar")
-		
+
 func set_input_data(data: Dictionary) -> void:
 	special_input_data = data
 
@@ -175,46 +173,49 @@ func _physics_process(delta: float) -> void:
 		$InputManager.update_input()
 	super._physics_process(delta)
 	if not world: return
-
+	
 	if is_air_attacking and is_on_floor():
 		is_air_attacking = false
 		has_air_attacked = false
-
+	
 	if cancel_window_timer > 0:
 		cancel_window_timer -= delta
 		if cancel_window_timer <= 0:
 			cancel_window_timer = 0.0
-
+	
 	var input_data = get_input()
 	input_data.merge(special_input_data, true)
-
+	
 	if input_data.spm2_pressed or input_data.dp_pressed or input_data.spm1_pressed or input_data.super_pressed:
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
-
+	
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup and not is_layground
-
+	
 	if move_set and move_set.is_spmove:
 		is_attacking = false
 		attack_type = "none"
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
-
-	if is_attacking and animation_state.get_current_node() in ["st_mp", "st_mk", "cr_mp", "cr_mk"]:
-		input_data.st_mp_pressed = false
-		input_data.st_mk_pressed = false
-
-	# 取消判定：現在用 character_id 判斷誰有這招（DAV 有 st_mp → powerkk 取消）
+	
+	# 這裡原本檢查 animation_state.get_current_node()，現在改用 AnimationDirector 的 animation_state
+	var anim_director = get_node_or_null("AnimationDirector")
+	if is_attacking and anim_director and anim_director.animation_state:
+		var current_anim = anim_director.animation_state.get_current_node()
+		if current_anim in ["st_mp", "st_mk", "cr_mp", "cr_mk"]:
+			input_data.st_mp_pressed = false
+			input_data.st_mk_pressed = false
+	
 	if character_id == "DAV" and is_attacking and attack_type == "st_mp" and cancel_window_timer > 0 and input_data.spm1_pressed:
 		stop_attack()
-
+	
 	if move_set and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
-
+	
 	if cancel_window_timer > 0:
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
-
+	
 	if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_ground_state:
 		force_update_facing_direction()
 		if is_crouching:
@@ -237,7 +238,7 @@ func _physics_process(delta: float) -> void:
 				attack_type = "st_mk"
 		if not is_push_back:
 			fixed_velocity.x = 0
-
+	
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked and not is_layground
 	if input_data.st_mp_pressed and is_valid_air_state:
 		current_damage = ATTACK_TABLE["jump_mp"].damage
@@ -249,7 +250,7 @@ func _physics_process(delta: float) -> void:
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mk"
-
+	
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
 		if is_landing and (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or
@@ -259,10 +260,15 @@ func _physics_process(delta: float) -> void:
 			landing_lock_timer = 0.0
 			landing_facing_lock = false
 			update_facing_direction()
-			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-
+			_call_animation_director_update(input_data.input_dir, input_data.crouch_pressed)
+	
 	if not (landing_lock_timer > 0):
-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+		_call_animation_director_update(input_data.input_dir, input_data.crouch_pressed)
+
+func _call_animation_director_update(dir_x: float, crouch_input: bool) -> void:
+	var anim_director = get_node_or_null("AnimationDirector")
+	if anim_director:
+		anim_director.update_animation_state(dir_x, crouch_input)
 
 func _physics_process_jump(_delta: float) -> void:
 	var input_data = get_input()
@@ -278,41 +284,6 @@ func _physics_process_jump(_delta: float) -> void:
 			else:
 				fixed_velocity.x = 0
 
-func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
-	if is_layground: return "layground"
-	if is_knockfly: return "knockfly"
-	if is_wakeup_locked: return "wakeup"
-	if is_hit:
-		if not on_floor and ("is_air_hit_backjump" in self and self.is_air_hit_backjump):
-			return "Jump_B"
-		return "hit" if on_floor else "Jump_B"
-
-	if move_set and move_set.is_spmove:
-		if move_set.is_super: return "super"
-		elif character_id == "DAV" and move_set.is_powerkk: return "powerkk"
-		elif character_id == "DAV" and move_set.is_dp: return "dp"
-		elif character_id == "DEN" and move_set.is_spnk: return "spnk"
-		elif move_set.is_fireball: return "fireball"
-
-	if is_blocking:
-		return "cr_block" if is_crouch_blocking and crouch_input else "block"
-
-	if is_landing and landing_lock_timer > 0:
-		return "landing"
-
-	if not on_floor and (is_jumping or is_air_attacking):
-		if is_air_attacking or has_air_attacked:
-			return attack_type
-		else:
-			if anim_jump_dir > 0: return "Jump_F"
-			elif anim_jump_dir < 0: return "Jump_B"
-			else: return "Jump_V"
-
-	return super._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
-
-func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	super._update_animation_state(dir_x, crouch_input)
-
 func _on_animation_tree_finished(anim_name: StringName) -> void:
 	if anim_name == "layground" and is_layground:
 		if healthbar and healthbar.current_health <= 0:
@@ -321,22 +292,24 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 		is_wakeup = true
 		is_wakeup_locked = true
 		fixed_velocity = Vector2i.ZERO
-		animation_state.travel("wakeup")
+		# 改用 AnimationDirector 的 animation_state 來 travel
+		var anim_director = get_node_or_null("AnimationDirector")
+		if anim_director and anim_director.animation_state:
+			anim_director.animation_state.travel("wakeup")
 	else:
 		if anim_name in player_anim_resets:
 			player_anim_resets[anim_name].call()
 
-# ── 擊中處理 ─────────────────────
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	if area.name != "Hurtbox" or not area.get_parent().is_in_group("players") or area.get_parent() == self:
 		return
 	var target = area.get_parent()
 	var was_in_stun = target.is_hit or target.is_knockfly
 	if not world: return
-
+	
 	var slowmo = world.get_node_or_null("SlowMoController")
 	if slowmo: slowmo.request_hit_freeze()
-
+	
 	var hitstun := 0.35
 	var blockstun := 0.267
 	var damage := current_damage
@@ -344,7 +317,7 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 	var force_knockfly := false
 	var knockfly_params := {}
 	var dp_blocked := false
-
+	
 	if ATTACK_TABLE.has(attack_type):
 		var a = ATTACK_TABLE[attack_type]
 		hitstun = a.hitstun
@@ -359,7 +332,8 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 			hitstun = 0.45
 			blockstun = powerkk_blockstun
 			damage = move_set.spnk_damage
-			var pos = animation_player.current_animation_position if animation_player else 0.0
+			var anim_director = get_node_or_null("AnimationDirector")
+			var pos = anim_director.animation_player.current_animation_position if anim_director and anim_director.animation_player else 0.0
 			if pos < 0.2667: damage = 6.0
 		elif move_set.is_fireball:
 			hitstun = 0.35
@@ -382,20 +356,20 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 				"horizontal_speed": move_set.dp_knockfly_horizontal_speed,
 				"duration": hitstun
 			}
-
+	
 	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly, knockfly_params)
-
+	
 	var is_blocked: bool = target.is_blocking
 	var stun_duration = blockstun if is_blocked else hitstun
 	hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
-
+	
 	var hit_sound = $HitSoundPlayer if has_node("HitSoundPlayer") else null
 	var block_sound = $BlockSoundPlayer if has_node("BlockSoundPlayer") else null
 	if is_blocked and block_sound:
 		block_sound.play()
 	elif not is_blocked and hit_sound:
 		hit_sound.play()
-
+	
 	var vfx_type = "block" if is_blocked else "hit"
 	var contact = get_contact_point($Hitbox, area)
 	if contact == Vector2.ZERO:
@@ -403,9 +377,10 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 	if not target.is_on_floor():
 		contact.y += 10
 	VFXImpact.spawn_vfx(world, vfx_type, contact, facing_direction)
-
+	
 	if move_set and (move_set.is_spnk or move_set.is_powerkk or move_set.is_dp):
 		return
+	
 	var push_manager = get_tree().get_first_node_in_group("push_manager")
 	if push_manager and push_manager.is_at_corner(target):
 		var push_duration = stun_duration
@@ -416,17 +391,18 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		fixed_velocity.x = int(-push_back_velocity * get_facing_multiplier())
 
 func _on_hit_detected(_target: String, _stun_duration: float, _is_blocked: bool, _was_in_stun: bool) -> void:
-	# 只有 DAV 的 st_mp 可以取消成特殊招
 	if character_id == "DAV" and attack_type == "st_mp" and is_attacking:
 		cancel_window_timer = cancel_window_duration
 
 func stop_attack() -> void:
 	is_attacking = false
 	attack_type = "none"
-	if animation_player:
-		animation_player.stop()
+	# 改用 AnimationDirector 的 animation_player 來 stop
+	var anim_director = get_node_or_null("AnimationDirector")
+	if anim_director and anim_director.animation_player:
+		anim_director.animation_player.stop()
 	update_facing_direction()
-	_update_animation_state(0, false)
+	_call_animation_director_update(0, false)
 
 func get_facing_multiplier() -> float:
 	return super.get_facing_multiplier()
@@ -463,13 +439,12 @@ func _sync_shadow_animation() -> void:
 	if not body_sprite:
 		return
 	
-	# 陰影節點現在固定用席位名稱，不再用舊的 P1/P2
 	var shadow_node_name = "PlayerAShadowSprite" if seat == "player_a" else "PlayerBShadowSprite"
 	var shadow_sprite = get_parent().get_node(shadow_node_name)
 	
 	if shadow_sprite and shadow_sprite.material is ShaderMaterial:
 		var mat: ShaderMaterial = shadow_sprite.material
-
+		
 		shadow_sprite.animation = body_sprite.animation
 		shadow_sprite.frame = body_sprite.frame
 		shadow_sprite.offset = body_sprite.offset

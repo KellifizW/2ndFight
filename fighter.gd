@@ -1,4 +1,5 @@
 class_name Fighter extends Movement
+
 signal block_detected(target: String, block_type: String)
 
 static var PHYSICS_FPS: int = 60
@@ -51,8 +52,6 @@ func _physics_process(delta: float) -> void:
 	if hitstun_frames > 0:
 		hitstun_frames -= 1
 		is_hit = true
-		if animation_state and animation_state.get_current_node() != "hit":
-			animation_state.travel("hit")
 		if hitstun_frames <= 0:
 			print("[FIXED-FRAME HITSTUN END] %s 完全結束！" % name)
 			is_hit = false
@@ -92,11 +91,7 @@ func _physics_process(delta: float) -> void:
 			current_damage = 10.0
 		is_attacking = true
 
-	# ── 【動畫更新】保持舊版邏輯──
-	if is_hit or is_knockfly or is_blocking:
-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-	else:
-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+	# 注意：動畫更新已完全移到 AnimationDirector，不再在這裡呼叫 _update_animation_state
 
 func post_physics_process(_delta: float) -> void:
 	pass
@@ -142,7 +137,6 @@ func take_hit(
 			block_push_timer = initial_blockstun
 			block_push_velocity = 2.0 * block_push_distance * world.SIMULATION_SCALE / initial_blockstun
 		block_detected.emit(name, block_type)
-		_update_animation_state(0, input_data.crouch_pressed)
 		print("Debug: Block detected, no damage applied for %s" % name)
 		return
 	
@@ -208,8 +202,6 @@ func take_hit(
 		if not skip_push:
 			knockfly_velocity_x = -knockfly_horizontal_speed * world.SIMULATION_SCALE * facing_mult
 		
-		_update_animation_state(0, input_data.crouch_pressed)
-		
 	else:
 		# ── 普通受擊（地面 + 非 knockfly）→ 現在加上 hit pushback ──
 		is_hit = true
@@ -224,8 +216,6 @@ func take_hit(
 			hit_push_timer = hitstun_duration
 			hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / hitstun_duration
 			print("[HIT PUSH] %s 設定 velocity = %d, timer = %.3f" % [name, hit_push_velocity, hit_push_timer])
-		
-		_update_animation_state(0, input_data.crouch_pressed)
 
 func take_knockfly() -> void:
 	var move_set = $MoveSet if has_node("MoveSet") else null
@@ -236,7 +226,6 @@ func take_knockfly() -> void:
 			move_set.stop_special_move()
 		is_knockfly = true
 		knockfly_timer = max(default_knockfly_duration, min_hitstun_duration)
-		_update_animation_state(0, is_crouching)
 
 func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
 	var hit_shape_node = hit_area.get_node_or_null("HitShape") as CollisionShape2D

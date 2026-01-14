@@ -165,7 +165,9 @@ func _start_special(
 	else:
 		parent.fixed_velocity = Vector2i.ZERO
 	
+	# 播放 AnimationPlayer 的特殊招式動畫（狀態機由 AnimationDirector 負責其他狀態）
 	animation_player.play(move_name)
+	
 	if is_freeze:
 		freeze_game(super_freeze_time)
 	
@@ -455,4 +457,4 @@ func get_special_damage() -> float:
 	if is_fireball: return fireball_damage
 	if is_super: return super_damage
 	if is_dp: return dp_damage
-	return 0.0 
+	return 0.0
