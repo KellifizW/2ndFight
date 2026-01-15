@@ -28,11 +28,10 @@ func _ready() -> void:
 	else:
 		print("Error: AnimationPlayer not found in parent.")
 
-# 主要方法：更新動畫狀態（忠實原版邏輯，新增除錯輸出）
+# 主要方法：更新動畫狀態
 func update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	var movement = get_parent()  # Parent 是 DAV (Player/Fighter/Movement)
+	var movement = get_parent()  # Parent 是 Movement / Player
 	if not movement or not animation_state:
-		print("Error: Movement (parent) or animation_state is null. Skipping update.")
 		return
 	
 	var curr_state: String = animation_state.get_current_node()
@@ -41,26 +40,21 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var anim_jump_dir: float = movement.jump_dir * movement.facing_direction
 	var target_state: String = _compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
 	
-	# 除錯輸出：追蹤計算的目標狀態（測試後可移除）
-	print("Debug: Current state: %s, Target state: %s, On floor: %s, Dir_x: %f, Crouch: %s, is_attacking: %s" % [curr_state, target_state, on_floor, dir_x, crouch_input, movement.is_attacking])
-	
-	# 新增：檢查攻擊動畫是否結束（繞過信號不觸發問題）
+	# 檢查攻擊動畫是否自然結束（避免卡在攻擊狀態）
 	if movement.is_attacking and (curr_state.to_lower().contains("_mp") or curr_state.to_lower().contains("_mk")):
 		var position = animation_state.get_current_play_position()
 		var length = animation_state.get_current_length()
-		print("Debug: 攻擊檢查 - Position: %.2f / Length: %.2f" % [position, length])
-		if position >= length - 0.01:  # 容忍小誤差
+		if position >= length - 0.01:
 			_reset_attack()
-			print("Debug: 強制攻擊重置因為動畫結束 (position >= length)")
 	
-	# 健康檢查（原版邏輯，確保健康 <=0 時強制 layground）
+	# 健康檢查（血量歸零強制 layground）
 	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % get_parent().name) if get_tree().get_first_node_in_group("ui") else null
 	if healthbar and healthbar.current_health <= 0 and movement.is_layground:
 		target_state = "layground"
 		animation_state.travel("layground")
 		return
 	
-	# 落地時額外處理（原版邏輯，修正跳躍問題）
+	# 落地時額外處理跳躍動畫
 	if target_state == "Walk" and not on_floor and movement.is_jumping:
 		target_state = "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
 	
@@ -69,16 +63,15 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	if curr_state != target_state:
 		if not (target_state == "knockfly" and movement.is_knockfly_animation_finished and not on_floor):
 			animation_state.travel(target_state)
-			print("Debug: Traveling to %s" % target_state)  # 追蹤切換（測試後可移除）
 	
 	if target_state == "Walk":
 		animation_tree.set("parameters/Walk/blend_position", anim_dir)
 	
-	# 落地重置（原版邏輯，確保跳躍結束）
+	# 落地重置跳躍狀態
 	if movement.is_jumping and on_floor:
 		movement.is_jumping = false
 
-# 內部方法：計算目標狀態（忠實原版，修正出入）
+# 計算目標狀態
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	var movement = get_parent()
 	var move_set = movement.get_node("MoveSet") if movement.has_node("MoveSet") else null
@@ -127,7 +120,7 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 	
 	return "Walk"
 
-# 內部方法：設定條件（忠實原版，新增除錯）
+# 設定動畫條件
 func _set_animation_conditions(target_state: String, on_floor: bool, crouch_input: bool) -> void:
 	var movement = get_parent()
 	for c in animation_conditions:
@@ -137,16 +130,11 @@ func _set_animation_conditions(target_state: String, on_floor: bool, crouch_inpu
 		elif c == "cr_block":
 			condition_value = condition_value and movement.is_crouch_blocking and crouch_input
 		animation_tree.set("parameters/conditions/" + c, condition_value)
-		# 除錯：追蹤條件設定（測試後可移除）
-		if condition_value:
-			print("Debug: Setting condition %s to true" % c)
 
-# 處理動畫結束（整合原版 anim_resets 和健康檢查）
+# 動畫播放器結束時處理
 func _on_animation_player_finished(anim_name: String) -> void:
 	emit_signal("animation_finished", anim_name)
 	var movement = get_parent()
-	
-	print("Debug: 動畫結束 - 名稱: %s, is_attacking: %s" % [anim_name, movement.is_attacking])
 	
 	if anim_name == "cr_down":
 		movement.is_crouch_transition_played = true
@@ -159,7 +147,7 @@ func _on_animation_player_finished(anim_name: String) -> void:
 	elif anim_name.to_lower() in ["st_mp", "st_mk", "cr_mp", "cr_mk", "super", "dp", "powerkk", "spnk", "fireball", "hdk"]:
 		_reset_attack()
 
-# 重置方法（忠實原版，修正攻擊後無法回 Walk）
+# 重置相關狀態
 func _reset_layground_with_health_check() -> void:
 	var movement = get_parent()
 	var player_healthbar = movement.healthbar
@@ -168,12 +156,15 @@ func _reset_layground_with_health_check() -> void:
 		movement.is_knockfly = false
 		movement.is_knockfly_animation_finished = false
 		return
+	
 	movement.is_layground = false
 	movement.is_knockfly = false
 	movement.is_knockfly_animation_finished = false
-	if "is_wakeup" in get_parent() and "is_wakeup_locked" in get_parent():
-		get_parent().is_wakeup = true
-		get_parent().is_wakeup_locked = true
+	
+	if "is_wakeup" in movement and "is_wakeup_locked" in movement:
+		movement.is_wakeup = true
+		movement.is_wakeup_locked = true
+	
 	animation_state.travel("wakeup")
 	update_animation_state(0, false)
 
@@ -198,5 +189,4 @@ func _reset_attack() -> void:
 	if movement.has_node("Hitbox/HitShape"):
 		movement.get_node("Hitbox/HitShape").disabled = true
 	animation_state.travel("Walk")
-	update_animation_state(0, false) # 強制更新，確保回 Walk
-	print("Debug: 攻擊重置完成 - is_attacking: %s" % movement.is_attacking)
+	update_animation_state(0, false)

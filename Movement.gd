@@ -20,11 +20,11 @@ var is_crouch_held: bool = false
 
 # ── Knockfly 物理參數（預設值） ────────────
 @export_group("Knockfly Physics")
-@export var default_knockfly_gravity: float = 1700000.0
+@export var default_knockfly_gravity: float = 1500000.0
 @export var default_knockfly_vertical_speed: float = -400.0
-@export var default_knockfly_horizontal_speed: float = 6000.0
+@export var default_knockfly_horizontal_speed: float = 4000.0
 @export var default_air_friction: float = 200.0
-@export var default_knockfly_duration: float = 0.4
+@export var default_knockfly_duration: float = 0.35
 
 # ── Knockfly 執行時實際值 ─────────────────
 var knockfly_gravity: float = default_knockfly_gravity
