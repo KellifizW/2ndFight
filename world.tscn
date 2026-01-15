@@ -40,7 +40,6 @@ shader_parameter/blur_factor = 0.0
 
 [node name="World" type="Node2D"]
 script = ExtResource("1_aqk2v")
-bgm_max_volume_db = -15.0
 player_a_character = ExtResource("15_26xuy")
 player_b_character = ExtResource("17_bc84e")
 

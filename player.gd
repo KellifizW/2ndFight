@@ -116,7 +116,10 @@ var player_anim_resets: Dictionary = {
 	"powerkk": func(): reset_special_state(),
 	"spnk": func(): reset_special_state(),
 	"dp": func(): reset_special_state(),
+<<<<<<< HEAD
 	"hdk": func(): reset_special_state(),
+=======
+>>>>>>> parent of d62fe45 (beforechangingframwork1231)
 }
 
 func _ready() -> void:

@@ -108,55 +108,43 @@ func take_hit(
 	if not world:
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
-	
+
 	print("[DEBUG] take_hit() 接收 → hitstun: %.3f, blockstun: %.3f, damage: %.1f" % [hitstun_duration, blockstun_duration, damage])
-	
+
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove
-	
 	var input_data = get_input()
-	
+
 	if is_attacking:
 		is_attacking = false
-		if is_spmove:
-			move_set.stop_special_move()
-	
-	# ── 格擋判斷（不變）──
+	if is_spmove:
+		move_set.stop_special_move()
+
+	# ── 【格擋：固定幀數 blockstun】與 hitstun 完全一致 ──
 	if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_spmove:
 		is_blocking = true
 		is_crouch_blocking = input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0
+		
 		var block_frames = max(sec_to_frames(blockstun_duration), sec_to_frames(min_hitstun_duration))
 		blockstun_frames = block_frames
 		initial_blockstun_frames = block_frames
 		initial_blockstun = blockstun_duration
 		block_timer = blockstun_duration
+		
 		print("[FIXED-FRAME BLOCKSTUN START] %s 進入格擋，%d 幀 (%.3f秒)" % [name, block_frames, blockstun_duration])
+		
 		fixed_velocity.x = 0
 		fixed_velocity.y = 0
+		
 		if not skip_push:
 			block_push_timer = initial_blockstun
 			block_push_velocity = 2.0 * block_push_distance * world.SIMULATION_SCALE / initial_blockstun
+		
 		block_detected.emit(name, block_type)
 		print("Debug: Block detected, no damage applied for %s" % name)
 		return
-	
-	# ── 離開格擋狀態 ──
-	if is_blocking:
-		is_blocking = false
-		block_type = "none"
-	
-	var hurt_grunt_player = $HurtGruntPlayer if has_node("HurtGruntPlayer") else null
-	if hurt_grunt_player:
-		hurt_grunt_player.play()
-	
-	if not is_on_floor():
-		update_facing_direction()
-	
-	# ── 扣血（不變）──
-	if healthbar != null:
-		healthbar.current_health -= damage
-		print("Debug: %s 受到 %.1f 傷害，剩餘血量 %.1f" % [name, damage, healthbar.current_health])
 	else:
+<<<<<<< HEAD
 		print("Warning: healthbar 未設定，無法扣血（%s）" % name)
 	
 	var facing_mult = get_facing_multiplier()
@@ -216,6 +204,79 @@ func take_hit(
 			hit_push_timer = hitstun_duration
 			hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / hitstun_duration
 			print("[HIT PUSH] %s 設定 velocity = %d, timer = %.3f" % [name, hit_push_velocity, hit_push_timer])
+=======
+		# 確保離開格擋狀態
+		if is_blocking:
+			is_blocking = false
+			block_type = "none"
+
+		var hurt_grunt_player = $HurtGruntPlayer if has_node("HurtGruntPlayer") else null
+		if hurt_grunt_player:
+			hurt_grunt_player.play()
+
+		if not is_on_floor():
+			update_facing_direction()
+
+		# 直接減血（healthbar 由 Player.gd 設定）
+		if healthbar != null:
+			healthbar.current_health -= damage
+			print("Debug: %s 受到 %.1f 傷害，剩餘血量 %.1f" % [name, damage, healthbar.current_health])
+		else:
+			print("Warning: healthbar 未設定，無法扣血（%s）" % name)
+
+		var facing_mult = get_facing_multiplier()
+
+		var should_knockfly: bool = force_knockfly or damage > 10.0 or (healthbar != null and healthbar.current_health <= 0)
+
+		if should_knockfly:
+			var params = {
+				"gravity": default_knockfly_gravity,
+				"vertical_speed": default_knockfly_vertical_speed,
+				"horizontal_speed": default_knockfly_horizontal_speed,
+				"duration": default_knockfly_duration
+			}
+			params.merge(knockfly_params, true)
+
+			is_knockfly = true
+			knockfly_timer = max(params.duration, min_hitstun_duration)
+			is_immune_to_floor_snap = true
+			floor_snap_immunity_timer = floor_snap_immunity_duration
+			knockfly_gravity = params.gravity
+			knockfly_vertical_speed = params.vertical_speed
+			knockfly_horizontal_speed = params.horizontal_speed
+
+			fixed_velocity.y = int(params.vertical_speed * world.SIMULATION_SCALE)
+			fixed_position.y -= 1
+			is_jumping = true
+
+			if not skip_push:
+				knockfly_velocity_x = -knockfly_horizontal_speed * world.SIMULATION_SCALE * facing_mult
+		else:
+			is_hit = true
+			var hit_frames = max(sec_to_frames(hitstun_duration), sec_to_frames(min_hitstun_duration))
+			hitstun_frames = hit_frames
+			initial_hitstun = hitstun_duration
+			hit_timer = initial_hitstun
+			
+			print("[FIXED-FRAME HITSTUN START] %s 進入 hit，%d 幀 (%.3f秒)" % [name, hit_frames, hitstun_duration])
+			
+			if is_on_floor():
+				if not skip_push:
+					hit_push_timer = initial_hitstun
+					hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
+				fixed_velocity.x = 0
+				fixed_velocity.y = 0
+			else:
+				is_air_hit_backjump = true
+				air_hit_backjump_timer = air_hit_backjump_duration
+				fixed_velocity.x = int(-air_hit_backjump_speed * world.SIMULATION_SCALE * facing_mult)
+				fixed_velocity.y = int(air_hit_backjump_up_speed * world.SIMULATION_SCALE)
+				is_immune_to_floor_snap = true
+				floor_snap_immunity_timer = floor_snap_immunity_duration
+				fixed_position.y -= 2
+
+		_update_animation_state(0, input_data.crouch_pressed)
+>>>>>>> parent of d62fe45 (beforechangingframwork1231)
 
 func take_knockfly() -> void:
 	var move_set = $MoveSet if has_node("MoveSet") else null

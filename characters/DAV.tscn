@@ -2232,18 +2232,6 @@ tracks/5/keys = {
 "update": 1,
 "values": [&"knockfly"]
 }
-tracks/6/type = "value"
-tracks/6/imported = false
-tracks/6/enabled = true
-tracks/6/path = NodePath("AnimatedSprite2D:offset")
-tracks/6/interp = 1
-tracks/6/loop_wrap = true
-tracks/6/keys = {
-"times": PackedFloat32Array(0.28333333),
-"transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [Vector2(0, 30)]
-}
 
 [sub_resource type="Animation" id="Animation_3pafw"]
 resource_name = "landing"
@@ -3387,7 +3375,11 @@ states/super/position = Vector2(300, 222)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-108, 193)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627"), "cr_down", "cr_idle", SubResource("AnimationNodeStateMachineTransition_shoen"), "Walk", "cr_down", SubResource("AnimationNodeStateMachineTransition_3c2oy")]
+<<<<<<< HEAD
 graph_offset = Vector2(-366, 79)
+=======
+graph_offset = Vector2(-77, 84)
+>>>>>>> parent of d62fe45 (beforechangingframwork1231)
 
 [sub_resource type="Curve" id="Curve_ixokm"]
 _data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]
@@ -3516,7 +3508,7 @@ pitch_scale = 1.1
 
 [node name="HurtGruntPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("12_ubmh5")
-volume_db = -10.0
+volume_db = -5.0
 pitch_scale = 1.13
 
 [node name="SpecialCallPlayer" type="AudioStreamPlayer" parent="."]

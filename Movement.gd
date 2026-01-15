@@ -1,6 +1,9 @@
 class_name Movement extends Node2D
 
+<<<<<<< HEAD
 @onready var player: Player = owner as Player
+=======
+>>>>>>> parent of d62fe45 (beforechangingframwork1231)
 var is_crouch_transition_played: bool = false
 var healthbar: Node = null
 var world: Node
@@ -296,7 +299,7 @@ func _handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor
 		else:
 			fixed_velocity.x = 0
 
-func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
+func _handle_knockfly_layground(delta: float, _floor_y: int) -> void:
 	if is_air_hit_backjump:
 		air_hit_backjump_timer -= delta
 		var gravity: int = world.GRAVITY if world else 6000000
@@ -319,18 +322,28 @@ func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
 			fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
 		elif fixed_velocity.x < 0:
 			fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
+<<<<<<< HEAD
 		# 關鍵修正：只要在 knockfly 狀態下著地，就強制進入 layground
+=======
+>>>>>>> parent of d62fe45 (beforechangingframwork1231)
 		if is_on_floor():
 			fixed_velocity = Vector2i.ZERO
 			is_knockfly = false
 			is_layground = true
 			layground_timer = layground_duration
 			is_knockfly_animation_finished = false
+<<<<<<< HEAD
 		# timer 結束但仍在空中時，只標記動畫完成
 		if knockfly_timer <= 0 and not is_on_floor():
 			is_knockfly_animation_finished = true
 			fixed_velocity.x = 0
 		return
+=======
+			_update_animation_state(0, false)
+		elif knockfly_timer <= 0 and not is_on_floor():
+			is_knockfly_animation_finished = true
+			fixed_velocity.x = 0
+>>>>>>> parent of d62fe45 (beforechangingframwork1231)
 	
 	if is_layground:
 		layground_timer -= delta
@@ -448,17 +461,21 @@ func update_facing_direction() -> void:
 	
 	var players = get_tree().get_nodes_in_group("players")
 	var other_player = null
-	for p in players:
-		if p != self:
-			other_player = p
+	for player in players:
+		if player != self:
+			other_player = player
 			break
 	
 	if other_player:
 		var self_left = global_position.x - colbox_half_width
 		var self_right = global_position.x + colbox_half_width
 		var other_left = other_player.global_position.x - other_player.colbox_half_width
+<<<<<<< HEAD
 		var other_right = other_player.global_position.x - other_player.colbox_half_width
 		
+=======
+		var other_right = other_player.global_position.x + other_player.colbox_half_width
+>>>>>>> parent of d62fe45 (beforechangingframwork1231)
 		var old_facing = facing_direction
 		var epsilon = 1.0
 		
@@ -503,20 +520,116 @@ func update_facing_direction() -> void:
 		sprite.scale.x = 1.0
 		rotation_degrees = 0
 
+<<<<<<< HEAD
 func _reset_layground_with_health_check() -> void:
 	print("Debug: layground reset triggered for %s. Checking health before wakeup transition." % name)
+=======
+func _set_animation_conditions(target_state: String, on_floor: bool, crouch_input: bool) -> void:
+	for c in animation_conditions:
+		var condition_value: bool = (target_state == c)
+		if c == "Walk":
+			condition_value = condition_value and on_floor and not crouch_input
+		elif c == "cr_block":
+			condition_value = condition_value and is_crouch_blocking and crouch_input
+		animation_tree.set("parameters/conditions/" + c, condition_value)
+
+func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
+	if is_hit:
+		return "hit" if on_floor else "Jump_B"
+	
+	var move_set = $MoveSet if has_node("MoveSet") else null
+	
+	if is_layground: return "layground"
+	if is_knockfly: return "knockfly"
+	if "is_wakeup_locked" in self and self.is_wakeup_locked: return "wakeup"
+	
+	if move_set and move_set.is_spmove:
+		if move_set.is_super: return "super"
+		elif move_set.is_powerkk and get_parent().character_id == "DAV": return "powerkk"
+		elif move_set.is_dp and get_parent().character_id == "DAV": return "dp"
+		elif move_set.is_spnk and get_parent().character_id == "DEN": return "spnk"
+		elif move_set.is_hdk and get_parent().character_id == "DEN": return "hdk"
+		elif move_set.is_fireball: return "fireball"
+	
+	if is_proximity_blocking:
+		return "cr_block" if is_crouching else "block"
+	if is_blocking:
+		return "cr_block" if is_crouch_blocking and crouch_input else "block"
+	
+	if is_attacking:
+		var atype = get("attack_type") if "attack_type" in self else "none"
+		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk", "super", "dp", "hdk"]:
+			return atype
+		return "Walk"
+	
+	if is_dashing: return "Dash"
+	if is_backdashing: return "Backdash"
+	
+	if crouch_input and on_floor and not is_blocking:
+		if not was_crouching_last_frame:
+			animation_state.call_deferred("travel", "cr_down")
+		return "cr_idle"
+	
+	if not on_floor and (is_jumping or ("is_air_attacking" in self and self.is_air_attacking)):
+		if "is_air_attacking" in self and (self.is_air_attacking or ("has_air_attacked" in self and self.has_air_attacked)):
+			return get("attack_type") if "attack_type" in self else "jump_mp"
+		else:
+			if anim_jump_dir > 0: return "Jump_F"
+			elif anim_jump_dir < 0: return "Jump_B"
+			else: return "Jump_V"
+	
+	return "Walk"
+
+func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
+	var curr_state: String = animation_state.get_current_node() if animation_state else ""
+	var on_floor: bool = is_on_floor()
+	var anim_dir: float = dir_x * facing_direction
+	var anim_jump_dir: float = jump_dir * facing_direction
+	var target_state: String = _compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
+	
+	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
+	if healthbar and healthbar.current_health <= 0 and is_layground:
+		target_state = "layground"
+		animation_state.travel("layground")
+		return
+	
+	if target_state == "Walk" and not on_floor and is_jumping:
+		target_state = "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
+	
+	_set_animation_conditions(target_state, on_floor, crouch_input)
+	
+	if curr_state != target_state:
+		if not (target_state == "knockfly" and is_knockfly_animation_finished and not is_on_floor()):
+			animation_state.travel(target_state)
+	
+	if target_state == "Walk":
+		animation_tree.set("parameters/Walk/blend_position", anim_dir)
+	
+	if is_jumping and on_floor:
+		is_jumping = false
+
+func _reset_layground_with_health_check() -> void:
+	print("Debug: layground reset triggered for %s. Checking health before wakeup transition." % name)
+	
+	# 正確方式：使用 Fighter/Player 層已經設定好的 healthbar（由 Player.gd 負責指向正確的 UI 血條）
+>>>>>>> parent of d62fe45 (beforechangingframwork1231)
 	var player_healthbar = self.healthbar
 	if player_healthbar and player_healthbar.current_health <= 0:
 		print("Debug: %s 血量已歸零，保持躺地狀態，不觸發 wakeup。" % name)
 		is_layground = true
 		is_knockfly = false
 		is_knockfly_animation_finished = false
-		return
+		return  # 關鍵：直接返回，阻止 wakeup
 	
 	print("Debug: %s 血量仍有剩餘，允許 wakeup。" % name)
 	is_layground = false
 	is_knockfly = false
 	is_knockfly_animation_finished = false
+<<<<<<< HEAD
+=======
+	
+	# 正常 wakeup 流程
+>>>>>>> parent of d62fe45 (beforechangingframwork1231)
 	if "is_wakeup" in get_parent() and "is_wakeup_locked" in get_parent():
 		get_parent().is_wakeup = true
 		get_parent().is_wakeup_locked = true

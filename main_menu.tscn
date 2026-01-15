@@ -1,7 +1,6 @@
-[gd_scene load_steps=7 format=3 uid="uid://l4dd7cip8wrw"]
+[gd_scene load_steps=6 format=3 uid="uid://l4dd7cip8wrw"]
 
 [ext_resource type="Texture2D" uid="uid://dc0ehlli278vk" path="res://assets/ui/Main_menu.png" id="1_7vrkn"]
-[ext_resource type="Script" uid="uid://bq71olo3lg5dd" path="res://MainMenu.gd" id="1_fu7sn"]
 [ext_resource type="FontFile" uid="uid://doprqju6a18sf" path="res://fonts/Roundex.otf" id="2_7vrkn"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_7vrkn"]
@@ -28,7 +27,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1_fu7sn")
 
 [node name="Panel" type="Panel" parent="."]
 layout_mode = 1
