@@ -3347,7 +3347,7 @@ position = Vector2(20, 5)
 debug_color = Color(0.607617, 0.540146, 0, 0.42)
 
 [node name="groundsmoke" type="GPUParticles2D" parent="."]
-z_index = -1
+modulate = Color(1, 1, 1, 0.78431374)
 position = Vector2(0, 140)
 emitting = false
 amount = 10
