@@ -1527,7 +1527,6 @@ tracks/3/keys = {
 [sub_resource type="Animation" id="Animation_5b203"]
 resource_name = "hit"
 length = 0.28
-loop_mode = 1
 step = 0.0167
 tracks/0/type = "value"
 tracks/0/imported = false
@@ -1562,7 +1561,7 @@ tracks/2/loop_wrap = true
 tracks/2/keys = {
 "times": PackedFloat32Array(0.016666668),
 "transitions": PackedFloat32Array(1),
-"update": 0,
+"update": 1,
 "values": [Vector2(0.45, 0.45)]
 }
 tracks/3/type = "value"
@@ -1572,9 +1571,9 @@ tracks/3/path = NodePath("AnimatedSprite2D:frame")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.033333335, 0.13333334, 0.2),
+"times": PackedFloat32Array(0, 0.06666667, 0.2, 0.25),
 "transitions": PackedFloat32Array(1, 1, 1, 1),
-"update": 0,
+"update": 1,
 "values": [0, 1, 3, 4]
 }
 tracks/4/type = "value"
@@ -1586,7 +1585,7 @@ tracks/4/loop_wrap = true
 tracks/4/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
+"update": 1,
 "values": [&"hit"]
 }
 

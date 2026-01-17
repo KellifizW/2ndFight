@@ -6,7 +6,7 @@ signal time_scale_changed(new_time_scale: float)
 
 # 時間縮放參數
 var normal_time_scale: float = 1
-var slowmo_time_scale: float = 0.7 
+var slowmo_time_scale: float = 0.05
 var hit_slowmo_time_scale: float = 0.02  
 var slowmo_enter_time: float = 0.4   
 var slowmo_exit_time: float = 0.4   
