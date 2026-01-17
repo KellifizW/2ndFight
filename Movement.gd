@@ -12,6 +12,12 @@ var world: Node
 @onready var animation_player = $AnimationPlayer if has_node("AnimationPlayer") else null
 @onready var groundsmoke: GPUParticles2D = $groundsmoke if has_node("groundsmoke") else null
 
+# ── Controllers (自動化管理) ───────────────
+@onready var animation_controller = $AnimationController if has_node("AnimationController") else null
+@onready var dash_controller = $DashController if has_node("DashController") else null
+@onready var blocking_controller = $BlockingController if has_node("BlockingController") else null
+@onready var knockfly_controller = $KnockflyController if has_node("KnockflyController") else null
+
 # ── 基本狀態 ──────────────────────────────
 @export var landing_duration: float = 0.2
 var is_layground: bool = false
@@ -124,54 +130,6 @@ var landing_facing_lock: bool = false
 var jump_delay_timer: float = 0.0
 @export var jump_delay_duration: float = 0.067
 
-# ── 動畫條件（已替換 Crouch 為 cr_down 和 cr_idle） ──
-var animation_conditions: Array = [
-	"Walk", "cr_down", "cr_idle", "Dash", "Backdash",
-	"st_mp", "st_mk", "cr_mp", "cr_mk",
-	"Jump_F", "Jump_B", "Jump_V",
-	"hit", "knockfly", "block", "cr_block",
-	"powerkk", "spnk", "fireball",
-	"jump_mp", "jump_mk", "landing", "wakeup", "super", "dp", "hdk", "layground"
-]
-
-var anim_resets: Dictionary = {
-	"layground": func(): _reset_layground_with_health_check(),
-	"knockfly": func(): _reset_knockfly(),
-	"st_mp": func(): _reset_attack()
-}
-
-func _reset_layground() -> void:
-	is_layground = false
-	is_knockfly = false
-	is_knockfly_animation_finished = false
-	_update_animation_state(0, false)
-
-func _reset_knockfly() -> void:
-	if is_on_floor():
-		fixed_velocity = Vector2i.ZERO
-		is_knockfly = false
-		is_layground = true
-		layground_timer = layground_duration
-		is_knockfly_animation_finished = false
-		_update_animation_state(0, false)
-	else:
-		is_knockfly_animation_finished = true
-		if animation_player:
-			animation_player.stop()
-
-func _reset_attack() -> void:
-	is_attacking = false
-	update_facing_direction()
-	if has_node("Hitbox/HitShape"):
-		$Hitbox/HitShape.disabled = true
-
-func _apply_air_friction(friction_coeff: float, delta: float) -> void:
-	var friction_amount = int(friction_coeff * (world.SIMULATION_SCALE if world else 1000.0) * delta)
-	if fixed_velocity.x > 0:
-		fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
-	elif fixed_velocity.x < 0:
-		fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
-
 func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
 	var retry_count: int = 0
@@ -203,6 +161,10 @@ func _ready() -> void:
 	knockfly_timer = 0.0
 	layground_timer = 0.0
 	is_knockfly_animation_finished = false
+	
+	# Initialize controllers if they exist
+	if blocking_controller:
+		blocking_controller._ready()
 
 func _physics_process(delta: float) -> void:
 	var input_data: Dictionary = get_input()
@@ -227,11 +189,15 @@ func _physics_process(delta: float) -> void:
 	was_crouching_last_frame = (is_on_floor() and crouch_pressed and not is_blocking)
 	
 	_handle_timers(delta)
-	_handle_blocking(input_dir, is_special_moving)
-	_handle_dash(input_dir, scale_factor, is_special_moving)
-	_handle_walk(input_dir, scale_factor, is_special_moving)
+	if blocking_controller:
+		blocking_controller._handle_blocking(input_dir, is_special_moving)
+	if dash_controller:
+		dash_controller._handle_dash(input_dir, scale_factor, is_special_moving)
+		dash_controller._handle_dash_timer(delta)
+		dash_controller._handle_walk(input_dir, scale_factor, is_special_moving)
 	_handle_jump(jump_pressed, input_dir, scale_factor, floor_y, is_special_moving)
-	_handle_knockfly_layground(delta, floor_y)
+	if knockfly_controller:
+		knockfly_controller._handle_knockfly_layground(delta, floor_y)
 	_handle_gravity(delta, move_set)
 	
 	fixed_position += Vector2i(roundi(fixed_velocity.x * delta), roundi(fixed_velocity.y * delta))
@@ -260,7 +226,8 @@ func _physics_process(delta: float) -> void:
 	prev_position = global_position
 	
 	if not ("landing_lock_timer" in self and self.landing_lock_timer > 0) and not is_layground:
-		_update_animation_state(input_dir, crouch_pressed)
+		if animation_controller:
+			animation_controller._update_animation_state(input_dir, crouch_pressed)
 	
 	post_physics_process(delta)
 
@@ -269,17 +236,6 @@ func _handle_timers(delta: float) -> void:
 		neutral_timer = max(0, neutral_timer - delta)
 		if neutral_timer == 0:
 			pending_dash_dir = 0
-	
-	if dash_timer > 0:
-		dash_timer = max(0, dash_timer - delta)
-		if dash_timer == 0:
-			is_dashing = false
-			is_backdashing = false
-			fixed_velocity.x = 0
-			neutral_timer = 0.0
-			pending_dash_dir = 0
-			last_input_dir = 0
-			landing_facing_lock = false
 	
 	if jump_delay_timer > 0:
 		jump_delay_timer = max(0, jump_delay_timer - delta)
@@ -294,56 +250,6 @@ func _handle_timers(delta: float) -> void:
 			is_air_hit_backjump = false
 			fixed_velocity = Vector2i.ZERO
 
-func _handle_blocking(input_dir: int, is_special_moving: bool) -> void:
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_layground):
-		is_holding_back = input_dir * facing_direction < 0
-		is_crouch_blocking = is_crouching and is_holding_back
-	else:
-		if not (is_hit or is_knockfly or is_blocking or is_layground):
-			is_holding_back = false
-			is_crouch_blocking = false
-
-func _handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and not is_crouching:
-		if neutral_timer > 0 and input_dir != 0 and pending_dash_dir == input_dir:
-			if input_dir * facing_direction > 0:
-				is_dashing = true
-				dash_timer = dash_time
-				fixed_velocity.x = int(dash_speed * scale_factor * input_dir)
-				if groundsmoke:
-					groundsmoke.scale.x = facing_direction
-					groundsmoke.restart()
-			elif not (is_blocking and is_opponent_proximity and block_type == "proximity"):
-				is_backdashing = true
-				dash_timer = backdash_time
-				fixed_velocity.x = int(backdash_speed * scale_factor * input_dir)
-				if groundsmoke:
-					groundsmoke.scale.x = facing_direction
-					groundsmoke.restart()
-			neutral_timer = 0.0
-			pending_dash_dir = 0
-			last_input_dir = 0
-			landing_facing_lock = true
-		elif input_dir != last_input_dir:
-			if last_input_dir != 0 and input_dir == 0:
-				neutral_timer = double_tap_timer
-				pending_dash_dir = last_input_dir
-			last_input_dir = input_dir
-
-func _handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
-	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and not is_crouching:
-		if input_dir != 0:
-			if is_proximity_blocking and input_dir * facing_direction < 0:
-				fixed_velocity.x = 0
-			else:
-				var move_speed: float = walk_speed if input_dir * facing_direction > 0 else back_speed
-				fixed_velocity.x = int(move_speed * scale_factor * input_dir)
-		else:
-			fixed_velocity.x = 0
-	else:
-		if not (is_jumping or is_dashing or is_backdashing or is_hit or is_knockfly or is_blocking or is_push_back or jump_delay_timer > 0 or is_special_moving or is_layground):
-			fixed_velocity.x = 0
-
 func _handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor_y: int, is_special_moving: bool) -> void:
 	if jump_pressed and is_on_floor() and not is_crouching and not is_dashing and not is_backdashing and not is_attacking and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and jump_delay_timer <= 0:
 		jump_dir = input_dir
@@ -357,44 +263,6 @@ func _handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor
 			fixed_velocity.x = int(jump_speed * scale_factor * jump_dir)
 		else:
 			fixed_velocity.x = 0
-
-func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
-	if is_air_hit_backjump:
-		air_hit_backjump_timer -= delta
-		var gravity: int = world.GRAVITY if world else 6000000
-		fixed_velocity.y += int(gravity * delta)
-		_apply_air_friction(default_air_friction, delta)
-		if air_hit_backjump_timer <= 0 or is_on_floor():
-			is_air_hit_backjump = false
-			is_hit = true
-		return
-
-	if is_knockfly:
-		knockfly_timer -= delta
-		fixed_velocity.y += int(knockfly_gravity * delta)
-		_apply_air_friction(air_friction, delta)
-
-		# 關鍵修正：只要在 knockfly 狀態下著地，就強制進入 layground
-		if is_on_floor():
-			fixed_velocity = Vector2i.ZERO
-			is_knockfly = false
-			is_layground = true
-			layground_timer = layground_duration
-			is_knockfly_animation_finished = false
-			_update_animation_state(0, false)
-			return
-
-		# timer 結束但仍在空中時，只標記動畫完成
-		if knockfly_timer <= 0 and not is_on_floor():
-			is_knockfly_animation_finished = true
-			fixed_velocity.x = 0
-			return
-
-	if is_layground:
-		layground_timer -= delta
-		fixed_velocity = Vector2i.ZERO
-		if layground_timer <= 0:
-			_reset_layground_with_health_check()
 
 func _handle_gravity(delta: float, move_set) -> void:
 	if jump_delay_timer <= 0 and not is_on_floor() and not is_knockfly:
@@ -434,19 +302,16 @@ func _handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void
 			groundsmoke.scale.x = facing_direction
 			groundsmoke.restart()
 		
-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+		if animation_controller:
+			animation_controller._update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 	
 	var push_manager = get_tree().get_first_node_in_group("push_manager")
 	if push_manager:
 		push_manager._physics_process(delta)
 
 func _on_animation_player_finished(anim_name: String) -> void:
-	if anim_name in anim_resets:
-		anim_resets[anim_name].call()
-	if anim_name == "cr_down":
-		is_crouch_transition_played = true
-		if animation_state:
-			animation_state.travel("cr_idle")
+	if animation_controller:
+		animation_controller._on_animation_player_finished(anim_name)
 
 func is_on_floor() -> bool:
 	if jump_delay_timer > 0 or just_jumped:
@@ -499,16 +364,13 @@ func get_is_knockfly() -> bool:
 
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
-		is_opponent_proximity = true
-		var input_dir: int = get_input().input_dir
-		if input_dir * facing_direction < 0 and is_on_floor() and not (is_hit or is_knockfly or is_layground):
-			is_proximity_blocking = true
-			fixed_velocity.x = 0
+		if blocking_controller:
+			blocking_controller._on_hurtbox_area_entered(area)
 
 func _on_hurtbox_area_exited(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
-		is_opponent_proximity = false
-		is_proximity_blocking = false
+		if blocking_controller:
+			blocking_controller._on_hurtbox_area_exited(area)
 
 func _set_facing(new_facing: float) -> void:
 	facing_direction = new_facing
@@ -553,107 +415,14 @@ func update_facing_direction() -> void:
 			_set_facing(facing_direction)
 
 func _set_animation_conditions(target_state: String, on_floor: bool, crouch_input: bool) -> void:
-	for c in animation_conditions:
-		var condition_value: bool = (target_state == c)
-		if c == "Walk":
-			condition_value = condition_value and on_floor and not crouch_input
-		elif c == "cr_block":
-			condition_value = condition_value and is_crouch_blocking and crouch_input
-		animation_tree.set("parameters/conditions/" + c, condition_value)
+	if animation_controller:
+		animation_controller._set_animation_conditions(target_state, on_floor, crouch_input)
 
 func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
-	if is_hit:
-		return "hit" if on_floor else "Jump_B"
-	
-	if is_layground: return "layground"
-	if is_knockfly: return "knockfly"
-	if "is_wakeup_locked" in self and self.is_wakeup_locked: return "wakeup"
-	
-	var move_set = $MoveSet if has_node("MoveSet") else null
-	
-	if move_set and move_set.is_spmove:
-		if move_set.is_super: return "super"
-		elif move_set.is_hdk: return "hdk"
-		elif move_set.is_powerkk and player and player.character_id == "DAV": return "powerkk"
-		elif move_set.is_spnk and player and player.character_id == "DEN": return "spnk"
-		elif move_set.is_dp and player and player.character_id == "DAV": return "dp"
-		elif move_set.is_fireball: return "fireball"
-	
-	if is_proximity_blocking:
-		return "cr_block" if is_crouching else "block"
-	if is_blocking:
-		return "cr_block" if is_crouch_blocking and crouch_input else "block"
-	
-	if is_attacking:
-		var atype = get("attack_type") if "attack_type" in self else "none"
-		if atype in ["st_mp", "st_mk", "cr_mp", "cr_mk", "super", "dp", "powerkk", "spnk", "fireball", "hdk"]:
-			return atype
-		return "Walk"
-	
-	if is_dashing: return "Dash"
-	if is_backdashing: return "Backdash"
-	
-	if crouch_input and on_floor and not is_blocking:
-		if not was_crouching_last_frame:
-			animation_state.call_deferred("travel", "cr_down")
-		return "cr_idle"
-	
-	if not on_floor and (is_jumping or ("is_air_attacking" in self and self.is_air_attacking)):
-		if "is_air_attacking" in self and (self.is_air_attacking or ("has_air_attacked" in self and self.has_air_attacked)):
-			return get("attack_type") if "attack_type" in self else "jump_mp"
-		else:
-			return "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
-	
+	if animation_controller:
+		return animation_controller._compute_target_state(_dir_x, crouch_input, on_floor, anim_jump_dir)
 	return "Walk"
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
-	var curr_state: String = animation_state.get_current_node() if animation_state else ""
-	var on_floor: bool = is_on_floor()
-	var anim_dir: float = dir_x * facing_direction
-	var anim_jump_dir: float = jump_dir * facing_direction
-	var target_state: String = _compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
-	
-	var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % name) if get_tree().get_first_node_in_group("ui") else null
-	if healthbar and healthbar.current_health <= 0 and is_layground:
-		target_state = "layground"
-		animation_state.travel("layground")
-		return
-	
-	if target_state == "Walk" and not on_floor and is_jumping:
-		target_state = "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
-	
-	_set_animation_conditions(target_state, on_floor, crouch_input)
-	
-	if curr_state != target_state:
-		if not (target_state == "knockfly" and is_knockfly_animation_finished and not is_on_floor()):
-			animation_state.travel(target_state)
-	
-	if target_state == "Walk":
-		animation_tree.set("parameters/Walk/blend_position", anim_dir)
-	
-	if is_jumping and on_floor:
-		is_jumping = false
-
-func _reset_layground_with_health_check() -> void:
-	print("Debug: layground reset triggered for %s. Checking health before wakeup transition." % name)
-	
-	var player_healthbar = self.healthbar
-	
-	if player_healthbar and player_healthbar.current_health <= 0:
-		print("Debug: %s 血量已歸零，保持躺地狀態，不觸發 wakeup。" % name)
-		is_layground = true
-		is_knockfly = false
-		is_knockfly_animation_finished = false
-		return
-	
-	print("Debug: %s 血量仍有剩餘，允許 wakeup。" % name)
-	is_layground = false
-	is_knockfly = false
-	is_knockfly_animation_finished = false
-	
-	if "is_wakeup" in get_parent() and "is_wakeup_locked" in get_parent():
-		get_parent().is_wakeup = true
-		get_parent().is_wakeup_locked = true
-		animation_state.travel("wakeup")
-	
-	_update_animation_state(0, false)
+	if animation_controller:
+		animation_controller._update_animation_state(dir_x, crouch_input)
