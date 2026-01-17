@@ -4,19 +4,5 @@
 
 [resource]
 script = ExtResource("1_e6rab")
-st_mp = {
-"blockstun": 0.267,
-"damage": 7.0,
-"hitstun": 0.333
-}
-st_mk = {
-"blockstun": 0.267,
-"damage": 6.0,
-"hitstun": 0.3
-}
-jump_mk = {
-"blockstun": 0.3,
-"damage": 9.0,
-"hitstun": 0.5
-}
+jump_mk_knockback = 100.0
 metadata/_custom_type_script = "uid://ccjfweg28wskh"

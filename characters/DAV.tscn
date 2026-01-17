@@ -804,7 +804,7 @@ size = Vector2(200, 50)
 size = Vector2(0, 0)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ak627"]
-size = Vector2(30, 30)
+size = Vector2(60, 160)
 
 [sub_resource type="Animation" id="Animation_s33xd"]
 resource_name = "cr_mk"

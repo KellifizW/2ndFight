@@ -383,7 +383,22 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 				"duration": hitstun
 			}
 
-	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly, knockfly_params)
+	var knockback_dist = -1.0
+	if ATTACK_TABLE.has(attack_type):
+		knockback_dist = ATTACK_TABLE[attack_type].get("knockback", -1.0)
+	elif move_set:
+		if move_set.is_powerkk:
+			knockback_dist = move_set.powerkk_knockback
+		elif move_set.is_spnk:
+			knockback_dist = move_set.spnk_knockback
+		elif move_set.is_fireball:
+			knockback_dist = move_set.fireball_knockback
+		elif move_set.is_super:
+			knockback_dist = move_set.super_knockback
+		elif move_set.is_dp:
+			knockback_dist = move_set.dp_knockback
+	
+	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly, knockfly_params, knockback_dist)
 
 	var is_blocked: bool = target.is_blocking
 	var stun_duration = blockstun if is_blocked else hitstun

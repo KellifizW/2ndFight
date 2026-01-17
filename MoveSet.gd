@@ -55,6 +55,14 @@ var fireball_damage: float = 10.0
 var super_damage: float = 5.0
 var hdk_damage: float = 15.0  # ← 新增 HDK 傷害，可自行調整
 
+# Knockback distances (special moves)
+var powerkk_knockback: float = 300.0
+var spnk_knockback: float = 280.0
+var fireball_knockback: float = 150.0
+var super_knockback: float = 200.0
+var dp_knockback: float = 320.0
+var hdk_knockback: float = 290.0
+
 # Move distances
 var powerkk_move_distance: float = 300.0
 var spnk_move_distance: float = 250.0

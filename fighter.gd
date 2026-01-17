@@ -103,7 +103,8 @@ func take_hit(
 	damage: float = 10.0,
 	skip_push: bool = false,
 	force_knockfly: bool = false,
-	knockfly_params: Dictionary = {}
+	knockfly_params: Dictionary = {},
+	knockback_distance: float = -1.0
 ) -> void:
 	if not world:
 		print("Warning: World node not found in group 'world' for %s" % name)
@@ -232,8 +233,9 @@ func take_hit(
 			fixed_velocity.y = 0
 		
 		if not skip_push:
+			var push_distance = knockback_distance if knockback_distance > 0 else hit_push_distance
 			hit_push_timer = initial_hitstun
-			hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
+			hit_push_velocity = 2.0 * push_distance * world.SIMULATION_SCALE / initial_hitstun
 		
 		_update_animation_state(0, input_data.crouch_pressed)
 
