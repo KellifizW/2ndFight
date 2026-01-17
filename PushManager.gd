@@ -18,19 +18,16 @@ class Collider:
 		size = s
 	
 	func is_overlapping(other: Collider, x_trigger: int, y_trigger: int) -> bool:
-		# 使用整數除法避免警告
-		var left_a  = center.x - (size.x >> 1)
-		var right_a = center.x + (size.x >> 1)
-		var left_b  = other.center.x - (other.size.x >> 1)
-		var right_b = other.center.x + (other.size.x >> 1)
-		
+		var left_a = center.x - (size.x / 2)
+		var right_a = center.x + (size.x / 2)
+		var left_b = other.center.x - (other.size.x / 2)
+		var right_b = other.center.x + (other.size.x / 2)
 		var has_x_overlap = left_a <= right_b + x_trigger and right_a >= left_b - x_trigger
 		
-		var up_a   = center.y - (size.y >> 1)
-		var down_a = center.y + (size.y >> 1)
-		var up_b   = other.center.y - (other.size.y >> 1)
-		var down_b = other.center.y + (other.size.y >> 1)
-		
+		var up_a = center.y - (size.y / 2)
+		var down_a = center.y + (size.y / 2)
+		var up_b = other.center.y - (other.size.y / 2)
+		var down_b = other.center.y + (other.size.y / 2)
 		var has_y_overlap = up_a <= down_b + y_trigger and down_a >= up_b - y_trigger
 		
 		return has_x_overlap and has_y_overlap
@@ -53,7 +50,7 @@ func _physics_process(delta: float) -> void:
 	if players.size() < 2:
 		return
 
-	# 處理計時器（以下保持不變）
+	# 處理計時器
 	for player in players:
 		if player.is_push_back:
 			if player.push_back_timer > 0:
@@ -103,18 +100,15 @@ func _physics_process(delta: float) -> void:
 			if player.knockfly_timer <= 0 and player.is_knockfly:
 				var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % player.name) if get_tree().get_first_node_in_group("ui") else null
 				if healthbar and healthbar.current_health <= 0:
-					player.fixed_velocity.x = 0
-					player.knockfly_velocity_x = 0.0
-					player.knockfly_accumulated_distance = 0.0
-					player.is_knockfly = false
+					pass
 				else:
 					player.fixed_velocity.x = 0
 					player.knockfly_velocity_x = 0.0
 					player.knockfly_accumulated_distance = 0.0
-					if player.has_node("AnimationPlayer"):
-						player.get_node("AnimationPlayer").speed_scale = 1.0
+					if player.animation_player:
+						player.animation_player.speed_scale = 1.0
 
-	# 推開處理（以下保持不變）
+	# 推開處理
 	for i in range(players.size()):
 		var parent = players[i]
 		var move_set = parent.get_node_or_null("MoveSet")
@@ -210,7 +204,7 @@ func _physics_process(delta: float) -> void:
 					elif other_at_right:
 						push_vec_self = push_amount
 				else:
-					var push_amount = push_distance_fixed * 0.5 + 1
+					var push_amount = push_distance_fixed * 0.6 + 1
 					push_vec_self = normal_x * push_amount
 					push_vec_other = -normal_x * push_amount
 				
@@ -237,25 +231,26 @@ func _physics_process(delta: float) -> void:
 				other.global_position.x = new_other_fixed_x / SIMULATION_SCALE
 				parent.is_being_pushed = push_vec_self != 0
 				other.is_being_pushed = push_vec_other != 0
-
-	# 角色間最大距離限制（以下保持不變）
-	if players.size() == 2:
-		var left_player = players[0] if players[0].fixed_position.x < players[1].fixed_position.x else players[1]
-		var right_player = players[1] if players[0].fixed_position.x < players[1].fixed_position.x else players[0]
-		
-		var dist_pixels = abs(left_player.global_position.x - right_player.global_position.x)
-		if dist_pixels > 1000.0 + collision_epsilon:
-			var target_dist_fixed = round(1000.0 * SIMULATION_SCALE)
+			# 角色間最大距離限制 (1000 像素) - 只限後退 (允許前進 + 推擠)
+		if players.size() == 2:
+			var left_player = players[0] if players[0].fixed_position.x < players[1].fixed_position.x else players[1]
+			var right_player = players[1] if players[0].fixed_position.x < players[1].fixed_position.x else players[0]
 			
-			if right_player.fixed_velocity.x > 0:
-				right_player.fixed_velocity.x = 0
-				right_player.fixed_position.x = left_player.fixed_position.x + target_dist_fixed
-				right_player.global_position.x = right_player.fixed_position.x / SIMULATION_SCALE
-			
-			if left_player.fixed_velocity.x < 0:
-				left_player.fixed_velocity.x = 0
-				left_player.fixed_position.x = right_player.fixed_position.x - target_dist_fixed
-				left_player.global_position.x = left_player.fixed_position.x / SIMULATION_SCALE
+			var dist_pixels = abs(left_player.global_position.x - right_player.global_position.x)
+			if dist_pixels > 1000.0 + collision_epsilon:  # 加 epsilon 防抖動
+				var target_dist_fixed = round(1000.0 * SIMULATION_SCALE)
+				
+				# right_player 後退 = velocity.x > 0 → 鎖 velocity + 拉 position
+				if right_player.fixed_velocity.x > 0:
+					right_player.fixed_velocity.x = 0
+					right_player.fixed_position.x = left_player.fixed_position.x + target_dist_fixed
+					right_player.global_position.x = right_player.fixed_position.x / SIMULATION_SCALE
+				
+				# left_player 後退 = velocity.x < 0 → 鎖 velocity + 拉 position
+				if left_player.fixed_velocity.x < 0:
+					left_player.fixed_velocity.x = 0
+					left_player.fixed_position.x = right_player.fixed_position.x - target_dist_fixed
+					left_player.global_position.x = left_player.fixed_position.x / SIMULATION_SCALE
 
 	# 邊界限制
 	for player in players:

@@ -148,7 +148,7 @@ func _ready() -> void:
 		print("Warning: PositionLabel not found in UI")
 	
 	$UI/CountdownTimer.countdown_finished.connect(_on_countdown_finished)
-
+	
 func _spawn_player(char_data: CharacterData, pos: Vector2, seat: String) -> Player:
 	if not char_data or not char_data.scene:
 		push_error("CharacterData 或場景遺失：%s" % char_data)
@@ -162,6 +162,9 @@ func _spawn_player(char_data: CharacterData, pos: Vector2, seat: String) -> Play
 	add_child(instance)
 	return instance
 
+# 其餘函式（_input, _process, _physics_process, advantage 計算, reset_players 等）保持原樣不變
+# （為了節省篇幅這裡省略，但請保留你原本的所有程式碼）
+
 func _input(event) -> void:
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_R:
@@ -172,24 +175,13 @@ func _input(event) -> void:
 		if Input.is_action_just_pressed("toggle_bgm"):
 			toggle_bgm()
 			print("Debug: toggle_bgm action triggered, BGM state: %s at %s ms" % [is_bgm_enabled, Time.get_ticks_msec()])
-
+			
 func _process(delta: float) -> void:
 	fps_label.text = "FPS: %d" % (1.0 / delta)
 	
 	if animation_label and player_a and player_b:
-		# 修改：從 AnimationDirector 取得 animation_state
-		var a_anim_director = player_a.get_node_or_null("AnimationDirector")
-		var b_anim_director = player_b.get_node_or_null("AnimationDirector")
-		
-		var a_anim = "none"
-		var b_anim = "none"
-		
-		if a_anim_director and a_anim_director.animation_state:
-			a_anim = a_anim_director.animation_state.get_current_node() if a_anim_director.animation_state else "none"
-		
-		if b_anim_director and b_anim_director.animation_state:
-			b_anim = b_anim_director.animation_state.get_current_node() if b_anim_director.animation_state else "none"
-		
+		var a_anim = player_a.animation_state.get_current_node() if player_a.animation_state else "none"
+		var b_anim = player_b.animation_state.get_current_node() if player_b.animation_state else "none"
 		animation_label.text = "Player A: %s, Player B: %s" % [a_anim, b_anim]
 	
 	# 修正：安全檢查 healthbar 是否存在，並在 player 生成後才可能有值
@@ -229,6 +221,7 @@ func _physics_process(delta: float) -> void:
 	if block_attacker and blocker and not block_advantage_calculated:
 		_calculate_block_advantage()
 
+# （以下函式保持不變，只修正了血量檢查部分）
 func _calculate_hit_advantage() -> void:
 	if attacker_recover_time == 0.0 and is_instance_valid(attacker) and not attacker.is_attacking:
 		var move_set = attacker.get_node_or_null("MoveSet")
@@ -275,11 +268,7 @@ func _calculate_block_advantage() -> void:
 		elif "block_timer" in blocker and blocker.block_timer <= 0.0:
 			recovered = true
 		else:
-			# 修改：從 AnimationDirector 取得當前動畫
-			var blocker_anim_director = blocker.get_node_or_null("AnimationDirector")
-			var anim = "none"
-			if blocker_anim_director and blocker_anim_director.animation_state:
-				anim = blocker_anim_director.animation_state.get_current_node() if blocker_anim_director.animation_state else ""
+			var anim = blocker.animation_state.get_current_node() if blocker.animation_state else ""
 			recovered = anim not in ["block", "cr_block"]
 		
 		if recovered:
@@ -324,14 +313,8 @@ func to_scaled_vector2(vector: Vector2i) -> Vector2:
 	return Vector2(float(vector.x) / SIMULATION_SCALE, float(vector.y) / SIMULATION_SCALE)
 
 func reset_player_animation(player: Node, target_state: String) -> void:
-	# 修改：從 AnimationDirector 取得 AnimationTree 和 animation_state
-	var anim_director = player.get_node_or_null("AnimationDirector")
-	if not anim_director:
-		print("Warning: AnimationDirector not found for %s" % player.name)
-		return
-	
-	var animation_tree = anim_director.get_node_or_null("../AnimationTree")  # AnimationTree 是兄弟節點
-	var animation_state = anim_director.animation_state if anim_director else null
+	var animation_tree = player.get_node_or_null("AnimationTree")
+	var animation_state = animation_tree.get("parameters/playback") if animation_tree else null
 	var animation_player = player.get_node_or_null("AnimationPlayer")
 	var move_set = player.get_node_or_null("MoveSet")
 	

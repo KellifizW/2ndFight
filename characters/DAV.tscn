@@ -1,4 +1,4 @@
-[gd_scene load_steps=100 format=3 uid="uid://c1t3ukbrnos3c"]
+[gd_scene load_steps=99 format=3 uid="uid://c1t3ukbrnos3c"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_vhfda"]
 [ext_resource type="Resource" uid="uid://dsdxakjhgv04k" path="res://data/p1_attack_data.tres" id="2_rnech"]
@@ -14,7 +14,6 @@
 [ext_resource type="AudioStream" uid="uid://bekh5vxg0gcta" path="res://audio/hurt_grunt_p1.wav" id="12_ubmh5"]
 [ext_resource type="AudioStream" uid="uid://dm1sdatl058bw" path="res://audio/powerkk_call.mp3" id="13_2tjih"]
 [ext_resource type="AudioStream" uid="uid://c60iyk1374qu3" path="res://audio/fireball_call_p1.wav" id="14_smpwk"]
-[ext_resource type="Script" uid="uid://cc06dfrs80f06" path="res://AnimationDirector.gd" id="15_rnech"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(90, 270)
@@ -1573,9 +1572,9 @@ tracks/3/path = NodePath("AnimatedSprite2D:frame")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.1, 0.18333334, 0.25),
+"times": PackedFloat32Array(0, 0.033333335, 0.13333334, 0.2),
 "transitions": PackedFloat32Array(1, 1, 1, 1),
-"update": 1,
+"update": 0,
 "values": [0, 1, 3, 4]
 }
 tracks/4/type = "value"
@@ -2231,6 +2230,18 @@ tracks/5/keys = {
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [&"knockfly"]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("AnimatedSprite2D:offset")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0.28333333),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0, 30)]
 }
 
 [sub_resource type="Animation" id="Animation_3pafw"]
@@ -3375,11 +3386,7 @@ states/super/position = Vector2(300, 222)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-108, 193)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627"), "cr_down", "cr_idle", SubResource("AnimationNodeStateMachineTransition_shoen"), "Walk", "cr_down", SubResource("AnimationNodeStateMachineTransition_3c2oy")]
-<<<<<<< HEAD
-graph_offset = Vector2(-366, 79)
-=======
-graph_offset = Vector2(-77, 84)
->>>>>>> parent of d62fe45 (beforechangingframwork1231)
+graph_offset = Vector2(-258, 56)
 
 [sub_resource type="Curve" id="Curve_ixokm"]
 _data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]
@@ -3474,7 +3481,7 @@ position = Vector2(50, 0)
 debug_color = Color(0.62189, 0.533606, 0, 0.42)
 
 [node name="groundsmoke" type="GPUParticles2D" parent="."]
-modulate = Color(1, 1, 1, 0.78431374)
+z_index = -1
 position = Vector2(0, 140)
 emitting = false
 amount = 10
@@ -3508,7 +3515,7 @@ pitch_scale = 1.1
 
 [node name="HurtGruntPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("12_ubmh5")
-volume_db = -5.0
+volume_db = -10.0
 pitch_scale = 1.13
 
 [node name="SpecialCallPlayer" type="AudioStreamPlayer" parent="."]
@@ -3517,7 +3524,3 @@ volume_db = -5.0
 
 [node name="FireballCallPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("14_smpwk")
-
-[node name="AnimationDirector" type="Node" parent="."]
-script = ExtResource("15_rnech")
-metadata/_custom_type_script = "uid://cc06dfrs80f06"
