@@ -165,6 +165,13 @@ func _reset_attack() -> void:
 	if has_node("Hitbox/HitShape"):
 		$Hitbox/HitShape.disabled = true
 
+func _apply_air_friction(friction_coeff: float, delta: float) -> void:
+	var friction_amount = int(friction_coeff * (world.SIMULATION_SCALE if world else 1000.0) * delta)
+	if fixed_velocity.x > 0:
+		fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
+	elif fixed_velocity.x < 0:
+		fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
+
 func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
 	var retry_count: int = 0
@@ -259,14 +266,13 @@ func _physics_process(delta: float) -> void:
 
 func _handle_timers(delta: float) -> void:
 	if neutral_timer > 0:
-		neutral_timer -= delta
-		if neutral_timer <= 0:
-			neutral_timer = 0.0
+		neutral_timer = max(0, neutral_timer - delta)
+		if neutral_timer == 0:
 			pending_dash_dir = 0
 	
 	if dash_timer > 0:
-		dash_timer -= delta
-		if dash_timer <= 0:
+		dash_timer = max(0, dash_timer - delta)
+		if dash_timer == 0:
 			is_dashing = false
 			is_backdashing = false
 			fixed_velocity.x = 0
@@ -276,18 +282,17 @@ func _handle_timers(delta: float) -> void:
 			landing_facing_lock = false
 	
 	if jump_delay_timer > 0:
-		jump_delay_timer -= delta
-		if jump_delay_timer <= 0:
+		jump_delay_timer = max(0, jump_delay_timer - delta)
+		if jump_delay_timer == 0:
 			fixed_velocity.y = int(jump_vertical_speed * (world.SIMULATION_SCALE if world else 1000))
 			just_jumped = true
 			fixed_position.y = (world.FLOOR_Y if world else 200000) - 1
 	
 	if air_hit_backjump_timer > 0:
-		air_hit_backjump_timer -= delta
-		if air_hit_backjump_timer <= 0:
+		air_hit_backjump_timer = max(0, air_hit_backjump_timer - delta)
+		if air_hit_backjump_timer == 0:
 			is_air_hit_backjump = false
-			fixed_velocity.x = 0
-			fixed_velocity.y = 0
+			fixed_velocity = Vector2i.ZERO
 
 func _handle_blocking(input_dir: int, is_special_moving: bool) -> void:
 	if is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_layground):
@@ -358,11 +363,7 @@ func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
 		air_hit_backjump_timer -= delta
 		var gravity: int = world.GRAVITY if world else 6000000
 		fixed_velocity.y += int(gravity * delta)
-		var friction_amount = int(default_air_friction * (world.SIMULATION_SCALE if world else 1000.0) * delta)
-		if fixed_velocity.x > 0:
-			fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
-		elif fixed_velocity.x < 0:
-			fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
+		_apply_air_friction(default_air_friction, delta)
 		if air_hit_backjump_timer <= 0 or is_on_floor():
 			is_air_hit_backjump = false
 			is_hit = true
@@ -371,11 +372,7 @@ func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
 	if is_knockfly:
 		knockfly_timer -= delta
 		fixed_velocity.y += int(knockfly_gravity * delta)
-		var friction_amount = int(air_friction * (world.SIMULATION_SCALE if world else 1000.0) * delta)
-		if fixed_velocity.x > 0:
-			fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
-		elif fixed_velocity.x < 0:
-			fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
+		_apply_air_friction(air_friction, delta)
 
 		# 關鍵修正：只要在 knockfly 狀態下著地，就強制進入 layground
 		if is_on_floor():
@@ -513,10 +510,17 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 		is_opponent_proximity = false
 		is_proximity_blocking = false
 
+func _set_facing(new_facing: float) -> void:
+	facing_direction = new_facing
+	scale.x = sign(new_facing)
+	scale.y = 1
+	sprite.scale.x = 1.0
+	rotation_degrees = 0
+	update_hitbox_position()
+
 func update_facing_direction() -> void:
-	var is_attacking_state = is_attacking
 	var is_landing_state = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
-	if is_attacking_state or landing_facing_lock or is_landing_state or is_layground:
+	if is_attacking or landing_facing_lock or is_landing_state or is_layground:
 		return
 	
 	var players = get_tree().get_nodes_in_group("players")
@@ -526,53 +530,27 @@ func update_facing_direction() -> void:
 			other_player = p
 			break
 	
-	if other_player:
-		var self_left = global_position.x - colbox_half_width
-		var self_right = global_position.x + colbox_half_width
-		var other_left = other_player.global_position.x - other_player.colbox_half_width
-		var other_right = other_player.global_position.x - other_player.colbox_half_width
-		var old_facing = facing_direction
-		var epsilon = 1.0
-		if self_left > other_right + epsilon:
-			facing_direction = -1.0
-			scale.x = -1
-			scale.y = 1
-			sprite.scale.x = 1.0
-			rotation_degrees = 0
-		elif self_right < other_left - epsilon:
-			facing_direction = 1.0
-			scale.x = 1
-			scale.y = 1
-			sprite.scale.x = 1.0
-			rotation_degrees = 0
-		else:
-			var push_manager = get_tree().get_first_node_in_group("push_manager")
-			var is_at_left_corner = push_manager.is_at_corner(self) if push_manager else false
-			if is_at_left_corner and global_position.x > other_player.global_position.x:
-				facing_direction = -1.0
-				scale.x = -1
-				scale.y = 1
-				sprite.scale.x = 1.0
-				rotation_degrees = 0
-			elif is_at_left_corner and global_position.x <= other_player.global_position.x:
-				facing_direction = 1.0
-				scale.x = 1
-				scale.y = 1
-				sprite.scale.x = 1.0
-				rotation_degrees = 0
-			else:
-				facing_direction = old_facing
-				scale.x = sign(old_facing)
-				scale.y = 1
-				sprite.scale.x = 1.0
-				rotation_degrees = 0
-		update_hitbox_position()
+	if not other_player:
+		_set_facing(1.0)
+		return
+	
+	var self_left = global_position.x - colbox_half_width
+	var self_right = global_position.x + colbox_half_width
+	var other_left = other_player.global_position.x - other_player.colbox_half_width
+	var other_right = other_player.global_position.x - other_player.colbox_half_width
+	var epsilon = 1.0
+	
+	if self_left > other_right + epsilon:
+		_set_facing(-1.0)
+	elif self_right < other_left - epsilon:
+		_set_facing(1.0)
 	else:
-		facing_direction = 1.0
-		scale.x = 1
-		scale.y = 1
-		sprite.scale.x = 1.0
-		rotation_degrees = 0
+		var push_manager = get_tree().get_first_node_in_group("push_manager")
+		var is_at_left_corner = push_manager.is_at_corner(self) if push_manager else false
+		if is_at_left_corner:
+			_set_facing(-1.0 if global_position.x > other_player.global_position.x else 1.0)
+		else:
+			_set_facing(facing_direction)
 
 func _set_animation_conditions(target_state: String, on_floor: bool, crouch_input: bool) -> void:
 	for c in animation_conditions:
@@ -587,18 +565,18 @@ func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, an
 	if is_hit:
 		return "hit" if on_floor else "Jump_B"
 	
-	var move_set = $MoveSet if has_node("MoveSet") else null
-	
 	if is_layground: return "layground"
 	if is_knockfly: return "knockfly"
 	if "is_wakeup_locked" in self and self.is_wakeup_locked: return "wakeup"
 	
+	var move_set = $MoveSet if has_node("MoveSet") else null
+	
 	if move_set and move_set.is_spmove:
 		if move_set.is_super: return "super"
-		elif player and move_set.is_powerkk and player.character_id == "DAV": return "powerkk"
-		elif player and move_set.is_spnk and player.character_id == "DEN": return "spnk"
-		elif move_set.is_hdk: return "hdk"          # ← 新增這一行
-		elif player and move_set.is_dp and player.character_id == "DAV": return "dp"
+		elif move_set.is_hdk: return "hdk"
+		elif move_set.is_powerkk and player and player.character_id == "DAV": return "powerkk"
+		elif move_set.is_spnk and player and player.character_id == "DEN": return "spnk"
+		elif move_set.is_dp and player and player.character_id == "DAV": return "dp"
 		elif move_set.is_fireball: return "fireball"
 	
 	if is_proximity_blocking:
@@ -624,9 +602,7 @@ func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, an
 		if "is_air_attacking" in self and (self.is_air_attacking or ("has_air_attacked" in self and self.has_air_attacked)):
 			return get("attack_type") if "attack_type" in self else "jump_mp"
 		else:
-			if anim_jump_dir > 0: return "Jump_F"
-			elif anim_jump_dir < 0: return "Jump_B"
-			else: return "Jump_V"
+			return "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
 	
 	return "Walk"
 

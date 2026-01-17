@@ -1,0 +1,215 @@
+[gd_scene load_steps=24 format=3 uid="uid://c0j8o4o3jtun1"]
+
+[ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
+[ext_resource type="Texture2D" uid="uid://cl5cldwpbfwt6" path="res://assets/stage.png" id="1_fj7yv"]
+[ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://FollowCamera.tscn" id="3_gbfbk"]
+[ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
+[ext_resource type="FontFile" uid="uid://doprqju6a18sf" path="res://fonts/Roundex.otf" id="4_cbp6q"]
+[ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://cpu_controller.gd" id="6_dwbse"]
+[ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
+[ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://slow_mo_controller.gd" id="7_pkg7o"]
+[ext_resource type="PackedScene" uid="uid://dsnvnd8yxiin5" path="res://FrameBar.tscn" id="7_wse8f"]
+[ext_resource type="FontFile" uid="uid://drt5it72nn35m" path="res://fonts/SF_font_file.tres" id="9_hiqwa"]
+[ext_resource type="Script" uid="uid://cydy3y7rrkibl" path="res://PushManager.gd" id="9_ioo17"]
+[ext_resource type="AudioStream" uid="uid://edw4r0cjrhy6" path="res://audio/bgm.mp3" id="12_k3n1d"]
+[ext_resource type="Resource" uid="uid://b8qgdymiybxrq" path="res://characters/DAV.character.tres" id="15_26xuy"]
+[ext_resource type="PackedScene" uid="uid://c5l4a1b0wwbtl" path="res://assets/ingameUI/countdown_timer.tscn" id="16_2u3nc"]
+[ext_resource type="Resource" uid="uid://bnbes5q0352er" path="res://characters/DEN.character.tres" id="17_bc84e"]
+[ext_resource type="Shader" uid="uid://di8lua7wssr65" path="res://shadow.gdshader" id="17_cbp6q"]
+[ext_resource type="SpriteFrames" uid="uid://dgdawo56n6mld" path="res://P2Tres/player1.tres" id="18_26xuy"]
+[ext_resource type="SpriteFrames" uid="uid://5q7cfeoprqup" path="res://P2Tres/player2.tres" id="19_bc84e"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_2u3nc"]
+
+[sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_036b0"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_aqk2v"]
+line_spacing = 2.0
+font_size = 20
+outline_size = 2
+outline_color = Color(0, 0, 0, 1)
+shadow_size = 2
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wukud"]
+shader = ExtResource("17_cbp6q")
+shader_parameter/blur_factor = 0.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_il2jm"]
+shader = ExtResource("17_cbp6q")
+shader_parameter/blur_factor = 0.0
+
+[node name="World" type="Node2D"]
+script = ExtResource("1_aqk2v")
+bgm_max_volume_db = -15.0
+player_a_character = ExtResource("15_26xuy")
+player_b_character = ExtResource("17_bc84e")
+
+[node name="TextureRect" type="TextureRect" parent="."]
+modulate = Color(1, 0.898039, 0.670588, 0.772549)
+z_index = -1
+material = SubResource("ShaderMaterial_2u3nc")
+offset_left = -419.00003
+offset_top = -197.0
+offset_right = 2781.0
+offset_bottom = 1023.0
+scale = Vector2(0.77, 0.77)
+texture = ExtResource("1_fj7yv")
+
+[node name="FollowCamera" parent="." instance=ExtResource("3_gbfbk")]
+position = Vector2(700, 360)
+scale = Vector2(1e-05, 1e-05)
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+position = Vector2(750, 700)
+collision_layer = 2
+metadata/_edit_group_ = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
+position = Vector2(0, 4)
+shape = SubResource("WorldBoundaryShape2D_036b0")
+
+[node name="UI" type="CanvasLayer" parent="." groups=["ui"]]
+layer = 0
+
+[node name="ComboLabel" type="Label" parent="UI"]
+anchors_preset = -1
+anchor_left = 0.129
+anchor_top = 0.72
+anchor_right = 0.129
+anchor_bottom = 0.72
+offset_left = -25.919998
+offset_top = -46.800003
+offset_right = 74.08
+offset_bottom = -23.800003
+grow_vertical = 0
+pivot_offset = Vector2(20, 10)
+theme_override_fonts/font = ExtResource("4_cbp6q")
+theme_override_font_sizes/font_size = 60
+
+[node name="HitLabel" type="Label" parent="UI"]
+offset_left = 540.0
+offset_right = 672.0
+offset_bottom = 55.0
+label_settings = SubResource("LabelSettings_aqk2v")
+horizontal_alignment = 1
+
+[node name="AnimationLabel" type="Label" parent="UI"]
+layout_direction = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 1100.0
+offset_top = 280.0
+offset_right = 1150.0
+offset_bottom = 303.0
+grow_vertical = 2
+text = "Ani:"
+
+[node name="FPS" type="Label" parent="UI"]
+offset_left = 1100.0
+offset_top = 660.0
+offset_right = 1178.0
+offset_bottom = 683.0
+label_settings = SubResource("LabelSettings_aqk2v")
+
+[node name="PlayerAHealthbar" parent="UI" instance=ExtResource("4_036b0")]
+layout_direction = 3
+offset_left = 680.0
+offset_top = 80.0
+offset_right = 1142.0
+offset_bottom = 130.0
+value = 100.0
+fill_mode = 1
+nine_patch_stretch = true
+texture_progress_offset = Vector2(-8, 8)
+
+[node name="PlayerBHealthbar" parent="UI" instance=ExtResource("4_036b0")]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -580.0
+offset_top = 80.0
+offset_right = -118.0
+offset_bottom = 130.0
+grow_horizontal = 0
+value = 100.0
+nine_patch_stretch = true
+texture_progress = ExtResource("7_2o6r5")
+
+[node name="P1AdvantageLabel" type="Label" parent="UI"]
+offset_top = 30.0
+offset_right = 155.0
+offset_bottom = 53.0
+text = "P1 Advantage: 0.000"
+
+[node name="P2AdvantageLabel" type="Label" parent="UI"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -180.0
+offset_top = 30.0
+offset_bottom = 58.0
+grow_horizontal = 0
+theme_override_fonts/font = ExtResource("9_hiqwa")
+theme_override_font_sizes/font_size = 20
+text = "P2 Advantage: 0.000"
+
+[node name="FrameBarP1" parent="UI" instance=ExtResource("7_wse8f")]
+offset_right = 360.0
+offset_bottom = 20.0
+
+[node name="FrameBarP2" parent="UI" instance=ExtResource("7_wse8f")]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -380.0
+offset_right = -19.998901
+offset_bottom = 20.0
+grow_horizontal = 0
+pivot_offset = Vector2(0, 0)
+
+[node name="PositionLabel" type="Label" parent="UI"]
+offset_top = 80.0
+offset_right = 100.0
+offset_bottom = 130.0
+
+[node name="CountdownTimer" parent="UI" instance=ExtResource("16_2u3nc")]
+offset_left = 598.625
+offset_top = 61.22
+offset_right = 622.7556
+offset_bottom = 61.380028
+scale = Vector2(0.85, 0.85)
+
+[node name="CPUController" type="Node" parent="."]
+script = ExtResource("6_dwbse")
+
+[node name="SlowMoController" type="Node" parent="."]
+script = ExtResource("7_pkg7o")
+
+[node name="PushManager" type="Node" parent="."]
+script = ExtResource("9_ioo17")
+
+[node name="ControlHistory" type="Node" parent="."]
+
+[node name="BGMPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("12_k3n1d")
+autoplay = true
+
+[node name="PlayerAShadowSprite" type="AnimatedSprite2D" parent="."]
+modulate = Color(0.16078432, 0.16078432, 0.16078432, 1)
+z_index = -1
+material = SubResource("ShaderMaterial_wukud")
+position = Vector2(0, 108)
+scale = Vector2(0.45, 0.09)
+sprite_frames = ExtResource("18_26xuy")
+animation = &"idle"
+offset = Vector2(0, -20)
+
+[node name="PlayerBShadowSprite" type="AnimatedSprite2D" parent="."]
+modulate = Color(0.07058824, 0.07058824, 0.07058824, 1)
+z_index = -1
+material = SubResource("ShaderMaterial_il2jm")
+position = Vector2(0, 120)
+scale = Vector2(0.48, 0.09)
+sprite_frames = ExtResource("19_bc84e")
+offset = Vector2(0, -25.98)
