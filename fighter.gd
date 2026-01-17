@@ -210,7 +210,7 @@ func take_hit(
 		_update_animation_state(0, input_data.crouch_pressed)
 		
 	else:
-		# ── 普通空中受擊 → 只觸發後跳，不會進入 knockfly ──
+		# ── 普通受擊 → 空中/地面分別處理 ──
 		is_hit = true
 		var hit_frames = max(sec_to_frames(hitstun_duration), sec_to_frames(min_hitstun_duration))
 		hitstun_frames = hit_frames
@@ -218,14 +218,22 @@ func take_hit(
 		hit_timer = initial_hitstun
 		print("[FIXED-FRAME HITSTUN START] %s 進入 hit，%d 幀 (%.3f秒)" % [name, hit_frames, hitstun_duration])
 		
-		# 空中普通攻擊：強制使用後跳邏輯
-		is_air_hit_backjump = true
-		air_hit_backjump_timer = air_hit_backjump_duration
-		fixed_velocity.x = int(-air_hit_backjump_speed * world.SIMULATION_SCALE * facing_mult)
-		fixed_velocity.y = int(air_hit_backjump_up_speed * world.SIMULATION_SCALE)  # 只用後跳上升速度
-		is_immune_to_floor_snap = true
-		floor_snap_immunity_timer = floor_snap_immunity_duration
-		fixed_position.y -= 2
+		if not is_on_floor():
+			# 空中普通攻擊：強制使用後跳邏輯
+			is_air_hit_backjump = true
+			air_hit_backjump_timer = air_hit_backjump_duration
+			fixed_velocity.x = int(-air_hit_backjump_speed * world.SIMULATION_SCALE * facing_mult)
+			fixed_velocity.y = int(air_hit_backjump_up_speed * world.SIMULATION_SCALE)  # 只用後跳上升速度
+			is_immune_to_floor_snap = true
+			floor_snap_immunity_timer = floor_snap_immunity_duration
+			fixed_position.y -= 2
+		else:
+			# 地面普通受擊 → 只有 hitstun，無垂直速度（讓 PushManager 處理水平推擊）
+			fixed_velocity.y = 0
+		
+		if not skip_push:
+			hit_push_timer = initial_hitstun
+			hit_push_velocity = 2.0 * hit_push_distance * world.SIMULATION_SCALE / initial_hitstun
 		
 		_update_animation_state(0, input_data.crouch_pressed)
 
