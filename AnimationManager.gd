@@ -32,18 +32,9 @@ func compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, ani
 	var move_set = movement_node.get_node_or_null("MoveSet")
 	
 	if move_set and move_set.is_spmove:
-		if move_set.is_super:
-			return "super"
-		elif move_set.is_hdk:
-			return "hdk"
-		elif move_set.is_powerkk and movement_node.player and movement_node.player.character_id == "DAV":
-			return "powerkk"
-		elif move_set.is_spnk and movement_node.player and movement_node.player.character_id == "DEN":
-			return "spnk"
-		elif move_set.is_dp and movement_node.player and movement_node.player.character_id == "DAV":
-			return "dp"
-		elif move_set.is_fireball:
-			return "fireball"
+		var active_move_name = move_set.get_active_move_name()
+		if active_move_name in ["super", "hdk", "powerkk", "spnk", "dp", "fireball"]:
+			return active_move_name
 	
 	if movement_node.is_proximity_blocking:
 		return "cr_block" if movement_node.is_crouching else "block"

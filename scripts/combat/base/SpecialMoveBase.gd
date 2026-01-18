@@ -38,15 +38,27 @@ func execute() -> void:
 	parent_player.is_attacking = true
 	parent_player.attack_type = move_id
 	parent_player.current_damage = damage
-	parent_player.get_node("MoveSet").is_spmove = true
-	parent_player.animation_player.play(animation_name)
 	
-	# 前衝速度
-	if move_distance != 0:
-		var world = get_tree().get_first_node_in_group("world")
-		parent_player.fixed_velocity.x = int((move_distance / duration_seconds) * world.SIMULATION_SCALE * parent_player.facing_direction)
+	# Use the new MoveSet API to start the special move
+	var move_set = parent_player.get_node("MoveSet")
+	# Instead of directly setting is_spmove, we call the appropriate start function
+	if move_id == "powerkk":
+		move_set.start_powerkk()
+	elif move_id == "spnk":
+		move_set.start_spnk()
+	elif move_id == "super":
+		move_set.start_super()
+	elif move_id == "dp":
+		move_set.start_dp()
+	elif move_id == "hdk":
+		move_set.start_hdk()
+	elif move_id == "fireball":
+		move_set.start_fireball()
+	else:
+		push_error("Unknown move_id: %s" % move_id)
+		return
 	
-	# 凍結畫面（超必用）
+	# Freeze if needed
 	if freeze_time > 0:
 		var tween = create_tween().set_ignore_time_scale(true)
 		Engine.time_scale = 0.0

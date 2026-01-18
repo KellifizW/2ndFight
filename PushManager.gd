@@ -114,10 +114,8 @@ func _physics_process(delta: float) -> void:
 		var move_set = parent.get_node_or_null("MoveSet")
 		var is_penetrable = false
 		if move_set:
-			var player_id = parent.player_id if "player_id" in parent else "p1"
-			is_penetrable = (player_id == "p1" and move_set.is_powerkk and move_set.is_powerkk_penetrable) or \
-							(player_id == "p2" and move_set.is_spnk and move_set.is_spnk_penetrable) or \
-							(move_set.is_dp and move_set.is_dp_penetrable)
+			# Check if the active move is penetrable
+			is_penetrable = move_set.is_spmove and move_set.current_move_state.active_move and move_set.current_move_state.active_move.penetrable
 		parent.is_being_pushed = false
 		if is_penetrable or parent.skip_pushbox:
 			continue
@@ -126,10 +124,8 @@ func _physics_process(delta: float) -> void:
 			var other_move_set = other.get_node_or_null("MoveSet")
 			var other_is_penetrable = false
 			if other_move_set:
-				var other_player_id = other.player_id if "player_id" in other else "p1"
-				other_is_penetrable = (other_player_id == "p1" and other_move_set.is_powerkk and other_move_set.is_powerkk_penetrable) or \
-									  (other_player_id == "p2" and other_move_set.is_spnk and other_move_set.is_spnk_penetrable) or \
-									  (other_move_set.is_dp and other_move_set.is_dp_penetrable)
+				# Check if the active move is penetrable
+				other_is_penetrable = other_move_set.is_spmove and other_move_set.current_move_state.active_move and other_move_set.current_move_state.active_move.penetrable
 			if other_is_penetrable or other.skip_pushbox:
 				continue
 
