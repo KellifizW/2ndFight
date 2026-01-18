@@ -1,0 +1,20 @@
+[gd_resource type="SpecialMoveData" load_steps=2 format=3]
+[ext_resource type="Script" path="res://data/SpecialMoveData.gd" id="script"]
+[resource]
+script = ExtResource("script")
+character_requirement = "DAV"
+damage = 5.0
+knockback = 200.0
+duration = 2.6
+move_distance = 200.0
+jump_delay = 0.9
+jump_speed = -210.0
+is_freeze = true
+freeze_duration = 0.3
+is_projectile = false
+gravity = 200000.0
+penetrable = false
+sound_type = "special"
+knockfly_gravity = 0.0
+knockfly_vertical_speed = 0.0
+knockfly_horizontal_speed = 0.0

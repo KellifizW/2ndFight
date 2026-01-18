@@ -351,22 +351,22 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 	elif move_set and move_set.is_spmove and move_set.current_move_state.active_move:
 		var active_move = move_set.current_move_state.active_move
 		damage = active_move.damage
-		if active_move.name == "powerkk":
+		if active_move.move_name == "powerkk":
 			hitstun = 0.65
 			blockstun = powerkk_blockstun
-		elif active_move.name == "spnk":
+		elif active_move.move_name == "spnk":
 			hitstun = 0.45
 			blockstun = powerkk_blockstun
 			var pos = animation_player.current_animation_position if animation_player else 0.0
 			if pos < 0.2667: damage = 6.0
-		elif active_move.name == "fireball":
+		elif active_move.move_name == "fireball":
 			hitstun = 0.35
 			blockstun = 0.233
 			skip_push = true
-		elif active_move.name == "super":
+		elif active_move.move_name == "super":
 			hitstun = 0.45
 			blockstun = 0.3
-		elif active_move.name == "dp":
+		elif active_move.move_name == "dp":
 			hitstun = 0.65
 			blockstun = powerkk_blockstun
 			dp_blocked = target.is_blocking

@@ -1,69 +1,16 @@
 class_name MoveSet extends Node
 
 # ============================================================
-# MOVE DATA STRUCTURE - Single source of truth
+# Move data is now loaded from .tres files (data-driven)
+# No need for MoveData class - we use SpecialMoveData Resource
 # ============================================================
-
-class MoveData:
-	var name: String
-	var character_requirement: String  # "DAV", "DEN", or "*"
-	var damage: float
-	var knockback: float
-	var duration: float
-	var move_distance: float
-	var jump_delay: float
-	var jump_speed: float
-	var is_freeze: bool
-	var is_projectile: bool
-	var gravity: float = 0.0
-	var sound_type: String  # "special" or "fireball"
-	var penetrable: bool = false  # For pushbox penetration
-	# Knockfly-specific parameters (for DP and similar moves)
-	var knockfly_gravity: float = 0.0
-	var knockfly_vertical_speed: float = 0.0
-	var knockfly_horizontal_speed: float = 0.0
-	
-	func _init(
-		p_name: String,
-		p_char: String,
-		p_damage: float,
-		p_knockback: float,
-		p_duration: float,
-		p_move_distance: float,
-		p_jump_delay: float = 0.0,
-		p_jump_speed: float = 0.0,
-		p_is_freeze: bool = false,
-		p_is_projectile: bool = false,
-		p_gravity: float = 0.0,
-		p_sound: String = "special",
-		p_penetrable: bool = false,
-		p_knockfly_gravity: float = 0.0,
-		p_knockfly_vertical_speed: float = 0.0,
-		p_knockfly_horizontal_speed: float = 0.0
-	):
-		name = p_name
-		character_requirement = p_char
-		damage = p_damage
-		knockback = p_knockback
-		duration = p_duration
-		move_distance = p_move_distance
-		jump_delay = p_jump_delay
-		jump_speed = p_jump_speed
-		is_freeze = p_is_freeze
-		is_projectile = p_is_projectile
-		gravity = p_gravity
-		sound_type = p_sound
-		penetrable = p_penetrable
-		knockfly_gravity = p_knockfly_gravity
-		knockfly_vertical_speed = p_knockfly_vertical_speed
-		knockfly_horizontal_speed = p_knockfly_horizontal_speed
 
 # ============================================================
 # RUNTIME STATE - Only track active move states
 # ============================================================
 
 class MoveState:
-	var active_move: MoveData
+	var active_move: SpecialMoveData  # Now uses SpecialMoveData Resource
 	var timer: float = 0.0
 	var jump_timer: float = 0.0
 	var has_jumped: bool = false
@@ -101,6 +48,8 @@ var is_spmove_animation_playing: bool = false
 @onready var sprite = parent.get_node("Sprite2D") if parent.has_node("Sprite2D") else null
 
 func _ready() -> void:
+	var player_name = parent.name if parent else "unknown"
+	print("[MoveSet._ready] Initializing MoveSet for player: %s" % player_name)
 	_initialize_move_library()
 	
 	if not parent or not hitbox or not animation_player or not sprite:
@@ -118,42 +67,46 @@ func _ready() -> void:
 	if fireball_player: fireball_player.volume_db = 0.0
 
 func _initialize_move_library() -> void:
-	# DAV moves
-	move_library["powerkk"] = MoveData.new(
-		"powerkk", "DAV", 12.0, 300.0, 0.933, 300.0, 0.0, 0.0, false, false, 0.0, "special", false
-	)
-	move_library["super"] = MoveData.new(
-		"super", "DAV", 5.0, 200.0, 2.6, 200.0, 0.9, -210.0, true, false, 200000.0, "special", false
-	)
-	move_library["dp"] = MoveData.new(
-		"dp", "DAV", 5.0, 320.0, 0.9, 100.0, 0.0667, -2000.0, false, false, 6000000.0, "special", true,
-		6000000.0, -2500.0, 100.0
-	)
+	print("[MoveSet._initialize_move_library] Loading moves from MovesDatabase...")
 	
-	# DEN moves
-	move_library["spnk"] = MoveData.new(
-		"spnk", "DEN", 12.0, 280.0, 1.2, 250.0, 0.0, 0.0, false, false, 0.0, "special", false
-	)
-	move_library["hdk"] = MoveData.new(
-		"hdk", "DEN", 15.0, 290.0, 1.1, 200.0, 0.0, 0.0, false, false, 0.0, "special", false
-	)
+	# Load all special moves from MovesDatabase (data-driven approach)
+	var moves_database = load("res://data/MovesDatabase.gd")
+	var all_moves = moves_database.get_all_moves()
 	
-	# Universal moves
-	move_library["fireball"] = MoveData.new(
-		"fireball", "*", 10.0, 150.0, 0.3, 0.0, 0.0, 0.0, false, true, 0.0, "fireball", true
-	)
+	var loaded_count = 0
+	for move_name in all_moves.keys():
+		var move_data = all_moves[move_name]
+		
+		if move_data == null:
+			print("[MoveSet._initialize_move_library] [%s] ERROR: null data" % move_name)
+			continue
+		
+		if move_data is SpecialMoveData:
+			move_library[move_name] = move_data
+			loaded_count += 1
+			print("[MoveSet._initialize_move_library] [%s] SUCCESS loaded" % move_name)
+		else:
+			print("[MoveSet._initialize_move_library] [%s] ERROR: wrong type %s" % [move_name, move_data.get_class()])
+	
+	print("[MoveSet._initialize_move_library] Done: %d/6 loaded. Keys: %s" % [loaded_count, move_library.keys()])
 
 # ============================================================
 # START SPECIAL MOVE (Generic, handles ALL moves)
 # ============================================================
 
 func _start_special(move_name: String) -> void:
+	print("[MoveSet._start_special] Starting move: %s" % move_name)
+	print("[MoveSet._start_special] move_library contents: %s" % move_library.keys())
+	
 	if move_name not in move_library:
-		push_error("Move '%s' not found in move library" % move_name)
+		push_error("Move '%s' not found in move library. Available moves: %s" % [move_name, move_library.keys()])
 		return
 	
-	var move_data: MoveData = move_library[move_name]
+	var move_data: SpecialMoveData = move_library[move_name]
+	print("[MoveSet._start_special] Loaded move_data: %s (type: %s)" % [move_data, move_data.get_class()])
+	
 	var character_id = parent.character_id if "character_id" in parent else "UNKNOWN"
+	print("[MoveSet._start_special] Character ID: %s, Move requires: %s" % [character_id, move_data.character_requirement])
 	
 	# Character requirement check
 	if move_data.character_requirement != "*" and character_id != move_data.character_requirement:
@@ -165,10 +118,13 @@ func _start_special(move_name: String) -> void:
 		print("[MoveSet] %s cannot use %s: already attacking or in special move" % [parent.name, move_name])
 		return
 	
+	print("[MoveSet._start_special] All checks passed, initializing move state...")
+	
 	# Set up move state
 	is_spmove = true
 	is_special_moving = true
 	is_spmove_animation_playing = true
+	print("[MoveSet._start_special] Set is_spmove=true, is_special_moving=true")
 	
 	current_move_state.active_move = move_data
 	current_move_state.timer = move_data.duration
@@ -177,6 +133,7 @@ func _start_special(move_name: String) -> void:
 	current_move_state.initial_facing = parent.facing_direction
 	current_move_state.initial_parent_scale_x = parent.scale.x
 	current_move_state.initial_sprite_scale_x = sprite.scale.x
+	print("[MoveSet._start_special] Set move state (timer=%.3f, jump_delay=%.3f)" % [current_move_state.timer, current_move_state.jump_timer])
 	
 	if move_data.is_projectile:
 		current_move_state.spawn_timer = fireball_spawn_delay
@@ -201,12 +158,16 @@ func _start_special(move_name: String) -> void:
 	if animation_player and animation_player.has_animation(move_name):
 		var anim = animation_player.get_animation(move_name)
 		current_move_state.timer = anim.length
+		print("[MoveSet._start_special] Animation '%s' found, length: %.3f" % [move_name, anim.length])
+	else:
+		print("[MoveSet._start_special] WARNING: animation_player=%s, has_animation(%s)=%s" % [animation_player != null, move_name, animation_player.has_animation(move_name) if animation_player else "N/A"])
 	
+	print("[MoveSet._start_special] Playing animation: %s" % move_name)
 	animation_player.play(move_name)
 	
 	# Freeze if needed
 	if move_data.is_freeze:
-		freeze_game(super_freeze_time)
+		freeze_game(move_data.freeze_duration)
 	
 	# Play sound
 	var sound_player = parent.get_node_or_null("FireballCallPlayer" if move_data.is_projectile else "SpecialCallPlayer")
@@ -335,19 +296,35 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	return true
 
 func _handle_input(input_data: Dictionary, _world: Node) -> bool:
+	# Debug: Log what inputs we're receiving
+	if input_data.get("spm1_pressed") or input_data.get("spm2_pressed") or input_data.get("spm3_pressed") or input_data.get("dp_pressed") or input_data.get("super_pressed"):
+		print("[MoveSet._handle_input] Received input - spm1:%s spm2:%s spm3:%s dp:%s super:%s | is_attacking:%s is_spmove:%s" % [
+			input_data.get("spm1_pressed"),
+			input_data.get("spm2_pressed"),
+			input_data.get("spm3_pressed"),
+			input_data.get("dp_pressed"),
+			input_data.get("super_pressed"),
+			parent.is_attacking,
+			is_spmove
+		])
+	
 	if input_data.get("super_pressed", false) and not parent.is_attacking and not is_spmove:
+		print("[MoveSet] SUPER pressed!")
 		start_super()
 		return true
 	
 	if input_data.get("dp_pressed", false) and not parent.is_attacking and not is_spmove:
+		print("[MoveSet] DP pressed!")
 		start_dp()
 		return true
 	
 	if input_data.get("spm2_pressed", false):
+		print("[MoveSet] SPM2 (Fireball) pressed!")
 		start_fireball()
 		return true
 	
 	if input_data.get("spm1_pressed", false) and not parent.is_attacking and not is_spmove:
+		print("[MoveSet] SPM1 pressed! Character: %s" % parent.character_id)
 		if parent.character_id == "DAV":
 			start_powerkk()
 		elif parent.character_id == "DEN":
@@ -355,6 +332,7 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 		return true
 	
 	if input_data.get("spm3_pressed", false) and parent.character_id == "DEN" and not parent.is_attacking and not is_spmove:
+		print("[MoveSet] SPM3 (HDK) pressed!")
 		start_hdk()
 		return true
 	
@@ -379,7 +357,7 @@ func _process_projectile_spawn(delta: float, _world: Node) -> void:
 		get_tree().current_scene.add_child(fb)
 		print("[MoveSet] Spawned fireball: %s" % scene_path)
 
-func _process_jump(delta: float, world: Node, move: MoveData) -> void:
+func _process_jump(delta: float, world: Node, move: SpecialMoveData) -> void:
 	current_move_state.jump_timer -= delta
 	
 	if current_move_state.jump_timer <= 0 and not parent.is_jumping and parent.fixed_position.y == world.FLOOR_Y and not current_move_state.has_jumped:
@@ -427,7 +405,7 @@ func get_special_damage() -> float:
 
 func get_active_move_name() -> String:
 	if is_spmove and current_move_state.active_move:
-		return current_move_state.active_move.name
+		return current_move_state.active_move.move_name
 	return ""
 
 # ============================================================
@@ -435,4 +413,4 @@ func get_active_move_name() -> String:
 # ============================================================
 
 func is_move_active(move_name: String) -> bool:
-	return is_spmove and current_move_state.active_move and current_move_state.active_move.name == move_name
+	return is_spmove and current_move_state.active_move and current_move_state.active_move.move_name == move_name

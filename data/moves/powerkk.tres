@@ -1,0 +1,9 @@
+[gd_resource type="SpecialMoveData" script_class="SpecialMoveData" load_steps=2 format=3 uid="uid://d04fgpspyunlw"]
+
+[ext_resource type="Script" uid="uid://bi1snlsf67aj5" path="res://data/SpecialMoveData.gd" id="script"]
+
+[resource]
+resource_local_to_scene = false
+resource_name = ""
+script = ExtResource("script")
+damage = 40.0
