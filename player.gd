@@ -219,19 +219,31 @@ func _physics_process(delta: float) -> void:
 		force_update_facing_direction()
 		if is_crouching:
 			if input_data.st_mp_pressed:
+				# Consume the buffered input
+				if player_controller and player_controller.has_method("consume_button_input"):
+					player_controller.consume_button_input("st_mp")
 				current_damage = ATTACK_TABLE["cr_mp"].damage
 				is_attacking = true
 				attack_type = "cr_mp"
 			elif input_data.st_mk_pressed:
+				# Consume the buffered input
+				if player_controller and player_controller.has_method("consume_button_input"):
+					player_controller.consume_button_input("st_mk")
 				current_damage = ATTACK_TABLE["cr_mk"].damage
 				is_attacking = true
 				attack_type = "cr_mk"
 		else:
 			if input_data.st_mp_pressed:
+				# Consume the buffered input
+				if player_controller and player_controller.has_method("consume_button_input"):
+					player_controller.consume_button_input("st_mp")
 				current_damage = ATTACK_TABLE["st_mp"].damage
 				is_attacking = true
 				attack_type = "st_mp"
 			elif input_data.st_mk_pressed:
+				# Consume the buffered input
+				if player_controller and player_controller.has_method("consume_button_input"):
+					player_controller.consume_button_input("st_mk")
 				current_damage = ATTACK_TABLE["st_mk"].damage
 				is_attacking = true
 				attack_type = "st_mk"
@@ -240,11 +252,17 @@ func _physics_process(delta: float) -> void:
 
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked and not is_layground
 	if input_data.st_mp_pressed and is_valid_air_state:
+		# Consume the buffered input
+		if player_controller and player_controller.has_method("consume_button_input"):
+			player_controller.consume_button_input("st_mp")
 		current_damage = ATTACK_TABLE["jump_mp"].damage
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mp"
 	elif input_data.st_mk_pressed and is_valid_air_state:
+		# Consume the buffered input
+		if player_controller and player_controller.has_method("consume_button_input"):
+			player_controller.consume_button_input("st_mk")
 		current_damage = ATTACK_TABLE["jump_mk"].damage
 		is_air_attacking = true
 		has_air_attacked = true
@@ -267,6 +285,10 @@ func _physics_process(delta: float) -> void:
 func _physics_process_jump(_delta: float) -> void:
 	var input_data = get_input()
 	if input_data.jump_pressed and is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_hit and not is_knockfly and not is_blocking and not is_layground:
+		# Consume the buffered jump input
+		if player_controller and player_controller.has_method("consume_button_input"):
+			player_controller.consume_button_input("jump")
+		
 		is_jumping = true
 		landing_facing_lock = true
 		if world:

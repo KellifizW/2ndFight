@@ -4,4 +4,9 @@
 
 [resource]
 script = ExtResource("1_6mkls")
+st_mk_damage = 10.0
+st_mk_knockback = 350.0
+jump_mp_knockback = 150.0
+jump_mk_hitstun = 0.45
+jump_mk_knockback = 150.0
 metadata/_custom_type_script = "uid://ccjfweg28wskh"

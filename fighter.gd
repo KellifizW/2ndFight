@@ -112,6 +112,12 @@ func take_hit(
 	
 	print("[DEBUG] take_hit() 接收 → hitstun: %.3f, blockstun: %.3f, damage: %.1f" % [hitstun_duration, blockstun_duration, damage])
 	
+	# Clear input buffer when getting hit
+	if has_node("PlayerController"):
+		var controller = get_node("PlayerController")
+		if controller.has_method("clear_buffer"):
+			controller.clear_buffer()
+	
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove
 	

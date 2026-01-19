@@ -335,19 +335,37 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	return true
 
 func _handle_input(input_data: Dictionary, _world: Node) -> bool:
+	var controller = parent.get_node_or_null("PlayerController")
+	
 	if input_data.get("super_pressed", false) and not parent.is_attacking and not is_spmove:
+		# Consume the buffered input
+		if controller and controller.has_method("consume_button_input"):
+			controller.consume_button_input("super")
 		start_super()
 		return true
 	
 	if input_data.get("dp_pressed", false) and not parent.is_attacking and not is_spmove:
+		# DP is detected by InputManager motion, but consume st_mp that triggers it
+		if controller and controller.has_method("consume_button_input"):
+			controller.consume_button_input("st_mp")
 		start_dp()
 		return true
 	
 	if input_data.get("spm2_pressed", false):
+		# Consume the buffered input (fireball uses st_mp)
+		if controller and controller.has_method("consume_button_input"):
+			controller.consume_button_input("st_mp")
 		start_fireball()
 		return true
 	
 	if input_data.get("spm1_pressed", false) and not parent.is_attacking and not is_spmove:
+		# Consume appropriate button
+		if controller and controller.has_method("consume_button_input"):
+			if parent.character_id == "DAV":
+				controller.consume_button_input("st_mp")  # powerkk uses st_mp
+			elif parent.character_id == "DEN":
+				controller.consume_button_input("st_mk")  # spnk uses st_mk
+		
 		if parent.character_id == "DAV":
 			start_powerkk()
 		elif parent.character_id == "DEN":
@@ -355,6 +373,9 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 		return true
 	
 	if input_data.get("spm3_pressed", false) and parent.character_id == "DEN" and not parent.is_attacking and not is_spmove:
+		# Consume the buffered input (hdk uses st_mk)
+		if controller and controller.has_method("consume_button_input"):
+			controller.consume_button_input("st_mk")
 		start_hdk()
 		return true
 	

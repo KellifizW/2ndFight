@@ -6,10 +6,38 @@ class_name PlayerController extends Node
 # seat 會由 Player.gd 在 _ready() 時設定（"player_a" 或 "player_b"）
 var player_seat: String = "player_a"  # 預設值，Player 會覆蓋它
 
+# Input Buffer System
+var input_buffer: InputBuffer = null
+
 # Dash / Backdash 雙擊偵測變數
 var last_input_dir: int = 0
 var double_tap_timer: float = 0.0
 const DOUBLE_TAP_TIME: float = 0.3  # 雙擊時間窗口（秒），與 Movement 原設定一致
+
+func _ready() -> void:
+	# Initialize input buffer
+	input_buffer = InputBuffer.new()
+	add_child(input_buffer)
+
+func _physics_process(_delta: float) -> void:
+	# Record button presses into buffer
+	var suffix = "_p2" if player_seat == "player_b" else ""
+	
+	# Record all button presses
+	if Input.is_action_just_pressed("st_mp" + suffix):
+		input_buffer.record_input("st_mp")
+	if Input.is_action_just_pressed("st_mk" + suffix):
+		input_buffer.record_input("st_mk")
+	if Input.is_action_just_pressed("jump" + suffix):
+		input_buffer.record_input("jump")
+	if Input.is_action_just_pressed("spmove1" + suffix):
+		input_buffer.record_input("spmove1")
+	if Input.is_action_just_pressed("spmove2" + suffix):
+		input_buffer.record_input("spmove2")
+	if Input.is_action_just_pressed("spmove3" + suffix):
+		input_buffer.record_input("spmove3")
+	if Input.is_action_just_pressed("super" + suffix):
+		input_buffer.record_input("super")
 
 # 每幀更新雙擊計時器
 func _process(delta: float) -> void:
@@ -33,6 +61,9 @@ func get_input_data() -> Dictionary:
 	# 跳躍改為持續按住即可觸發（落地後會立刻再跳）
 	var jump_action = Input.is_action_pressed("jump" + suffix)
 	
+	# Also check buffered jump input
+	var jump_buffered = input_buffer.is_input_buffered("jump")
+	
 	# 蹲下保持 pressed
 	var crouch_action = Input.is_action_pressed("crouch" + suffix)
 	
@@ -44,7 +75,7 @@ func get_input_data() -> Dictionary:
 	
 	var input_dir: int = dir_x
 	var crouch_pressed: bool = crouch_action
-	var jump_pressed: bool = jump_action  # 持續按住為 true，允許連續跳躍
+	var jump_pressed: bool = jump_action or jump_buffered  # Combine held + buffered jump
 	
 	# Dash / Backdash 偵測
 	var dash_pressed: bool = false
@@ -67,13 +98,13 @@ func get_input_data() -> Dictionary:
 			last_input_dir = input_dir
 			double_tap_timer = DOUBLE_TAP_TIME
 	
-	# 攻擊按鍵
-	var st_mp_pressed = Input.is_action_just_pressed("st_mp" + suffix)
-	var st_mk_pressed = Input.is_action_just_pressed("st_mk" + suffix)
-	var spm1_pressed  = Input.is_action_just_pressed("spmove1" + suffix)
-	var spm2_pressed  = Input.is_action_just_pressed("spmove2" + suffix)
-	var spm3_pressed  = Input.is_action_just_pressed("spmove3" + suffix)
-	var super_pressed = Input.is_action_just_pressed("super" + suffix)
+	# 攻擊按鍵 - Check buffered inputs (don't consume yet, let player.gd decide)
+	var st_mp_pressed = input_buffer.is_input_buffered("st_mp")
+	var st_mk_pressed = input_buffer.is_input_buffered("st_mk")
+	var spm1_pressed  = input_buffer.is_input_buffered("spmove1")
+	var spm2_pressed  = input_buffer.is_input_buffered("spmove2")
+	var spm3_pressed  = input_buffer.is_input_buffered("spmove3")
+	var super_pressed = input_buffer.is_input_buffered("super")
 	var dp_pressed    = false
 	
 	# === 輸入序列檢測（保持原邏輯，但改用 character_id 判斷角色）===
@@ -136,3 +167,14 @@ func get_input_data() -> Dictionary:
 		"dash_pressed": dash_pressed,
 		"backdash_pressed": backdash_pressed
 	}
+
+# Helper method for player to consume inputs
+func consume_button_input(button_name: String) -> bool:
+	if input_buffer:
+		return input_buffer.consume_input(button_name)
+	return false
+
+# Clear buffer on certain states (getting hit, etc)
+func clear_buffer() -> void:
+	if input_buffer:
+		input_buffer.clear_all()
