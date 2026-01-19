@@ -76,19 +76,23 @@ var corner_escape_cooldown: float = 0.0
 var opponent_framebar: Node = null
 var my_framebar: Node = null
 var opponent_attack_data: AttackData = null
+var parent_healthbar: Node = null
+var opponent_healthbar: Node = null
 
-# 防重複列印
-var _last_logged_state: String = ""
-var _last_logged_dir: int = 999
-var _last_logged_jump_attack: bool = false
-var _last_logged_aerial_attack: bool = false
-var _last_logged_attack_choice: String = ""
-var _last_logged_punish: bool = false
-var _last_logged_dp: bool = false
-var _last_logged_cancel: bool = false
-var _last_logged_fireball: bool = false
-var _last_logged_dash: bool = false
-var _last_logged_fireball_block: bool = false
+# 防重複列印（統一使用字典）
+var _last_logged: Dictionary = {
+	"state": "",
+	"dir": 999,
+	"jump_attack": false,
+	"aerial_attack": false,
+	"attack_choice": "",
+	"punish": false,
+	"dp": false,
+	"cancel": false,
+	"fireball": false,
+	"dash": false,
+	"fireball_block": false
+}
 
 func _ready() -> void:
 	parent = get_parent()
@@ -117,9 +121,13 @@ func _ready() -> void:
 		if my_seat == "player_a":
 			opponent_framebar = ui.get_node("FrameBarP2")
 			my_framebar = ui.get_node("FrameBarP1")
+			parent_healthbar = ui.get_node_or_null("PlayerAHealthbar")
+			opponent_healthbar = ui.get_node_or_null("PlayerBHealthbar")
 		else:
 			opponent_framebar = ui.get_node("FrameBarP1")
 			my_framebar = ui.get_node("FrameBarP2")
+			parent_healthbar = ui.get_node_or_null("PlayerBHealthbar")
+			opponent_healthbar = ui.get_node_or_null("PlayerAHealthbar")
 	else:
 		push_error("AIBehavior 找不到 UI 節點，FrameBar 無法連結")
 
@@ -149,25 +157,17 @@ func _process(delta: float) -> void:
 		if dash_cooldown_timer <= 0:
 			dash_cooldown_timer = 0.0
 	
-	var ui = get_tree().get_first_node_in_group("ui")
-	if ui:
-		var parent_healthbar = ui.get_node_or_null("PlayerAHealthbar" if (parent.seat if "seat" in parent else "player_a") == "player_a" else "PlayerBHealthbar")
-		var opponent_healthbar = ui.get_node_or_null("PlayerAHealthbar" if opponent and (opponent.seat if "seat" in opponent else "player_a") == "player_a" else "PlayerBHealthbar") if opponent else null
-		var parent_health = parent_healthbar.current_health if parent_healthbar else 100
-		var opponent_health = opponent_healthbar.current_health if opponent_healthbar else 100
-		if parent_health <= 0 or opponent_health <= 0:
-			ai_enabled = false
-			return
+	var parent_health = parent_healthbar.current_health if parent_healthbar else 100
+	var opponent_health = opponent_healthbar.current_health if opponent_healthbar else 100
+	if parent_health <= 0 or opponent_health <= 0:
+		ai_enabled = false
+		return
 
 func _set_state_timer(value: float) -> void:
 	decision_timer = value
 
 func set_ai_enabled(enabled: bool) -> void:
 	ai_enabled = enabled
-	if ai_enabled:
-		print("AI enabled for %s" % parent.name)
-	else:
-		print("AI disabled for %s" % parent.name)
 	current_state = "idle"
 	current_attack = "none"
 	current_crouch = false
@@ -181,11 +181,10 @@ func find_opponent() -> void:
 	for player in players:
 		if player != parent:
 			opponent = player
-			print("AI opponent found: %s for %s" % [opponent.name, parent.name])
 			if opponent.has_signal("hit_detected"):
 				opponent.hit_detected.connect(_on_hit_detected)
 			return
-	print("Warning: No opponent found for %s" % parent.name)
+	push_warning("No opponent found for %s" % parent.name)
 
 func get_current_hitbox_range() -> float:
 	var hitbox_node = parent.get_node_or_null("Hitbox/HitShape")
@@ -244,7 +243,6 @@ func _on_hit_detected(_target: String, _stun_duration: float, is_blocked: bool, 
 	var recovery = _get_opponent_recovery(attack)
 	var blockstun = _get_opponent_blockstun(attack)
 	var advantage = blockstun - recovery
-	print("[AI] %s 被 %s 的 %s block → advantage %.3f" % [parent.name, opponent.name, attack, advantage])
 	punish_timer = blockstun
 	punish_opportunity = true
 	var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
@@ -259,7 +257,6 @@ func _on_self_hit_detected(_target: String, _stun_duration: float, is_blocked: b
 	var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
 	if char_id == "DAV" and parent.attack_type == "st_mp" and not is_blocked:
 		cancel_window_timer_ai = 0.3
-		print("Debug: AI %s st_mp hit detected, cancel window started" % parent.name)
 
 func is_at_left_corner() -> bool:
 	if not world: 
@@ -279,10 +276,9 @@ func can_jump_attack_hit() -> bool:
 	return distance >= 40 and distance <= 70 and opponent_on_ground
 
 func _log_state(state: String, dir: int) -> void:
-	if state != _last_logged_state or dir != _last_logged_dir:
-		print("Debug: %s state → %s, input_dir: %d" % [parent.name, state, dir])
-		_last_logged_state = state
-		_last_logged_dir = dir
+	if state != _last_logged["state"] or dir != _last_logged["dir"]:
+		_last_logged["state"] = state
+		_last_logged["dir"] = dir
 
 func get_ai_input() -> Dictionary:
 	if not ai_enabled or not opponent:
@@ -323,13 +319,12 @@ func get_ai_input() -> Dictionary:
 				input.crouch_pressed = randf() < 0.3
 				if fb_dist < 150 and randf() < fireball_backdash_chance and dash_cooldown_timer <= 0:
 					pending_backdash = true
-				if not _last_logged_fireball_block:
-					print("Debug: %s 偵測來襲火球！後退格擋 (距%.1f)" % [parent.name, fb_dist])
-					_last_logged_fireball_block = true
-			break
+			if not _last_logged["fireball_block"]:
+				_last_logged["fireball_block"] = true
+		break
 
 	if incoming_fireball:
-		_last_logged_fireball_block = false
+		_last_logged["fireball_block"] = false
 		input["attack_type"] = "none"
 		input["damage"] = 0.0
 		return input
@@ -356,18 +351,14 @@ func get_ai_input() -> Dictionary:
 		input.dash_pressed = true
 		pending_dash = false
 		dash_cooldown_timer = dash_cooldown
-		if not _last_logged_dash:
-			print("Debug: %s 執行前衝 (dash)" % parent.name)
-			_last_logged_dash = true
+		_last_logged["dash"] = true
 	elif pending_backdash and dash_cooldown_timer <= 0:
 		input.backdash_pressed = true
 		pending_backdash = false
 		dash_cooldown_timer = dash_cooldown
-		if not _last_logged_dash:
-			print("Debug: %s 執行後退衝刺 (backdash)" % parent.name)
-			_last_logged_dash = true
+		_last_logged["dash"] = true
 	else:
-		_last_logged_dash = false
+		_last_logged["dash"] = false
 
 	var distance = abs(parent.global_position.x - opponent.global_position.x)
 	var relative_dir = sign(opponent.global_position.x - parent.global_position.x)
@@ -394,15 +385,14 @@ func get_ai_input() -> Dictionary:
 			_log_state(current_state, input.input_dir)
 
 	# ===== 懲罰反擊 =====
-	if punish_opportunity and not _last_logged_punish:
+	if punish_opportunity and not _last_logged["punish"]:
 		current_state = "attack"
 		current_attack = punish_attack
 		pending_attack = punish_attack
-		print("Debug: %s 懲罰反擊！使用 %s" % [parent.name, current_attack])
-		_last_logged_punish = true
+		_last_logged["punish"] = true
 		punish_opportunity = false
 	elif not punish_opportunity:
-		_last_logged_punish = false
+		_last_logged["punish"] = false
 
 	# ===== 攻擊選擇 =====
 	if current_state == "attack":
@@ -411,21 +401,19 @@ func get_ai_input() -> Dictionary:
 			attack_decision_timer = attack_decision_delay + randf_range(0.0, 0.1)
 			
 			if can_current_attack_hit_opponent() > 0:
-				print("Debug: %s 活躍 Hitbox 可打到對手，繼續壓制" % parent.name)
 				input["attack_type"] = current_attack if current_attack != "none" else "st_mp"
 				input["damage"] = 10.0
 				return input
 			
-			if distance > fireball_distance and randf() < fireball_chance and not _last_logged_fireball:
+			if distance > fireball_distance and randf() < fireball_chance and not _last_logged["fireball"]:
 				pending_attack = "spm2"
 				current_attack = "fireball"
-				print("Debug: %s 遠距離發射火球！距離 %.1f" % [parent.name, distance])
-				_last_logged_fireball = true
+				_last_logged["fireball"] = true
 				input["attack_type"] = "spm2"
 				input["damage"] = 15.0 if parent.character_id == "DAV" else 11.0
 				return input
-			elif _last_logged_fireball:
-				_last_logged_fireball = false
+			elif _last_logged["fireball"]:
+				_last_logged["fireball"] = false
 			
 			var possible_attacks: Array[String] = []
 			var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
@@ -437,15 +425,11 @@ func get_ai_input() -> Dictionary:
 			
 			if distance < 60:
 				possible_attacks = ["st_mk", "cr_mk", "dp", "spm1"]
-				print("Debug: %s 超近距強制狠招！" % parent.name)
 			
 			current_attack = possible_attacks.pick_random() if possible_attacks.size() > 0 else "st_mp"
 			pending_attack = current_attack
-			if current_attack != _last_logged_attack_choice:
-				print("Debug: %s 攻擊選擇 → %s (距離 %.1f)" % [parent.name, current_attack, distance])
-				_last_logged_attack_choice = current_attack
-
-	# ===== 防守蹲下 =====
+			if current_attack != _last_logged["attack_choice"]:
+				_last_logged["attack_choice"] = current_attack
 	if current_state == "defend":
 		defend_decision_timer -= get_process_delta_time()
 		if defend_decision_timer <= 0:
@@ -475,15 +459,14 @@ func get_ai_input() -> Dictionary:
 
 	# ===== 其他行為（跳躍、角落逃脫等保持不變）=====
 	var jump_for_attack = can_jump_attack_hit() and randf() < 0.55 and parent.is_on_floor()
-	if jump_for_attack and not _last_logged_jump_attack:
+	if jump_for_attack and not _last_logged["jump_attack"]:
 		input.jump_pressed = true
 		input.input_dir = int(relative_dir)
 		input.st_mp_pressed = randf() < 0.6
 		input.st_mk_pressed = not input.st_mp_pressed
-		print("Debug: %s 跳躍攻擊觸發 (距離 %.1f)" % [parent.name, distance])
-		_last_logged_jump_attack = true
+		_last_logged["jump_attack"] = true
 	elif not jump_for_attack:
-		_last_logged_jump_attack = false
+		_last_logged["jump_attack"] = false
 
 	var in_corner = (is_at_left_corner() or is_at_right_corner()) and parent.is_on_floor()
 	var try_escape = in_corner and corner_escape_cooldown <= 0 and randf() < 0.28
@@ -491,31 +474,27 @@ func get_ai_input() -> Dictionary:
 		input.jump_pressed = true
 		input.input_dir = int(relative_dir)
 		corner_escape_cooldown = 1.5
-		print("Debug: %s 角落逃脫向前跳躍！" % parent.name)
 
 	if not parent.is_on_floor() and parent.velocity.y > 0 and distance < 80:
-		if randf() < 0.7 and not _last_logged_aerial_attack:
+		if randf() < 0.7 and not _last_logged["aerial_attack"]:
 			pending_attack = "st_mp" if randf() < 0.5 else "st_mk"
-			print("Debug: %s 空中攻擊觸發" % parent.name)
-			_last_logged_aerial_attack = true
+			_last_logged["aerial_attack"] = true
 	elif parent.is_on_floor():
-		_last_logged_aerial_attack = false
+		_last_logged["aerial_attack"] = false
 
-	if cancel_window_timer_ai > 0 and not _last_logged_cancel:
+	if cancel_window_timer_ai > 0 and not _last_logged["cancel"]:
 		pending_attack = "spm1"
-		print("Debug: %s 取消連招" % parent.name)
-		_last_logged_cancel = true
+		_last_logged["cancel"] = true
 	elif cancel_window_timer_ai <= 0:
-		_last_logged_cancel = false
+		_last_logged["cancel"] = false
 
 	var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
-	if char_id == "DAV" and distance < 50 and randf() < p1_dp_chance and parent.is_on_floor() and not _last_logged_dp:
+	if char_id == "DAV" and distance < 50 and randf() < p1_dp_chance and parent.is_on_floor() and not _last_logged["dp"]:
 		pending_attack = "dp"
 		current_attack = "dp"
-		print("Debug: AI %s 近距離升龍拳！" % parent.name)
-		_last_logged_dp = true
+		_last_logged["dp"] = true
 	elif not (distance < 50 and parent.is_on_floor()):
-		_last_logged_dp = false
+		_last_logged["dp"] = false
 
 	var attack_type = "st_mp" if input.st_mp_pressed else "st_mk" if input.st_mk_pressed else "dp" if input.dp_pressed else "none"
 	var move_set = parent.get_node("MoveSet") if parent.has_node("MoveSet") else null
