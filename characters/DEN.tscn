@@ -3359,6 +3359,7 @@ process_material = SubResource("ParticleProcessMaterial_ikxd4")
 
 [node name="MoveSet" type="Node" parent="."]
 script = ExtResource("6_vym3m")
+is_spnk_penetrable = false
 
 [node name="AIBehavior" type="Node" parent="."]
 script = ExtResource("7_wv6ou")

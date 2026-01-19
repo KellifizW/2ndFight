@@ -342,8 +342,8 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 		"knockfly": target_state == "knockfly",
 		"block": target_state == "block",
 		"cr_block": target_state == "cr_block",
-		"powerkk": target_state == "powerkk" and player.character_id == "DAV" and move_set and move_set.is_move_active("powerkk"),
-		"spnk": target_state == "spnk" and player.character_id == "DEN" and move_set and move_set.is_move_active("spnk"),
+		"powerkk": target_state == "powerkk" and player.character_id == "DAV" and move_set and move_set.is_powerkk,
+		"spnk": target_state == "spnk" and player.character_id == "DEN" and move_set and move_set.is_spnk,
 		"landing": target_state == "landing"
 	}
 	for condition in conditions:

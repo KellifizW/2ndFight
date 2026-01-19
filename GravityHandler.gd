@@ -9,8 +9,8 @@ func _init(movement: Node) -> void:
 func handle_gravity(delta: float, move_set) -> void:
 	if movement_node.jump_delay_timer <= 0 and not movement_node.is_on_floor() and not movement_node.is_knockfly:
 		var gravity: int = movement_node.world.GRAVITY if movement_node.world else 1800000
-		if move_set and move_set.is_spmove and move_set.current_move_state.active_move and move_set.current_move_state.active_move.gravity > 0:
-			gravity = int(move_set.current_move_state.active_move.gravity)
+		if move_set and move_set.is_super:
+			gravity = move_set.super_gravity
 		movement_node.fixed_velocity.y += int(gravity * delta)
 	else:
 		if not movement_node.just_jumped and not movement_node.is_knockfly:
