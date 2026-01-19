@@ -399,8 +399,8 @@ func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
 func _handle_gravity(delta: float, move_set) -> void:
 	if jump_delay_timer <= 0 and not is_on_floor() and not is_knockfly:
 		var gravity: int = world.GRAVITY if world else 1800000
-		if move_set and move_set.is_super:
-			gravity = move_set.super_gravity
+		if move_set and move_set.is_spmove and move_set.current_move_state.active_move and move_set.current_move_state.active_move.gravity > 0:
+			gravity = int(move_set.current_move_state.active_move.gravity)
 		fixed_velocity.y += int(gravity * delta)
 	else:
 		if not just_jumped and not is_knockfly:
@@ -572,12 +572,9 @@ func _compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, an
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	
 	if move_set and move_set.is_spmove:
-		if move_set.is_super: return "super"
-		elif move_set.is_hdk: return "hdk"
-		elif move_set.is_powerkk and player and player.character_id == "DAV": return "powerkk"
-		elif move_set.is_spnk and player and player.character_id == "DEN": return "spnk"
-		elif move_set.is_dp and player and player.character_id == "DAV": return "dp"
-		elif move_set.is_fireball: return "fireball"
+		var active_move_name = move_set.get_active_move_name()
+		if active_move_name in ["super", "hdk", "powerkk", "spnk", "dp", "fireball"]:
+			return active_move_name
 	
 	if is_proximity_blocking:
 		return "cr_block" if is_crouching else "block"

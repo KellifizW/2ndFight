@@ -238,11 +238,9 @@ func _on_hit_detected(_target: String, _stun_duration: float, is_blocked: bool, 
 	var attack = opponent.attack_type
 	var move_set = opponent.get_node("MoveSet") if opponent.has_node("MoveSet") else null
 	if move_set:
-		if move_set.is_powerkk: attack = "powerkk"
-		elif move_set.is_spnk: attack = "spnk"
-		elif move_set.is_dp: attack = "dp"
-		elif move_set.is_fireball: attack = "fireball"
-		elif move_set.is_super: attack = "super"
+		var active_move_name = move_set.get_active_move_name()
+		if not active_move_name.is_empty():
+			attack = active_move_name
 	var recovery = _get_opponent_recovery(attack)
 	var blockstun = _get_opponent_blockstun(attack)
 	var advantage = blockstun - recovery
@@ -519,10 +517,13 @@ func get_ai_input() -> Dictionary:
 	elif not (distance < 50 and parent.is_on_floor()):
 		_last_logged_dp = false
 
-	# ===== 最終設定 =====
 	var attack_type = "st_mp" if input.st_mp_pressed else "st_mk" if input.st_mk_pressed else "dp" if input.dp_pressed else "none"
 	var move_set = parent.get_node("MoveSet") if parent.has_node("MoveSet") else null
-	var damage = move_set.get_special_damage() if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_fireball or move_set.is_dp) else (10.0 if (input.st_mp_pressed or input.st_mk_pressed) else 0.0)
+	var damage = 0.0
+	if move_set and move_set.is_spmove and move_set.current_move_state.active_move:
+		damage = move_set.get_special_damage()
+	elif input.st_mp_pressed or input.st_mk_pressed:
+		damage = 10.0
 	input["attack_type"] = attack_type
 	input["damage"] = damage
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=99 format=3 uid="uid://b6x784i20q4tq"]
+[gd_scene load_steps=98 format=3 uid="uid://b6x784i20q4tq"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_ix25f"]
 [ext_resource type="Resource" uid="uid://cvb6od4v5o7vq" path="res://data/p2_attack_data.tres" id="2_jo7nc"]
@@ -14,7 +14,6 @@
 [ext_resource type="AudioStream" uid="uid://b2ew4e1h4tafa" path="res://audio/hurt_grunt_p2.wav" id="12_ydrny"]
 [ext_resource type="AudioStream" uid="uid://d2psvdgx2304o" path="res://audio/spnk_call.mp3" id="13_m8rlt"]
 [ext_resource type="AudioStream" uid="uid://dnep5kjdqe0v7" path="res://audio/fireball_call_p2.wav" id="14_qpqbf"]
-[ext_resource type="Script" uid="uid://t3dilow53fkd" path="res://scripts/combat/base/SpecialMoveBase.gd" id="15_jo7nc"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(100, 290)
@@ -3359,7 +3358,6 @@ process_material = SubResource("ParticleProcessMaterial_ikxd4")
 
 [node name="MoveSet" type="Node" parent="."]
 script = ExtResource("6_vym3m")
-is_spnk_penetrable = false
 
 [node name="AIBehavior" type="Node" parent="."]
 script = ExtResource("7_wv6ou")
@@ -3390,7 +3388,3 @@ pitch_scale = 0.95
 [node name="FireballCallPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("14_qpqbf")
 pitch_scale = 0.95
-
-[node name="SpecialMoveBase" type="Node" parent="."]
-script = ExtResource("15_jo7nc")
-metadata/_custom_type_script = "uid://t3dilow53fkd"

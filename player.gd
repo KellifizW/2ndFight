@@ -80,7 +80,7 @@ func reset_air_state() -> void:
 			landing_lock_timer = landing_duration
 
 func reset_special_state() -> void:
-	if move_set and (move_set.is_powerkk or move_set.is_spnk or move_set.is_dp or move_set.is_fireball):
+	if move_set and move_set.is_spmove:
 		move_set.stop_special_move()
 	is_facing_locked = false
 	force_update_facing_direction()
@@ -288,11 +288,9 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 		return "hit" if on_floor else "Jump_B"
 
 	if move_set and move_set.is_spmove:
-		if move_set.is_super: return "super"
-		elif character_id == "DAV" and move_set.is_powerkk: return "powerkk"
-		elif character_id == "DAV" and move_set.is_dp: return "dp"
-		elif character_id == "DEN" and move_set.is_spnk: return "spnk"
-		elif move_set.is_fireball: return "fireball"
+		var active_move_name = move_set.get_active_move_name()
+		if active_move_name in ["super", "powerkk", "dp", "spnk", "fireball"]:
+			return active_move_name
 
 	if is_blocking:
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
@@ -350,74 +348,41 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		hitstun = a.hitstun
 		blockstun = a.blockstun
 		damage = a.damage
-<<<<<<< HEAD
 	elif move_set and move_set.is_spmove and move_set.current_move_state.active_move:
 		var active_move = move_set.current_move_state.active_move
 		damage = active_move.damage
-		if active_move.move_name == "powerkk":
+		if active_move.name == "powerkk":
 			hitstun = 0.65
 			blockstun = powerkk_blockstun
-		elif active_move.move_name == "spnk":
-=======
-	elif move_set:
-		if move_set.is_powerkk:
-			hitstun = 0.65
-			blockstun = powerkk_blockstun
-			damage = move_set.powerkk_damage
-		elif move_set.is_spnk:
->>>>>>> parent of 08bff10 (rewritemoveset1.gd)
+		elif active_move.name == "spnk":
 			hitstun = 0.45
 			blockstun = powerkk_blockstun
-			damage = move_set.spnk_damage
 			var pos = animation_player.current_animation_position if animation_player else 0.0
 			if pos < 0.2667: damage = 6.0
-<<<<<<< HEAD
-		elif active_move.move_name == "fireball":
-=======
-		elif move_set.is_fireball:
->>>>>>> parent of 08bff10 (rewritemoveset1.gd)
+		elif active_move.name == "fireball":
 			hitstun = 0.35
 			blockstun = 0.233
-			damage = move_set.fireball_damage
 			skip_push = true
-<<<<<<< HEAD
-		elif active_move.move_name == "super":
+		elif active_move.name == "super":
 			hitstun = 0.45
 			blockstun = 0.3
-		elif active_move.move_name == "dp":
-=======
-		elif move_set.is_super:
-			hitstun = 0.45
-			blockstun = 0.3
-			damage = move_set.super_damage
-		elif move_set.is_dp:
->>>>>>> parent of 08bff10 (rewritemoveset1.gd)
+		elif active_move.name == "dp":
 			hitstun = 0.65
 			blockstun = powerkk_blockstun
-			damage = move_set.dp_damage
 			dp_blocked = target.is_blocking
 			force_knockfly = !dp_blocked
 			knockfly_params = {
-				"gravity": move_set.dp_knockfly_gravity,
-				"vertical_speed": move_set.dp_knockfly_vertical_speed,
-				"horizontal_speed": move_set.dp_knockfly_horizontal_speed,
+				"gravity": active_move.knockfly_gravity,
+				"vertical_speed": active_move.knockfly_vertical_speed,
+				"horizontal_speed": active_move.knockfly_horizontal_speed,
 				"duration": hitstun
 			}
 
 	var knockback_dist = -1.0
 	if ATTACK_TABLE.has(attack_type):
 		knockback_dist = ATTACK_TABLE[attack_type].get("knockback", -1.0)
-	elif move_set:
-		if move_set.is_powerkk:
-			knockback_dist = move_set.powerkk_knockback
-		elif move_set.is_spnk:
-			knockback_dist = move_set.spnk_knockback
-		elif move_set.is_fireball:
-			knockback_dist = move_set.fireball_knockback
-		elif move_set.is_super:
-			knockback_dist = move_set.super_knockback
-		elif move_set.is_dp:
-			knockback_dist = move_set.dp_knockback
+	elif move_set and move_set.is_spmove and move_set.current_move_state.active_move:
+		knockback_dist = move_set.current_move_state.active_move.knockback
 	
 	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly, knockfly_params, knockback_dist)
 
@@ -440,7 +405,7 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		contact.y += 10
 	VFXImpact.spawn_vfx(world, vfx_type, contact, facing_direction)
 
-	if move_set and (move_set.is_spnk or move_set.is_powerkk or move_set.is_dp):
+	if move_set and move_set.is_spmove and move_set.current_move_state.active_move and move_set.current_move_state.active_move.penetrable:
 		return
 	var push_manager = get_tree().get_first_node_in_group("push_manager")
 	if push_manager and push_manager.is_at_corner(target):
