@@ -192,9 +192,15 @@ func _physics_process(delta: float) -> void:
 	var input_data = get_input()
 	input_data.merge(special_input_data, true)
 
-	if input_data.spm2_pressed or input_data.dp_pressed or input_data.spm1_pressed or input_data.super_pressed:
-		input_data.st_mp_pressed = false
-		input_data.st_mk_pressed = false
+	# Debug: 顯示輸入狀態（只在攻擊時）
+	if is_attacking:
+		print("[Debug Input] attack_type=%s, is_cancel_window_open=%s, allowed_targets=%s" % [attack_type, is_cancel_window_open, allowed_cancel_targets])
+		print("[Debug Input] input_data.attack_type=%s, spm1=%s, spm2=%s, dp=%s" % [input_data.get("attack_type", "none"), input_data.get("spm1_pressed", false), input_data.get("spm2_pressed", false), input_data.get("dp_pressed", false)])
+
+	# 移除：這段邏輯會在取消判定前清空按鈕，導致 attack_type 無法正確檢測
+	# if input_data.spm2_pressed or input_data.dp_pressed or input_data.spm1_pressed or input_data.super_pressed:
+	#     input_data.st_mp_pressed = false
+	#     input_data.st_mk_pressed = false
 
 	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup and not is_layground
 
@@ -204,13 +210,11 @@ func _physics_process(delta: float) -> void:
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
 
-	if is_attacking and animation_state.get_current_node() in ["st_mp", "st_mk", "cr_mp", "cr_mk"]:
-		input_data.st_mp_pressed = false
-		input_data.st_mk_pressed = false
-
-	# 取消判定：檢查輸入的招式是否在允許的取消目標中
+	# 取消判定：必須在清空按鈕輸入之前檢查！
 	if is_attacking and is_cancel_window_open and allowed_cancel_targets.size() > 0:
 		var input_move = input_data.get("attack_type", "none")
+		print("[Cancel Debug] 進入取消判定 - is_attacking=%s, is_cancel_window_open=%s, targets_size=%d" % [is_attacking, is_cancel_window_open, allowed_cancel_targets.size()])
+		print("[Cancel Debug] input_move='%s', allowed_cancel_targets=%s" % [input_move, allowed_cancel_targets])
 		# 只在有實際輸入時才處理和顯示訊息
 		if input_move != "none":
 			if input_move in allowed_cancel_targets:
@@ -218,6 +222,13 @@ func _physics_process(delta: float) -> void:
 				stop_attack()
 			else:
 				print("[Cancel] ✗ %s 不能取消成 %s（允許: %s）" % [attack_type, input_move, allowed_cancel_targets])
+		else:
+			print("[Cancel Debug] input_move 是 'none'，不執行取消")
+
+	# 在取消判定之後才清空按鈕輸入，避免影響特殊招檢測
+	if is_attacking and animation_state.get_current_node() in ["st_mp", "st_mk", "cr_mp", "cr_mk"]:
+		input_data.st_mp_pressed = false
+		input_data.st_mk_pressed = false
 
 	if move_set and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
@@ -455,8 +466,10 @@ func _on_hit_detected(_target: String, _stun_duration: float, _is_blocked: bool,
 		is_cancel_window_open = true
 		allowed_cancel_targets = pending_cancel_targets.duplicate()
 		print("[Cancel] ✓ 擊中確認！%s 開啟取消窗口，允許: %s" % [attack_type, allowed_cancel_targets])
-		# 清空待開啟狀態
+		# 使用後立即清空，避免重複觸發
 		pending_cancel_targets = []
+	else:
+		print("[Cancel] ✗ 擊中但無待開啟的取消窗口（pending_cancel_targets 為空）")
 
 # ═══════════════════════════════════════════════════════════
 # 取消窗口系統（純 Call Method Track - Option 1）
@@ -475,8 +488,8 @@ func _open_cancel_window(allowed_moves: Array = []) -> void:
 func _close_cancel_window() -> void:
 	is_cancel_window_open = false
 	allowed_cancel_targets = []
-	pending_cancel_targets = []  # 也清空待開啟狀態
-	print("[Cancel] 取消窗口關閉")
+	# 保留 pending_cancel_targets，因為擊中確認可能在窗口關閉後才觸發（slowmo延遲）
+	print("[Cancel] 取消窗口關閉（pending targets 保留給擊中確認）")
 
 # ═══════════════════════════════════════════════════════════
 

@@ -153,6 +153,10 @@ func get_input_data() -> Dictionary:
 		"none"
 	)
 	
+	# Debug: 顯示特殊招檢測結果（只在有特殊招輸入時）
+	if spm1_pressed or spm2_pressed or spm3_pressed or dp_pressed or super_pressed:
+		print("[PlayerController Debug] character_id=%s, spm1=%s, spm2=%s, dp=%s, attack_type='%s'" % [character_id, spm1_pressed, spm2_pressed, dp_pressed, attack_type])
+	
 	return {
 		"input_dir": input_dir,
 		"crouch_pressed": crouch_pressed,
