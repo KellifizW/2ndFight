@@ -27,16 +27,44 @@ var landing_handler: LandingHandler
 
 # ── 基本狀態 ──────────────────────────────
 @export var landing_duration: float = 0.2
-var is_layground: bool = false
 @export var layground_duration: float = 0.2
+var is_layground: bool = false
 var layground_timer: float = 0.0
 var is_knockfly_animation_finished: bool = false
 
-# ── 蹲姿專用旗標（修正版） ───────────────────
+# ── 蹲姿 ──────────────────────────────────
 var was_crouching_last_frame: bool = false
 var is_crouch_held: bool = false
+var is_crouching: bool = false
 
-# ── Knockfly 物理參數（預設值） ────────────
+# ── 跳躍 ──────────────────────────────────
+var jump_vertical_speed: float = -2100.0
+var jump_horizontal_speed: float = 350.0
+var jump_dir: float = 0.0
+var jump_delay_timer: float = 0.0
+var just_jumped: bool = false
+var is_jumping: bool = false
+@export var jump_delay_duration: float = 0.067
+
+# ── 衝刺 ──────────────────────────────────
+var is_dashing: bool = false
+var is_backdashing: bool = false
+var dash_speed: float = 500.0
+var backdash_speed: float = 400.0
+var dash_time: float = 0.35
+var backdash_time: float = 0.35
+var dash_timer: float = 0.0
+var dash_direction: float = 0.0
+var double_tap_timer: float = 0.3
+var last_input_dir: int = 0
+var pending_dash_dir: int = 0
+var neutral_timer: float = 0.0
+
+# ── 移動速度 ──────────────────────────────
+var walk_speed: float = 270.0
+var back_speed: float = 202.5
+
+# ── 击飛物理 ──────────────────────────────
 @export_group("Knockfly Physics")
 @export var default_knockfly_gravity: float = 1700000.0
 @export var default_knockfly_vertical_speed: float = -400.0
@@ -44,98 +72,68 @@ var is_crouch_held: bool = false
 @export var default_air_friction: float = 200.0
 @export var default_knockfly_duration: float = 0.4
 
-# ── Knockfly 執行時實際值 ─────────────────
-var knockfly_gravity: float = default_knockfly_gravity
-var knockfly_vertical_speed: float = default_knockfly_vertical_speed
-var knockfly_horizontal_speed: float = default_knockfly_horizontal_speed
-var air_friction: float = default_air_friction
-var knockfly_duration: float = default_knockfly_duration
-@export var air_hit_backjump_speed: float = 400.0
-@export var air_hit_backjump_duration: float = 0.2
-@export var air_hit_backjump_up_speed: float = -800.0
-var is_air_hit_backjump: bool = false
-var air_hit_backjump_timer: float = 0.0
-var pending_jump_b_seek: float = -1.0
-
-# ── 空中受擊專用 ─────────────────────────
-var is_air_hit_knockfly: bool = false
+var knockfly_gravity: float = 1700000.0
+var knockfly_vertical_speed: float = -400.0
+var knockfly_horizontal_speed: float = 6000.0
+var air_friction: float = 200.0
+var knockfly_duration: float = 0.4
 var knockfly_velocity_x: float = 0.0
 var knockfly_accumulated_distance: float = 0.0
 var knockfly_max_distance: float = 150.0
+var is_knockfly: bool = false
+var knockfly_timer: float = 0.0
 
-# ── 核心物理變數 ──────────────────────────
+# ── 空中受擊 ──────────────────────────────
+var is_air_hit_backjump: bool = false
+var air_hit_backjump_timer: float = 0.0
+@export var air_hit_backjump_speed: float = 400.0
+@export var air_hit_backjump_duration: float = 0.2
+@export var air_hit_backjump_up_speed: float = -800.0
+var pending_jump_b_seek: float = -1.0
+var is_air_hit_knockfly: bool = false
+
+# ── 傷害與防禦 ────────────────────────────
+var is_hit: bool = false
+var hit_timer: float = 0.0
+var is_blocking: bool = false
+var block_timer: float = 0.0
+var is_holding_back: bool = false
+var is_crouch_blocking: bool = false
+var is_proximity_blocking: bool = false
+var is_opponent_proximity: bool = false
+var block_type: String = "none"
+
+# ── 推擠系統 ──────────────────────────────
+@export_group("Push Parameters")
+@export var block_push_distance: float = 250.0
+@export var hit_push_distance: float = 250.0
+@export var floor_snap_immunity_duration: float = 0.1
+
+var initial_hitstun: float = 0.0
+var hit_push_velocity: float = 0.0
+var hit_push_timer: float = 0.0
+var initial_blockstun: float = 0.0
+var block_push_velocity: float = 0.0
+var block_push_timer: float = 0.0
+var initial_push_back: float = 0.0
+var push_back_velocity: float = 0.0
+var is_immune_to_floor_snap: bool = false
+var floor_snap_immunity_timer: float = 0.0
+
+# ── 核心物理 ──────────────────────────────
 var fixed_position: Vector2i = Vector2i.ZERO
 var fixed_velocity: Vector2i = Vector2i.ZERO
 var colbox_half_width: float = 0.0
 var colbox_half_height: float = 0.0
-
-# ── 移動參數 ──────────────────────────────
-var walk_speed: float = 270.0
-var back_speed: float = walk_speed * 0.75
-var jump_vertical_speed: float = -2100.0
-var jump_horizontal_speed: float = 350.0
-var jump_dir: float = 0.0
-var is_jumping: bool = false
-
-# ── 衝刺參數 ──────────────────────────────
-var is_dashing: bool = false
-var is_backdashing: bool = false
-var is_attacking: bool = false
-var dash_speed: float = 500.0
-var backdash_speed: float = 400.0
-var dash_time: float = 0.35
-var backdash_time: float = 0.35
-var dash_timer: float = 0.0
-var double_tap_timer: float = 0.3
-var last_input_dir: int = 0
-var pending_dash_dir: int = 0
-var neutral_timer: float = 0.0
-
-# ── 狀態旗標 ──────────────────────────────
-var is_crouching: bool = false
-var is_hit: bool = false
-var is_knockfly: bool = false
-var hit_timer: float = 0.0
-var block_timer: float = 0.0
-var knockfly_timer: float = 0.0
-
-# ── Proximity Block 專用旗標 ──
-var is_proximity_blocking: bool = false
-
-# ── 推擠參數 ──────────────────────────────
-@export_group("Push Parameters")
-@export var block_push_distance: float = 250.0
-var is_immune_to_floor_snap: bool = false
-var floor_snap_immunity_timer: float = 0.0
-@export var floor_snap_immunity_duration: float = 0.1
-var block_push_timer: float = 0.0
-var initial_blockstun: float = 0.0
-var block_push_velocity: float = 0.0
-@export var hit_push_distance: float = 250.0
-var hit_push_timer: float = 0.0
-var initial_hitstun: float = 0.0
-var hit_push_velocity: float = 0.0
-
-# ── 方向與防禦 ───────────────────────────
 var facing_direction: float = 1.0
-var dash_direction: float = 0.0
-var is_blocking: bool = false
-var is_holding_back: bool = false
-var is_crouch_blocking: bool = false
-var is_opponent_proximity: bool = false
-var block_type: String = "none"
-
-# ── 追蹤變數 ──────────────────────────────
 var prev_position: Vector2 = Vector2()
 var was_in_air: bool = false
+
+# ── 狀態旗標 ──────────────────────────────
+var is_attacking: bool = false
 var is_push_back: bool = false
 var push_back_timer: float = 0.0
-var initial_push_back: float = 0.0
-var push_back_velocity: float = 0.0
-var just_jumped: bool = false
 var landing_facing_lock: bool = false
-var jump_delay_timer: float = 0.0
-@export var jump_delay_duration: float = 0.067
 
 # ── 動畫條件（已替換 Crouch 為 cr_down 和 cr_idle） ──
 var animation_conditions: Array = [
