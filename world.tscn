@@ -190,7 +190,7 @@ offset_right = 622.7556
 offset_bottom = 61.380028
 scale = Vector2(0.85, 0.85)
 
-[node name="Label" type="Label" parent="UI"]
+[node name="InputBufferDebug" type="Label" parent="UI"]
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
@@ -199,6 +199,7 @@ offset_right = 219.0
 grow_vertical = 0
 size_flags_horizontal = 4
 size_flags_vertical = 8
+theme_override_font_sizes/font_size = 12
 script = ExtResource("12_cbp6q")
 enabled = true
 

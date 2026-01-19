@@ -97,8 +97,8 @@ var _last_logged: Dictionary = {
 func _ready() -> void:
 	parent = get_parent()
 	world = get_tree().get_first_node_in_group("world")
+	var char_id = parent.character_id if parent and "character_id" in parent else "UNKNOWN"
 	if parent:
-		var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
 		if char_id == "DAV":
 			punish_attack = "st_mp"
 		else:
@@ -109,11 +109,10 @@ func _ready() -> void:
 		push_warning("Warning: AIBehavior parent not found")
 	opponent_search_timer = 0.1
 	
-	var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
 	if char_id == "DAV":
-		opponent_attack_data = load("res://p2_attack_data.tres") as AttackData
+		opponent_attack_data = load("res://data/p2_attack_data.tres") as AttackData
 	else:
-		opponent_attack_data = load("res://p1_attack_data.tres") as AttackData
+		opponent_attack_data = load("res://data/p1_attack_data.tres") as AttackData
 	
 	var ui = get_tree().get_first_node_in_group("ui")
 	if ui:
@@ -314,8 +313,8 @@ func get_ai_input() -> Dictionary:
 			incoming_fireball = true
 			if randf() < fireball_block_chance:
 				input.block_pressed = true
-				var relative_dir = sign(opponent.global_position.x - parent.global_position.x)
-				input.input_dir = -int(relative_dir)  # 強制後退格擋火球
+				var fb_relative_dir = sign(opponent.global_position.x - parent.global_position.x)
+				input.input_dir = -int(fb_relative_dir)  # 強制後退格擋火球
 				input.crouch_pressed = randf() < 0.3
 				if fb_dist < 150 and randf() < fireball_backdash_chance and dash_cooldown_timer <= 0:
 					pending_backdash = true
@@ -416,6 +415,7 @@ func get_ai_input() -> Dictionary:
 				_last_logged["fireball"] = false
 			
 			var possible_attacks: Array[String] = []
+			@warning_ignore("confusable_local_declaration")
 			var char_id = parent.character_id if "character_id" in parent else "UNKNOWN"
 			for attack in fallback_attack_ranges.keys():
 				if distance <= fallback_attack_ranges[attack]:

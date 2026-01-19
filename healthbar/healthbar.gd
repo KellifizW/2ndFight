@@ -48,7 +48,8 @@ func _ready() -> void:
 	if has_node("Timer"):
 		$Timer.wait_time = 0.4
 		$Timer.one_shot = true
-		$Timer.timeout.connect(_on_timer_timeout)
+		if not $Timer.timeout.is_connected(_on_timer_timeout):
+			$Timer.timeout.connect(_on_timer_timeout)
 	else:
 		push_warning("Healthbar %s 缺少 Timer 子節點，請在場景中新增一個 Timer 並命名為 Timer" % name)
 

@@ -36,7 +36,8 @@ func _physics_process(_delta: float) -> void:
 		input_buffer.record_input("spmove2")
 	if Input.is_action_just_pressed("spmove3" + suffix):
 		input_buffer.record_input("spmove3")
-	if Input.is_action_just_pressed("super" + suffix):
+	var super_action = "super" + suffix
+	if InputMap.has_action(super_action) and Input.is_action_just_pressed(super_action):
 		input_buffer.record_input("super")
 
 # 每幀更新雙擊計時器

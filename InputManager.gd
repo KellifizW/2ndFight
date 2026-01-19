@@ -109,8 +109,9 @@ func update_input():
 	# 初始化輸入數據
 	var input_data = {}
 	
-	# super 只給 player_a（左邊玩家）用，你可自行調整
-	if Input.is_action_just_pressed("super" + suffix):
+	# super 招式檢查（只在 InputMap 有定義時才檢查）
+	var super_action = "super" + suffix
+	if InputMap.has_action(super_action) and Input.is_action_just_pressed(super_action):
 		input_data["super_pressed"] = true
 	
 	# 普通按鈕輸入
@@ -182,7 +183,6 @@ func check_dp_input() -> bool:
 	return check_motion(dp_motion)
 
 func check_motion(motion: Dictionary) -> bool:
-	var parent = get_parent()
 	var found = false
 	for seq in motion.ValidInputs:
 		var last_buttons = input_history[current_history].raw_input & 0xFF
@@ -202,7 +202,6 @@ func check_motion(motion: Dictionary) -> bool:
 			
 			while hist_pos >= 0 and not step_matched and step_frames < INPUT_BUFFER:
 				var hist = input_history[hist_pos]
-				var hist_dir = hist.raw_input >> 8
 				step_frames += hist.duration
 				total_frames += hist.duration
 				

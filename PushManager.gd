@@ -18,15 +18,23 @@ class Collider:
 		size = s
 	
 	func is_overlapping(other: Collider, x_trigger: int, y_trigger: int) -> bool:
+		@warning_ignore("integer_division")
 		var left_a = center.x - (size.x / 2)
+		@warning_ignore("integer_division")
 		var right_a = center.x + (size.x / 2)
+		@warning_ignore("integer_division")
 		var left_b = other.center.x - (other.size.x / 2)
+		@warning_ignore("integer_division")
 		var right_b = other.center.x + (other.size.x / 2)
 		var has_x_overlap = left_a <= right_b + x_trigger and right_a >= left_b - x_trigger
 		
+		@warning_ignore("integer_division")
 		var up_a = center.y - (size.y / 2)
+		@warning_ignore("integer_division")
 		var down_a = center.y + (size.y / 2)
+		@warning_ignore("integer_division")
 		var up_b = other.center.y - (other.size.y / 2)
+		@warning_ignore("integer_division")
 		var down_b = other.center.y + (other.size.y / 2)
 		var has_y_overlap = up_a <= down_b + y_trigger and down_a >= up_b - y_trigger
 		

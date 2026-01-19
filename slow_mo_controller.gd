@@ -24,10 +24,6 @@ var hit_start_time: int = 0
 func _ready():
 	# 設置 process_mode 為始終運行
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	# 初始化 Tween
-	tween = create_tween()
-	tween.set_trans(Tween.TRANS_LINEAR)
-	tween.set_ease(Tween.EASE_IN_OUT)
 	# 確保初始時間縮放為正常
 	Engine.time_scale = normal_time_scale
 	emit_signal("time_scale_changed", normal_time_scale)
@@ -49,7 +45,7 @@ func request_hit_freeze():
 		print("Debug: Hit slowmo request ignored (slowmo_active=%s, is_hit_slowmo=%s)" % [slowmo_active, is_hit_slowmo])
 		return  # 避免重複觸發
 	is_hit_slowmo = true
-	if tween.is_running():
+	if tween and tween.is_running():
 		tween.kill()  # 停止正在運行的 Tween
 	tween = create_tween()
 	tween.set_trans(Tween.TRANS_LINEAR)
@@ -69,7 +65,7 @@ func request_hit_freeze():
 
 # 進入慢動作的動畫（手動切換）
 func enter_slowmo_animation():
-	if tween.is_running():
+	if tween and tween.is_running():
 		tween.kill()  # 停止正在運行的 Tween
 	tween = create_tween()
 	tween.set_trans(Tween.TRANS_LINEAR)
@@ -81,7 +77,7 @@ func enter_slowmo_animation():
 
 # 退出慢動作的動畫（手動切換）
 func exit_slowmo_animation():
-	if tween.is_running():
+	if tween and tween.is_running():
 		tween.kill()  # 停止正在運行的 Tween
 	tween = create_tween()
 	tween.set_trans(Tween.TRANS_LINEAR)

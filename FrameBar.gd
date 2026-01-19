@@ -229,9 +229,9 @@ func _update_airborne(anim_name: String, on_floor: bool) -> void:
 		is_airborne = false
 		is_tracking = false
 
-func _ensure_size(size: int) -> void:
-	if frame_data.size() < size:
-		frame_data.resize(size)
+func _ensure_size(min_size: int) -> void:
+	if frame_data.size() < min_size:
+		frame_data.resize(min_size)
 
 func _calc_frame(anim_name: String, pos: float, timer_driven: bool, knockfly_chain: bool) -> int:
 	if timer_driven or knockfly_chain or block_hit_chain_active:

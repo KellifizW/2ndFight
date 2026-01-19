@@ -77,7 +77,8 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var target_state: String = movement_node._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
 	
 	var ui_root = movement_node.get_tree().get_first_node_in_group("ui")
-	var healthbar = ui_root.get_node("%sHealthbar" % movement_node.name) if ui_root else null
+	var healthbar_name = "PlayerAHealthbar" if movement_node.seat == "player_a" else "PlayerBHealthbar"
+	var healthbar = ui_root.get_node_or_null(healthbar_name) if ui_root else null
 	if healthbar and healthbar.current_health <= 0 and movement_node.is_layground:
 		target_state = "layground"
 		movement_node.animation_state.travel("layground")
