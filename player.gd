@@ -40,8 +40,12 @@ var is_air_attacking: bool = false
 var is_special_moving: bool = false
 var landing_lock_timer: float = 0.0
 var has_air_attacked: bool = false
-var cancel_window_timer: float = 0.0
+var is_cancel_window_open: bool = false  # 取消窗口是否開啟（由動畫 call method 控制）
 var is_facing_locked: bool = false
+var allowed_cancel_targets: Array = []  # 當前允許取消成的招式清單
+
+# 擊中確認取消系統（Hit-Confirm Cancel）
+var pending_cancel_targets: Array = []  # 待開啟的取消目標（等待擊中確認）
 
 var special_input_data: Dictionary = {
 	"spm1_pressed": false,
@@ -54,7 +58,9 @@ var special_input_data: Dictionary = {
 func reset_attack_state() -> void:
 	is_attacking = false
 	attack_type = "none"
-	cancel_window_timer = 0.0
+	is_cancel_window_open = false
+	allowed_cancel_targets = []
+	pending_cancel_targets = []
 	update_facing_direction()
 	_update_animation_state(0, false)
 
@@ -180,10 +186,8 @@ func _physics_process(delta: float) -> void:
 		is_air_attacking = false
 		has_air_attacked = false
 
-	if cancel_window_timer > 0:
-		cancel_window_timer -= delta
-		if cancel_window_timer <= 0:
-			cancel_window_timer = 0.0
+	# 取消窗口由動畫 call method 控制（_open_cancel_window / _close_cancel_window）
+	# 不需要 timer 倒數
 
 	var input_data = get_input()
 	input_data.merge(special_input_data, true)
@@ -204,14 +208,21 @@ func _physics_process(delta: float) -> void:
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
 
-	# 取消判定：現在用 character_id 判斷誰有這招（DAV 有 st_mp → powerkk 取消）
-	if character_id == "DAV" and is_attacking and attack_type == "st_mp" and cancel_window_timer > 0 and input_data.spm1_pressed:
-		stop_attack()
+	# 取消判定：檢查輸入的招式是否在允許的取消目標中
+	if is_attacking and is_cancel_window_open and allowed_cancel_targets.size() > 0:
+		var input_move = input_data.get("attack_type", "none")
+		# 只在有實際輸入時才處理和顯示訊息
+		if input_move != "none":
+			if input_move in allowed_cancel_targets:
+				print("[Cancel] ✓ 取消 %s → %s" % [attack_type, input_move])
+				stop_attack()
+			else:
+				print("[Cancel] ✗ %s 不能取消成 %s（允許: %s）" % [attack_type, input_move, allowed_cancel_targets])
 
 	if move_set and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
 
-	if cancel_window_timer > 0:
+	if is_cancel_window_open:
 		input_data.st_mp_pressed = false
 		input_data.st_mk_pressed = false
 
@@ -439,13 +450,42 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		fixed_velocity.x = int(-push_back_velocity * get_facing_multiplier())
 
 func _on_hit_detected(_target: String, _stun_duration: float, _is_blocked: bool, _was_in_stun: bool) -> void:
-	# 只有 DAV 的 st_mp 可以取消成特殊招
-	if character_id == "DAV" and attack_type == "st_mp" and is_attacking:
-		cancel_window_timer = cancel_window_duration
+	# 擊中確認取消（Hit-Confirm Cancel）：只有在擊中對手時才真正開啟取消窗口
+	if pending_cancel_targets.size() > 0:
+		is_cancel_window_open = true
+		allowed_cancel_targets = pending_cancel_targets.duplicate()
+		print("[Cancel] ✓ 擊中確認！%s 開啟取消窗口，允許: %s" % [attack_type, allowed_cancel_targets])
+		# 清空待開啟狀態
+		pending_cancel_targets = []
+
+# ═══════════════════════════════════════════════════════════
+# 取消窗口系統（純 Call Method Track - Option 1）
+# ═══════════════════════════════════════════════════════════
+# 這些方法會被 AnimationPlayer 的 Call Method Track 調用
+# open_cancel_window 時開啟，close_cancel_window 時關閉，不需要 timer
+
+# 準備取消窗口（由動畫軌道調用，等待擊中確認）
+# allowed_moves: 允許取消成的招式陣列，例如 ["powerkk", "fireball"]
+func _open_cancel_window(allowed_moves: Array = []) -> void:
+	# 設置待開啟狀態，等待擊中確認
+	pending_cancel_targets = allowed_moves.duplicate()
+	print("[Cancel] %s 準備取消窗口（等待擊中確認），允許: %s" % [attack_type, allowed_moves])
+
+# 關閉取消窗口（由動畫軌道調用）
+func _close_cancel_window() -> void:
+	is_cancel_window_open = false
+	allowed_cancel_targets = []
+	pending_cancel_targets = []  # 也清空待開啟狀態
+	print("[Cancel] 取消窗口關閉")
+
+# ═══════════════════════════════════════════════════════════
 
 func stop_attack() -> void:
 	is_attacking = false
 	attack_type = "none"
+	is_cancel_window_open = false
+	allowed_cancel_targets = []
+	pending_cancel_targets = []
 	if animation_player:
 		animation_player.stop()
 	update_facing_direction()
