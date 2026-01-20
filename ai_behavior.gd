@@ -73,6 +73,9 @@ const ACTION_DURATIONS = {
 # 對手搜尋計時器
 var opponent_search_timer: float = 0.0
 
+# Internal delta tracking for commitment system
+var _last_delta: float = 1.0/60.0
+
 func _ready() -> void:
 	parent = get_parent()
 	world = get_tree().get_first_node_in_group("world")
@@ -111,6 +114,9 @@ func _init_subsystems() -> void:
 	decision_layers.space_control = space_control
 
 func _process(delta: float) -> void:
+	# Track delta for commitment system
+	_last_delta = delta
+	
 	if not opponent and opponent_search_timer > 0:
 		opponent_search_timer -= delta
 		if opponent_search_timer <= 0:
@@ -139,13 +145,15 @@ func get_ai_input() -> Dictionary:
 	if not ai_enabled or not opponent or not parent:
 		return _neutral_input()
 	
+	var delta = _last_delta  # Use tracked delta from _process
+	
 	# ============================================================
 	# LAYER 1: ACTION COMMITMENT (Highest Priority)
 	# ============================================================
 	# If currently committed to an action, continue executing it
 	# This prevents jittery behavior and ensures smooth action completion
 	if commitment_timer > 0:
-		commitment_timer -= get_process_delta_time()
+		commitment_timer -= delta
 		if debug_mode and Engine.get_physics_frames() % 60 == 0:
 			print("[AI] Committed: %s (%.2fs remaining)" % [current_committed_action, commitment_timer])
 		return committed_input
@@ -168,7 +176,7 @@ func get_ai_input() -> Dictionary:
 	# ============================================================
 	# Don't re-evaluate every frame - simulates human reaction time
 	if decision_cooldown > 0:
-		decision_cooldown -= get_process_delta_time()
+		decision_cooldown -= delta
 		return committed_input if committed_input.size() > 0 else _neutral_input()
 	
 	# ============================================================

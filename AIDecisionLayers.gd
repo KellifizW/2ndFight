@@ -25,6 +25,7 @@ const PRIORITY_CROUCH = 65.0         # Crouch attacks
 const PRIORITY_DASH_APPROACH = 65.0  # Aggressive dash forward
 const PRIORITY_APPROACH = 63.0       # Steady approach
 const PRIORITY_WALK_FORWARD = 62.0   # Walk forward
+const PRIORITY_WALK_FORWARD_MID = 59.0  # Walk forward (mid range, lower priority)
 const PRIORITY_RETREAT = 60.0        # Tactical retreat
 const PRIORITY_WALK_BACK = 58.0      # Walk backward
 
@@ -33,10 +34,12 @@ const PRIORITY_FIREBALL = 52.0       # Projectile zoning
 const PRIORITY_BLOCK = 55.0          # Defensive blocking
 const PRIORITY_CROUCH_BLOCK = 54.0   # Crouch blocking
 const PRIORITY_OBSERVE = 48.0        # Wait and observe
+const PRIORITY_JUMP = 46.0           # Jump approach (low priority)
 
 # Positioning
 const PRIORITY_POSITIONING = 30.0    # Space control
 const PRIORITY_IDLE = 10.0           # Default behavior
+const PRIORITY_CROUCH_LOW = 63.0     # Crouch attacks (alternative priority)
 
 class Decision:
 	var layer: DecisionLayer
@@ -183,7 +186,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		var jump = Decision.new()
 		jump.layer = DecisionLayer.TACTICAL
 		jump.action = "jump_forward" if distance > 350 else "jump_neutral"
-		jump.priority = PRIORITY_OBSERVE - 2  # Slightly lower than observe
+		jump.priority = PRIORITY_JUMP
 		jump.reason = "Far range: jump approach"
 		decisions.append(jump)
 	
@@ -219,7 +222,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		var walk = Decision.new()
 		walk.layer = DecisionLayer.TACTICAL
 		walk.action = "walk_forward"
-		walk.priority = PRIORITY_WALK_FORWARD - 3
+		walk.priority = PRIORITY_WALK_FORWARD_MID
 		walk.reason = "Mid range: walk approach"
 		decisions.append(walk)
 		
@@ -282,7 +285,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		var crouch = Decision.new()
 		crouch.layer = DecisionLayer.TACTICAL
 		crouch.action = "cr_mp" if distance < 50 else "cr_mk"
-		crouch.priority = PRIORITY_CROUCH - 2
+		crouch.priority = PRIORITY_CROUCH_LOW
 		crouch.reason = "Close range: low attack"
 		decisions.append(crouch)
 		
