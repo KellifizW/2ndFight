@@ -5,7 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://FollowCamera.tscn" id="3_gbfbk"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
 [ext_resource type="FontFile" uid="uid://doprqju6a18sf" path="res://fonts/Roundex.otf" id="4_cbp6q"]
-[ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://cpu_controller.gd" id="6_dwbse"]
+[ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://ai/cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://slow_mo_controller.gd" id="7_pkg7o"]
 [ext_resource type="PackedScene" uid="uid://dsnvnd8yxiin5" path="res://FrameBar.tscn" id="7_wse8f"]
