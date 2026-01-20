@@ -20,6 +20,8 @@ var parent: Player
 var opponent: Player
 var world: Node
 
+const SPECIAL_MOVE_ACTIONS = ["fireball", "spm2", "powerkk", "spnk", "hdk", "dp", "super"]
+
 # 對手搜尋計時器
 var opponent_search_timer: float = 0.0
 
@@ -104,7 +106,7 @@ func get_ai_input() -> Dictionary:
 	var decision = decision_layers.get_best_decision(parent, opponent)
 	
 	# 每隔一段時間才輸出決策，避免刷屏
-	if Engine.get_physics_frames() % 20 == 0 or decision.action in ["fireball", "spm2", "powerkk", "spnk", "hdk", "dp", "super"]:
+	if Engine.get_physics_frames() % 20 == 0 or decision.action in SPECIAL_MOVE_ACTIONS:
 		print("[AI] %s decision: %s (priority: %.1f) - %s" % [parent.name, decision.action, decision.priority, decision.reason])
 	
 	# 開始新連段

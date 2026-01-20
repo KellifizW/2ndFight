@@ -2,6 +2,34 @@ class_name AIDecisionLayers extends Node
 
 enum DecisionLayer { SURVIVAL, PUNISH, TACTICAL, POSITIONING, IDLE }
 
+# Decision Priority Constants
+const PRIORITY_CRITICAL = 100.0
+const PRIORITY_SURVIVAL = 85.0
+const PRIORITY_PUNISH = 90.0
+const PRIORITY_COMBO = 70.0
+const PRIORITY_MID_POKE_HIGH = 65.0
+const PRIORITY_MID_POKE_LOW = 58.0
+const PRIORITY_FIREBALL_HIGH = 60.0
+const PRIORITY_FIREBALL_LOW = 50.0
+const PRIORITY_CLOSE_ATTACK = 60.0
+const PRIORITY_DASH = 60.0
+const PRIORITY_MID_BLOCK = 55.0
+const PRIORITY_CLOSE_RETREAT = 55.0
+const PRIORITY_WALK = 52.0
+const PRIORITY_JUMP = 48.0
+const PRIORITY_POSITIONING = 30.0
+const PRIORITY_IDLE = 10.0
+
+# Probability Constants
+const PROB_FIREBALL_HIGH_PRIORITY = 0.6  # 60% chance of high priority fireball
+const PROB_WALK_FORWARD = 0.7            # 70% chance of walking forward vs backward
+const PROB_JUMP = 0.2                    # 20% chance of jump at long range
+const PROB_MID_POKE_HIGH = 0.7           # 70% chance of high priority poke
+const PROB_MID_BLOCK = 0.3               # 30% chance of blocking at mid range
+const PROB_CLOSE_ST_MP = 0.6             # 60% chance of st_mp vs st_mk
+const PROB_CLOSE_RETREAT = 0.3           # 30% chance of backdash at close range
+const PROB_IDLE_WALK = 0.6               # 60% chance of walk vs block when idle
+
 class Decision:
 	var layer: DecisionLayer
 	var action: String
@@ -52,7 +80,7 @@ func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 	var decision = Decision.new()
 	decision.layer = DecisionLayer.SURVIVAL
 	decision.action = threat.recommended_response
-	decision.priority = 100.0 if threat.level == ThreatAssessment.ThreatLevel.CRITICAL else 85.0
+	decision.priority = PRIORITY_CRITICAL if threat.level == ThreatAssessment.ThreatLevel.CRITICAL else PRIORITY_SURVIVAL
 	decision.reason = "Threat: " + threat.source
 	return decision
 
@@ -70,7 +98,7 @@ func _evaluate_punish_layer(ai_player: Player, opponent: Player) -> Decision:
 	var decision = Decision.new()
 	decision.layer = DecisionLayer.PUNISH
 	decision.action = best_punish
-	decision.priority = 90.0
+	decision.priority = PRIORITY_PUNISH
 	decision.reason = "Punish opportunity"
 	return decision
 
@@ -110,24 +138,24 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			var fb = Decision.new()
 			fb.layer = DecisionLayer.TACTICAL
 			fb.action = "fireball"
-			fb.priority = 60.0 if randf() < 0.6 else 50.0  # 60% 機率高優先級
+			fb.priority = PRIORITY_FIREBALL_HIGH if randf() < PROB_FIREBALL_HIGH_PRIORITY else PRIORITY_FIREBALL_LOW
 			fb.reason = "Far range zoning"
 			decisions.append(fb)
 		
 		# 添加其他遠距離選項以增加多樣性
 		var walk = Decision.new()
 		walk.layer = DecisionLayer.TACTICAL
-		walk.action = "walk_forward" if randf() < 0.7 else "walk_backward"
-		walk.priority = 52.0  # 提高優先級，與 fireball 競爭
+		walk.action = "walk_forward" if randf() < PROB_WALK_FORWARD else "walk_backward"
+		walk.priority = PRIORITY_WALK
 		walk.reason = "Far range positioning"
 		decisions.append(walk)
 		
 		# 偶爾跳躍
-		if randf() < 0.2:
+		if randf() < PROB_JUMP:
 			var jump = Decision.new()
 			jump.layer = DecisionLayer.TACTICAL
 			jump.action = "jump_forward" if distance > 350 else "jump_neutral"
-			jump.priority = 48.0
+			jump.priority = PRIORITY_JUMP
 			jump.reason = "Far range jump"
 			decisions.append(jump)
 	
@@ -136,7 +164,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		var poke = Decision.new()
 		poke.layer = DecisionLayer.TACTICAL
 		poke.action = "st_mk"
-		poke.priority = 65.0 if randf() < 0.7 else 58.0
+		poke.priority = PRIORITY_MID_POKE_HIGH if randf() < PROB_MID_POKE_HIGH else PRIORITY_MID_POKE_LOW
 		poke.reason = "Mid range poke"
 		decisions.append(poke)
 		
@@ -144,16 +172,16 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		var approach = Decision.new()
 		approach.layer = DecisionLayer.TACTICAL
 		approach.action = "dash_forward"
-		approach.priority = 60.0
+		approach.priority = PRIORITY_DASH
 		approach.reason = "Close the gap"
 		decisions.append(approach)
 		
 		# 中距離格擋
-		if randf() < 0.3:
+		if randf() < PROB_MID_BLOCK:
 			var block = Decision.new()
 			block.layer = DecisionLayer.TACTICAL
 			block.action = "stand_block"
-			block.priority = 55.0
+			block.priority = PRIORITY_MID_BLOCK
 			block.reason = "Mid range defense"
 			decisions.append(block)
 	
@@ -165,7 +193,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			var combo_dec = Decision.new()
 			combo_dec.layer = DecisionLayer.TACTICAL
 			combo_dec.action = "combo_" + combo_name
-			combo_dec.priority = 70.0
+			combo_dec.priority = PRIORITY_COMBO
 			combo_dec.reason = "Execute combo: " + combo_name
 			decisions.append(combo_dec)
 		
@@ -173,17 +201,17 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		if combo_names.size() == 0:
 			var close_attack = Decision.new()
 			close_attack.layer = DecisionLayer.TACTICAL
-			close_attack.action = "st_mp" if randf() < 0.6 else "st_mk"
-			close_attack.priority = 60.0
+			close_attack.action = "st_mp" if randf() < PROB_CLOSE_ST_MP else "st_mk"
+			close_attack.priority = PRIORITY_CLOSE_ATTACK
 			close_attack.reason = "Close range attack"
 			decisions.append(close_attack)
 			
 			# 近距離也可以後退
-			if randf() < 0.3:
+			if randf() < PROB_CLOSE_RETREAT:
 				var retreat = Decision.new()
 				retreat.layer = DecisionLayer.TACTICAL
 				retreat.action = "backdash"
-				retreat.priority = 55.0
+				retreat.priority = PRIORITY_CLOSE_RETREAT
 				retreat.reason = "Create space"
 				decisions.append(retreat)
 	
@@ -192,7 +220,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 func _evaluate_positioning_layer(ai_player: Player, opponent: Player) -> Decision:
 	var decision = Decision.new()
 	decision.layer = DecisionLayer.POSITIONING
-	decision.priority = 30.0
+	decision.priority = PRIORITY_POSITIONING
 	
 	# 檢查角落逃脫
 	var escape_action = space_control.get_escape_action(ai_player, opponent, ai_player.world)
@@ -224,7 +252,7 @@ func _evaluate_positioning_layer(ai_player: Player, opponent: Player) -> Decisio
 func _get_idle_decision() -> Decision:
 	var decision = Decision.new()
 	decision.layer = DecisionLayer.IDLE
-	decision.priority = 10.0
-	decision.action = "walk_forward" if randf() < 0.6 else "stand_block"
+	decision.priority = PRIORITY_IDLE
+	decision.action = "walk_forward" if randf() < PROB_IDLE_WALK else "stand_block"
 	decision.reason = "Default behavior"
 	return decision

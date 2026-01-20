@@ -357,7 +357,7 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 		start_dp()
 		return true
 	
-	if input_data.get("spm2_pressed", false):
+	if input_data.get("spm2_pressed", false) and not parent.is_attacking and not is_spmove:
 		print("[MoveSet._handle_input] %s spm2_pressed detected (AI=%s)" % [parent.name, parent.is_ai_controlled])
 		# Consume the buffered input (fireball uses st_mp)
 		if controller and controller.has_method("consume_button_input"):
