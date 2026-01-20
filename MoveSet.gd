@@ -237,7 +237,9 @@ func start_hdk() -> void:
 
 func start_fireball() -> void:
 	if parent.is_attacking or is_spmove:
+		print("[MoveSet] %s: Cannot start fireball - is_attacking=%s, is_spmove=%s" % [parent.name, parent.is_attacking, is_spmove])
 		return
+	print("[MoveSet] %s: Starting fireball (AI=%s)" % [parent.name, parent.is_ai_controlled])
 	_start_special("fireball")
 
 # === Freeze logic ===
@@ -352,6 +354,7 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 		return true
 	
 	if input_data.get("spm2_pressed", false):
+		print("[MoveSet._handle_input] %s spm2_pressed detected (AI=%s)" % [parent.name, parent.is_ai_controlled])
 		# Consume the buffered input (fireball uses st_mp)
 		if controller and controller.has_method("consume_button_input"):
 			controller.consume_button_input("st_mp")
@@ -385,6 +388,7 @@ func _process_projectile_spawn(delta: float, _world: Node) -> void:
 	current_move_state.spawn_timer -= delta
 	
 	if current_move_state.spawn_timer <= 0 and current_move_state.spawn_timer > -delta:
+		print("[MoveSet._process_projectile_spawn] %s attempting to spawn fireball" % parent.name)
 		var scene_path = "res://%s_fireball.tscn" % parent.character_id
 		var fireball_scene: PackedScene = load(scene_path)
 		if fireball_scene == null:
@@ -398,7 +402,7 @@ func _process_projectile_spawn(delta: float, _world: Node) -> void:
 		fb.fireball_owner = parent
 		fb.global_position = parent.global_position + Vector2(fireball_x_offset * parent.facing_direction, fireball_y_offset)
 		get_tree().current_scene.add_child(fb)
-		print("[MoveSet] Spawned fireball: %s" % scene_path)
+		print("[MoveSet] %s spawned fireball: %s at position %s" % [parent.name, scene_path, fb.global_position])
 
 func _process_jump(delta: float, world: Node, move: MoveData) -> void:
 	current_move_state.jump_timer -= delta

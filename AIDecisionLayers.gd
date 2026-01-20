@@ -104,12 +104,23 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 	
 	# 遠距離戰術
 	if distance > 250:
-		var fb = Decision.new()
-		fb.layer = DecisionLayer.TACTICAL
-		fb.action = "fireball"
-		fb.priority = 60.0
-		fb.reason = "Far range zoning"
-		decisions.append(fb)
+		# 不要在執行特殊招式時重複請求
+		var is_busy = ai_player.move_set and ai_player.move_set.is_spmove
+		if not is_busy:
+			var fb = Decision.new()
+			fb.layer = DecisionLayer.TACTICAL
+			fb.action = "fireball"
+			fb.priority = 60.0
+			fb.reason = "Far range zoning"
+			decisions.append(fb)
+		
+		# 添加其他遠距離選項以增加多樣性
+		var walk = Decision.new()
+		walk.layer = DecisionLayer.TACTICAL
+		walk.action = "walk_forward" if randf() < 0.7 else "walk_backward"
+		walk.priority = 45.0
+		walk.reason = "Far range positioning"
+		decisions.append(walk)
 	
 	# 中距離戰術
 	elif distance > 100:

@@ -103,8 +103,9 @@ func get_ai_input() -> Dictionary:
 	# 獲取最佳決策
 	var decision = decision_layers.get_best_decision(parent, opponent)
 	
-	if debug_mode:
-		print("[AI] %s (priority: %.1f) - %s" % [decision.action, decision.priority, decision.reason])
+	# 每隔一段時間才輸出決策，避免刷屏
+	if Engine.get_physics_frames() % 20 == 0 or decision.action in ["fireball", "spm2", "powerkk", "spnk", "hdk", "dp", "super"]:
+		print("[AI] %s decision: %s (priority: %.1f) - %s" % [parent.name, decision.action, decision.priority, decision.reason])
 	
 	# 開始新連段
 	if decision.action.begins_with("combo_"):
@@ -150,7 +151,7 @@ func _action_to_input(action: String) -> Dictionary:
 		"spnk":
 			input.spm1_pressed = true
 		"hdk":
-			input.spm2_pressed = true
+			input.spm3_pressed = true
 		"dp":
 			input.dp_pressed = true
 		"super":
@@ -186,6 +187,7 @@ func _neutral_input() -> Dictionary:
 		"st_mk_pressed": false,
 		"spm1_pressed": false,
 		"spm2_pressed": false,
+		"spm3_pressed": false,
 		"dp_pressed": false,
 		"super_pressed": false,
 		"block_pressed": false,
