@@ -130,91 +130,156 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 	var decisions: Array[Decision] = []
 	var distance = abs(ai_player.global_position.x - opponent.global_position.x)
 	
-	# 遠距離戰術
+	# 遠距離戰術 (Far range - distance > 250)
 	if distance > 250:
-		# 不要在執行特殊招式時重複請求
+		# 1. Fireball (occasional, not constant)
 		if ai_player and ai_player.move_set:
 			var is_busy = ai_player.move_set.is_spmove
-			if not is_busy:
+			if not is_busy and randf() < 0.3:  # Only 30% chance to even consider fireball
 				var fb = Decision.new()
 				fb.layer = DecisionLayer.TACTICAL
 				fb.action = "fireball"
-				fb.priority = PRIORITY_FIREBALL_HIGH if randf() < PROB_FIREBALL_HIGH_PRIORITY else PRIORITY_FIREBALL_LOW
+				fb.priority = 55.0  # Lower priority
 				fb.reason = "Far range zoning"
 				decisions.append(fb)
 		
-		# 添加其他遠距離選項以增加多樣性
+		# 2. Walking (primary long-range action)
 		var walk = Decision.new()
 		walk.layer = DecisionLayer.TACTICAL
-		walk.action = "walk_forward" if randf() < PROB_WALK_FORWARD else "walk_backward"
-		walk.priority = PRIORITY_WALK
-		walk.reason = "Far range positioning"
+		walk.action = "walk_forward" if randf() < 0.65 else "walk_backward"
+		walk.priority = 60.0  # Higher than fireball
+		walk.reason = "Far range approach/retreat"
 		decisions.append(walk)
 		
-		# 偶爾跳躍
-		if randf() < PROB_JUMP:
-			var jump = Decision.new()
-			jump.layer = DecisionLayer.TACTICAL
-			jump.action = "jump_forward" if distance > 350 else "jump_neutral"
-			jump.priority = PRIORITY_JUMP
-			jump.reason = "Far range jump"
-			decisions.append(jump)
-	
-	# 中距離戰術
-	elif distance > 100:
-		var poke = Decision.new()
-		poke.layer = DecisionLayer.TACTICAL
-		poke.action = "st_mk"
-		poke.priority = PRIORITY_MID_POKE_HIGH if randf() < PROB_MID_POKE_HIGH else PRIORITY_MID_POKE_LOW
-		poke.reason = "Mid range poke"
-		decisions.append(poke)
-		
-		# 中距離也可以考慮接近
-		var approach = Decision.new()
-		approach.layer = DecisionLayer.TACTICAL
-		approach.action = "dash_forward"
-		approach.priority = PRIORITY_DASH
-		approach.reason = "Close the gap"
-		decisions.append(approach)
-		
-		# 中距離格擋
-		if randf() < PROB_MID_BLOCK:
+		# 3. Blocking/Observing
+		if randf() < 0.4:
 			var block = Decision.new()
 			block.layer = DecisionLayer.TACTICAL
 			block.action = "stand_block"
-			block.priority = PRIORITY_MID_BLOCK
+			block.priority = 58.0
+			block.reason = "Far range observe"
+			decisions.append(block)
+		
+		# 4. Crouching
+		if randf() < 0.25:
+			var crouch = Decision.new()
+			crouch.layer = DecisionLayer.TACTICAL
+			crouch.action = "crouch_block"
+			crouch.priority = 57.0
+			crouch.reason = "Far range crouch"
+			decisions.append(crouch)
+		
+		# 5. Dashing forward
+		if randf() < 0.35:
+			var dash = Decision.new()
+			dash.layer = DecisionLayer.TACTICAL
+			dash.action = "dash_forward"
+			dash.priority = 62.0
+			dash.reason = "Far range dash approach"
+			decisions.append(dash)
+		
+		# 6. Jumping
+		if randf() < 0.2:
+			var jump = Decision.new()
+			jump.layer = DecisionLayer.TACTICAL
+			jump.action = "jump_forward" if distance > 350 else "jump_neutral"
+			jump.priority = 54.0
+			jump.reason = "Far range jump"
+			decisions.append(jump)
+	
+	# 中距離戰術 (Mid range - 100 < distance <= 250)
+	elif distance > 100:
+		# 1. Poking attacks
+		var poke = Decision.new()
+		poke.layer = DecisionLayer.TACTICAL
+		poke.action = "st_mk"
+		poke.priority = 65.0 if randf() < 0.6 else 58.0
+		poke.reason = "Mid range poke"
+		decisions.append(poke)
+		
+		# 2. Approach with dash
+		if randf() < 0.5:
+			var approach = Decision.new()
+			approach.layer = DecisionLayer.TACTICAL
+			approach.action = "dash_forward"
+			approach.priority = 60.0
+			approach.reason = "Close the gap"
+			decisions.append(approach)
+		
+		# 3. Defensive blocking
+		if randf() < 0.35:
+			var block = Decision.new()
+			block.layer = DecisionLayer.TACTICAL
+			block.action = "stand_block"
+			block.priority = 55.0
 			block.reason = "Mid range defense"
 			decisions.append(block)
+		
+		# 4. Walking
+		if randf() < 0.3:
+			var walk = Decision.new()
+			walk.layer = DecisionLayer.TACTICAL
+			walk.action = "walk_forward" if randf() < 0.7 else "walk_backward"
+			walk.priority = 52.0
+			walk.reason = "Mid range positioning"
+			decisions.append(walk)
+		
+		# 5. Crouch pokes
+		if randf() < 0.25:
+			var crouch_attack = Decision.new()
+			crouch_attack.layer = DecisionLayer.TACTICAL
+			crouch_attack.action = "cr_mk"
+			crouch_attack.priority = 63.0
+			crouch_attack.reason = "Mid range low poke"
+			decisions.append(crouch_attack)
 	
-	# 近距離戰術
+	# 近距離戰術 (Close range - distance <= 100)
 	else:
-		# 嘗試執行連段
+		# 1. Combo execution
 		var combo_names = combo_system.get_available_combos(ai_player, opponent)
 		for combo_name in combo_names:
 			var combo_dec = Decision.new()
 			combo_dec.layer = DecisionLayer.TACTICAL
 			combo_dec.action = "combo_" + combo_name
-			combo_dec.priority = PRIORITY_COMBO
+			combo_dec.priority = 70.0
 			combo_dec.reason = "Execute combo: " + combo_name
 			decisions.append(combo_dec)
 		
-		# 如果沒有可用連段，使用單招
+		# 2. Normal attacks (if no combos available)
 		if combo_names.size() == 0:
 			var close_attack = Decision.new()
 			close_attack.layer = DecisionLayer.TACTICAL
-			close_attack.action = "st_mp" if randf() < PROB_CLOSE_ST_MP else "st_mk"
-			close_attack.priority = PRIORITY_CLOSE_ATTACK
+			close_attack.action = "st_mp" if randf() < 0.5 else "st_mk"
+			close_attack.priority = 60.0
 			close_attack.reason = "Close range attack"
 			decisions.append(close_attack)
-			
-			# 近距離也可以後退
-			if randf() < PROB_CLOSE_RETREAT:
-				var retreat = Decision.new()
-				retreat.layer = DecisionLayer.TACTICAL
-				retreat.action = "backdash"
-				retreat.priority = PRIORITY_CLOSE_RETREAT
-				retreat.reason = "Create space"
-				decisions.append(retreat)
+		
+		# 3. Crouching attacks
+		if randf() < 0.4:
+			var crouch_attack = Decision.new()
+			crouch_attack.layer = DecisionLayer.TACTICAL
+			crouch_attack.action = "cr_mp" if randf() < 0.6 else "cr_mk"
+			crouch_attack.priority = 58.0
+			crouch_attack.reason = "Close range low attack"
+			decisions.append(crouch_attack)
+		
+		# 4. Defensive retreat
+		if randf() < 0.3:
+			var retreat = Decision.new()
+			retreat.layer = DecisionLayer.TACTICAL
+			retreat.action = "backdash"
+			retreat.priority = 55.0
+			retreat.reason = "Create space"
+			decisions.append(retreat)
+		
+		# 5. Block/Wait
+		if randf() < 0.25:
+			var block = Decision.new()
+			block.layer = DecisionLayer.TACTICAL
+			block.action = "stand_block"
+			block.priority = 53.0
+			block.reason = "Close range defend"
+			decisions.append(block)
 	
 	return decisions
 
