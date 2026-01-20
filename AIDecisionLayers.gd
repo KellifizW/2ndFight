@@ -110,7 +110,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			var fb = Decision.new()
 			fb.layer = DecisionLayer.TACTICAL
 			fb.action = "fireball"
-			fb.priority = 60.0
+			fb.priority = 60.0 if randf() < 0.6 else 50.0  # 60% 機率高優先級
 			fb.reason = "Far range zoning"
 			decisions.append(fb)
 		
@@ -118,16 +118,25 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		var walk = Decision.new()
 		walk.layer = DecisionLayer.TACTICAL
 		walk.action = "walk_forward" if randf() < 0.7 else "walk_backward"
-		walk.priority = 45.0
+		walk.priority = 52.0  # 提高優先級，與 fireball 競爭
 		walk.reason = "Far range positioning"
 		decisions.append(walk)
+		
+		# 偶爾跳躍
+		if randf() < 0.2:
+			var jump = Decision.new()
+			jump.layer = DecisionLayer.TACTICAL
+			jump.action = "jump_forward" if distance > 350 else "jump_neutral"
+			jump.priority = 48.0
+			jump.reason = "Far range jump"
+			decisions.append(jump)
 	
 	# 中距離戰術
 	elif distance > 100:
 		var poke = Decision.new()
 		poke.layer = DecisionLayer.TACTICAL
 		poke.action = "st_mk"
-		poke.priority = 65.0
+		poke.priority = 65.0 if randf() < 0.7 else 58.0
 		poke.reason = "Mid range poke"
 		decisions.append(poke)
 		
@@ -135,9 +144,18 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		var approach = Decision.new()
 		approach.layer = DecisionLayer.TACTICAL
 		approach.action = "dash_forward"
-		approach.priority = 55.0
+		approach.priority = 60.0
 		approach.reason = "Close the gap"
 		decisions.append(approach)
+		
+		# 中距離格擋
+		if randf() < 0.3:
+			var block = Decision.new()
+			block.layer = DecisionLayer.TACTICAL
+			block.action = "stand_block"
+			block.priority = 55.0
+			block.reason = "Mid range defense"
+			decisions.append(block)
 	
 	# 近距離戰術
 	else:
@@ -155,10 +173,19 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		if combo_names.size() == 0:
 			var close_attack = Decision.new()
 			close_attack.layer = DecisionLayer.TACTICAL
-			close_attack.action = "st_mp"
+			close_attack.action = "st_mp" if randf() < 0.6 else "st_mk"
 			close_attack.priority = 60.0
 			close_attack.reason = "Close range attack"
 			decisions.append(close_attack)
+			
+			# 近距離也可以後退
+			if randf() < 0.3:
+				var retreat = Decision.new()
+				retreat.layer = DecisionLayer.TACTICAL
+				retreat.action = "backdash"
+				retreat.priority = 55.0
+				retreat.reason = "Create space"
+				decisions.append(retreat)
 	
 	return decisions
 
