@@ -148,7 +148,8 @@ func _action_to_input(action: String) -> Dictionary:
 			input.st_mk_pressed = true
 		"fireball", "spm2":
 			input.spm2_pressed = true
-			print("[AI._action_to_input] %s: Setting spm2_pressed=true for action '%s'" % [parent.name, action])
+			if debug_mode:
+				print("[AI._action_to_input] %s: Setting spm2_pressed=true for action '%s'" % [parent.name, action])
 		"powerkk", "spm1":
 			input.spm1_pressed = true
 		"spnk":
