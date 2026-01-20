@@ -398,10 +398,15 @@ func reset_players() -> void:
 	for player in [player_a, player_b]:
 		reset_player_animation(player, "Walk")
 	
+	# Reset AI behavior (no state properties in new AI system)
 	for player in [player_a, player_b]:
 		if player.has_node("AIBehavior"):
-			player.get_node("AIBehavior").current_state = "idle"
-			player.get_node("AIBehavior").state_timer = 0.0
+			var ai_behavior = player.get_node("AIBehavior")
+			# Reset commitment and decision timers
+			ai_behavior.commitment_timer = 0.0
+			ai_behavior.decision_cooldown = 0.0
+			ai_behavior.current_committed_action = ""
+			ai_behavior.committed_input = {}
 	
 	if slowmo_controller:
 		slowmo_controller.exit_slowmo_animation()

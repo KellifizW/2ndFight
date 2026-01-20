@@ -872,13 +872,13 @@ tracks/10/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_7gy1f"]
-size = Vector2(130, 30)
+size = Vector2(150, 50)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_iwfv5"]
-size = Vector2(40, 20)
+size = Vector2(0, 0)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_uns0w"]
-size = Vector2(40, 20)
+size = Vector2(25, 15)
 
 [sub_resource type="Animation" id="Animation_61wwb"]
 resource_name = "cr_mk"
@@ -1112,6 +1112,23 @@ tracks/18/keys = {
 "update": 0,
 "values": [&"crmk"]
 }
+tracks/19/type = "method"
+tracks/19/imported = false
+tracks/19/enabled = true
+tracks/19/path = NodePath(".")
+tracks/19/interp = 1
+tracks/19/loop_wrap = true
+tracks/19/keys = {
+"times": PackedFloat32Array(0.13333334, 0.16666667),
+"transitions": PackedFloat32Array(1, 1),
+"values": [{
+"args": [["fireball", "spnk"]],
+"method": &"_open_cancel_window"
+}, {
+"args": [],
+"method": &"_close_cancel_window"
+}]
+}
 
 [sub_resource type="Animation" id="Animation_7gy1f"]
 resource_name = "cr_mp"
@@ -1332,6 +1349,23 @@ tracks/17/keys = {
 "transitions": PackedFloat32Array(1),
 "update": 0,
 "values": [Vector2(130, 220)]
+}
+tracks/18/type = "method"
+tracks/18/imported = false
+tracks/18/enabled = true
+tracks/18/path = NodePath(".")
+tracks/18/interp = 1
+tracks/18/loop_wrap = true
+tracks/18/keys = {
+"times": PackedFloat32Array(0.06666667, 0.1),
+"transitions": PackedFloat32Array(1, 1),
+"values": [{
+"args": [["fireball", "spnk"]],
+"method": &"_open_cancel_window"
+}, {
+"args": [],
+"method": &"_close_cancel_window"
+}]
 }
 
 [sub_resource type="Animation" id="Animation_idi7q"]
@@ -1992,7 +2026,7 @@ tracks/16/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_gwt7q"]
-size = Vector2(180, 50)
+size = Vector2(25, 15)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_fqpan"]
 size = Vector2(40, 20)
@@ -2769,9 +2803,9 @@ tracks/12/path = NodePath("AnimatedSprite2D:frame")
 tracks/12/interp = 1
 tracks/12/loop_wrap = true
 tracks/12/keys = {
-"times": PackedFloat32Array(0, 0.06666667, 0.1, 0.13333334, 0.2, 0.23333333, 0.3),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.1, 0.13333334, 0.2, 0.26666668),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
-"update": 0,
+"update": 1,
 "values": [0, 1, 2, 3, 4, 5, 6]
 }
 tracks/13/type = "value"
@@ -2797,6 +2831,23 @@ tracks/14/keys = {
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [true, false]
+}
+tracks/15/type = "method"
+tracks/15/imported = false
+tracks/15/enabled = true
+tracks/15/path = NodePath(".")
+tracks/15/interp = 1
+tracks/15/loop_wrap = true
+tracks/15/keys = {
+"times": PackedFloat32Array(0.1, 0.13333334),
+"transitions": PackedFloat32Array(1, 1),
+"values": [{
+"args": [["fireball", "spnk"]],
+"method": &"_open_cancel_window"
+}, {
+"args": [],
+"method": &"_close_cancel_window"
+}]
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_2dedv"]
@@ -2988,6 +3039,23 @@ tracks/14/keys = {
 "transitions": PackedFloat32Array(1),
 "update": 0,
 "values": [&"stmp"]
+}
+tracks/15/type = "method"
+tracks/15/imported = false
+tracks/15/enabled = true
+tracks/15/path = NodePath(".")
+tracks/15/interp = 1
+tracks/15/loop_wrap = true
+tracks/15/keys = {
+"times": PackedFloat32Array(0.083333336, 0.11666667),
+"transitions": PackedFloat32Array(1, 1),
+"values": [{
+"args": [["fireball", "spnk"]],
+"method": &"_open_cancel_window"
+}, {
+"args": [],
+"method": &"_close_cancel_window"
+}]
 }
 
 [sub_resource type="Animation" id="Animation_g4e5n"]

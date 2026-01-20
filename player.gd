@@ -192,11 +192,6 @@ func _physics_process(delta: float) -> void:
 	var input_data = get_input()
 	input_data.merge(special_input_data, true)
 
-	# Debug: 顯示輸入狀態（只在攻擊時）
-	if is_attacking:
-		print("[Debug Input] attack_type=%s, is_cancel_window_open=%s, allowed_targets=%s" % [attack_type, is_cancel_window_open, allowed_cancel_targets])
-		print("[Debug Input] input_data.attack_type=%s, spm1=%s, spm2=%s, dp=%s" % [input_data.get("attack_type", "none"), input_data.get("spm1_pressed", false), input_data.get("spm2_pressed", false), input_data.get("dp_pressed", false)])
-
 	# 移除：這段邏輯會在取消判定前清空按鈕，導致 attack_type 無法正確檢測
 	# if input_data.spm2_pressed or input_data.dp_pressed or input_data.spm1_pressed or input_data.super_pressed:
 	#     input_data.st_mp_pressed = false

@@ -84,7 +84,11 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 		
 		var distance = abs(proj.global_position.x - ai_player.global_position.x)
 		var velocity = proj.get("velocity") if "velocity" in proj else Vector2(300, 0)
-		var frames_to_impact = int((distance / abs(velocity.x)) * 60.0) if velocity.x != 0 else 999
+		var speed_value = proj.get("speed") if "speed" in proj else 800.0
+		
+		# 使用實際速度計算衝擊幀數
+		var actual_speed = speed_value if velocity.x == 0 else abs(velocity.x)
+		var frames_to_impact = int((distance / actual_speed) * 60.0) if actual_speed > 0 else 999
 		
 		# 檢查火球方向（是否朝向AI玩家）
 		var proj_direction = proj.get("direction") if "direction" in proj else 1
@@ -98,12 +102,48 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 			threat.frames_until_hit = frames_to_impact
 			threat.source = "fireball"
 			
-			if frames_to_impact < 10:
+			# 根據距離和時間選擇最佳應對策略
+			if frames_to_impact < 15:  # 非常接近（<0.25秒）
 				threat.level = ThreatLevel.CRITICAL
+				# 近距離：格擋是最安全的選擇
 				threat.recommended_response = "stand_block"
-			elif frames_to_impact < 20:
+			
+			elif frames_to_impact < 30:  # 接近（0.25-0.5秒）
 				threat.level = ThreatLevel.HIGH
-				threat.recommended_response = "jump_forward"
+				if distance < 150:
+					# 近距離：格擋
+					threat.recommended_response = "stand_block"
+				elif distance < 250:
+					# 中距離：向前跳躍穿過火球
+					threat.recommended_response = "jump_forward"
+				else:
+					# 較遠：向前跳躍接近
+					threat.recommended_response = "jump_forward"
+			
+			elif frames_to_impact < 50:  # 中等距離（0.5-0.83秒）
+				threat.level = ThreatLevel.MEDIUM
+				if distance < 200:
+					# 中近距離：跳躍避開
+					threat.recommended_response = "jump_forward" if randf() > 0.3 else "jump_neutral"
+				else:
+					# 較遠距離：發射火球對抗或跳躍接近
+					if ai_player and ai_player.move_set and not ai_player.move_set.is_spmove:
+						# 有機會發波對抗
+						threat.recommended_response = "fireball" if randf() > 0.4 else "jump_forward"
+					else:
+						threat.recommended_response = "jump_forward"
+			
+			else:  # 遠距離（>0.83秒）
+				threat.level = ThreatLevel.LOW
+				if distance > 300:
+					# 超遠距離：發波對抗或向前移動
+					if ai_player and ai_player.move_set and not ai_player.move_set.is_spmove:
+						threat.recommended_response = "fireball" if randf() > 0.5 else "dash_forward"
+					else:
+						threat.recommended_response = "dash_forward"
+				else:
+					# 一般遠距離：跳躍接近
+					threat.recommended_response = "jump_forward"
 	
 	return threat
 

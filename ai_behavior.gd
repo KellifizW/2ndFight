@@ -286,6 +286,7 @@ func _action_to_input(action: String) -> Dictionary:
 			input.input_dir = -int(relative_dir)
 		"jump_neutral":
 			input.jump_pressed = true
+			input.input_dir = 0
 		"walk_forward":
 			input.input_dir = int(relative_dir)
 		"walk_backward":

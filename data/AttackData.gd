@@ -8,7 +8,7 @@ class_name AttackData extends Resource
 @export var st_mp_knockback: float = 250.0
 
 # ── st_mk ──
-@export var st_mk_damage: float = 15.0
+@export var st_mk_damage: float = 9.0
 @export var st_mk_hitstun: float = 0.65
 @export var st_mk_blockstun: float = 0.300
 @export var st_mk_knockback: float = 280.0

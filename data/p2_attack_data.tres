@@ -4,6 +4,7 @@
 
 [resource]
 script = ExtResource("1_e6rab")
-cr_mp_knockback = 1.0
+cr_mp_hitstun = 0.383
+cr_mp_knockback = 200.0
 jump_mk_knockback = 100.0
 metadata/_custom_type_script = "uid://ccjfweg28wskh"

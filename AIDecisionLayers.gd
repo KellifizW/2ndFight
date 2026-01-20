@@ -16,10 +16,10 @@ const PRIORITY_PUNISH = 90.0         # Opponent recovery
 # Tactical priorities (distance-based)
 const PRIORITY_COMBO = 75.0          # Close range combo execution
 const PRIORITY_SPECIAL_CLOSE = 70.0  # Close range special moves (DP, etc.)
-const PRIORITY_NORMAL_HIGH = 68.0    # High priority normals (st_mk)
-const PRIORITY_NORMAL_MID = 66.0     # Mid priority normals (st_mp)
-const PRIORITY_NORMAL_LOW = 64.0     # Low priority normals (cr_mk)
-const PRIORITY_CROUCH = 65.0         # Crouch attacks
+const PRIORITY_NORMAL_HIGH = 67.0    # High priority normals (st_mk)
+const PRIORITY_NORMAL_MID = 67.0     # Mid priority normals (st_mp)
+const PRIORITY_NORMAL_LOW = 67.0     # Low priority normals (cr_mk)
+const PRIORITY_CROUCH = 67.0         # Crouch attacks
 
 # Movement priorities
 const PRIORITY_DASH_APPROACH = 65.0  # Aggressive dash forward
@@ -30,11 +30,11 @@ const PRIORITY_RETREAT = 60.0        # Tactical retreat
 const PRIORITY_WALK_BACK = 58.0      # Walk backward
 
 # Zoning/Defense priorities
-const PRIORITY_FIREBALL = 52.0       # Projectile zoning
-const PRIORITY_BLOCK = 55.0          # Defensive blocking
-const PRIORITY_CROUCH_BLOCK = 54.0   # Crouch blocking
+const PRIORITY_FIREBALL = 64.0       # Projectile zoning (increased)
+const PRIORITY_BLOCK = 72.0          # Defensive blocking (increased)
+const PRIORITY_CROUCH_BLOCK = 71.0   # Crouch blocking (increased)
 const PRIORITY_OBSERVE = 48.0        # Wait and observe
-const PRIORITY_JUMP = 46.0           # Jump approach (low priority)
+const PRIORITY_JUMP = 63.0           # Jump approach (increased)
 
 # Positioning
 const PRIORITY_POSITIONING = 30.0    # Space control
@@ -85,13 +85,25 @@ func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
 func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 	var threat = threat_system.evaluate_threats(ai_player, opponent)
 	
-	if threat.level < ThreatAssessment.ThreatLevel.HIGH:
+	# React to any threat level (including LOW for fireballs)
+	if threat.level == ThreatAssessment.ThreatLevel.NONE:
 		return null
 	
 	var decision = Decision.new()
 	decision.layer = DecisionLayer.SURVIVAL
 	decision.action = threat.recommended_response
-	decision.priority = PRIORITY_CRITICAL if threat.level == ThreatAssessment.ThreatLevel.CRITICAL else PRIORITY_SURVIVAL
+	
+	# Adjust priority based on threat level
+	if threat.level == ThreatAssessment.ThreatLevel.CRITICAL:
+		decision.priority = PRIORITY_CRITICAL
+	elif threat.level == ThreatAssessment.ThreatLevel.HIGH:
+		decision.priority = PRIORITY_SURVIVAL
+	elif threat.level == ThreatAssessment.ThreatLevel.MEDIUM:
+		decision.priority = PRIORITY_BLOCK
+	else:  # LOW
+		# For LOW threats (distant fireballs), use tactical priority
+		decision.priority = 68.0  # Similar to normal attacks
+	
 	decision.reason = "Threat: " + threat.source
 	return decision
 
@@ -146,10 +158,19 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 	var distance = abs(ai_player.global_position.x - opponent.global_position.x)
 	
 	# ============================================================
-	# FAR RANGE (> 250) - Primary goal: APPROACH
+	# FAR RANGE (> 250) - Primary goal: APPROACH with zoning
 	# ============================================================
 	if distance > 250:
-		# Priority 1: Dash forward (fastest approach)
+		# Priority 1: Fireball (zoning) - only if not busy
+		if ai_player and ai_player.move_set and not ai_player.move_set.is_spmove:
+			var fb = Decision.new()
+			fb.layer = DecisionLayer.TACTICAL
+			fb.action = "fireball"
+			fb.priority = PRIORITY_FIREBALL + randf_range(-2.0, 3.0)
+			fb.reason = "Far range: zoning"
+			decisions.append(fb)
+		
+		# Priority 2: Dash forward (aggressive approach)
 		var dash = Decision.new()
 		dash.layer = DecisionLayer.TACTICAL
 		dash.action = "dash_forward"
@@ -157,7 +178,15 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		dash.reason = "Far range: aggressive approach"
 		decisions.append(dash)
 		
-		# Priority 2: Walk forward (steady approach)
+		# Priority 3: Jump approach (mobility)
+		var jump = Decision.new()
+		jump.layer = DecisionLayer.TACTICAL
+		jump.action = "jump_forward" if distance > 350 else "jump_neutral"
+		jump.priority = PRIORITY_JUMP + randf_range(-2.0, 2.0)
+		jump.reason = "Far range: jump approach"
+		decisions.append(jump)
+		
+		# Priority 4: Walk forward (steady approach)
 		var walk = Decision.new()
 		walk.layer = DecisionLayer.TACTICAL
 		walk.action = "walk_forward"
@@ -165,52 +194,64 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		walk.reason = "Far range: steady approach"
 		decisions.append(walk)
 		
-		# Priority 3: Fireball (occasional zoning) - only if not busy
-		if ai_player and ai_player.move_set and not ai_player.move_set.is_spmove:
-			var fb = Decision.new()
-			fb.layer = DecisionLayer.TACTICAL
-			fb.action = "fireball"
-			fb.priority = PRIORITY_FIREBALL
-			fb.reason = "Far range: zoning"
-			decisions.append(fb)
-		
-		# Priority 4: Observe (lowest - waiting)
+		# Priority 5: Observe (lowest - waiting)
 		var observe = Decision.new()
 		observe.layer = DecisionLayer.TACTICAL
 		observe.action = "stand_block"
 		observe.priority = PRIORITY_OBSERVE
 		observe.reason = "Far range: observe"
 		decisions.append(observe)
-		
-		# Priority 5: Jump (occasional mobility)
-		var jump = Decision.new()
-		jump.layer = DecisionLayer.TACTICAL
-		jump.action = "jump_forward" if distance > 350 else "jump_neutral"
-		jump.priority = PRIORITY_JUMP
-		jump.reason = "Far range: jump approach"
-		decisions.append(jump)
 	
 	# ============================================================
 	# MID RANGE (100-250) - Mix of pokes and approach
 	# ============================================================
 	elif distance > 100:
-		# Priority 1: st_mk poke (best mid-range tool)
+		# Variety of mid-range normals with randomized priorities
+		var rand_offset = randf_range(-2.0, 2.0)
+		
+		# Priority 1: st_mk poke
 		var poke = Decision.new()
 		poke.layer = DecisionLayer.TACTICAL
 		poke.action = "st_mk"
-		poke.priority = PRIORITY_NORMAL_HIGH
+		poke.priority = PRIORITY_NORMAL_HIGH + rand_offset
 		poke.reason = "Mid range: poke"
 		decisions.append(poke)
 		
-		# Priority 2: cr_mk low poke
+		# Priority 2: st_mp quick attack
+		var mp_poke = Decision.new()
+		mp_poke.layer = DecisionLayer.TACTICAL
+		mp_poke.action = "st_mp"
+		mp_poke.priority = PRIORITY_NORMAL_MID + randf_range(-2.0, 2.0)
+		mp_poke.reason = "Mid range: quick poke"
+		decisions.append(mp_poke)
+		
+		# Priority 3: cr_mk low poke
 		var crouch_poke = Decision.new()
 		crouch_poke.layer = DecisionLayer.TACTICAL
 		crouch_poke.action = "cr_mk"
-		crouch_poke.priority = PRIORITY_CROUCH
+		crouch_poke.priority = PRIORITY_CROUCH + randf_range(-2.0, 2.0)
 		crouch_poke.reason = "Mid range: low poke"
 		decisions.append(crouch_poke)
 		
-		# Priority 3: Continue approaching
+		# Priority 4: cr_mp close low attack
+		if distance < 150:
+			var cr_mp_poke = Decision.new()
+			cr_mp_poke.layer = DecisionLayer.TACTICAL
+			cr_mp_poke.action = "cr_mp"
+			cr_mp_poke.priority = PRIORITY_CROUCH + randf_range(-2.0, 2.0)
+			cr_mp_poke.reason = "Mid range: cr_mp"
+			decisions.append(cr_mp_poke)
+		
+		# Priority 5: Jump attack (occasional)
+		if distance > 120 and distance < 200:
+			var jump_atk = Decision.new()
+			jump_atk.layer = DecisionLayer.TACTICAL
+			jump_atk.action = "jump_forward"
+			jump_atk.priority = PRIORITY_JUMP + randf_range(-2.0, 2.0)
+			jump_atk.reason = "Mid range: jump attack"
+			decisions.append(jump_atk)
+		
+		# Priority 6: Continue approaching
 		var approach = Decision.new()
 		approach.layer = DecisionLayer.TACTICAL
 		approach.action = "dash_forward"
@@ -218,7 +259,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		approach.reason = "Mid range: close gap"
 		decisions.append(approach)
 		
-		# Priority 4: Walk forward
+		# Priority 7: Walk forward
 		var walk = Decision.new()
 		walk.layer = DecisionLayer.TACTICAL
 		walk.action = "walk_forward"
@@ -226,11 +267,11 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		walk.reason = "Mid range: walk approach"
 		decisions.append(walk)
 		
-		# Priority 5: Defensive block
+		# Priority 8: Defensive block (defensive behavior)
 		var block = Decision.new()
 		block.layer = DecisionLayer.TACTICAL
 		block.action = "stand_block"
-		block.priority = PRIORITY_BLOCK
+		block.priority = PRIORITY_BLOCK + randf_range(-3.0, 0.0)
 		block.reason = "Mid range: defense"
 		decisions.append(block)
 	
@@ -248,48 +289,84 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			combo_dec.reason = "Close range: combo"
 			decisions.append(combo_dec)
 		
-		# Priority 2: Special moves (character-specific)
+		# Priority 2: Special moves (character-specific) - increased usage
 		var char_id = ai_player.character_id if "character_id" in ai_player else ""
 		if char_id == "DAV":
+			# DP (dragon punch)
 			var dp = Decision.new()
 			dp.layer = DecisionLayer.TACTICAL
 			dp.action = "dp"
-			dp.priority = PRIORITY_SPECIAL_CLOSE
+			dp.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-2.0, 3.0)
 			dp.reason = "Close range: DP"
 			decisions.append(dp)
+			# Power kick
+			var powerkk = Decision.new()
+			powerkk.layer = DecisionLayer.TACTICAL
+			powerkk.action = "powerkk"
+			powerkk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-3.0, 2.0)
+			powerkk.reason = "Close range: power kick"
+			decisions.append(powerkk)
 		elif char_id == "DEN":
+			# Special NK
 			var spnk = Decision.new()
 			spnk.layer = DecisionLayer.TACTICAL
 			spnk.action = "spnk"
-			spnk.priority = PRIORITY_SPECIAL_CLOSE
+			spnk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-2.0, 3.0)
 			spnk.reason = "Close range: special"
 			decisions.append(spnk)
+			# HDK move
+			var hdk = Decision.new()
+			hdk.layer = DecisionLayer.TACTICAL
+			hdk.action = "hdk"
+			hdk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-3.0, 2.0)
+			hdk.reason = "Close range: hdk"
+			decisions.append(hdk)
 		
-		# Priority 3: st_mp (fast close attack)
+		# Priority 3: Variety of close range normals with randomization
+		var close_rand = randf_range(-3.0, 3.0)
+		
+		# st_mp (fast close attack)
 		var mp = Decision.new()
 		mp.layer = DecisionLayer.TACTICAL
 		mp.action = "st_mp"
-		mp.priority = PRIORITY_NORMAL_MID
+		mp.priority = PRIORITY_NORMAL_MID + close_rand
 		mp.reason = "Close range: st_mp"
 		decisions.append(mp)
 		
-		# Priority 4: st_mk
+		# st_mk
 		var mk = Decision.new()
 		mk.layer = DecisionLayer.TACTICAL
 		mk.action = "st_mk"
-		mk.priority = PRIORITY_NORMAL_LOW
+		mk.priority = PRIORITY_NORMAL_HIGH + randf_range(-3.0, 3.0)
 		mk.reason = "Close range: st_mk"
 		decisions.append(mk)
 		
-		# Priority 5: Crouch attacks
-		var crouch = Decision.new()
-		crouch.layer = DecisionLayer.TACTICAL
-		crouch.action = "cr_mp" if distance < 50 else "cr_mk"
-		crouch.priority = PRIORITY_CROUCH_LOW
-		crouch.reason = "Close range: low attack"
-		decisions.append(crouch)
+		# cr_mp (very close low attack)
+		var cr_mp = Decision.new()
+		cr_mp.layer = DecisionLayer.TACTICAL
+		cr_mp.action = "cr_mp"
+		cr_mp.priority = PRIORITY_CROUCH + randf_range(-3.0, 3.0)
+		cr_mp.reason = "Close range: cr_mp"
+		decisions.append(cr_mp)
 		
-		# Priority 6: Tactical retreat (lowest)
+		# cr_mk (low poke)
+		var cr_mk = Decision.new()
+		cr_mk.layer = DecisionLayer.TACTICAL
+		cr_mk.action = "cr_mk"
+		cr_mk.priority = PRIORITY_NORMAL_LOW + randf_range(-3.0, 3.0)
+		cr_mk.reason = "Close range: cr_mk"
+		decisions.append(cr_mk)
+		
+		# Priority 6: Jump escape (when cornered or pressured)
+		if distance < 60:
+			var jump_escape = Decision.new()
+			jump_escape.layer = DecisionLayer.TACTICAL
+			jump_escape.action = "jump_backward"
+			jump_escape.priority = PRIORITY_RETREAT + randf_range(-2.0, 3.0)
+			jump_escape.reason = "Close range: jump escape"
+			decisions.append(jump_escape)
+		
+		# Priority 7: Tactical retreat (lowest)
 		var retreat = Decision.new()
 		retreat.layer = DecisionLayer.TACTICAL
 		retreat.action = "backdash"
