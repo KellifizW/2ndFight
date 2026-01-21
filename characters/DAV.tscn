@@ -3549,8 +3549,6 @@ script = ExtResource("6_b3w3n")
 
 [node name="AIBehavior" type="Node" parent="."]
 script = ExtResource("7_t485y")
-enable_move_restrictions = true
-restricted_moves = Array[String](["fireball"])
 
 [node name="PlayerController" type="Node" parent="."]
 script = ExtResource("8_hshs3")

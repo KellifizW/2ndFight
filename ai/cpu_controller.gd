@@ -6,6 +6,17 @@ extends Node
 var ai_enabled_a: bool = false  # Player A（左邊/先手）的 AI 開關
 var ai_enabled_b: bool = false  # Player B（右邊/後手）的 AI 開關
 
+# ============================================================
+# AI MOVE RESTRICTIONS - Inspector Configuration
+# ============================================================
+@export_category("Player A AI Settings")
+@export var enable_restrictions_a: bool = false
+@export var restricted_moves_a: Array[String] = []
+
+@export_category("Player B AI Settings")
+@export var enable_restrictions_b: bool = false
+@export var restricted_moves_b: Array[String] = []
+
 func _ready() -> void:
 	# 延遲一幀抓取，確保 world 已生成玩家並加入群組
 	await get_tree().process_frame
@@ -16,6 +27,9 @@ func _ready() -> void:
 	else:
 		print("Debug: CPUController ready! 找到 %d 個玩家" % players.size())
 		print("Debug: 按 'C' 鍵切換 Player A AI，按 'V' 鍵切換 Player B AI")
+		
+		# 應用招式限制設定到動態生成的玩家
+		_apply_move_restrictions()
 
 func _input(event: InputEvent) -> void:
 	# 切換 Player A（左邊玩家）的 AI
@@ -55,3 +69,36 @@ func _input(event: InputEvent) -> void:
 			"啟用" if ai_enabled_b else "停用",
 			player_b.character_id if "character_id" in player_b else "UNKNOWN"
 		])
+
+func _apply_move_restrictions() -> void:
+	"""將 Inspector 設定的招式限制應用到動態生成的玩家"""
+	if players.size() < 2:
+		return
+	
+	# 應用 Player A 的限制
+	var player_a = players[0]
+	var ai_behavior_a = player_a.get_node_or_null("AIBehavior")
+	if ai_behavior_a:
+		ai_behavior_a.enable_move_restrictions = enable_restrictions_a
+		ai_behavior_a.restricted_moves = restricted_moves_a
+		# 使用 set() 方法避免類型檢查問題
+		if ai_behavior_a.decision_layers:
+			var decision_layers = ai_behavior_a.decision_layers
+			decision_layers.set("restricted_moves", restricted_moves_a if enable_restrictions_a else [])
+		
+		if enable_restrictions_a and restricted_moves_a.size() > 0:
+			print("[CPU Controller] Player A move restrictions applied: %s" % str(restricted_moves_a))
+	
+	# 應用 Player B 的限制
+	var player_b = players[1]
+	var ai_behavior_b = player_b.get_node_or_null("AIBehavior")
+	if ai_behavior_b:
+		ai_behavior_b.enable_move_restrictions = enable_restrictions_b
+		ai_behavior_b.restricted_moves = restricted_moves_b
+		# 使用 set() 方法避免類型檢查問題
+		if ai_behavior_b.decision_layers:
+			var decision_layers = ai_behavior_b.decision_layers
+			decision_layers.set("restricted_moves", restricted_moves_b if enable_restrictions_b else [])
+		
+		if enable_restrictions_b and restricted_moves_b.size() > 0:
+			print("[CPU Controller] Player B move restrictions applied: %s" % str(restricted_moves_b))

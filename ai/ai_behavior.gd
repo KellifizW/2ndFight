@@ -17,15 +17,12 @@ var combo_system: AIComboSystem
 var space_control: SpaceControl
 
 @export var ai_enabled: bool = false
-@export var ai_difficulty: int = 5
+@export var ai_difficulty: int = 5  ## AI 難度 (1-10)，目前未使用，保留供未來實現反應時間/決策品質調整
 @export var debug_mode: bool = false
 
-# ============================================================
-# MOVE RESTRICTIONS (Testing/Training)
-# ============================================================
-@export_category("Move Restrictions")
-@export var enable_move_restrictions: bool = false
-@export var restricted_moves: Array[String] = []
+# Move restrictions now managed by CPUController
+var enable_move_restrictions: bool = false
+var restricted_moves: Array[String] = []
 
 var parent: Player
 var opponent: Player
@@ -120,11 +117,7 @@ func _init_subsystems() -> void:
 	decision_layers.combo_system = combo_system
 	decision_layers.space_control = space_control
 	
-	# 傳遞招式限制配置到決策層
-	if enable_move_restrictions:
-		decision_layers.restricted_moves = restricted_moves
-		if debug_mode:
-			print("[AI] Move restrictions enabled: %s" % str(restricted_moves))
+	# Move restrictions initialized by CPUController
 
 func _process(delta: float) -> void:
 	# Track delta for commitment system
@@ -200,9 +193,11 @@ func get_ai_input() -> Dictionary:
 	
 	# 檢查招式是否被限制，如果是則獲取替代決策
 	if enable_move_restrictions and decision.action in restricted_moves:
-		if debug_mode:
-			print("[AI] Move '%s' is restricted, finding alternative..." % decision.action)
+		if debug_mode or Engine.get_physics_frames() % 60 == 0:
+			print("[AI] Move '%s' (priority: %.1f) is restricted, finding alternative..." % [decision.action, decision.priority])
 		decision = decision_layers.get_fallback_decision(parent, opponent)
+		if debug_mode or Engine.get_physics_frames() % 60 == 0:
+			print("[AI] Fallback decision: '%s' (priority: %.1f)" % [decision.action, decision.priority])
 	
 	decision_cooldown = DECISION_INTERVAL
 	
@@ -299,14 +294,28 @@ func _action_to_input(action: String) -> Dictionary:
 			input.crouch_pressed = true
 			input.st_mk_pressed = true
 		"fireball", "spm2":
+			# ⚠️ 檢查：不應該到達這裡（應該被決策層過濾）
+			if enable_move_restrictions and "fireball" in restricted_moves:
+				if debug_mode:
+					print("[AI._action_to_input] WARNING: Fireball action reached input conversion despite being restricted!")
+				# 返回中立輸入，不執行
+				return _neutral_input()
 			input.spm2_pressed = true
 			if debug_mode:
 				print("[AI._action_to_input] %s: Setting spm2_pressed=true for action '%s'" % [parent.name, action])
 		"powerkk", "spm1":
+			if enable_move_restrictions and "powerkk" in restricted_moves:
+				if debug_mode:
+					print("[AI._action_to_input] WARNING: Powerkk action reached input conversion despite being restricted!")
+				return _neutral_input()
 			input.spm1_pressed = true
 		"spnk":
+			if enable_move_restrictions and "spnk" in restricted_moves:
+				return _neutral_input()
 			input.spm1_pressed = true
 		"hdk":
+			if enable_move_restrictions and "hdk" in restricted_moves:
+				return _neutral_input()
 			input.spm3_pressed = true
 		"dp":
 			input.dp_pressed = true

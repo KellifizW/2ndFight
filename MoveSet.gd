@@ -293,9 +293,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		if is_spmove: stop_special_move()
 		return false
 	if not is_valid_state:
-		# Only log when AI tries special moves but state is invalid
-		if parent.is_ai_controlled and (input_data.get("spm1_pressed", false) or input_data.get("spm2_pressed", false) or input_data.get("dp_pressed", false)):
-			print("[MoveSet.process_move] %s: is_valid_state=false, cannot process special move" % parent.name)
+		# Removed verbose logging - this is normal behavior during action commitment
 		return false
 	
 	var world = get_tree().get_first_node_in_group("world")

@@ -6,18 +6,33 @@
 
 ## 使用方法
 
+### ⚠️ 配置位置說明
+
+**招式限制統一由 World 場景的 CPUController 管理**，不再需要在角色場景的 AIBehavior 節點中設定。
+
 ### 在 Godot 編輯器中配置
 
-1. **打開玩家場景**
-   - 在 Godot 編輯器中打開 `player1.tscn` 或 `player2.tscn`
+1. **打開 World 場景**
+   - 在 Godot 編輯器中打開 `world.tscn`
 
-2. **選擇 AIBehavior 節點**
-   - 在場景樹中找到並選擇 `AIBehavior` 節點
+2. **選擇 CPUController 節點**
+   - 在場景樹中找到並選擇 `CPUController` 節點
 
-3. **配置招式限制**
-   - 在 Inspector 面板中找到 **Move Restrictions** 分類
-   - 勾選 ☑️ **Enable Move Restrictions**
-   - 在 **Restricted Moves** 陣列中添加要禁用的招式
+3. **配置 Player A 的招式限制**
+   - 在 Inspector 面板中找到 **Player A AI Settings** 分類
+   - 勾選 ☑️ **Enable Restrictions A**
+   - 在 **Restricted Moves A** 陣列中添加要禁用的招式：
+     ```
+     ["fireball"]  # 禁用 Davis 的火球
+     ```
+
+4. **配置 Player B 的招式限制**
+   - 在 Inspector 面板中找到 **Player B AI Settings** 分類
+   - 勾選 ☑️ **Enable Restrictions B**
+   - 在 **Restricted Moves B** 陣列中添加要禁用的招式：
+     ```
+     ["spnk", "hdk"]  # 禁用 Dennis 的特殊技
+     ```
 
 ### 可用招式列表
 

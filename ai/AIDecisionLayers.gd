@@ -57,6 +57,7 @@ var restricted_moves: Array[String] = []
 
 func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
 	var decisions: Array[Decision] = []
+	var filtered_count = 0
 	
 	# Layer 1: 生存層（最高優先級）
 	var survival = _evaluate_survival_layer(ai_player, opponent)
@@ -66,26 +67,49 @@ func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
 			survival.action = "stand_block"
 			survival.reason = "Survival (restricted move fallback)"
 		return survival
-	elif survival and survival.action not in restricted_moves:
-		decisions.append(survival)
+	elif survival:
+		if survival.action in restricted_moves:
+			filtered_count += 1
+		else:
+			decisions.append(survival)
 	
 	# Layer 2: 懲罰層
 	var punish = _evaluate_punish_layer(ai_player, opponent)
-	if punish and punish.action not in restricted_moves:
-		decisions.append(punish)
+	if punish:
+		if punish.action in restricted_moves:
+			filtered_count += 1
+		else:
+			decisions.append(punish)
 	
 	# Layer 3: 戰術層
 	var tactical = _evaluate_tactical_layer(ai_player, opponent)
 	for t in tactical:
-		if t.action not in restricted_moves:
+		if t.action in restricted_moves:
+			filtered_count += 1
+		else:
 			decisions.append(t)
 	
 	# Layer 4: 定位層
 	var positioning = _evaluate_positioning_layer(ai_player, opponent)
-	if positioning and positioning.action not in restricted_moves:
-		decisions.append(positioning)
+	if positioning:
+		if positioning.action in restricted_moves:
+			filtered_count += 1
+		else:
+			decisions.append(positioning)
+	
+	# Debug: 顯示過濾統計
+	if filtered_count > 0 and Engine.get_physics_frames() % 120 == 0:
+		print("[AI] Filtered %d restricted moves. Available decisions: %d" % [filtered_count, decisions.size()])
+		if decisions.size() > 0:
+			var top_5 = decisions.slice(0, min(5, decisions.size()))
+			for d in top_5:
+				print("  - %s (%.1f): %s" % [d.action, d.priority, d.reason])
 	
 	# Layer 5: 待機層（最低優先級）
+	# 確保至少有一個決策
+	if decisions.is_empty():
+		return _get_idle_decision()
+	
 	decisions.append(_get_idle_decision())
 	
 	# 排序並返回最高優先級決策
@@ -219,40 +243,73 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		# Variety of mid-range normals with randomized priorities
 		var rand_offset = randf_range(-2.0, 2.0)
 		
-		# Priority 1: st_mk poke
+		# Priority 1: Special moves (character-specific) - ADDED
+		var char_id = ai_player.character_id if "character_id" in ai_player else ""
+		if char_id == "DAV":
+			# DP (dragon punch) - anti-air and pressure
+			var dp = Decision.new()
+			dp.layer = DecisionLayer.TACTICAL
+			dp.action = "dp"
+			dp.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-1.0, 4.0)  # 70 + (-1 to 4) = 69-74
+			dp.reason = "Mid range: DP"
+			decisions.append(dp)
+			# Power kick
+			var powerkk = Decision.new()
+			powerkk.layer = DecisionLayer.TACTICAL
+			powerkk.action = "powerkk"
+			powerkk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-2.0, 3.0)  # 70 + (-2 to 3) = 68-73
+			powerkk.reason = "Mid range: power kick"
+			decisions.append(powerkk)
+		elif char_id == "DEN":
+			# Special NK
+			var spnk = Decision.new()
+			spnk.layer = DecisionLayer.TACTICAL
+			spnk.action = "spnk"
+			spnk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-1.0, 4.0)  # 70 + (-1 to 4) = 69-74
+			spnk.reason = "Mid range: special"
+			decisions.append(spnk)
+			# HDK move
+			var hdk = Decision.new()
+			hdk.layer = DecisionLayer.TACTICAL
+			hdk.action = "hdk"
+			hdk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-2.0, 3.0)  # 70 + (-2 to 3) = 68-73
+			hdk.reason = "Mid range: hdk"
+			decisions.append(hdk)
+		
+		# Priority 2: st_mk poke (INCREASED PRIORITY)
 		var poke = Decision.new()
 		poke.layer = DecisionLayer.TACTICAL
 		poke.action = "st_mk"
-		poke.priority = PRIORITY_NORMAL_HIGH + rand_offset
+		poke.priority = PRIORITY_NORMAL_HIGH + rand_offset + 3.0  # 67 + rand + 3 = 68-72
 		poke.reason = "Mid range: poke"
 		decisions.append(poke)
 		
-		# Priority 2: st_mp quick attack
+		# Priority 3: st_mp quick attack (INCREASED PRIORITY)
 		var mp_poke = Decision.new()
 		mp_poke.layer = DecisionLayer.TACTICAL
 		mp_poke.action = "st_mp"
-		mp_poke.priority = PRIORITY_NORMAL_MID + randf_range(-2.0, 2.0)
+		mp_poke.priority = PRIORITY_NORMAL_MID + randf_range(-2.0, 2.0) + 3.0  # 67 + rand + 3 = 68-72
 		mp_poke.reason = "Mid range: quick poke"
 		decisions.append(mp_poke)
 		
-		# Priority 3: cr_mk low poke
+		# Priority 4: cr_mk low poke (INCREASED PRIORITY)
 		var crouch_poke = Decision.new()
 		crouch_poke.layer = DecisionLayer.TACTICAL
 		crouch_poke.action = "cr_mk"
-		crouch_poke.priority = PRIORITY_CROUCH + randf_range(-2.0, 2.0)
+		crouch_poke.priority = PRIORITY_CROUCH + randf_range(-2.0, 2.0) + 3.0  # 67 + rand + 3 = 68-72
 		crouch_poke.reason = "Mid range: low poke"
 		decisions.append(crouch_poke)
 		
-		# Priority 4: cr_mp close low attack
+		# Priority 5: cr_mp close low attack (INCREASED PRIORITY)
 		if distance < 150:
 			var cr_mp_poke = Decision.new()
 			cr_mp_poke.layer = DecisionLayer.TACTICAL
 			cr_mp_poke.action = "cr_mp"
-			cr_mp_poke.priority = PRIORITY_CROUCH + randf_range(-2.0, 2.0)
+			cr_mp_poke.priority = PRIORITY_CROUCH + randf_range(-2.0, 2.0) + 3.0  # 67 + rand + 3 = 68-72
 			cr_mp_poke.reason = "Mid range: cr_mp"
 			decisions.append(cr_mp_poke)
 		
-		# Priority 5: Jump attack (occasional)
+		# Priority 6: Jump attack (occasional)
 		if distance > 120 and distance < 200:
 			var jump_atk = Decision.new()
 			jump_atk.layer = DecisionLayer.TACTICAL
@@ -261,7 +318,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			jump_atk.reason = "Mid range: jump attack"
 			decisions.append(jump_atk)
 		
-		# Priority 6: Continue approaching
+		# Priority 7: Continue approaching
 		var approach = Decision.new()
 		approach.layer = DecisionLayer.TACTICAL
 		approach.action = "dash_forward"
@@ -269,7 +326,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		approach.reason = "Mid range: close gap"
 		decisions.append(approach)
 		
-		# Priority 7: Walk forward
+		# Priority 8: Walk forward
 		var walk = Decision.new()
 		walk.layer = DecisionLayer.TACTICAL
 		walk.action = "walk_forward"
@@ -277,11 +334,11 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		walk.reason = "Mid range: walk approach"
 		decisions.append(walk)
 		
-		# Priority 8: Defensive block (defensive behavior)
+		# Priority 8: Defensive block (LOWEST priority - only when cautious)
 		var block = Decision.new()
 		block.layer = DecisionLayer.TACTICAL
 		block.action = "stand_block"
-		block.priority = PRIORITY_BLOCK + randf_range(-3.0, 0.0)
+		block.priority = PRIORITY_OBSERVE + randf_range(-2.0, 5.0)  # 48 + (-2 to 5) = 46-53
 		block.reason = "Mid range: defense"
 		decisions.append(block)
 	
@@ -299,21 +356,21 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			combo_dec.reason = "Close range: combo"
 			decisions.append(combo_dec)
 		
-		# Priority 2: Special moves (character-specific) - increased usage
+		# Priority 2: Special moves (character-specific) - INCREASED PRIORITY
 		var char_id = ai_player.character_id if "character_id" in ai_player else ""
 		if char_id == "DAV":
 			# DP (dragon punch)
 			var dp = Decision.new()
 			dp.layer = DecisionLayer.TACTICAL
 			dp.action = "dp"
-			dp.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-2.0, 3.0)
+			dp.priority = PRIORITY_SPECIAL_CLOSE + randf_range(0.0, 5.0)  # 70 + (0 to 5) = 70-75
 			dp.reason = "Close range: DP"
 			decisions.append(dp)
 			# Power kick
 			var powerkk = Decision.new()
 			powerkk.layer = DecisionLayer.TACTICAL
 			powerkk.action = "powerkk"
-			powerkk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-3.0, 2.0)
+			powerkk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-1.0, 4.0)  # 70 + (-1 to 4) = 69-74
 			powerkk.reason = "Close range: power kick"
 			decisions.append(powerkk)
 		elif char_id == "DEN":
@@ -321,14 +378,14 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			var spnk = Decision.new()
 			spnk.layer = DecisionLayer.TACTICAL
 			spnk.action = "spnk"
-			spnk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-2.0, 3.0)
+			spnk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(0.0, 5.0)  # 70 + (0 to 5) = 70-75
 			spnk.reason = "Close range: special"
 			decisions.append(spnk)
 			# HDK move
 			var hdk = Decision.new()
 			hdk.layer = DecisionLayer.TACTICAL
 			hdk.action = "hdk"
-			hdk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-3.0, 2.0)
+			hdk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-1.0, 4.0)  # 70 + (-1 to 4) = 69-74
 			hdk.reason = "Close range: hdk"
 			decisions.append(hdk)
 		
