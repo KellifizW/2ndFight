@@ -63,6 +63,16 @@ func _ready() -> void:
 	add_to_group("world")
 	print("Debug: World _ready() 開始執行")
 	
+	# ============================================================
+	# 初始化 HitboxCache（新增）
+	# ============================================================
+	var hitbox_cache = HitboxCache.new()
+	hitbox_cache.name = "HitboxCache"
+	hitbox_cache.debug_mode = true  # 啟用調試輸出
+	add_child(hitbox_cache)
+	hitbox_cache.add_to_group("hitbox_cache")
+	print("[WORLD] HitboxCache 已初始化")
+	
 	# 關鍵修正：優先從選角畫面讀取角色（SelectedCharacters 是 Autoload 全局單例）
 	if SelectedCharacters.p1_character != null and SelectedCharacters.p2_character != null:
 		player_a_character = SelectedCharacters.p1_character

@@ -186,8 +186,28 @@ func get_ai_input() -> Dictionary:
 	var decision = decision_layers.get_best_decision(parent, opponent)
 	decision_cooldown = DECISION_INTERVAL
 	
-	# Log decision (less frequently to avoid spam)
-	if Engine.get_physics_frames() % 20 == 0 or decision.action in SPECIAL_MOVE_ACTIONS:
+	# ============================================================
+	# 增強的調試輸出
+	# ============================================================
+	if debug_mode:
+		# 獲取威脅信息
+		var threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
+		
+		if threat:
+			var threat_level_str = ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"][threat.level]
+			print("\n[AI DECISION] %s" % parent.name)
+			print("  動作: %s" % decision.action)
+			print("  優先級: %.1f" % decision.priority)
+			print("  理由: %s" % decision.reason)
+			
+			if threat.level > 0:  # 有威脅時顯示威脅信息
+				print("  威脅等級: %s" % threat_level_str)
+				if threat.source != "":
+					print("  威脅來源: %s" % threat.source)
+				if threat.frames_until_hit < 999:
+					print("  撞擊幀數: %d" % threat.frames_until_hit)
+	elif Engine.get_physics_frames() % 20 == 0 or decision.action in SPECIAL_MOVE_ACTIONS:
+		# 簡化日誌（保持原有行為）
 		print("[AI] %s decision: %s (priority: %.1f) - %s" % [parent.name, decision.action, decision.priority, decision.reason])
 	
 	# Handle combo start

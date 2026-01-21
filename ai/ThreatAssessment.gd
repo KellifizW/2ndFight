@@ -8,7 +8,14 @@ class ThreatInfo:
 	var frames_until_hit: int = 999
 	var recommended_response: String = ""
 
-var attack_ranges: Dictionary = {
+# ============================================================
+# HITBOX CACHE INTEGRATION
+# ============================================================
+# 使用真實 Hitbox 數據替代硬編碼距離
+var hitbox_cache: HitboxCache = null
+
+# 保留作為後備（當 HitboxCache 不可用時）
+var attack_ranges_fallback: Dictionary = {
 	"st_mp": 75.0, "st_mk": 95.0, "cr_mp": 70.0, "cr_mk": 90.0,
 	"fireball": 600.0, "dp": 85.0, "powerkk": 120.0, "spnk": 95.0, "hdk": 90.0
 }
@@ -17,6 +24,24 @@ var startup_frames: Dictionary = {
 	"st_mp": 5, "st_mk": 7, "cr_mp": 4, "cr_mk": 6,
 	"fireball": 15, "dp": 3, "powerkk": 12, "spnk": 10, "hdk": 12
 }
+
+# 調試模式
+@export var debug_mode: bool = false
+
+func _ready() -> void:
+	# 延遲獲取 HitboxCache，確保它已初始化
+	call_deferred("_init_hitbox_cache")
+
+func _init_hitbox_cache() -> void:
+	"""初始化 HitboxCache 引用"""
+	hitbox_cache = get_tree().get_first_node_in_group("hitbox_cache")
+	
+	if not hitbox_cache:
+		if debug_mode:
+			push_warning("[THREAT EVAL] 警告：HitboxCache 未找到，將使用後備距離數據")
+	else:
+		if debug_mode:
+			print("[THREAT EVAL] HitboxCache 已連接")
 
 func evaluate_threats(ai_player: Player, opponent: Player) -> ThreatInfo:
 	var threat = ThreatInfo.new()
@@ -46,9 +71,58 @@ func _evaluate_attack_threat(ai_player: Player, opponent: Player) -> ThreatInfo:
 	threat.source = attack_type
 	
 	var distance = abs(ai_player.global_position.x - opponent.global_position.x)
-	var attack_range = attack_ranges.get(attack_type, 100.0)
 	
+	# ============================================================
+	# 使用真實 Hitbox 數據
+	# ============================================================
+	var attack_range: float = 100.0
+	var has_hitbox_collision: bool = false
+	
+	if hitbox_cache and hitbox_cache.is_initialized:
+		# 使用 HitboxCache 獲取真實攻擊範圍
+		attack_range = hitbox_cache.get_attack_range(opponent.character_id, attack_type)
+		
+		# 進行真實的 AABB 碰撞檢測
+		var opponent_facing = opponent.get("facing_direction") if "facing_direction" in opponent else 1.0
+		has_hitbox_collision = hitbox_cache.check_hitbox_collision(
+			opponent.global_position,
+			opponent.character_id,
+			attack_type,
+			ai_player.global_position,
+			ai_player.character_id,
+			opponent_facing
+		)
+		
+		if debug_mode:
+			var ai_hurtbox = hitbox_cache.get_hurtbox_data(ai_player.character_id)
+			print("\n[THREAT EVAL] %s 檢查威脅 from %s..." % [ai_player.name, opponent.name])
+			print("  📍 距離: %.1f px" % distance)
+			print("  📍 攻擊範圍: %.1f px (真實 Hitbox)" % attack_range)
+			print("  📍 AI Hurtbox 尺寸: %s" % ai_hurtbox.size)
+			print("  📍 Hitbox 碰撞檢測: %s" % ("有重疊" if has_hitbox_collision else "無重疊"))
+	else:
+		# 後備：使用硬編碼距離
+		attack_range = attack_ranges_fallback.get(attack_type, 100.0)
+	
+	# ============================================================
+	# 威脅評估（優先使用碰撞檢測結果）
+	# ============================================================
+	
+	# 如果有真實碰撞，立即設為 CRITICAL
+	if has_hitbox_collision:
+		threat.level = ThreatLevel.CRITICAL
+		threat.frames_until_hit = 0
+		threat.recommended_response = _get_optimal_defense(attack_type)
+		
+		if debug_mode:
+			print("  🚨 威脅等級: CRITICAL (Hitbox 碰撞)")
+		
+		return threat
+	
+	# 否則使用距離判斷
 	if distance > attack_range:
+		if debug_mode:
+			print("  ✅ 無威脅 (超出範圍)")
 		return threat
 	
 	threat.frames_until_hit = _calculate_frames_to_hit(ai_player, opponent, attack_type)
@@ -56,12 +130,18 @@ func _evaluate_attack_threat(ai_player: Player, opponent: Player) -> ThreatInfo:
 	if threat.frames_until_hit < 8:
 		threat.level = ThreatLevel.CRITICAL
 		threat.recommended_response = _get_optimal_defense(attack_type)
+		if debug_mode:
+			print("  🚨 威脅等級: CRITICAL (<%d 幀)" % threat.frames_until_hit)
 	elif threat.frames_until_hit < 15:
 		threat.level = ThreatLevel.HIGH
 		threat.recommended_response = "stand_block"
+		if debug_mode:
+			print("  ⚠️ 威脅等級: HIGH (<%d 幀)" % threat.frames_until_hit)
 	elif threat.frames_until_hit < 25:
 		threat.level = ThreatLevel.MEDIUM
 		threat.recommended_response = "backdash"
+		if debug_mode:
+			print("  📊 威脅等級: MEDIUM (<%d 幀)" % threat.frames_until_hit)
 	
 	return threat
 
@@ -164,8 +244,14 @@ func _evaluate_air_attack_threat(ai_player: Player, opponent: Player) -> ThreatI
 	return threat
 
 func _calculate_frames_to_hit(ai_player: Player, opponent: Player, attack_type: String) -> int:
-	var attack_range = attack_ranges.get(attack_type, 100.0)
 	var distance = abs(ai_player.global_position.x - opponent.global_position.x)
+	
+	# 使用真實 Hitbox 數據計算攻擊範圍
+	var attack_range: float = 100.0
+	if hitbox_cache and hitbox_cache.is_initialized:
+		attack_range = hitbox_cache.get_attack_range(opponent.character_id, attack_type)
+	else:
+		attack_range = attack_ranges_fallback.get(attack_type, 100.0)
 	
 	if distance > attack_range:
 		return 999
