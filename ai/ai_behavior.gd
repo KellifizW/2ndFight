@@ -20,6 +20,13 @@ var space_control: SpaceControl
 @export var ai_difficulty: int = 5
 @export var debug_mode: bool = false
 
+# ============================================================
+# MOVE RESTRICTIONS (Testing/Training)
+# ============================================================
+@export_category("Move Restrictions")
+@export var enable_move_restrictions: bool = false
+@export var restricted_moves: Array[String] = []
+
 var parent: Player
 var opponent: Player
 var world: Node
@@ -112,6 +119,12 @@ func _init_subsystems() -> void:
 	decision_layers.frame_data = frame_data
 	decision_layers.combo_system = combo_system
 	decision_layers.space_control = space_control
+	
+	# 傳遞招式限制配置到決策層
+	if enable_move_restrictions:
+		decision_layers.restricted_moves = restricted_moves
+		if debug_mode:
+			print("[AI] Move restrictions enabled: %s" % str(restricted_moves))
 
 func _process(delta: float) -> void:
 	# Track delta for commitment system
@@ -184,6 +197,13 @@ func get_ai_input() -> Dictionary:
 	# ============================================================
 	# Only reached every DECISION_INTERVAL seconds
 	var decision = decision_layers.get_best_decision(parent, opponent)
+	
+	# 檢查招式是否被限制，如果是則獲取替代決策
+	if enable_move_restrictions and decision.action in restricted_moves:
+		if debug_mode:
+			print("[AI] Move '%s' is restricted, finding alternative..." % decision.action)
+		decision = decision_layers.get_fallback_decision(parent, opponent)
+	
 	decision_cooldown = DECISION_INTERVAL
 	
 	# ============================================================

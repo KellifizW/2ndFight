@@ -52,27 +52,37 @@ var frame_data: FrameDataManager
 var combo_system: AIComboSystem
 var space_control: SpaceControl
 
+# Move restrictions (set by AIBehavior)
+var restricted_moves: Array[String] = []
+
 func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
 	var decisions: Array[Decision] = []
 	
 	# Layer 1: 生存層（最高優先級）
 	var survival = _evaluate_survival_layer(ai_player, opponent)
 	if survival and survival.priority >= 95:
+		# 關鍵生存決策，如果被限制則強制使用格擋
+		if survival.action in restricted_moves:
+			survival.action = "stand_block"
+			survival.reason = "Survival (restricted move fallback)"
 		return survival
-	elif survival:
+	elif survival and survival.action not in restricted_moves:
 		decisions.append(survival)
 	
 	# Layer 2: 懲罰層
 	var punish = _evaluate_punish_layer(ai_player, opponent)
-	if punish:
+	if punish and punish.action not in restricted_moves:
 		decisions.append(punish)
 	
 	# Layer 3: 戰術層
-	decisions.append_array(_evaluate_tactical_layer(ai_player, opponent))
+	var tactical = _evaluate_tactical_layer(ai_player, opponent)
+	for t in tactical:
+		if t.action not in restricted_moves:
+			decisions.append(t)
 	
 	# Layer 4: 定位層
 	var positioning = _evaluate_positioning_layer(ai_player, opponent)
-	if positioning:
+	if positioning and positioning.action not in restricted_moves:
 		decisions.append(positioning)
 	
 	# Layer 5: 待機層（最低優先級）
@@ -415,3 +425,36 @@ func _get_idle_decision() -> Decision:
 	decision.action = "walk_forward"  # Default to forward approach
 	decision.reason = "Default behavior"
 	return decision
+
+func get_fallback_decision(ai_player: Player, opponent: Player) -> Decision:
+	"""
+	當主要決策被限制時，獲取替代決策
+	這個函數再次評估所有層級，但跳過被限制的招式
+	"""
+	var decisions: Array[Decision] = []
+	
+	# 再次評估所有層級
+	var survival = _evaluate_survival_layer(ai_player, opponent)
+	if survival and survival.action not in restricted_moves:
+		decisions.append(survival)
+	
+	var punish = _evaluate_punish_layer(ai_player, opponent)
+	if punish and punish.action not in restricted_moves:
+		decisions.append(punish)
+	
+	var tactical = _evaluate_tactical_layer(ai_player, opponent)
+	for t in tactical:
+		if t.action not in restricted_moves:
+			decisions.append(t)
+	
+	var positioning = _evaluate_positioning_layer(ai_player, opponent)
+	if positioning and positioning.action not in restricted_moves:
+		decisions.append(positioning)
+	
+	# 如果所有招式都被限制，返回安全的待機決策
+	if decisions.is_empty():
+		return _get_idle_decision()
+	
+	# 排序並返回最高優先級
+	decisions.sort_custom(func(a, b): return a.priority > b.priority)
+	return decisions[0]

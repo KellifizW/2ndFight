@@ -37,6 +37,13 @@ var hitbox_cache: HitboxCache = null
 
 var update_timer: float = 0.0
 
+func _repeat_string(s: String, count: int) -> String:
+	"""重複字符串 count 次"""
+	var result = ""
+	for i in range(count):
+		result += s
+	return result
+
 func _ready() -> void:
 	if not enabled:
 		visible = false
@@ -95,7 +102,7 @@ func _update_display() -> void:
 		return
 	
 	var display_text = "[HITBOX DEBUG]\n"
-	display_text += "=" * 40 + "\n"
+	display_text += _repeat_string("=", 40) + "\n"
 	
 	# 顯示距離
 	if show_distance:
@@ -114,7 +121,7 @@ func _update_display() -> void:
 	if show_threat_level:
 		display_text += _get_threat_info()
 	
-	display_text += "=" * 40
+	display_text += _repeat_string("=", 40)
 	
 	text = display_text
 

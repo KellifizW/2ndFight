@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3 uid="uid://c0j8o4o3jtun1"]
+[gd_scene load_steps=26 format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
 [ext_resource type="Texture2D" uid="uid://cl5cldwpbfwt6" path="res://assets/stage.png" id="1_fj7yv"]
@@ -13,6 +13,7 @@
 [ext_resource type="Script" uid="uid://cydy3y7rrkibl" path="res://PushManager.gd" id="9_ioo17"]
 [ext_resource type="Script" uid="uid://difd2h2ijxtjl" path="res://InputBufferDebug.gd" id="12_cbp6q"]
 [ext_resource type="AudioStream" uid="uid://edw4r0cjrhy6" path="res://audio/bgm.mp3" id="12_k3n1d"]
+[ext_resource type="Script" uid="uid://4ckupm30y5q3" path="res://ui/HitboxDebugDisplay.gd" id="13_26xuy"]
 [ext_resource type="Resource" uid="uid://b8qgdymiybxrq" path="res://characters/DAV.character.tres" id="15_26xuy"]
 [ext_resource type="PackedScene" uid="uid://c5l4a1b0wwbtl" path="res://assets/ingameUI/countdown_timer.tscn" id="16_2u3nc"]
 [ext_resource type="Resource" uid="uid://bnbes5q0352er" path="res://characters/DEN.character.tres" id="17_bc84e"]
@@ -202,6 +203,11 @@ size_flags_vertical = 8
 theme_override_font_sizes/font_size = 12
 script = ExtResource("12_cbp6q")
 enabled = true
+
+[node name="HitboxDebugDisplay" type="Label" parent="UI"]
+offset_right = 40.0
+offset_bottom = 23.0
+script = ExtResource("13_26xuy")
 
 [node name="CPUController" type="Node" parent="."]
 script = ExtResource("6_dwbse")
