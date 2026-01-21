@@ -307,7 +307,7 @@ func get_attack_range(character_id: String, attack_name: String) -> float:
 func print_cache_summary() -> void:
 	"""打印快取摘要"""
 	print("\n[HITBOX CACHE] 快取摘要:")
-	print("=" * 60)
+	print("============================================================")
 	
 	print("\n📦 Hurtbox 數據:")
 	for character_id in hurtbox_cache:
@@ -319,7 +319,7 @@ func print_cache_summary() -> void:
 		var data = hitbox_cache[cache_key]
 		print("  %s: %s" % [cache_key, data])
 	
-	print("=" * 60)
+	print("============================================================")
 
 func force_refresh() -> void:
 	"""強制刷新快取（用於調試）"""
