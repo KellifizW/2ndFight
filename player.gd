@@ -380,7 +380,6 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 	var skip_push := false
 	var force_knockfly := false
 	var knockfly_params := {}
-	var dp_blocked := false
 
 	if ATTACK_TABLE.has(attack_type):
 		var a = ATTACK_TABLE[attack_type]
@@ -408,8 +407,8 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		elif active_move.name == "dp":
 			hitstun = 0.65
 			blockstun = powerkk_blockstun
-			dp_blocked = target.is_blocking
-			force_knockfly = !dp_blocked
+			# DP 应该在对方没有格挡时强制触发 knockfly（无论对方是否在使用特殊技能）
+			force_knockfly = true
 			knockfly_params = {
 				"gravity": active_move.knockfly_gravity,
 				"vertical_speed": active_move.knockfly_vertical_speed,

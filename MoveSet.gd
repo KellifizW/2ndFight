@@ -274,7 +274,10 @@ func stop_special_move() -> void:
 		parent.is_special_moving = false
 	
 	parent.force_update_facing_direction()
-	parent.fixed_velocity = Vector2i.ZERO
+	
+	# 如果玩家处于 knockfly 状态，不清零速度（保留击飞的垂直/水平速度）
+	if not parent.is_knockfly:
+		parent.fixed_velocity = Vector2i.ZERO
 	
 	var world = get_tree().get_first_node_in_group("world")
 	if world and parent.is_jumping and parent.fixed_position.y >= world.FLOOR_Y:
