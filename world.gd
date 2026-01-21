@@ -313,9 +313,10 @@ func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_blo
 		p2_advantage_label.text = b_text
 	
 	var type = "Block" if is_block else "Hit"
-	print("[ADVANTAGE] %s → 攻擊者優勢 %s%dF → Player A: %s / Player B: %s" % [
+	var advantage_str = "+%d" % advantage_frames if advantage_frames > 0 else str(advantage_frames)
+	print("[ADVANTAGE] %s → 攻擊者優勢 %sF → Player A: %s / Player B: %s" % [
 		type,
-		"+" if advantage_frames > 0 else "", advantage_frames,
+		advantage_str,
 		a_text, b_text
 	])
 
