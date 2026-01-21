@@ -6,7 +6,7 @@ extends Camera2D
 @export var min_zoom: float = 1.0
 @export var max_zoom: float = 1.3
 @export var initial_zoom_factor: float = 1.3
-@export var base_y_offset: float = 160.0      # 近距離時基礎向上偏移
+@export var base_y_offset: float = 140.0      # 近距離時基礎向上偏移
 @export var far_y_offset: float = 200.0        # 拉遠時更大向上偏移
 @export var smooth_speed: float = 15.0
 @export var y_smooth_speed: float = 8.0        # Y軸較慢平滑
