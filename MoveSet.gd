@@ -18,6 +18,11 @@ class MoveData:
 	var gravity: float = 0.0
 	var sound_type: String  # "special" or "fireball"
 	var penetrable: bool = false  # For pushbox penetration
+	var acceleration_curve: String = "none"  # "none", "decelerate", "accelerate", "three_phase"
+	# Three-phase movement parameters (for three_phase curve)
+	var stationary_ratio: float = 0.0  # 不動階段的時間比例 (0.0-1.0)
+	var acceleration_ratio: float = 0.0  # 加速階段的時間比例 (0.0-1.0)
+	var deceleration_ratio: float = 0.0  # 減速階段的時間比例 (0.0-1.0)
 	# Knockfly-specific parameters (for DP and similar moves)
 	var knockfly_gravity: float = 0.0
 	var knockfly_vertical_speed: float = 0.0
@@ -37,6 +42,10 @@ class MoveData:
 		p_gravity: float = 0.0,
 		p_sound: String = "special",
 		p_penetrable: bool = false,
+		p_acceleration_curve: String = "none",
+		p_stationary_ratio: float = 0.0,
+		p_acceleration_ratio: float = 0.0,
+		p_deceleration_ratio: float = 0.0,
 		p_knockfly_gravity: float = 0.0,
 		p_knockfly_vertical_speed: float = 0.0,
 		p_knockfly_horizontal_speed: float = 0.0
@@ -54,6 +63,10 @@ class MoveData:
 		gravity = p_gravity
 		sound_type = p_sound
 		penetrable = p_penetrable
+		acceleration_curve = p_acceleration_curve
+		stationary_ratio = p_stationary_ratio
+		acceleration_ratio = p_acceleration_ratio
+		deceleration_ratio = p_deceleration_ratio
 		knockfly_gravity = p_knockfly_gravity
 		knockfly_vertical_speed = p_knockfly_vertical_speed
 		knockfly_horizontal_speed = p_knockfly_horizontal_speed
@@ -71,6 +84,9 @@ class MoveState:
 	var initial_parent_scale_x: float = 0.0
 	var initial_sprite_scale_x: float = 0.0
 	var spawn_timer: float = 0.0  # For projectiles
+	# Acceleration curve tracking
+	var initial_speed: float = 0.0
+	var total_duration: float = 0.0
 	
 	func reset() -> void:
 		active_move = null
@@ -120,27 +136,27 @@ func _ready() -> void:
 func _initialize_move_library() -> void:
 	# DAV moves
 	move_library["powerkk"] = MoveData.new(
-		"powerkk", "DAV", 12.0, 300.0, 0.933, 300.0, 0.0, 0.0, false, false, 0.0, "special", false
+		"powerkk", "DAV", 12.0, 600.0, 0.933, 150.0, 0.0, 0.0, false, false, 0.0, "special", false, "three_phase",0.25 , 0.2, 0.55, 0.0, 0.0, 0.0
 	)
 	move_library["super"] = MoveData.new(
-		"super", "DAV", 5.0, 200.0, 2.6, 200.0, 0.9, -210.0, true, false, 200000.0, "special", false
+		"super", "DAV", 5.0, 200.0, 2.6, 200.0, 0.9, -210.0, true, false, 200000.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 	)
 	move_library["dp"] = MoveData.new(
-		"dp", "DAV", 5.0, 320.0, 0.9, 100.0, 0.0667, -2000.0, false, false, 6200000.0, "special", true,
+		"dp", "DAV", 5.0, 320.0, 0.9, 100.0, 0.0667, -2000.0, false, false, 6200000.0, "special", true, "none", 0.0, 0.0, 0.0,
 		6200000.0, -2700.0, 100.0
 	)
 	
 	# DEN moves
 	move_library["spnk"] = MoveData.new(
-		"spnk", "DEN", 12.0, 280.0, 1.2, 250.0, 0.0, 0.0, false, false, 0.0, "special", false
+		"spnk", "DEN", 12.0, 280.0, 1.2, 250.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 	)
 	move_library["hdk"] = MoveData.new(
-		"hdk", "DEN", 15.0, 290.0, 1.1, 200.0, 0.0, 0.0, false, false, 0.0, "special", false
+		"hdk", "DEN", 15.0, 290.0, 1.1, 200.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 	)
 	
 	# Universal moves
 	move_library["fireball"] = MoveData.new(
-		"fireball", "*", 10.0, 150.0, 0.3, 0.0, 0.0, 0.0, false, true, 0.0, "fireball", true
+		"fireball", "*", 10.0, 150.0, 0.3, 0.0, 0.0, 0.0, false, true, 0.0, "fireball", true, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 	)
 
 # ============================================================
@@ -193,9 +209,23 @@ func _start_special(move_name: String) -> void:
 	# Calculate velocity
 	var world = get_tree().get_first_node_in_group("world")
 	if world and move_data.move_distance > 0:
-		parent.fixed_velocity.x = int((move_data.move_distance / move_data.duration) * world.SIMULATION_SCALE * parent.facing_direction)
+		var base_speed = (move_data.move_distance / move_data.duration) * world.SIMULATION_SCALE * parent.facing_direction
+		current_move_state.initial_speed = base_speed
+		current_move_state.total_duration = move_data.duration
+		
+		# Set initial velocity based on acceleration curve
+		if move_data.acceleration_curve == "accelerate":
+			parent.fixed_velocity.x = 0  # Start from zero for acceleration
+		elif move_data.acceleration_curve == "decelerate":
+			parent.fixed_velocity.x = int(base_speed)  # Start at full speed for deceleration
+		elif move_data.acceleration_curve == "three_phase":
+			parent.fixed_velocity.x = 0  # Start stationary for three-phase
+		else:
+			parent.fixed_velocity.x = int(base_speed)  # Constant speed
 	else:
 		parent.fixed_velocity = Vector2i.ZERO
+		current_move_state.initial_speed = 0.0
+		current_move_state.total_duration = 0.0
 	
 	# Play animation
 	if animation_player and animation_player.has_animation(move_name):
@@ -327,6 +357,46 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		_apply_gravity(delta, world, move.gravity)
 	else:
 		_apply_gravity(delta, world, world.GRAVITY if world else 0.0)
+	
+	# Update velocity based on acceleration curve
+	if move.acceleration_curve != "none" and current_move_state.total_duration > 0:
+		var elapsed_time = current_move_state.total_duration - current_move_state.timer
+		var elapsed_ratio = elapsed_time / current_move_state.total_duration
+		
+		if move.acceleration_curve == "accelerate":
+			# Quadratic acceleration: speed increases from 0 to max
+			var speed_multiplier = elapsed_ratio * elapsed_ratio
+			parent.fixed_velocity.x = int(current_move_state.initial_speed * speed_multiplier)
+		elif move.acceleration_curve == "decelerate":
+			# Quadratic deceleration: speed decreases from max to 0
+			var remaining_ratio = current_move_state.timer / current_move_state.total_duration
+			var speed_multiplier = remaining_ratio * remaining_ratio
+			parent.fixed_velocity.x = int(current_move_state.initial_speed * speed_multiplier)
+		elif move.acceleration_curve == "three_phase":
+			# Three-phase movement: stationary → acceleration → deceleration
+			var stat_end = move.stationary_ratio
+			var accel_end = stat_end + move.acceleration_ratio
+			var decel_end = accel_end + move.deceleration_ratio
+			
+			if elapsed_ratio < stat_end:
+				# Phase 1: Stationary (不動)
+				parent.fixed_velocity.x = 0
+			elif elapsed_ratio < accel_end:
+				# Phase 2: Explosive burst with immediate max speed then deceleration (瞬間爆發最高速然後減速)
+				var phase_progress = (elapsed_ratio - stat_end) / move.acceleration_ratio
+				# Start at max speed and decelerate throughout
+				var remaining = 1.0 - phase_progress
+				var speed_multiplier = remaining * remaining  # Quadratic deceleration from max
+				parent.fixed_velocity.x = int(current_move_state.initial_speed * (1.0 + speed_multiplier) * 3.5)
+			elif elapsed_ratio < decel_end:
+				# Phase 3: Deceleration (減速)
+				var phase_progress = (elapsed_ratio - accel_end) / move.deceleration_ratio
+				var remaining = 1.0 - phase_progress
+				var speed_multiplier = remaining * remaining  # Quadratic deceleration
+				parent.fixed_velocity.x = int(current_move_state.initial_speed * speed_multiplier * 2.0)
+			else:
+				# Safety: should not reach here
+				parent.fixed_velocity.x = 0
 	
 	# Update position
 	parent.fixed_position.x += int(parent.fixed_velocity.x * delta)

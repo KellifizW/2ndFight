@@ -13,14 +13,18 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 			if input_dir * movement_node.facing_direction > 0:
 				movement_node.is_dashing = true
 				movement_node.dash_timer = movement_node.dash_time
-				movement_node.fixed_velocity.x = int(movement_node.dash_speed * scale_factor * input_dir)
+				movement_node.dash_total_time = movement_node.dash_time
+				movement_node.dash_initial_speed = movement_node.dash_speed * scale_factor * input_dir
+				movement_node.fixed_velocity.x = int(movement_node.dash_initial_speed)
 				if movement_node.groundsmoke:
 					movement_node.groundsmoke.scale.x = movement_node.facing_direction
 					movement_node.groundsmoke.restart()
 			elif not (movement_node.is_blocking and movement_node.is_opponent_proximity and movement_node.block_type == "proximity"):
 				movement_node.is_backdashing = true
 				movement_node.dash_timer = movement_node.backdash_time
-				movement_node.fixed_velocity.x = int(movement_node.backdash_speed * scale_factor * input_dir)
+				movement_node.dash_total_time = movement_node.backdash_time
+				movement_node.dash_initial_speed = movement_node.backdash_speed * scale_factor * input_dir
+				movement_node.fixed_velocity.x = int(movement_node.dash_initial_speed)
 				if movement_node.groundsmoke:
 					movement_node.groundsmoke.scale.x = movement_node.facing_direction
 					movement_node.groundsmoke.restart()

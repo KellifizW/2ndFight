@@ -49,8 +49,8 @@ var is_jumping: bool = false
 # ── 衝刺 ──────────────────────────────────
 var is_dashing: bool = false
 var is_backdashing: bool = false
-var dash_speed: float = 800.0
-var backdash_speed: float = 500.0
+var dash_speed: float = 2100.0
+var backdash_speed: float = 1000.0
 var dash_time: float = 0.35
 var backdash_time: float = 0.35
 var dash_timer: float = 0.0
@@ -59,14 +59,17 @@ var double_tap_timer: float = 0.3
 var last_input_dir: int = 0
 var pending_dash_dir: int = 0
 var neutral_timer: float = 0.0
+# Dash deceleration variables
+var dash_initial_speed: float = 0.0
+var dash_total_time: float = 0.0
 
 # ── 移動速度 ──────────────────────────────
-var walk_speed: float = 350.0
-var back_speed: float = 270.0
+var walk_speed: float = 360.0
+var back_speed: float = 240.0
 
 # ── 击飛物理 ──────────────────────────────
 @export_group("Knockfly Physics")
-@export var default_knockfly_gravity: float = 1700000.0
+@export var default_knockfly_gravity: float = 1900000.0
 @export var default_knockfly_vertical_speed: float = -400.0
 @export var default_knockfly_horizontal_speed: float = 6000.0
 @export var default_air_friction: float = 200.0

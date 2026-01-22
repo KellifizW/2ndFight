@@ -14,6 +14,13 @@ func handle_timers(delta: float) -> void:
 	
 	if movement_node.dash_timer > 0:
 		movement_node.dash_timer = max(0, movement_node.dash_timer - delta)
+		
+		# Apply deceleration curve (quadratic decay)
+		if movement_node.dash_timer > 0 and movement_node.dash_total_time > 0:
+			var remaining_ratio: float = movement_node.dash_timer / movement_node.dash_total_time
+			var speed_multiplier: float = remaining_ratio * remaining_ratio  # Quadratic decay
+			movement_node.fixed_velocity.x = int(movement_node.dash_initial_speed * speed_multiplier)
+		
 		if movement_node.dash_timer == 0:
 			movement_node.is_dashing = false
 			movement_node.is_backdashing = false
@@ -22,6 +29,8 @@ func handle_timers(delta: float) -> void:
 			movement_node.pending_dash_dir = 0
 			movement_node.last_input_dir = 0
 			movement_node.landing_facing_lock = false
+			movement_node.dash_initial_speed = 0.0
+			movement_node.dash_total_time = 0.0
 	
 	if movement_node.jump_delay_timer > 0:
 		movement_node.jump_delay_timer = max(0, movement_node.jump_delay_timer - delta)

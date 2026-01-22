@@ -97,8 +97,8 @@ func _ready() -> void:
 		return
 	
 	# 生成玩家（順序很重要：先生成玩家，再連接信號）
-	player_a = _spawn_player(player_a_character, Vector2(600.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_a")
-	player_b = _spawn_player(player_b_character, Vector2(1000.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_b")
+	player_a = _spawn_player(player_a_character, Vector2(550.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_a")
+	player_b = _spawn_player(player_b_character, Vector2(1050.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_b")
 	if not player_a or not player_b:
 		push_error("角色生成失敗！請檢查 CharacterData 和場景設定。")
 		return
