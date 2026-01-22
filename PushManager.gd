@@ -6,6 +6,8 @@ const SIMULATION_SCALE: float = 1000.0
 @export var collision_epsilon: float = 5.0
 @export var arena_left: float = 0.0
 @export var arena_right: float = 1600.0
+@export var ground_push_multiplier: float = 0.6  # 地面推開倍數
+@export var jump_push_multiplier: float = 1.0   # 跳躍推開倍數 (降低此值可減少跳躍越過時的推開距離)
 
 var players: Array = []
 
@@ -208,13 +210,17 @@ func _physics_process(delta: float) -> void:
 					elif other_at_right:
 						push_vec_self = push_amount
 				else:
-					var push_amount = push_distance_fixed * 0.6 + 1
+					var push_amount = push_distance_fixed * ground_push_multiplier + 1
 					push_vec_self = normal_x * push_amount
 					push_vec_other = -normal_x * push_amount
 				
-				if parent.just_jumped or parent.is_landing or other.just_jumped or other.is_landing:
-					push_vec_self *= 1.0
-					push_vec_other *= 1.0
+				# 跳躍時應用不同的推開倍數
+				if parent.just_jumped or other.just_jumped:
+					push_vec_self = int(float(push_vec_self) * jump_push_multiplier)
+					push_vec_other = int(float(push_vec_other) * jump_push_multiplier)
+				elif parent.is_landing or other.is_landing:
+					# 著陸時保持正常推開
+					pass
 				
 				var new_self_fixed_x = fixed_position_a.x - push_vec_self
 				var new_other_fixed_x = fixed_position_b.x - push_vec_other

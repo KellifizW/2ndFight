@@ -126,8 +126,8 @@ func _initialize_move_library() -> void:
 		"super", "DAV", 5.0, 200.0, 2.6, 200.0, 0.9, -210.0, true, false, 200000.0, "special", false
 	)
 	move_library["dp"] = MoveData.new(
-		"dp", "DAV", 5.0, 320.0, 0.9, 100.0, 0.0667, -2000.0, false, false, 6000000.0, "special", true,
-		6000000.0, -2500.0, 100.0
+		"dp", "DAV", 5.0, 320.0, 0.9, 100.0, 0.0667, -2000.0, false, false, 6200000.0, "special", true,
+		6200000.0, -2700.0, 100.0
 	)
 	
 	# DEN moves
