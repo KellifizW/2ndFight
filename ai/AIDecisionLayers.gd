@@ -3,6 +3,16 @@ class_name AIDecisionLayers extends Node
 enum DecisionLayer { SURVIVAL, PUNISH, TACTICAL, POSITIONING, IDLE }
 
 # ============================================================
+# DECISION CACHING SYSTEM
+# ============================================================
+var decision_cache: Decision = null
+var cache_timer: float = 0.0
+const CACHE_DURATION: float = 0.1  # Cache for 6 frames (~100ms)
+
+@export var enable_decision_cache: bool = true
+@export var cache_duration_override: float = 0.1
+
+# ============================================================
 # PRIORITY CONSTANTS (Deterministic Hierarchy)
 # ============================================================
 # Based on fighting game AI research - clear priority layers
@@ -55,7 +65,17 @@ var space_control: SpaceControl
 # Move restrictions (set by AIBehavior)
 var restricted_moves: Array[String] = []
 
+func _process(delta: float) -> void:
+	"""Update cache timer"""
+	if cache_timer > 0:
+		cache_timer -= delta
+
 func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
+	# Use cached decision if valid
+	if enable_decision_cache and cache_timer > 0 and decision_cache != null:
+		return decision_cache
+	
+	# Original decision calculation logic follows
 	var decisions: Array[Decision] = []
 	var filtered_count = 0
 	
@@ -66,6 +86,7 @@ func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
 		if survival.action in restricted_moves:
 			survival.action = "stand_block"
 			survival.reason = "Survival (restricted move fallback)"
+		_cache_decision(survival)
 		return survival
 	elif survival:
 		if survival.action in restricted_moves:
@@ -108,13 +129,23 @@ func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
 	# Layer 5: 待機層（最低優先級）
 	# 確保至少有一個決策
 	if decisions.is_empty():
-		return _get_idle_decision()
+		var idle_decision = _get_idle_decision()
+		_cache_decision(idle_decision)
+		return idle_decision
 	
 	decisions.append(_get_idle_decision())
 	
 	# 排序並返回最高優先級決策
 	decisions.sort_custom(func(a, b): return a.priority > b.priority)
-	return decisions[0]
+	var best_decision = decisions[0]
+	_cache_decision(best_decision)
+	return best_decision
+
+func _cache_decision(decision: Decision) -> void:
+	"""Cache the decision for reuse"""
+	if enable_decision_cache:
+		decision_cache = decision
+		cache_timer = cache_duration_override if cache_duration_override > 0 else CACHE_DURATION
 
 func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 	var threat = threat_system.evaluate_threats(ai_player, opponent)

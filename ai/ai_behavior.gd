@@ -39,7 +39,9 @@ var committed_input: Dictionary = {}
 
 # Decision cooldown (simulates human thinking time)
 var decision_cooldown: float = 0.0
-const DECISION_INTERVAL: float = 0.15  # Re-evaluate every 9 frames at 60fps
+const DECISION_INTERVAL: float = 0.25  # Re-evaluate every 15 frames at 60fps
+
+@export var decision_interval_override: float = 0.25  # Allow tuning in Inspector
 
 # Action duration database (based on frame data)
 const ACTION_DURATIONS = {
@@ -199,7 +201,9 @@ func get_ai_input() -> Dictionary:
 		if debug_mode or Engine.get_physics_frames() % 60 == 0:
 			print("[AI] Fallback decision: '%s' (priority: %.1f)" % [decision.action, decision.priority])
 	
-	decision_cooldown = DECISION_INTERVAL
+	# Use override if set, otherwise use default constant
+	var active_interval = decision_interval_override if decision_interval_override > 0 else DECISION_INTERVAL
+	decision_cooldown = active_interval
 	
 	# ============================================================
 	# 增強的調試輸出
