@@ -13,7 +13,7 @@ class ThreatInfo:
 # ============================================================
 var tracked_projectiles: Array = []
 var projectile_check_timer: float = 0.0
-const PROJECTILE_CHECK_INTERVAL: float = 0.15  # Check every 9 frames
+const PROJECTILE_CHECK_INTERVAL: float = 0.15  # Check every 9 frames at 60 FPS
 
 @export var enable_projectile_cache: bool = true
 
@@ -170,15 +170,19 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 			
 			if debug_mode:
 				print("[THREAT EVAL] Refreshed projectile cache: %d fireballs" % tracked_projectiles.size())
+		else:
+			# Clean up invalid projectiles from cache between refreshes
+			var valid_projectiles: Array = []
+			for proj in tracked_projectiles:
+				if is_instance_valid(proj):
+					valid_projectiles.append(proj)
+			tracked_projectiles = valid_projectiles
 	else:
 		# Fallback to original behavior
 		tracked_projectiles = get_tree().get_nodes_in_group("fireball")
 	
 	# Process cached projectiles
 	for proj in tracked_projectiles:
-		# Validate projectile still exists
-		if not is_instance_valid(proj):
-			continue
 		# 檢查火球是否屬於對手
 		var proj_owner_id = proj.get("owner_character_id") if "owner_character_id" in proj else ""
 		var ai_character_id = ai_player.character_id if "character_id" in ai_player else ""

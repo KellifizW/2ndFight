@@ -41,7 +41,7 @@ var committed_input: Dictionary = {}
 var decision_cooldown: float = 0.0
 const DECISION_INTERVAL: float = 0.25  # Re-evaluate every 15 frames at 60fps
 
-@export var decision_interval_override: float = 0.25  # Allow tuning in Inspector
+@export var decision_interval_override: float = 0.25  # Allow tuning in Inspector; set to 0 to use DECISION_INTERVAL, -1 for immediate updates
 
 # Action duration database (based on frame data)
 const ACTION_DURATIONS = {
@@ -202,7 +202,13 @@ func get_ai_input() -> Dictionary:
 			print("[AI] Fallback decision: '%s' (priority: %.1f)" % [decision.action, decision.priority])
 	
 	# Use override if set, otherwise use default constant
-	var active_interval = decision_interval_override if decision_interval_override > 0 else DECISION_INTERVAL
+	var active_interval: float
+	if decision_interval_override > 0:
+		active_interval = decision_interval_override
+	elif decision_interval_override == 0:
+		active_interval = DECISION_INTERVAL
+	else:  # < 0, immediate updates
+		active_interval = 0.0
 	decision_cooldown = active_interval
 	
 	# ============================================================

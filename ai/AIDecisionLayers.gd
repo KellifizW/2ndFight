@@ -7,10 +7,10 @@ enum DecisionLayer { SURVIVAL, PUNISH, TACTICAL, POSITIONING, IDLE }
 # ============================================================
 var decision_cache: Decision = null
 var cache_timer: float = 0.0
-const CACHE_DURATION: float = 0.1  # Cache for 6 frames (~100ms)
+const CACHE_DURATION: float = 0.1  # Cache for 6 frames at 60 FPS (~100ms)
 
 @export var enable_decision_cache: bool = true
-@export var cache_duration_override: float = 0.1
+@export var cache_duration_override: float = 0.1  # Set to 0 to use CACHE_DURATION, -1 to disable caching
 
 # ============================================================
 # PRIORITY CONSTANTS (Deterministic Hierarchy)
@@ -145,7 +145,12 @@ func _cache_decision(decision: Decision) -> void:
 	"""Cache the decision for reuse"""
 	if enable_decision_cache:
 		decision_cache = decision
-		cache_timer = cache_duration_override if cache_duration_override > 0 else CACHE_DURATION
+		# Use override if > 0, use default if 0, disable if < 0
+		if cache_duration_override > 0:
+			cache_timer = cache_duration_override
+		elif cache_duration_override == 0:
+			cache_timer = CACHE_DURATION
+		# If < 0, don't set timer (disables caching)
 
 func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 	var threat = threat_system.evaluate_threats(ai_player, opponent)
