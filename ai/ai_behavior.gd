@@ -65,7 +65,9 @@ const ACTION_DURATIONS = {
 	"backdash": {"min": 0.35, "max": 0.35},
 	
 	# Normal attacks - based on startup + active + recovery frames
+	"st_lp": {"min": 0.25, "max": 0.25},
 	"st_mp": {"min": 0.35, "max": 0.35},
+	"st_lk": {"min": 0.30, "max": 0.30},
 	"st_mk": {"min": 0.45, "max": 0.45},
 	"cr_mp": {"min": 0.30, "max": 0.30},
 	"cr_mk": {"min": 0.40, "max": 0.40},
@@ -340,8 +342,12 @@ func _action_to_input(action: String) -> Dictionary:
 			input.block_pressed = true
 			input.crouch_pressed = true
 			input.input_dir = -int(relative_dir)
+		"st_lp":
+			input.st_lp_pressed = true
 		"st_mp":
 			input.st_mp_pressed = true
+		"st_lk":
+			input.st_lk_pressed = true
 		"st_mk":
 			input.st_mk_pressed = true
 		"cr_mp":
@@ -406,7 +412,9 @@ func _neutral_input() -> Dictionary:
 		"input_dir": 0,
 		"crouch_pressed": false,
 		"jump_pressed": false,
+		"st_lp_pressed": false,
 		"st_mp_pressed": false,
+		"st_lk_pressed": false,
 		"st_mk_pressed": false,
 		"spm1_pressed": false,
 		"spm2_pressed": false,

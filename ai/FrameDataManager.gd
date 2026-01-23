@@ -1,7 +1,9 @@
 class_name FrameDataManager extends Node
 
 var frame_database: Dictionary = {
+	"st_lp": {"startup": 4, "active": 2, "recovery": 6, "total": 12},
 	"st_mp": {"startup": 5, "active": 3, "recovery": 8, "total": 16},
+	"st_lk": {"startup": 5, "active": 3, "recovery": 7, "total": 15},
 	"st_mk": {"startup": 7, "active": 4, "recovery": 10, "total": 21},
 	"cr_mp": {"startup": 4, "active": 3, "recovery": 7, "total": 14},
 	"cr_mk": {"startup": 6, "active": 4, "recovery": 9, "total": 19},

@@ -1,11 +1,23 @@
 # res://data/AttackData.gd
 class_name AttackData extends Resource
 
+# ── st_lp ──
+@export var st_lp_damage: float = 6.0
+@export var st_lp_hitstun: float = 0.30
+@export var st_lp_blockstun: float = 0.200
+@export var st_lp_knockback: float = 150.0
+
 # ── st_mp ──
 @export var st_mp_damage: float = 10.0
 @export var st_mp_hitstun: float = 0.40
 @export var st_mp_blockstun: float = 0.267
 @export var st_mp_knockback: float = 250.0
+
+# ── st_lk ──
+@export var st_lk_damage: float = 7.0
+@export var st_lk_hitstun: float = 0.50
+@export var st_lk_blockstun: float = 0.233
+@export var st_lk_knockback: float = 200.0
 
 # ── st_mk ──
 @export var st_mk_damage: float = 9.0
@@ -38,8 +50,12 @@ class_name AttackData extends Resource
 @export var jump_mk_knockback: float = 260.0
 
 # Dictionary accessors for code compatibility
+var st_lp: Dictionary:
+	get: return { "damage": st_lp_damage, "hitstun": st_lp_hitstun, "blockstun": st_lp_blockstun, "knockback": st_lp_knockback }
 var st_mp: Dictionary:
 	get: return { "damage": st_mp_damage, "hitstun": st_mp_hitstun, "blockstun": st_mp_blockstun, "knockback": st_mp_knockback }
+var st_lk: Dictionary:
+	get: return { "damage": st_lk_damage, "hitstun": st_lk_hitstun, "blockstun": st_lk_blockstun, "knockback": st_lk_knockback }
 var st_mk: Dictionary:
 	get: return { "damage": st_mk_damage, "hitstun": st_mk_hitstun, "blockstun": st_mk_blockstun, "knockback": st_mk_knockback }
 var cr_mp: Dictionary:

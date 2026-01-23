@@ -29,8 +29,12 @@ func _physics_process(_delta: float) -> void:
 	var suffix = "_p2" if player_seat == "player_b" else ""
 	
 	# Record all button presses
+	if Input.is_action_just_pressed("st_lp" + suffix):
+		input_buffer.record_input("st_lp")
 	if Input.is_action_just_pressed("st_mp" + suffix):
 		input_buffer.record_input("st_mp")
+	if Input.is_action_just_pressed("st_lk" + suffix):
+		input_buffer.record_input("st_lk")
 	if Input.is_action_just_pressed("st_mk" + suffix):
 		input_buffer.record_input("st_mk")
 	if Input.is_action_just_pressed("jump" + suffix):
@@ -105,7 +109,9 @@ func get_input_data() -> Dictionary:
 			double_tap_timer = DOUBLE_TAP_TIME
 	
 	# 攻擊按鍵 - Check buffered inputs (don't consume yet, let player.gd decide)
+	var st_lp_pressed = input_buffer.is_input_buffered("st_lp")
 	var st_mp_pressed = input_buffer.is_input_buffered("st_mp")
+	var st_lk_pressed = input_buffer.is_input_buffered("st_lk")
 	var st_mk_pressed = input_buffer.is_input_buffered("st_mk")
 	var spm1_pressed  = input_buffer.is_input_buffered("spmove1")
 	var spm2_pressed  = input_buffer.is_input_buffered("spmove2")
@@ -155,6 +161,8 @@ func get_input_data() -> Dictionary:
 		"fireball" if spm2_pressed else
 		"st_mp"    if st_mp_pressed else
 		"st_mk"    if st_mk_pressed else
+		"st_lp"    if st_lp_pressed else
+		"st_lk"    if st_lk_pressed else
 		"none"
 	)
 	
@@ -166,7 +174,9 @@ func get_input_data() -> Dictionary:
 		"input_dir": input_dir,
 		"crouch_pressed": crouch_pressed,
 		"jump_pressed": jump_pressed,
+		"st_lp_pressed": st_lp_pressed,
 		"st_mp_pressed": st_mp_pressed,
+		"st_lk_pressed": st_lk_pressed,
 		"st_mk_pressed": st_mk_pressed,
 		"attack_type": attack_type,
 		"spm1_pressed": spm1_pressed,
