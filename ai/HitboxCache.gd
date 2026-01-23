@@ -44,6 +44,17 @@ var is_initialized: bool = false
 # 調試模式
 @export var debug_mode: bool = true
 
+# ============================================================
+# LAZY LOADING SYSTEM (Phase 2 Optimization)
+# ============================================================
+# 分幀載入 Hitbox 數據以避免初始化時的卡頓，提高性能
+@export var enable_lazy_loading: bool = true
+
+var lazy_loading_enabled: bool = false
+var characters_to_cache: Array[String] = []
+var cache_progress: int = 0
+var players_to_scan: Array = []
+
 func _ready() -> void:
 	if debug_mode:
 		print("\n[HITBOX CACHE] 開始初始化...")
@@ -63,17 +74,65 @@ func _initialize_cache() -> void:
 			print("[HITBOX CACHE] 警告：未找到玩家節點，將在玩家生成後重新初始化")
 		return
 	
-	for player in players:
-		_scan_player_hitboxes(player)
+	# ============================================================
+	# 延迟加载或立即加载
+	# ============================================================
+	if enable_lazy_loading:
+		# 準備延迟加载
+		lazy_loading_enabled = true
+		players_to_scan = players
+		cache_progress = 0
+		characters_to_cache.clear()
+		
+		# 收集所有角色 ID
+		for player in players:
+			var char_id = player.character_id if "character_id" in player else "UNKNOWN"
+			if char_id not in characters_to_cache:
+				characters_to_cache.append(char_id)
+		
+		if debug_mode:
+			print("[HITBOX CACHE] 延迟加载已啟用，將分幀掃描 %d 個角色" % characters_to_cache.size())
+		
+		# 開始延迟加载
+		call_deferred("_lazy_load_next_character")
+	else:
+		# 立即加載所有角色
+		for player in players:
+			_scan_player_hitboxes(player)
+		
+		is_initialized = true
+		var elapsed = Time.get_ticks_msec() - start_time
+		
+		if debug_mode:
+			print("[HITBOX CACHE] 初始化完成！耗時: %d ms" % elapsed)
+			print("[HITBOX CACHE] 快取統計:")
+			print("  📦 Hitbox 數據: %d 條" % hitbox_cache.size())
+			print("  📦 Hurtbox 數據: %d 條" % hurtbox_cache.size())
+
+func _lazy_load_next_character() -> void:
+	"""逐幀加載每個角色的 Hitbox 數據，避免初始化卡頓"""
+	if cache_progress >= players_to_scan.size():
+		is_initialized = true
+		lazy_loading_enabled = false
+		
+		if debug_mode:
+			print("[HITBOX CACHE] 延迟加載完成！")
+			print("[HITBOX CACHE] 快取統計:")
+			print("  📦 Hitbox 數據: %d 條" % hitbox_cache.size())
+			print("  📦 Hurtbox 數據: %d 條" % hurtbox_cache.size())
+		
+		return
 	
-	is_initialized = true
-	var elapsed = Time.get_ticks_msec() - start_time
+	# 掃描當前玩家
+	if cache_progress < players_to_scan.size():
+		var player = players_to_scan[cache_progress]
+		if is_instance_valid(player):
+			_scan_player_hitboxes(player)
 	
-	if debug_mode:
-		print("[HITBOX CACHE] 初始化完成！耗時: %d ms" % elapsed)
-		print("[HITBOX CACHE] 快取統計:")
-		print("  📦 Hitbox 數據: %d 條" % hitbox_cache.size())
-		print("  📦 Hurtbox 數據: %d 條" % hurtbox_cache.size())
+	cache_progress += 1
+	
+	# 排隊下一個角色的掃描
+	call_deferred("_lazy_load_next_character")
 
 func _scan_player_hitboxes(player: Node) -> void:
 	"""掃描單個玩家的 Hitbox/Hurtbox 數據"""

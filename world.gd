@@ -12,6 +12,12 @@ const GRAVITY: int = 6200000
 @onready var position_label = $UI/PositionLabel
 @export var bgm_max_volume_db: float = -6.0
 
+# ============================================================
+# AI 性能監視器選項（Phase 2 優化）
+# ============================================================
+@export var enable_performance_monitoring: bool = true  # 是否啟用性能監視器
+@export var profiling_log_interval: float = 5.0  # 性能報告輸出間隔（秒）
+
 @onready var hit_label = $UI/HitLabel
 @onready var fps_label = $UI/FPS
 @onready var slowmo_controller = $SlowMoController
@@ -72,6 +78,19 @@ func _ready() -> void:
 	add_child(hitbox_cache)
 	hitbox_cache.add_to_group("hitbox_cache")
 	print("[WORLD] HitboxCache 已初始化")
+	
+	# ============================================================
+	# 初始化 AI 性能監視器（Phase 2 優化）
+	# ============================================================
+	if enable_performance_monitoring:
+		var profiler = AIPerformanceMonitor.new()
+		profiler.enabled = true
+		profiler.log_interval = profiling_log_interval
+		profiler.show_realtime = false
+		add_child(profiler)
+		print("[WORLD] ✓ AI 性能監視器已啟用 (每 %.1f 秒輸出一次報告，檢查 Console 標籤)" % profiling_log_interval)
+	else:
+		print("[WORLD] ℹ️ AI 性能監視器已禁用 (在 Inspector 中設置 enable_performance_monitoring = True 以啟用)")
 	
 	# 關鍵修正：優先從選角畫面讀取角色（SelectedCharacters 是 Autoload 全局單例）
 	if SelectedCharacters.p1_character != null and SelectedCharacters.p2_character != null:
