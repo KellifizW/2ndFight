@@ -39,7 +39,7 @@ var committed_input: Dictionary = {}
 
 # Decision cooldown (simulates human thinking time)
 var decision_cooldown: float = 0.0
-const DECISION_INTERVAL: float = 0.25  # Re-evaluate every 15 frames at 60fps
+const DECISION_INTERVAL: float = 0.25  # Re-evaluate every 15 frames at 60 FPS
 
 @export var decision_interval_override: float = 0.25  # Allow tuning in Inspector; set to 0 to use DECISION_INTERVAL, -1 for immediate updates
 

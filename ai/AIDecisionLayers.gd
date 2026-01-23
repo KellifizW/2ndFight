@@ -7,7 +7,7 @@ enum DecisionLayer { SURVIVAL, PUNISH, TACTICAL, POSITIONING, IDLE }
 # ============================================================
 var decision_cache: Decision = null
 var cache_timer: float = 0.0
-const CACHE_DURATION: float = 0.1  # Cache for 6 frames at 60 FPS (~100ms)
+const CACHE_DURATION: float = 0.1  # Cache for 6 frames at 60 FPS (100ms)
 
 @export var enable_decision_cache: bool = true
 @export var cache_duration_override: float = 0.1  # Set to 0 to use CACHE_DURATION, -1 to disable caching
@@ -150,7 +150,8 @@ func _cache_decision(decision: Decision) -> void:
 			cache_timer = cache_duration_override
 		elif cache_duration_override == 0:
 			cache_timer = CACHE_DURATION
-		# If < 0, don't set timer (disables caching)
+		else:  # < 0, disable caching
+			cache_timer = 0.0
 
 func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 	var threat = threat_system.evaluate_threats(ai_player, opponent)
