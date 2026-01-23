@@ -10,7 +10,7 @@ var cache_timer: float = 0.0
 const CACHE_DURATION: float = 0.1  # Cache for 6 frames at 60 FPS (100ms)
 
 @export var enable_decision_cache: bool = true
-@export var cache_duration_override: float = 0.1  # Set to 0 to use CACHE_DURATION, -1 to disable caching
+@export var cache_duration_override: float = 0.0  # Set to 0 to use CACHE_DURATION, >0 for custom, <0 to disable caching
 
 # ============================================================
 # PRIORITY CONSTANTS (Deterministic Hierarchy)
