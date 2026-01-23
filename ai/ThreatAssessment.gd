@@ -25,12 +25,14 @@ var hitbox_cache: HitboxCache = null
 
 # 保留作為後備（當 HitboxCache 不可用時）
 var attack_ranges_fallback: Dictionary = {
-	"st_lp": 60.0, "st_mp": 75.0, "st_lk": 80.0, "st_mk": 95.0, "cr_mp": 70.0, "cr_mk": 90.0,
+	"st_lp": 60.0, "st_mp": 75.0, "st_lk": 80.0, "st_mk": 95.0,
+	"cr_lp": 55.0, "cr_mp": 70.0, "cr_lk": 75.0, "cr_mk": 90.0,
 	"fireball": 600.0, "dp": 85.0, "powerkk": 120.0, "spnk": 95.0, "hdk": 90.0
 }
 
 var startup_frames: Dictionary = {
-	"st_lp": 4, "st_mp": 5, "st_lk": 5, "st_mk": 7, "cr_mp": 4, "cr_mk": 6,
+	"st_lp": 4, "st_mp": 5, "st_lk": 5, "st_mk": 7,
+	"cr_lp": 3, "cr_mp": 4, "cr_lk": 4, "cr_mk": 6,
 	"fireball": 15, "dp": 3, "powerkk": 12, "spnk": 10, "hdk": 12
 }
 

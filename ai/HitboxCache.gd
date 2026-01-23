@@ -201,7 +201,7 @@ func _scan_hitboxes(player: Node, character_id: String) -> void:
 		return
 	
 	# 掃描常見攻擊動畫
-	var attack_animations = ["st_lp", "st_mp", "st_lk", "st_mk", "cr_mp", "cr_mk", "jump_mp", "jump_mk"]
+	var attack_animations = ["st_lp", "st_mp", "st_lk", "st_mk", "cr_lp", "cr_mp", "cr_lk", "cr_mk", "jump_mp", "jump_mk"]
 	
 	for attack_name in attack_animations:
 		if attack_name in animations:

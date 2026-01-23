@@ -69,7 +69,9 @@ const ACTION_DURATIONS = {
 	"st_mp": {"min": 0.35, "max": 0.35},
 	"st_lk": {"min": 0.30, "max": 0.30},
 	"st_mk": {"min": 0.45, "max": 0.45},
+	"cr_lp": {"min": 0.20, "max": 0.20},
 	"cr_mp": {"min": 0.30, "max": 0.30},
+	"cr_lk": {"min": 0.25, "max": 0.25},
 	"cr_mk": {"min": 0.40, "max": 0.40},
 	
 	# Special moves - must complete full animation
@@ -350,9 +352,15 @@ func _action_to_input(action: String) -> Dictionary:
 			input.st_lk_pressed = true
 		"st_mk":
 			input.st_mk_pressed = true
+		"cr_lp":
+			input.crouch_pressed = true
+			input.st_lp_pressed = true
 		"cr_mp":
 			input.crouch_pressed = true
 			input.st_mp_pressed = true
+		"cr_lk":
+			input.crouch_pressed = true
+			input.st_lk_pressed = true
 		"cr_mk":
 			input.crouch_pressed = true
 			input.st_mk_pressed = true

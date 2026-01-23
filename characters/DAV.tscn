@@ -1,4 +1,4 @@
-[gd_scene load_steps=107 format=3 uid="uid://c1t3ukbrnos3c"]
+[gd_scene load_steps=108 format=3 uid="uid://c1t3ukbrnos3c"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_vhfda"]
 [ext_resource type="Resource" uid="uid://dsdxakjhgv04k" path="res://data/p1_attack_data.tres" id="2_rnech"]
@@ -837,7 +837,7 @@ tracks/8/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_s33xd"]
-size = Vector2(200, 50)
+size = Vector2(30, 60)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_6flp4"]
 size = Vector2(250, 80)
@@ -847,7 +847,7 @@ size = Vector2(40, 15)
 
 [sub_resource type="Animation" id="Animation_s33xd"]
 resource_name = "cr_mk"
-length = 0.3
+length = 0.2333
 step = 0.0167
 tracks/0/type = "value"
 tracks/0/imported = false
@@ -988,7 +988,7 @@ tracks/11/path = NodePath("Hitbox/HitShape:shape")
 tracks/11/interp = 1
 tracks/11/loop_wrap = true
 tracks/11/keys = {
-"times": PackedFloat32Array(0.06666667, 0.1),
+"times": PackedFloat32Array(0.083333336, 0.11666667),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [SubResource("RectangleShape2D_s33xd"), null]
@@ -1000,7 +1000,7 @@ tracks/12/path = NodePath("Hitbox/HitShape:shape:size")
 tracks/12/interp = 1
 tracks/12/loop_wrap = true
 tracks/12/keys = {
-"times": PackedFloat32Array(0.06666667),
+"times": PackedFloat32Array(0.083333336),
 "transitions": PackedFloat32Array(1),
 "update": 0,
 "values": [Vector2(200, 50)]
@@ -1012,7 +1012,7 @@ tracks/13/path = NodePath("Hitbox/HitShape:position")
 tracks/13/interp = 1
 tracks/13/loop_wrap = true
 tracks/13/keys = {
-"times": PackedFloat32Array(0.06666667),
+"times": PackedFloat32Array(0.083333336),
 "transitions": PackedFloat32Array(1),
 "update": 0,
 "values": [Vector2(100, 120)]
@@ -1024,7 +1024,7 @@ tracks/14/path = NodePath("Hurtbox/AttackHurtShape:shape")
 tracks/14/interp = 1
 tracks/14/loop_wrap = true
 tracks/14/keys = {
-"times": PackedFloat32Array(0.20000002, 0.26666668),
+"times": PackedFloat32Array(0.15, 0.21666667),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [SubResource("RectangleShape2D_6flp4"), null]
@@ -1036,7 +1036,7 @@ tracks/15/path = NodePath("Hurtbox/AttackHurtShape:shape:size")
 tracks/15/interp = 1
 tracks/15/loop_wrap = true
 tracks/15/keys = {
-"times": PackedFloat32Array(0.20000002),
+"times": PackedFloat32Array(0.15),
 "transitions": PackedFloat32Array(1),
 "update": 0,
 "values": [Vector2(30, 15)]
@@ -1048,7 +1048,7 @@ tracks/16/path = NodePath("Hurtbox/AttackHurtShape:position")
 tracks/16/interp = 1
 tracks/16/loop_wrap = true
 tracks/16/keys = {
-"times": PackedFloat32Array(0.20000002),
+"times": PackedFloat32Array(0.15),
 "transitions": PackedFloat32Array(1),
 "update": 0,
 "values": [Vector2(20, 20)]
@@ -1072,7 +1072,7 @@ tracks/18/path = NodePath("AnimatedSprite2D:frame")
 tracks/18/interp = 1
 tracks/18/loop_wrap = true
 tracks/18/keys = {
-"times": PackedFloat32Array(0, 0.083333336, 0.13333334, 0.23333333),
+"times": PackedFloat32Array(0, 0.083333336, 0.15, 0.2),
 "transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
 "values": [0, 1, 2, 3]
@@ -1084,10 +1084,10 @@ tracks/19/path = NodePath("AnimatedSprite2D:offset")
 tracks/19/interp = 1
 tracks/19/loop_wrap = true
 tracks/19/keys = {
-"times": PackedFloat32Array(0, 0.083333336, 0.13333334),
+"times": PackedFloat32Array(0, 0.083333336, 0.15),
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
-"values": [Vector2(60, 0), Vector2(120, 0), Vector2(60, 0)]
+"values": [Vector2(60, 15), Vector2(120, 15), Vector2(60, 15)]
 }
 tracks/20/type = "value"
 tracks/20/imported = false
@@ -1096,7 +1096,7 @@ tracks/20/path = NodePath("Hitbox/HitShape:disabled")
 tracks/20/interp = 1
 tracks/20/loop_wrap = true
 tracks/20/keys = {
-"times": PackedFloat32Array(0, 0.06666667, 0.10000001),
+"times": PackedFloat32Array(0, 0.083333336, 0.116666675),
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
 "values": [true, false, true]
@@ -1117,6 +1117,18 @@ tracks/21/keys = {
 "args": [],
 "method": &"_close_cancel_window"
 }]
+}
+tracks/22/type = "value"
+tracks/22/imported = false
+tracks/22/enabled = true
+tracks/22/path = NodePath("AnimatedSprite2D:scale")
+tracks/22/interp = 1
+tracks/22/loop_wrap = true
+tracks/22/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0.4, 0.4)]
 }
 
 [sub_resource type="Animation" id="Animation_jd35s"]
@@ -4012,7 +4024,7 @@ tracks/10/keys = {
 "times": PackedFloat32Array(0.06666667),
 "transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [Vector2(200, 50)]
+"values": [Vector2(120, 50)]
 }
 tracks/11/type = "value"
 tracks/11/imported = false
@@ -4024,7 +4036,7 @@ tracks/11/keys = {
 "times": PackedFloat32Array(0.06666667),
 "transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [Vector2(100, 120)]
+"values": [Vector2(60, -20)]
 }
 tracks/12/type = "value"
 tracks/12/imported = false
@@ -4096,7 +4108,7 @@ tracks/17/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(0, 0)]
+"values": [Vector2(0, 15)]
 }
 tracks/18/type = "value"
 tracks/18/imported = false
@@ -4225,6 +4237,9 @@ animation = &"cr_idle"
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_s33xd"]
 animation = &"cr_lk"
 
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_0wmxw"]
+animation = &"cr_lp"
+
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_jd35s"]
 animation = &"cr_mk"
 
@@ -4318,6 +4333,8 @@ states/cr_idle/node = SubResource("AnimationNodeAnimation_shoen")
 states/cr_idle/position = Vector2(496, 287)
 states/cr_lk/node = SubResource("AnimationNodeAnimation_s33xd")
 states/cr_lk/position = Vector2(563, 209)
+states/cr_lp/node = SubResource("AnimationNodeAnimation_0wmxw")
+states/cr_lp/position = Vector2(746, 261)
 states/cr_mk/node = SubResource("AnimationNodeAnimation_jd35s")
 states/cr_mk/position = Vector2(654, 222)
 states/cr_mp/node = SubResource("AnimationNodeAnimation_lyl3y")
@@ -4353,7 +4370,7 @@ states/super/position = Vector2(300, 222)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-108, 193)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627"), "cr_down", "cr_idle", SubResource("AnimationNodeStateMachineTransition_shoen"), "Walk", "cr_down", SubResource("AnimationNodeStateMachineTransition_3c2oy")]
-graph_offset = Vector2(-207, 79)
+graph_offset = Vector2(-153, 93)
 
 [sub_resource type="Curve" id="Curve_ixokm"]
 _data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]

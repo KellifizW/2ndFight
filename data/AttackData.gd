@@ -25,11 +25,23 @@ class_name AttackData extends Resource
 @export var st_mk_blockstun: float = 0.300
 @export var st_mk_knockback: float = 280.0
 
+# ── cr_lp ──
+@export var cr_lp_damage: float = 5.0
+@export var cr_lp_hitstun: float = 0.25
+@export var cr_lp_blockstun: float = 0.167
+@export var cr_lp_knockback: float = 120.0
+
 # ── cr_mp ──
 @export var cr_mp_damage: float = 8.0
 @export var cr_mp_hitstun: float = 0.35
 @export var cr_mp_blockstun: float = 0.233
 @export var cr_mp_knockback: float = 180.0
+
+# ── cr_lk ──
+@export var cr_lk_damage: float = 6.5
+@export var cr_lk_hitstun: float = 0.40
+@export var cr_lk_blockstun: float = 0.200
+@export var cr_lk_knockback: float = 150.0
 
 # ── cr_mk ──
 @export var cr_mk_damage: float = 9.0
@@ -58,8 +70,12 @@ var st_lk: Dictionary:
 	get: return { "damage": st_lk_damage, "hitstun": st_lk_hitstun, "blockstun": st_lk_blockstun, "knockback": st_lk_knockback }
 var st_mk: Dictionary:
 	get: return { "damage": st_mk_damage, "hitstun": st_mk_hitstun, "blockstun": st_mk_blockstun, "knockback": st_mk_knockback }
+var cr_lp: Dictionary:
+	get: return { "damage": cr_lp_damage, "hitstun": cr_lp_hitstun, "blockstun": cr_lp_blockstun, "knockback": cr_lp_knockback }
 var cr_mp: Dictionary:
 	get: return { "damage": cr_mp_damage, "hitstun": cr_mp_hitstun, "blockstun": cr_mp_blockstun, "knockback": cr_mp_knockback }
+var cr_lk: Dictionary:
+	get: return { "damage": cr_lk_damage, "hitstun": cr_lk_hitstun, "blockstun": cr_lk_blockstun, "knockback": cr_lk_knockback }
 var cr_mk: Dictionary:
 	get: return { "damage": cr_mk_damage, "hitstun": cr_mk_hitstun, "blockstun": cr_mk_blockstun, "knockback": cr_mk_knockback }
 var jump_mp: Dictionary:

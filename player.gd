@@ -14,7 +14,9 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 	"st_mp": attack_data.st_mp,
 	"st_lk": attack_data.st_lk,
 	"st_mk": attack_data.st_mk,
+	"cr_lp": attack_data.cr_lp,
 	"cr_mp": attack_data.cr_mp,
+	"cr_lk": attack_data.cr_lk,
 	"cr_mk": attack_data.cr_mk,
 	"jump_mp": attack_data.jump_mp,
 	"jump_mk": attack_data.jump_mk,
@@ -104,7 +106,9 @@ var player_anim_resets: Dictionary = {
 	"st_mp": func(): reset_attack_state(),
 	"st_lk": func(): reset_attack_state(),
 	"st_mk": func(): reset_attack_state(),
+	"cr_lp": func(): reset_attack_state(),
 	"cr_mp": func(): reset_attack_state(),
+	"cr_lk": func(): reset_attack_state(),
 	"cr_mk": func(): reset_attack_state(),
 	"jump_mp": func(): reset_air_state(),
 	"jump_mk": func(): reset_air_state(),
@@ -228,7 +232,7 @@ func _physics_process(delta: float) -> void:
 			print("[Cancel Debug] input_move 是 'none'，不執行取消")
 
 	# 在取消判定之後才清空按鈕輸入，避免影響特殊招檢測
-	if is_attacking and animation_state.get_current_node() in ["st_lp", "st_mp", "st_lk", "st_mk", "cr_mp", "cr_mk"]:
+	if is_attacking and animation_state.get_current_node() in ["st_lp", "st_mp", "st_lk", "st_mk", "cr_lp", "cr_mp", "cr_lk", "cr_mk"]:
 		input_data.st_lp_pressed = false
 		input_data.st_mp_pressed = false
 		input_data.st_lk_pressed = false
@@ -246,13 +250,27 @@ func _physics_process(delta: float) -> void:
 	if (input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_lk_pressed or input_data.st_mk_pressed) and is_valid_ground_state:
 		force_update_facing_direction()
 		if is_crouching:
-			if input_data.st_mp_pressed:
+			if input_data.st_lp_pressed:
+				# Consume the buffered input
+				if player_controller and player_controller.has_method("consume_button_input"):
+					player_controller.consume_button_input("st_lp")
+				current_damage = ATTACK_TABLE["cr_lp"].damage
+				is_attacking = true
+				attack_type = "cr_lp"
+			elif input_data.st_mp_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_mp")
 				current_damage = ATTACK_TABLE["cr_mp"].damage
 				is_attacking = true
 				attack_type = "cr_mp"
+			elif input_data.st_lk_pressed:
+				# Consume the buffered input
+				if player_controller and player_controller.has_method("consume_button_input"):
+					player_controller.consume_button_input("st_lk")
+				current_damage = ATTACK_TABLE["cr_lk"].damage
+				is_attacking = true
+				attack_type = "cr_lk"
 			elif input_data.st_mk_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
