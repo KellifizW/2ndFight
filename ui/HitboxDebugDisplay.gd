@@ -71,7 +71,7 @@ func _initialize() -> void:
 	_find_players()
 	
 	# 設置樣式
-	add_theme_font_size_override("font_size", 16)
+	add_theme_font_size_override("font_size", 12)
 	
 	print("[HITBOX DEBUG] 調試顯示已初始化")
 
