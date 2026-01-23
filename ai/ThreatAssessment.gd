@@ -9,6 +9,15 @@ class ThreatInfo:
 	var recommended_response: String = ""
 
 # ============================================================
+# PROJECTILE TRACKING CACHE
+# ============================================================
+var tracked_projectiles: Array = []
+var projectile_check_timer: float = 0.0
+const PROJECTILE_CHECK_INTERVAL: float = 0.15  # Check every 9 frames at 60 FPS
+
+@export var enable_projectile_cache: bool = true
+
+# ============================================================
 # HITBOX CACHE INTEGRATION
 # ============================================================
 # 使用真實 Hitbox 數據替代硬編碼距離
@@ -31,6 +40,11 @@ var startup_frames: Dictionary = {
 func _ready() -> void:
 	# 延遲獲取 HitboxCache，確保它已初始化
 	call_deferred("_init_hitbox_cache")
+
+func _process(delta: float) -> void:
+	"""Update projectile check timer"""
+	if enable_projectile_cache and projectile_check_timer > 0:
+		projectile_check_timer -= delta
 
 func _init_hitbox_cache() -> void:
 	"""初始化 HitboxCache 引用"""
@@ -147,9 +161,28 @@ func _evaluate_attack_threat(ai_player: Player, opponent: Player) -> ThreatInfo:
 
 func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatInfo:
 	var threat = ThreatInfo.new()
-	var projectiles = get_tree().get_nodes_in_group("fireball")
 	
-	for proj in projectiles:
+	# Refresh projectile list periodically
+	if enable_projectile_cache:
+		if projectile_check_timer <= 0:
+			tracked_projectiles = get_tree().get_nodes_in_group("fireball")
+			projectile_check_timer = PROJECTILE_CHECK_INTERVAL
+			
+			if debug_mode:
+				print("[THREAT EVAL] Refreshed projectile cache: %d fireballs" % tracked_projectiles.size())
+		else:
+			# Clean up invalid projectiles from cache between refreshes
+			var valid_projectiles: Array = []
+			for proj in tracked_projectiles:
+				if is_instance_valid(proj):
+					valid_projectiles.append(proj)
+			tracked_projectiles = valid_projectiles
+	else:
+		# Fallback to original behavior
+		tracked_projectiles = get_tree().get_nodes_in_group("fireball")
+	
+	# Process cached projectiles
+	for proj in tracked_projectiles:
 		# 檢查火球是否屬於對手
 		var proj_owner_id = proj.get("owner_character_id") if "owner_character_id" in proj else ""
 		var ai_character_id = ai_player.character_id if "character_id" in ai_player else ""

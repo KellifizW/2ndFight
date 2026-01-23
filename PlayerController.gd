@@ -20,6 +20,11 @@ func _ready() -> void:
 	add_child(input_buffer)
 
 func _physics_process(_delta: float) -> void:
+	# Skip input recording for AI-controlled players
+	var player_node = get_parent()
+	if player_node and player_node is Player and player_node.is_ai_controlled:
+		return
+	
 	# Record button presses into buffer
 	var suffix = "_p2" if player_seat == "player_b" else ""
 	
