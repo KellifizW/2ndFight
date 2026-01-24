@@ -17,5 +17,7 @@ func handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -
 		else:
 			movement_node.fixed_velocity.x = 0
 	else:
-		if not (movement_node.is_jumping or movement_node.is_dashing or movement_node.is_backdashing or movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.jump_delay_timer > 0 or is_special_moving or movement_node.is_layground):
+		# 檢查是否有攻擊移動激活，如果有則不清零速度
+		var has_attack_movement = "attack_movement_active" in movement_node and movement_node.attack_movement_active
+		if not has_attack_movement and not (movement_node.is_jumping or movement_node.is_dashing or movement_node.is_backdashing or movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.jump_delay_timer > 0 or is_special_moving or movement_node.is_layground):
 			movement_node.fixed_velocity.x = 0

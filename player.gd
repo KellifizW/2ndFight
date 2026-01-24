@@ -38,6 +38,11 @@ var seat: String = "player_a"  # "player_a" 或 "player_b"
 var character_id: String:
 	get: return character_data.short_id if character_data else "UNKNOWN"
 
+# ── 攻擊移動系統 ─────────────────────
+var current_attack_movement: AttackMovement = null
+var attack_movement_timer: float = 0.0
+var attack_movement_active: bool = false
+
 # ── 狀態旗標 ─────────────────────
 var current_mode: String = "ground_stand"
 var attack_type: String = "none"
@@ -69,6 +74,8 @@ func reset_attack_state() -> void:
 	is_cancel_window_open = false
 	allowed_cancel_targets = []
 	pending_cancel_targets = []
+	attack_movement_active = false
+	current_attack_movement = null
 	update_facing_direction()
 	_update_animation_state(0, false)
 
@@ -199,6 +206,10 @@ func get_input() -> Dictionary:
 func _physics_process(delta: float) -> void:
 	if has_node("InputManager"):
 		$InputManager.update_input()
+	
+	# ── 攻擊移動處理（必須在 super._physics_process 之前，確保速度在應用前被設置） ──
+	_process_attack_movement(delta)
+	
 	super._physics_process(delta)
 	if not world: return
 
@@ -271,88 +282,65 @@ func _physics_process(delta: float) -> void:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_lp")
-				current_damage = ATTACK_TABLE["cr_lp"].damage
-				is_attacking = true
-				attack_type = "cr_lp"
+				_execute_attack("cr_lp")
 			elif input_data.st_mp_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_mp")
-				current_damage = ATTACK_TABLE["cr_mp"].damage
-				is_attacking = true
-				attack_type = "cr_mp"
+				_execute_attack("cr_mp")
 			elif input_data.st_hp_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_hp")
-				current_damage = ATTACK_TABLE["cr_hp"].damage
-				is_attacking = true
-				attack_type = "cr_hp"
+				_execute_attack("cr_hp")
 			elif input_data.st_lk_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_lk")
-				current_damage = ATTACK_TABLE["cr_lk"].damage
-				is_attacking = true
-				attack_type = "cr_lk"
+				_execute_attack("cr_lk")
 			elif input_data.st_mk_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_mk")
-				current_damage = ATTACK_TABLE["cr_mk"].damage
-				is_attacking = true
-				attack_type = "cr_mk"
+				_execute_attack("cr_mk")
 			elif input_data.st_hk_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_hk")
-				current_damage = ATTACK_TABLE["cr_hk"].damage
-				is_attacking = true
-				attack_type = "cr_hk"
+				_execute_attack("cr_hk")
 		else:
 			if input_data.st_lp_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_lp")
-				current_damage = ATTACK_TABLE["st_lp"].damage
-				is_attacking = true
-				attack_type = "st_lp"
+				_execute_attack("st_lp")
 			elif input_data.st_mp_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_mp")
-				current_damage = ATTACK_TABLE["st_mp"].damage
-				is_attacking = true
-				attack_type = "st_mp"
+				_execute_attack("st_mp")
 			elif input_data.st_hp_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_hp")
-				current_damage = ATTACK_TABLE["st_hp"].damage
-				is_attacking = true
-				attack_type = "st_hp"
+				_execute_attack("st_hp")
 			elif input_data.st_lk_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_lk")
-				current_damage = ATTACK_TABLE["st_lk"].damage
-				is_attacking = true
-				attack_type = "st_lk"
+				_execute_attack("st_lk")
 			elif input_data.st_mk_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_mk")
-				current_damage = ATTACK_TABLE["st_mk"].damage
-				is_attacking = true
-				attack_type = "st_mk"
+				_execute_attack("st_mk")
 			elif input_data.st_hk_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
 					player_controller.consume_button_input("st_hk")
-				current_damage = ATTACK_TABLE["st_hk"].damage
-				is_attacking = true
-				attack_type = "st_hk"
-		if not is_push_back:
+				_execute_attack("st_hk")
+		# 只有在沒有攻擊移動激活時才清零速度
+		if not is_push_back and not attack_movement_active:
 			fixed_velocity.x = 0
 
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked and not is_layground
@@ -360,50 +348,44 @@ func _physics_process(delta: float) -> void:
 		# Consume the buffered input
 		if player_controller and player_controller.has_method("consume_button_input"):
 			player_controller.consume_button_input("st_lp")
-		current_damage = ATTACK_TABLE["jump_mp"].damage
 		is_air_attacking = true
 		has_air_attacked = true
-		attack_type = "jump_mp"
+		_execute_attack("jump_mp")
 	elif input_data.st_mp_pressed and is_valid_air_state:
 		# Consume the buffered input
 		if player_controller and player_controller.has_method("consume_button_input"):
 			player_controller.consume_button_input("st_mp")
-		current_damage = ATTACK_TABLE["jump_mp"].damage
 		is_air_attacking = true
 		has_air_attacked = true
-		attack_type = "jump_mp"
+		_execute_attack("jump_mp")
 	elif input_data.st_hp_pressed and is_valid_air_state:
 		# Consume the buffered input
 		if player_controller and player_controller.has_method("consume_button_input"):
 			player_controller.consume_button_input("st_hp")
-		current_damage = ATTACK_TABLE["jump_mp"].damage
 		is_air_attacking = true
 		has_air_attacked = true
-		attack_type = "jump_mp"
+		_execute_attack("jump_mp")
 	elif input_data.st_lk_pressed and is_valid_air_state:
 		# Consume the buffered input
 		if player_controller and player_controller.has_method("consume_button_input"):
 			player_controller.consume_button_input("st_lk")
-		current_damage = ATTACK_TABLE["jump_mk"].damage
 		is_air_attacking = true
 		has_air_attacked = true
-		attack_type = "jump_mk"
+		_execute_attack("jump_mk")
 	elif input_data.st_mk_pressed and is_valid_air_state:
 		# Consume the buffered input
 		if player_controller and player_controller.has_method("consume_button_input"):
 			player_controller.consume_button_input("st_mk")
-		current_damage = ATTACK_TABLE["jump_mk"].damage
 		is_air_attacking = true
 		has_air_attacked = true
-		attack_type = "jump_mk"
+		_execute_attack("jump_mk")
 	elif input_data.st_hk_pressed and is_valid_air_state:
 		# Consume the buffered input
 		if player_controller and player_controller.has_method("consume_button_input"):
 			player_controller.consume_button_input("st_hk")
-		current_damage = ATTACK_TABLE["jump_mk"].damage
 		is_air_attacking = true
 		has_air_attacked = true
-		attack_type = "jump_mk"
+		_execute_attack("jump_mk")
 
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
@@ -674,3 +656,90 @@ func _sync_shadow_animation() -> void:
 			var height = 570.0 - global_position.y
 			var blur = clamp(height / 200.0, 0.0, 1.0)
 			mat.set_shader_parameter("blur_factor", blur)
+
+# ══════════════════════════════════════════════════════════════════
+# ── 攻擊移動系統 ─────────────────────
+# ══════════════════════════════════════════════════════════════════
+
+func _execute_attack(attack_name: String) -> void:
+	"""統一的攻擊執行函式，處理傷害設置、狀態變更和移動啟動"""
+	if not attack_name in ATTACK_TABLE:
+		return
+	
+	current_damage = ATTACK_TABLE[attack_name].damage
+	is_attacking = true
+	attack_type = attack_name
+	
+	# 啟動攻擊移動（如果有設定）
+	_start_attack_movement(attack_name)
+
+func _start_attack_movement(attack_name: String) -> void:
+	"""啟動攻擊移動（由攻擊執行時呼叫）"""
+	if not attack_name in ATTACK_TABLE:
+		print("[Movement] %s 不在 ATTACK_TABLE 中" % attack_name)
+		return
+	
+	var attack_dict = ATTACK_TABLE[attack_name]
+	if not "movement" in attack_dict or attack_dict.movement == null:
+		print("[Movement] %s 沒有設定 movement 屬性" % attack_name)
+		return
+	
+	current_attack_movement = attack_dict.movement
+	attack_movement_timer = 0.0
+	attack_movement_active = true
+	
+	print("[Movement] ✓ 啟動 %s 移動：distance=%.1f, duration=%.2f, curve=%d, enabled=%s" % [
+		attack_name,
+		current_attack_movement.distance,
+		current_attack_movement.duration,
+		current_attack_movement.curve_type,
+		current_attack_movement.enabled
+	])
+
+func _process_attack_movement(delta: float) -> void:
+	"""每幀更新攻擊移動"""
+	if not attack_movement_active or current_attack_movement == null:
+		return
+	
+	# 等待起始延遲
+	if attack_movement_timer < current_attack_movement.start_delay:
+		attack_movement_timer += delta
+		return
+	
+	var effective_time = attack_movement_timer - current_attack_movement.start_delay
+	
+	# 檢查是否超過持續時間
+	if effective_time >= current_attack_movement.duration:
+		attack_movement_active = false
+		print("[Movement] ✓ 移動完成")
+		return
+	
+	# 計算移動方向
+	var move_direction: float = 1.0
+	if current_attack_movement.use_facing_direction:
+		move_direction = facing_direction
+	if current_attack_movement.reverse_direction:
+		move_direction *= -1.0
+	
+	# 獲取當前速度倍率（基於曲線）
+	var speed_multiplier = current_attack_movement.get_speed_multiplier(effective_time)
+	
+	# 計算基礎速度（距離 / 持續時間）
+	var base_speed = current_attack_movement.distance / current_attack_movement.duration
+	
+	# 應用速度倍率和方向
+	var current_speed = base_speed * speed_multiplier * move_direction
+	
+	# 轉換為固定點速度
+	if world:
+		fixed_velocity.x = int(current_speed * world.SIMULATION_SCALE)
+		
+		# 調試輸出（每 10 幀輸出一次）
+		if int(attack_movement_timer * 60) % 10 == 0:
+			print("[Movement] time=%.2f, speed_mult=%.2f, velocity=%d" % [
+				effective_time,
+				speed_multiplier,
+				fixed_velocity.x
+			])
+	
+	attack_movement_timer += delta
