@@ -67,12 +67,16 @@ const ACTION_DURATIONS = {
 	# Normal attacks - based on startup + active + recovery frames
 	"st_lp": {"min": 0.25, "max": 0.25},
 	"st_mp": {"min": 0.35, "max": 0.35},
+	"st_hp": {"min": 0.55, "max": 0.55},
 	"st_lk": {"min": 0.30, "max": 0.30},
 	"st_mk": {"min": 0.45, "max": 0.45},
+	"st_hk": {"min": 0.60, "max": 0.60},
 	"cr_lp": {"min": 0.20, "max": 0.20},
 	"cr_mp": {"min": 0.30, "max": 0.30},
+	"cr_hp": {"min": 0.45, "max": 0.45},
 	"cr_lk": {"min": 0.25, "max": 0.25},
 	"cr_mk": {"min": 0.40, "max": 0.40},
+	"cr_hk": {"min": 0.50, "max": 0.50},
 	
 	# Special moves - must complete full animation
 	"fireball": {"min": 0.8, "max": 0.8},
@@ -348,22 +352,32 @@ func _action_to_input(action: String) -> Dictionary:
 			input.st_lp_pressed = true
 		"st_mp":
 			input.st_mp_pressed = true
+		"st_hp":
+			input.st_hp_pressed = true
 		"st_lk":
 			input.st_lk_pressed = true
 		"st_mk":
 			input.st_mk_pressed = true
+		"st_hk":
+			input.st_hk_pressed = true
 		"cr_lp":
 			input.crouch_pressed = true
 			input.st_lp_pressed = true
 		"cr_mp":
 			input.crouch_pressed = true
 			input.st_mp_pressed = true
+		"cr_hp":
+			input.crouch_pressed = true
+			input.st_hp_pressed = true
 		"cr_lk":
 			input.crouch_pressed = true
 			input.st_lk_pressed = true
 		"cr_mk":
 			input.crouch_pressed = true
 			input.st_mk_pressed = true
+		"cr_hk":
+			input.crouch_pressed = true
+			input.st_hk_pressed = true
 		"fireball", "spm2":
 			# ⚠️ 檢查：不應該到達這裡（應該被決策層過濾）
 			if enable_move_restrictions and "fireball" in restricted_moves:
@@ -422,8 +436,10 @@ func _neutral_input() -> Dictionary:
 		"jump_pressed": false,
 		"st_lp_pressed": false,
 		"st_mp_pressed": false,
+		"st_hp_pressed": false,
 		"st_lk_pressed": false,
 		"st_mk_pressed": false,
+		"st_hk_pressed": false,
 		"spm1_pressed": false,
 		"spm2_pressed": false,
 		"spm3_pressed": false,

@@ -1,7 +1,7 @@
 class_name InputManager extends Node
 
 enum DirectionalInputs { NEUTRAL = 0, DOWN = 1, DOWN_FORWARD = 2, FORWARD = 3, DOWN_BACK = 4, BACK = 5 }
-enum ButtonInputs { NONE = 0, ST_LP = 1, ST_MP = 2, ST_LK = 3, ST_MK = 4 }
+enum ButtonInputs { NONE = 0, ST_LP = 1, ST_MP = 2, ST_HP = 3, ST_LK = 4, ST_MK = 5, ST_HK = 6 }
 enum ButtonMode { PRESS, HOLD }
 
 const INPUT_HISTORY_SIZE: int = 240  # 歷史記錄大小，約 4 秒 (60 FPS)

@@ -12,12 +12,16 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @onready var ATTACK_TABLE: Dictionary = {
 	"st_lp": attack_data.st_lp,
 	"st_mp": attack_data.st_mp,
+	"st_hp": attack_data.st_hp,
 	"st_lk": attack_data.st_lk,
 	"st_mk": attack_data.st_mk,
+	"st_hk": attack_data.st_hk,
 	"cr_lp": attack_data.cr_lp,
 	"cr_mp": attack_data.cr_mp,
+	"cr_hp": attack_data.cr_hp,
 	"cr_lk": attack_data.cr_lk,
 	"cr_mk": attack_data.cr_mk,
+	"cr_hk": attack_data.cr_hk,
 	"jump_mp": attack_data.jump_mp,
 	"jump_mk": attack_data.jump_mk,
 }.duplicate(true)
@@ -81,7 +85,8 @@ func reset_air_state() -> void:
 		has_air_attacked = false
 		var input_data = get_input()
 		if (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed
-			or input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_lk_pressed or input_data.st_mk_pressed
+			or input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed
+			or input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed
 			or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed):
 			is_landing = false
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
@@ -104,12 +109,16 @@ var player_anim_resets: Dictionary = {
 		_update_animation_state(0, false),
 	"st_lp": func(): reset_attack_state(),
 	"st_mp": func(): reset_attack_state(),
+	"st_hp": func(): reset_attack_state(),
 	"st_lk": func(): reset_attack_state(),
 	"st_mk": func(): reset_attack_state(),
+	"st_hk": func(): reset_attack_state(),
 	"cr_lp": func(): reset_attack_state(),
 	"cr_mp": func(): reset_attack_state(),
+	"cr_hp": func(): reset_attack_state(),
 	"cr_lk": func(): reset_attack_state(),
 	"cr_mk": func(): reset_attack_state(),
+	"cr_hk": func(): reset_attack_state(),
 	"jump_mp": func(): reset_air_state(),
 	"jump_mk": func(): reset_air_state(),
 	"jump_v": func():
@@ -164,8 +173,10 @@ var default_input: Dictionary = {
 	"jump_pressed": false,
 	"st_lp_pressed": false,
 	"st_mp_pressed": false,
+	"st_hp_pressed": false,
 	"st_lk_pressed": false,
 	"st_mk_pressed":  false,
+	"st_hk_pressed": false,
 	"spm1_pressed": false,
 	"spm2_pressed": false,
 	"dp_pressed": false,
@@ -213,8 +224,10 @@ func _physics_process(delta: float) -> void:
 		attack_type = "none"
 		input_data.st_lp_pressed = false
 		input_data.st_mp_pressed = false
+		input_data.st_hp_pressed = false
 		input_data.st_lk_pressed = false
 		input_data.st_mk_pressed = false
+		input_data.st_hk_pressed = false
 
 	# 取消判定：必須在清空按鈕輸入之前檢查！
 	if is_attacking and is_cancel_window_open and allowed_cancel_targets.size() > 0:
@@ -232,11 +245,13 @@ func _physics_process(delta: float) -> void:
 			print("[Cancel Debug] input_move 是 'none'，不執行取消")
 
 	# 在取消判定之後才清空按鈕輸入，避免影響特殊招檢測
-	if is_attacking and animation_state.get_current_node() in ["st_lp", "st_mp", "st_lk", "st_mk", "cr_lp", "cr_mp", "cr_lk", "cr_mk"]:
+	if is_attacking and animation_state.get_current_node() in ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk", "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk"]:
 		input_data.st_lp_pressed = false
 		input_data.st_mp_pressed = false
+		input_data.st_hp_pressed = false
 		input_data.st_lk_pressed = false
 		input_data.st_mk_pressed = false
+		input_data.st_hk_pressed = false
 
 	if move_set and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
@@ -244,10 +259,12 @@ func _physics_process(delta: float) -> void:
 	if is_cancel_window_open:
 		input_data.st_lp_pressed = false
 		input_data.st_mp_pressed = false
+		input_data.st_hp_pressed = false
 		input_data.st_lk_pressed = false
 		input_data.st_mk_pressed = false
+		input_data.st_hk_pressed = false
 
-	if (input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_lk_pressed or input_data.st_mk_pressed) and is_valid_ground_state:
+	if (input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed or input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed) and is_valid_ground_state:
 		force_update_facing_direction()
 		if is_crouching:
 			if input_data.st_lp_pressed:
@@ -264,6 +281,13 @@ func _physics_process(delta: float) -> void:
 				current_damage = ATTACK_TABLE["cr_mp"].damage
 				is_attacking = true
 				attack_type = "cr_mp"
+			elif input_data.st_hp_pressed:
+				# Consume the buffered input
+				if player_controller and player_controller.has_method("consume_button_input"):
+					player_controller.consume_button_input("st_hp")
+				current_damage = ATTACK_TABLE["cr_hp"].damage
+				is_attacking = true
+				attack_type = "cr_hp"
 			elif input_data.st_lk_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
@@ -278,6 +302,13 @@ func _physics_process(delta: float) -> void:
 				current_damage = ATTACK_TABLE["cr_mk"].damage
 				is_attacking = true
 				attack_type = "cr_mk"
+			elif input_data.st_hk_pressed:
+				# Consume the buffered input
+				if player_controller and player_controller.has_method("consume_button_input"):
+					player_controller.consume_button_input("st_hk")
+				current_damage = ATTACK_TABLE["cr_hk"].damage
+				is_attacking = true
+				attack_type = "cr_hk"
 		else:
 			if input_data.st_lp_pressed:
 				# Consume the buffered input
@@ -293,6 +324,13 @@ func _physics_process(delta: float) -> void:
 				current_damage = ATTACK_TABLE["st_mp"].damage
 				is_attacking = true
 				attack_type = "st_mp"
+			elif input_data.st_hp_pressed:
+				# Consume the buffered input
+				if player_controller and player_controller.has_method("consume_button_input"):
+					player_controller.consume_button_input("st_hp")
+				current_damage = ATTACK_TABLE["st_hp"].damage
+				is_attacking = true
+				attack_type = "st_hp"
 			elif input_data.st_lk_pressed:
 				# Consume the buffered input
 				if player_controller and player_controller.has_method("consume_button_input"):
@@ -307,6 +345,13 @@ func _physics_process(delta: float) -> void:
 				current_damage = ATTACK_TABLE["st_mk"].damage
 				is_attacking = true
 				attack_type = "st_mk"
+			elif input_data.st_hk_pressed:
+				# Consume the buffered input
+				if player_controller and player_controller.has_method("consume_button_input"):
+					player_controller.consume_button_input("st_hk")
+				current_damage = ATTACK_TABLE["st_hk"].damage
+				is_attacking = true
+				attack_type = "st_hk"
 		if not is_push_back:
 			fixed_velocity.x = 0
 
@@ -327,6 +372,14 @@ func _physics_process(delta: float) -> void:
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mp"
+	elif input_data.st_hp_pressed and is_valid_air_state:
+		# Consume the buffered input
+		if player_controller and player_controller.has_method("consume_button_input"):
+			player_controller.consume_button_input("st_hp")
+		current_damage = ATTACK_TABLE["jump_mp"].damage
+		is_air_attacking = true
+		has_air_attacked = true
+		attack_type = "jump_mp"
 	elif input_data.st_lk_pressed and is_valid_air_state:
 		# Consume the buffered input
 		if player_controller and player_controller.has_method("consume_button_input"):
@@ -343,11 +396,20 @@ func _physics_process(delta: float) -> void:
 		is_air_attacking = true
 		has_air_attacked = true
 		attack_type = "jump_mk"
+	elif input_data.st_hk_pressed and is_valid_air_state:
+		# Consume the buffered input
+		if player_controller and player_controller.has_method("consume_button_input"):
+			player_controller.consume_button_input("st_hk")
+		current_damage = ATTACK_TABLE["jump_mk"].damage
+		is_air_attacking = true
+		has_air_attacked = true
+		attack_type = "jump_mk"
 
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
 		if is_landing and (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or
-						   input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_lk_pressed or input_data.st_mk_pressed or
+						   input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed or
+						   input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed or
 						   input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed):
 			is_landing = false
 			landing_lock_timer = 0.0

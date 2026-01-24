@@ -141,7 +141,8 @@ var landing_facing_lock: bool = false
 # ── 動畫條件（已替換 Crouch 為 cr_down 和 cr_idle） ──
 var animation_conditions: Array = [
 	"Walk", "cr_down", "cr_idle", "Dash", "Backdash",
-	"st_lp", "st_mp", "st_lk", "st_mk", "cr_lp", "cr_mp", "cr_lk", "cr_mk",
+	"st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk",
+	"cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk",
 	"Jump_F", "Jump_B", "Jump_V",
 	"hit", "knockfly", "block", "cr_block",
 	"powerkk", "spnk", "fireball",

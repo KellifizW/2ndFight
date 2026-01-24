@@ -1,4 +1,4 @@
-[gd_scene load_steps=101 format=3 uid="uid://b6x784i20q4tq"]
+[gd_scene load_steps=102 format=3 uid="uid://b6x784i20q4tq"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_ix25f"]
 [ext_resource type="Resource" uid="uid://cvb6od4v5o7vq" path="res://data/p2_attack_data.tres" id="2_jo7nc"]
@@ -866,7 +866,7 @@ size = Vector2(150, 50)
 size = Vector2(40, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_uns0w"]
-size = Vector2(50, 20)
+size = Vector2(25, 15)
 
 [sub_resource type="Animation" id="Animation_61wwb"]
 resource_name = "cr_mk"
@@ -2839,7 +2839,7 @@ tracks/15/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_2dedv"]
-size = Vector2(150, 50)
+size = Vector2(40, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_i62jw"]
 size = Vector2(140, 40)
@@ -3646,6 +3646,9 @@ animation = &"layground"
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_rihsh"]
 animation = &"spnk"
 
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_jo7nc"]
+animation = &"st_hp"
+
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_8caby"]
 animation = &"st_mk"
 
@@ -3719,6 +3722,8 @@ states/layground/node = SubResource("AnimationNodeAnimation_i62jw")
 states/layground/position = Vector2(-105, 271.49997)
 states/spnk/node = SubResource("AnimationNodeAnimation_rihsh")
 states/spnk/position = Vector2(720, 227)
+states/st_hp/node = SubResource("AnimationNodeAnimation_jo7nc")
+states/st_hp/position = Vector2(906, 163)
 states/st_mk/node = SubResource("AnimationNodeAnimation_8caby")
 states/st_mk/position = Vector2(612, 90)
 states/st_mp/node = SubResource("AnimationNodeAnimation_61wwb")
@@ -3806,7 +3811,6 @@ debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 collision_mask = 3
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]
-position = Vector2(0, 12)
 shape = SubResource("RectangleShape2D_bhnal")
 debug_color = Color(0, 0.5686275, 0.8509804, 0.078431375)
 

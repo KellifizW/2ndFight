@@ -33,10 +33,14 @@ func _physics_process(_delta: float) -> void:
 		input_buffer.record_input("st_lp")
 	if Input.is_action_just_pressed("st_mp" + suffix):
 		input_buffer.record_input("st_mp")
+	if Input.is_action_just_pressed("st_hp" + suffix):
+		input_buffer.record_input("st_hp")
 	if Input.is_action_just_pressed("st_lk" + suffix):
 		input_buffer.record_input("st_lk")
 	if Input.is_action_just_pressed("st_mk" + suffix):
 		input_buffer.record_input("st_mk")
+	if Input.is_action_just_pressed("st_hk" + suffix):
+		input_buffer.record_input("st_hk")
 	if Input.is_action_just_pressed("jump" + suffix):
 		input_buffer.record_input("jump")
 	if Input.is_action_just_pressed("spmove1" + suffix):
@@ -111,8 +115,10 @@ func get_input_data() -> Dictionary:
 	# 攻擊按鍵 - Check buffered inputs (don't consume yet, let player.gd decide)
 	var st_lp_pressed = input_buffer.is_input_buffered("st_lp")
 	var st_mp_pressed = input_buffer.is_input_buffered("st_mp")
+	var st_hp_pressed = input_buffer.is_input_buffered("st_hp")
 	var st_lk_pressed = input_buffer.is_input_buffered("st_lk")
 	var st_mk_pressed = input_buffer.is_input_buffered("st_mk")
+	var st_hk_pressed = input_buffer.is_input_buffered("st_hk")
 	var spm1_pressed  = input_buffer.is_input_buffered("spmove1")
 	var spm2_pressed  = input_buffer.is_input_buffered("spmove2")
 	var spm3_pressed  = input_buffer.is_input_buffered("spmove3")
@@ -159,9 +165,11 @@ func get_input_data() -> Dictionary:
 		"spnk"     if spm1_pressed and character_id == "DEN" else
 		"hdk"      if spm3_pressed and character_id == "DEN" else
 		"fireball" if spm2_pressed else
+		"st_hp"    if st_hp_pressed else
 		"st_mp"    if st_mp_pressed else
-		"st_mk"    if st_mk_pressed else
 		"st_lp"    if st_lp_pressed else
+		"st_hk"    if st_hk_pressed else
+		"st_mk"    if st_mk_pressed else
 		"st_lk"    if st_lk_pressed else
 		"none"
 	)
@@ -176,8 +184,10 @@ func get_input_data() -> Dictionary:
 		"jump_pressed": jump_pressed,
 		"st_lp_pressed": st_lp_pressed,
 		"st_mp_pressed": st_mp_pressed,
+		"st_hp_pressed": st_hp_pressed,
 		"st_lk_pressed": st_lk_pressed,
 		"st_mk_pressed": st_mk_pressed,
+		"st_hk_pressed": st_hk_pressed,
 		"attack_type": attack_type,
 		"spm1_pressed": spm1_pressed,
 		"spm2_pressed": spm2_pressed,
