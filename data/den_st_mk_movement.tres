@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_wa52d")
 enabled = true
-distance = 10.0
-duration = 0.2
+distance = 150.0
+duration = 0.3
 curve_type = 5
 metadata/_custom_type_script = "uid://do60xtl0h0rgp"

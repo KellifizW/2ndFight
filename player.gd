@@ -35,17 +35,17 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 @onready var player_controller = $PlayerController if has_node("PlayerController") else null
 
+# 新增 Handlers (Phase 1-2 重構)
+@onready var shadow_sync_handler: ShadowSyncHandler = null
+@onready var attack_movement_handler: AttackMovementHandler = null
+@onready var cancel_window_handler: CancelWindowHandler = null
+
 # 新增：由 world.gd 動態生成時設定，決定這個角色是左邊還是右邊玩家
 var seat: String = "player_a"  # "player_a" 或 "player_b"
 
 # 角色唯一 ID（例如 "DAV" 或 "DEN"），用來判斷特殊招式
 var character_id: String:
 	get: return character_data.short_id if character_data else "UNKNOWN"
-
-# ── 攻擊移動系統 ─────────────────────
-var current_attack_movement: AttackMovement = null
-var attack_movement_timer: float = 0.0
-var attack_movement_active: bool = false
 
 # ── 狀態旗標 ─────────────────────
 var current_mode: String = "ground_stand"
@@ -59,12 +59,7 @@ var landing_lock_timer: float = 0.0
 var has_air_attacked: bool = false
 var attack_duration_timer: float = 0.0  # Timer to track attack duration
 var wakeup_timer: float = 0.0  # Timer to track wakeup duration
-var is_cancel_window_open: bool = false  # 取消窗口是否開啟（由動畫 call method 控制）
 var is_facing_locked: bool = false
-var allowed_cancel_targets: Array = []  # 當前允許取消成的招式清單
-
-# 擊中確認取消系統（Hit-Confirm Cancel）
-var pending_cancel_targets: Array = []  # 待開啟的取消目標（等待擊中確認）
 
 var special_input_data: Dictionary = {
 	"spm1_pressed": false,
@@ -78,11 +73,10 @@ func reset_attack_state() -> void:
 	is_attacking = false
 	attack_type = "none"
 	attack_duration_timer = 0.0
-	is_cancel_window_open = false
-	allowed_cancel_targets = []
-	pending_cancel_targets = []
-	attack_movement_active = false
-	current_attack_movement = null
+	if cancel_window_handler:
+		cancel_window_handler.reset()
+	if attack_movement_handler:
+		attack_movement_handler.stop_movement()
 	update_facing_direction()
 	_update_animation_state(0, false)
 
@@ -190,6 +184,9 @@ func _ready() -> void:
 	hit_detected.connect(_on_hit_detected)
 	skip_pushbox = false
 	
+	# 初始化 Handlers (Phase 1-2 重構)
+	_initialize_handlers()
+	
 	var ui_root = get_tree().get_first_node_in_group("ui")
 	if ui_root:
 		healthbar = ui_root.get_node("PlayerAHealthbar" if seat == "player_a" else "PlayerBHealthbar")
@@ -246,7 +243,8 @@ func _physics_process(delta: float) -> void:
 		$InputManager.update_input()
 	
 	# ── 攻擊移動處理（必須在 super._physics_process 之前，確保速度在應用前被設置） ──
-	_process_attack_movement(delta)
+	if attack_movement_handler:
+		attack_movement_handler.process_movement(delta)
 	
 	super._physics_process(delta)
 	if not world: return
@@ -289,19 +287,10 @@ func _physics_process(delta: float) -> void:
 		input_data.st_hk_pressed = false
 
 	# 取消判定：必須在清空按鈕輸入之前檢查！
-	if is_attacking and is_cancel_window_open and allowed_cancel_targets.size() > 0:
+	if is_attacking and cancel_window_handler:
 		var input_move = input_data.get("attack_type", "none")
-		print("[Cancel Debug] 進入取消判定 - is_attacking=%s, is_cancel_window_open=%s, targets_size=%d" % [is_attacking, is_cancel_window_open, allowed_cancel_targets.size()])
-		print("[Cancel Debug] input_move='%s', allowed_cancel_targets=%s" % [input_move, allowed_cancel_targets])
-		# 只在有實際輸入時才處理和顯示訊息
-		if input_move != "none":
-			if input_move in allowed_cancel_targets:
-				print("[Cancel] ✓ 取消 %s → %s" % [attack_type, input_move])
-				stop_attack()
-			else:
-				print("[Cancel] ✗ %s 不能取消成 %s（允許: %s）" % [attack_type, input_move, allowed_cancel_targets])
-		else:
-			print("[Cancel Debug] input_move 是 'none'，不執行取消")
+		if cancel_window_handler.check_cancel(input_move, attack_type):
+			stop_attack()
 
 	# 在取消判定之後才清空按鈕輸入，避免影響特殊招檢測
 	if is_attacking and animation_state.get_current_node() in ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk", "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk"]:
@@ -315,7 +304,9 @@ func _physics_process(delta: float) -> void:
 	if move_set and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
 
-	if is_cancel_window_open:
+	# 檢查取消窗口是否開啟
+	var is_cancel_open = cancel_window_handler and cancel_window_handler.is_window_open
+	if is_cancel_open:
 		input_data.st_lp_pressed = false
 		input_data.st_mp_pressed = false
 		input_data.st_hp_pressed = false
@@ -388,7 +379,8 @@ func _physics_process(delta: float) -> void:
 					player_controller.consume_button_input("st_hk")
 				_execute_attack("st_hk")
 		# 只有在沒有攻擊移動激活時才清零速度
-		if not is_push_back and not attack_movement_active:
+		var has_active_movement = attack_movement_handler and attack_movement_handler.is_active()
+		if not is_push_back and not has_active_movement:
 			fixed_velocity.x = 0
 
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked and not is_layground
@@ -656,14 +648,8 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 
 func _on_hit_detected(_target: String, _stun_duration: float, _is_blocked: bool, _was_in_stun: bool) -> void:
 	# 擊中確認取消（Hit-Confirm Cancel）：只有在擊中對手時才真正開啟取消窗口
-	if pending_cancel_targets.size() > 0:
-		is_cancel_window_open = true
-		allowed_cancel_targets = pending_cancel_targets.duplicate()
-		print("[Cancel] ✓ 擊中確認！%s 開啟取消窗口，允許: %s" % [attack_type, allowed_cancel_targets])
-		# 使用後立即清空，避免重複觸發
-		pending_cancel_targets = []
-	else:
-		print("[Cancel] ✗ 擊中但無待開啟的取消窗口（pending_cancel_targets 為空）")
+	if cancel_window_handler:
+		cancel_window_handler.on_hit_confirm()
 
 # ═══════════════════════════════════════════════════════════
 # 取消窗口系統（純 Call Method Track - Option 1）
@@ -674,25 +660,23 @@ func _on_hit_detected(_target: String, _stun_duration: float, _is_blocked: bool,
 # 準備取消窗口（由動畫軌道調用，等待擊中確認）
 # allowed_moves: 允許取消成的招式陣列，例如 ["powerkk", "fireball"]
 func _open_cancel_window(allowed_moves: Array = []) -> void:
-	# 設置待開啟狀態，等待擊中確認
-	pending_cancel_targets = allowed_moves.duplicate()
-	print("[Cancel] %s 準備取消窗口（等待擊中確認），允許: %s" % [attack_type, allowed_moves])
+	# 由動畫軌道調用，委派給 CancelWindowHandler
+	if cancel_window_handler:
+		cancel_window_handler.open_window(allowed_moves)
 
 # 關閉取消窗口（由動畫軌道調用）
 func _close_cancel_window() -> void:
-	is_cancel_window_open = false
-	allowed_cancel_targets = []
-	# 保留 pending_cancel_targets，因為擊中確認可能在窗口關閉後才觸發（slowmo延遲）
-	print("[Cancel] 取消窗口關閉（pending targets 保留給擊中確認）")
+	# 由動畫軌道調用，委派給 CancelWindowHandler
+	if cancel_window_handler:
+		cancel_window_handler.close_window()
 
 # ═══════════════════════════════════════════════════════════
 
 func stop_attack() -> void:
 	is_attacking = false
 	attack_type = "none"
-	is_cancel_window_open = false
-	allowed_cancel_targets = []
-	pending_cancel_targets = []
+	if cancel_window_handler:
+		cancel_window_handler.reset()
 	if animation_player:
 		animation_player.stop()
 	update_facing_direction()
@@ -725,34 +709,7 @@ func force_update_facing_direction() -> void:
 			scale.x = 1
 		update_hitbox_position()
 
-func _process(_delta: float) -> void:
-	_sync_shadow_animation()
-
-func _sync_shadow_animation() -> void:
-	var body_sprite = $AnimatedSprite2D
-	if not body_sprite:
-		return
-	
-	# 陰影節點現在固定用席位名稱，不再用舊的 P1/P2
-	var shadow_node_name = "PlayerAShadowSprite" if seat == "player_a" else "PlayerBShadowSprite"
-	var shadow_sprite = get_parent().get_node(shadow_node_name)
-	
-	if shadow_sprite and shadow_sprite.material is ShaderMaterial:
-		var mat: ShaderMaterial = shadow_sprite.material
-
-		shadow_sprite.animation = body_sprite.animation
-		shadow_sprite.frame = body_sprite.frame
-		shadow_sprite.offset = body_sprite.offset
-		shadow_sprite.flip_h = facing_direction < 0
-		shadow_sprite.global_position.x = global_position.x
-		shadow_sprite.global_position.y = 570 + 120
-		
-		if is_on_floor():
-			mat.set_shader_parameter("blur_factor", 0.0)
-		else:
-			var height = 570.0 - global_position.y
-			var blur = clamp(height / 200.0, 0.0, 1.0)
-			mat.set_shader_parameter("blur_factor", blur)
+# _process 已移除 - 陰影同步由 ShadowSyncHandler 處理
 
 # ══════════════════════════════════════════════════════════════════
 # ── 攻擊移動系統 ─────────────────────
@@ -786,76 +743,31 @@ func _execute_attack(attack_name: String) -> void:
 		print("[EXECUTE_ATTACK] Switched animation to: ", attack_name)
 	
 	# 啟動攻擊移動（如果有設定）
-	_start_attack_movement(attack_name)
-	_start_attack_movement(attack_name)
+	if attack_movement_handler:
+		attack_movement_handler.start_movement(attack_name, ATTACK_TABLE)
 
-func _start_attack_movement(attack_name: String) -> void:
-	"""啟動攻擊移動（由攻擊執行時呼叫）"""
-	if not attack_name in ATTACK_TABLE:
-		print("[Movement] %s 不在 ATTACK_TABLE 中" % attack_name)
-		return
-	
-	var attack_dict = ATTACK_TABLE[attack_name]
-	if not "movement" in attack_dict or attack_dict.movement == null:
-		print("[Movement] %s 沒有設定 movement 屬性" % attack_name)
-		return
-	
-	current_attack_movement = attack_dict.movement
-	attack_movement_timer = 0.0
-	attack_movement_active = true
-	
-	print("[Movement] ✓ 啟動 %s 移動：distance=%.1f, duration=%.2f, curve=%d, enabled=%s" % [
-		attack_name,
-		current_attack_movement.distance,
-		current_attack_movement.duration,
-		current_attack_movement.curve_type,
-		current_attack_movement.enabled
-	])
+# ══════════════════════════════════════════════════════════════════
+# ── Handler 初始化 (Phase 1-2 重構) ──
+# ══════════════════════════════════════════════════════════════════
 
-func _process_attack_movement(delta: float) -> void:
-	"""每幀更新攻擊移動"""
-	if not attack_movement_active or current_attack_movement == null:
-		return
+func _initialize_handlers() -> void:
+	"""初始化所有 Handlers"""
+	# ShadowSyncHandler
+	var shadow_handler = ShadowSyncHandler.new()
+	shadow_handler.name = "ShadowSyncHandler"
+	add_child(shadow_handler)
+	shadow_sync_handler = shadow_handler
 	
-	# 等待起始延遲
-	if attack_movement_timer < current_attack_movement.start_delay:
-		attack_movement_timer += delta
-		return
+	# AttackMovementHandler
+	var movement_handler = AttackMovementHandler.new()
+	movement_handler.name = "AttackMovementHandler"
+	add_child(movement_handler)
+	attack_movement_handler = movement_handler
 	
-	var effective_time = attack_movement_timer - current_attack_movement.start_delay
+	# CancelWindowHandler
+	var cancel_handler = CancelWindowHandler.new()
+	cancel_handler.name = "CancelWindowHandler"
+	add_child(cancel_handler)
+	cancel_window_handler = cancel_handler
 	
-	# 檢查是否超過持續時間
-	if effective_time >= current_attack_movement.duration:
-		attack_movement_active = false
-		print("[Movement] ✓ 移動完成")
-		return
-	
-	# 計算移動方向
-	var move_direction: float = 1.0
-	if current_attack_movement.use_facing_direction:
-		move_direction = facing_direction
-	if current_attack_movement.reverse_direction:
-		move_direction *= -1.0
-	
-	# 獲取當前速度倍率（基於曲線）
-	var speed_multiplier = current_attack_movement.get_speed_multiplier(effective_time)
-	
-	# 計算基礎速度（距離 / 持續時間）
-	var base_speed = current_attack_movement.distance / current_attack_movement.duration
-	
-	# 應用速度倍率和方向
-	var current_speed = base_speed * speed_multiplier * move_direction
-	
-	# 轉換為固定點速度
-	if world:
-		fixed_velocity.x = int(current_speed * world.SIMULATION_SCALE)
-		
-		# 調試輸出（每 10 幀輸出一次）
-		if int(attack_movement_timer * 60) % 10 == 0:
-			print("[Movement] time=%.2f, speed_mult=%.2f, velocity=%d" % [
-				effective_time,
-				speed_multiplier,
-				fixed_velocity.x
-			])
-	
-	attack_movement_timer += delta
+	print("[Player] Handlers 初始化完成 | Seat: ", seat)

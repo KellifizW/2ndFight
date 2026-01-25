@@ -4746,7 +4746,27 @@ alpha_curve = SubResource("CurveTexture_baprg")
 collision_layer = 2
 collision_mask = 0
 script = ExtResource("1_ix25f")
+is_ai_controlled = null
+corner_push_distance = null
+cancel_window_duration = null
+skip_pushbox = null
 attack_data = ExtResource("2_jo7nc")
+powerkk_blockstun = null
+min_hitstun_duration = null
+landing_duration = null
+layground_duration = null
+jump_delay_duration = null
+default_knockfly_gravity = null
+default_knockfly_vertical_speed = null
+default_knockfly_horizontal_speed = null
+default_air_friction = null
+default_knockfly_duration = null
+air_hit_backjump_speed = null
+air_hit_backjump_duration = null
+air_hit_backjump_up_speed = null
+block_push_distance = null
+hit_push_distance = null
+floor_snap_immunity_duration = null
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 scale = Vector2(0.48, 0.48)
