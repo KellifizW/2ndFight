@@ -57,7 +57,6 @@ var is_air_attacking: bool = false
 var is_special_moving: bool = false
 var landing_lock_timer: float = 0.0
 var has_air_attacked: bool = false
-var attack_just_started: bool = false  # Track if attack just started this frame
 var attack_duration_timer: float = 0.0  # Timer to track attack duration
 var wakeup_timer: float = 0.0  # Timer to track wakeup duration
 var is_cancel_window_open: bool = false  # 取消窗口是否開啟（由動畫 call method 控制）
@@ -76,7 +75,6 @@ var special_input_data: Dictionary = {
 
 # ── 重置函式 ─────────────────────
 func reset_attack_state() -> void:
-	print("[RESET_ATTACK_STATE] Called | Seat: ", seat, " | attack_type: ", attack_type)
 	is_attacking = false
 	attack_type = "none"
 	attack_duration_timer = 0.0
@@ -87,7 +85,6 @@ func reset_attack_state() -> void:
 	current_attack_movement = null
 	update_facing_direction()
 	_update_animation_state(0, false)
-	print("[RESET_ATTACK_STATE] Completed")
 
 func reset_landing_state() -> void:
 	is_landing = false
@@ -98,20 +95,16 @@ func reset_landing_state() -> void:
 
 func reset_air_state() -> void:
 	if is_on_floor():
-		print("[RESET_AIR_STATE] Called on floor | Seat: ", seat, " | has_air_attacked WAS: ", has_air_attacked)
 		is_air_attacking = false
 		has_air_attacked = false
-		print("[RESET_AIR_STATE] has_air_attacked NOW: ", has_air_attacked)
 		var input_data = get_input()
 		if (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed
 			or input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed
 			or input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed
 			or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed):
-			print("[RESET_AIR_STATE] Player has input - no landing")
 			is_landing = false
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 		else:
-			print("[RESET_AIR_STATE] Setting landing state | lock_timer: ", landing_duration)
 			is_landing = true
 			landing_lock_timer = landing_duration
 
@@ -123,18 +116,10 @@ func reset_special_state() -> void:
 	_update_animation_state(0, false)
 
 var player_anim_resets: Dictionary = {
-	"wakeup": func():
-		is_wakeup = false
-		is_wakeup_locked = false
-		is_landing = false
-		attack_duration_timer = 0.0
-		_update_animation_state(0, false),
 	"landing": func():
-		print("[LANDING ANIM END] Seat: ", seat, " | has_air_attacked WAS: ", has_air_attacked)
 		is_landing = false
 		landing_lock_timer = 0.0
 		has_air_attacked = false
-		print("[LANDING ANIM END] has_air_attacked NOW: ", has_air_attacked)
 		_update_animation_state(0, false),
 	"st_lp": func(): reset_attack_state(),
 	"st_mp": func(): reset_attack_state(),
@@ -268,19 +253,14 @@ func _physics_process(delta: float) -> void:
 
 	# Handle air attack landing
 	if is_air_attacking and is_on_floor():
-		print("[AIR ATTACK LANDING] Seat: ", seat, " | has_air_attacked: ", has_air_attacked, " | is_attacking: ", is_attacking)
 		is_air_attacking = false
-		is_attacking = false  # Critical: reset attacking state to allow movement
-		# Trigger landing state when air attack touches ground
+		is_attacking = false
 		var input_data = get_input()
 		if not (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed):
-			print("[AIR ATTACK LANDING] Triggering landing animation")
 			is_landing = true
 			landing_lock_timer = landing_duration
 			animation_state.travel("landing")
 		else:
-			print("[AIR ATTACK LANDING] Skipping landing - player has input")
-			# If player is holding directional input, skip landing
 			is_landing = false
 			landing_lock_timer = 0.0
 			has_air_attacked = false
@@ -478,16 +458,13 @@ func _physics_process(delta: float) -> void:
 						   input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed or
 						   input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed or
 						   input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed):
-			print("[LANDING INTERRUPTED] Resetting has_air_attacked | Seat: ", seat)
 			is_landing = false
 			landing_lock_timer = 0.0
 			landing_facing_lock = false
-			has_air_attacked = false  # Reset when landing is interrupted
+			has_air_attacked = false
 			update_facing_direction()
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-		# Reset has_air_attacked when landing ends naturally
 		elif landing_lock_timer <= 0 and is_landing:
-			print("[LANDING TIMER END] Resetting has_air_attacked | Seat: ", seat)
 			is_landing = false
 			has_air_attacked = false
 			landing_facing_lock = false
@@ -496,7 +473,6 @@ func _physics_process(delta: float) -> void:
 	if wakeup_timer > 0:
 		wakeup_timer -= delta
 		if wakeup_timer <= 0 and is_wakeup_locked:
-			print("[WAKEUP TIMER END] Wakeup complete, resetting to walk")
 			is_wakeup = false
 			is_wakeup_locked = false
 			is_landing = false
@@ -510,7 +486,6 @@ func _physics_process(delta: float) -> void:
 	if is_attacking and attack_duration_timer > 0:
 		attack_duration_timer -= delta
 		if attack_duration_timer <= 0:
-			print("[ATTACK TIMER END] Attack duration finished | Resetting")
 			reset_attack_state()
 
 func _physics_process_jump(_delta: float) -> void:
@@ -521,8 +496,7 @@ func _physics_process_jump(_delta: float) -> void:
 			player_controller.consume_button_input("jump")
 		
 		is_jumping = true
-		has_air_attacked = false  # Reset air attack flag on new jump
-		print("[JUMP] Seat: ", seat, " | Reset has_air_attacked")
+		has_air_attacked = false
 		landing_facing_lock = true
 		if world:
 			fixed_position.y = world.FLOOR_Y - 1
@@ -551,25 +525,18 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
 
 	if is_landing and landing_lock_timer > 0:
-		print("[COMPUTE_TARGET] Returning 'landing' | Seat: ", seat, " | timer: ", landing_lock_timer)
 		return "landing"
 
 	# Air attack animation logic - only when actually in the air
 	if not on_floor and (is_jumping or is_air_attacking):
 		if is_air_attacking:
-			print("[COMPUTE_TARGET] In air attacking | attack_type: ", attack_type)
 			return attack_type
 		else:
 			if anim_jump_dir > 0: return "Jump_F"
 			elif anim_jump_dir < 0: return "Jump_B"
 			else: return "Jump_V"
 
-	var result = super._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
-	if is_attacking:
-		print("[COMPUTE_TARGET] is_attacking=true, attack_type=", attack_type, " | super returned: ", result)
-	if result == "Walk" and (has_air_attacked or is_landing or is_attacking):
-		print("[COMPUTE_TARGET] Returning Walk | Seat: ", seat, " | has_air_attacked: ", has_air_attacked, " | is_landing: ", is_landing, " | on_floor: ", on_floor, " | is_attacking: ", is_attacking)
-	return result
+	return super._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	super._update_animation_state(dir_x, crouch_input)
@@ -586,20 +553,14 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 		if animation_player and animation_player.has_animation("wakeup"):
 			wakeup_timer = animation_player.get_animation("wakeup").length
 		else:
-			wakeup_timer = 0.5  # Default fallback
-		print("[WAKEUP START] Setting wakeup_timer=", wakeup_timer)
+			wakeup_timer = 0.5
 		animation_state.travel("wakeup")
 
 # Override parent's animation finished handler to use player_anim_resets
 func _on_animation_player_finished(anim_name: String) -> void:
-	print("[ANIM FINISHED] anim_name: ", anim_name, " | Seat: ", seat)
-	# Check player-specific resets first
 	if anim_name in player_anim_resets:
-		print("[ANIM FINISHED] Calling player_anim_resets for: ", anim_name)
 		player_anim_resets[anim_name].call()
-		return  # Don't check parent resets if player reset was called
-	
-	# Call parent's handler for other animations
+		return
 	super._on_animation_player_finished(anim_name)
 
 # ── 擊中處理 ─────────────────────
