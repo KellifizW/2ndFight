@@ -7,7 +7,27 @@ func _init(movement: Node) -> void:
 	movement_node = movement
 
 func handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
-	if movement_node.is_on_floor() and not movement_node.is_attacking and not movement_node.is_dashing and not movement_node.is_backdashing and not is_special_moving and not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.is_layground) and not movement_node.is_crouching:
+	var can_walk = movement_node.is_on_floor() and not movement_node.is_attacking and not movement_node.is_dashing and not movement_node.is_backdashing and not is_special_moving and not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.is_layground) and not movement_node.is_crouching
+	
+	if not can_walk and input_dir != 0:
+		var reasons = []
+		if not movement_node.is_on_floor(): reasons.append("not_on_floor")
+		if movement_node.is_attacking: reasons.append("is_attacking")
+		if movement_node.is_dashing: reasons.append("is_dashing")
+		if movement_node.is_backdashing: reasons.append("is_backdashing")
+		if is_special_moving: reasons.append("is_special_moving")
+		if movement_node.is_hit: reasons.append("is_hit")
+		if movement_node.is_knockfly: reasons.append("is_knockfly")
+		if movement_node.is_blocking: reasons.append("is_blocking")
+		if movement_node.is_push_back: reasons.append("is_push_back")
+		if movement_node.is_layground: reasons.append("is_layground")
+		if movement_node.is_crouching: reasons.append("is_crouching")
+		if "has_air_attacked" in movement_node and movement_node.has_air_attacked: reasons.append("has_air_attacked")
+		if "is_air_attacking" in movement_node and movement_node.is_air_attacking: reasons.append("is_air_attacking")
+		if "is_landing" in movement_node and movement_node.is_landing: reasons.append("is_landing")
+		print("[WALK BLOCKED] Seat: ", movement_node.seat if "seat" in movement_node else "?", " | Reasons: ", reasons)
+	
+	if can_walk:
 		if input_dir != 0:
 			if movement_node.is_proximity_blocking and input_dir * movement_node.facing_direction < 0:
 				movement_node.fixed_velocity.x = 0

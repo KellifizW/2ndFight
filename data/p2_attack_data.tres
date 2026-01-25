@@ -47,4 +47,6 @@ jump_mk_damage = 10.0
 jump_mk_hitstun = 0.45
 jump_mk_blockstun = 0.25
 jump_mk_knockback = 100.0
+jump_hk_damage = 9.0
+jump_hk_knockback = 300.0
 metadata/_custom_type_script = "uid://ccjfweg28wskh"
