@@ -198,9 +198,9 @@ func _input(event) -> void:
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_R:
 			reset_players()
-		if event.keycode == KEY_M and not slowmo_triggered:
+		if Input.is_action_just_pressed("slowmo_toggle") and not slowmo_triggered:
 			slowmo_controller.request_slowmo_change()
-			print("Debug: M key pressed, requesting slow motion change at %s ms" % Time.get_ticks_msec())
+			print("Debug: slowmo_toggle pressed, requesting slow motion change at %s ms" % Time.get_ticks_msec())
 		if Input.is_action_just_pressed("toggle_bgm"):
 			toggle_bgm()
 			print("Debug: toggle_bgm action triggered, BGM state: %s at %s ms" % [is_bgm_enabled, Time.get_ticks_msec()])

@@ -2,6 +2,7 @@ class_name KnockflyHandler extends Node
 
 # Handles knockfly and layground mechanics
 var movement_node: Node
+var health_check_done: bool = false  # Track if health check already failed
 
 func _init(movement: Node) -> void:
 	movement_node = movement
@@ -52,18 +53,20 @@ func apply_air_friction(friction_coeff: float, delta: float) -> void:
 		movement_node.fixed_velocity.x = min(0, movement_node.fixed_velocity.x + friction_amount)
 
 func reset_layground_with_health_check() -> void:
-	print("Debug: layground reset triggered for %s. Checking health before wakeup transition." % movement_node.name)
-	
 	var player_healthbar = movement_node.healthbar
 	
 	if player_healthbar and player_healthbar.current_health <= 0:
-		print("Debug: %s 血量已歸零，保持躺地狀態，不觸發 wakeup。" % movement_node.name)
+		# Only print debug message once when health reaches zero
+		if not health_check_done:
+			print("Debug: %s 血量已歸零，保持躺地狀態，不觸發 wakeup。" % movement_node.name)
+			health_check_done = true
 		movement_node.is_layground = true
 		movement_node.is_knockfly = false
 		movement_node.is_knockfly_animation_finished = false
 		return
 	
-	print("Debug: %s 血量仍有剩餘，允許 wakeup。" % movement_node.name)
+	# Reset health_check_done if waking up normally
+	health_check_done = false
 	movement_node.is_layground = false
 	movement_node.is_knockfly = false
 	movement_node.is_knockfly_animation_finished = false

@@ -54,11 +54,28 @@ var _blockstun_start_logged: bool = false
 
 # 常數表
 const TRACKED_ANIMS := [
-	"st_mp","st_mk","jump_mp","jump_mk","powerkk","spnk","fireball","dp","super",
+	# Standing attacks
+	"st_lp","st_mp","st_hp","st_lk","st_mk","st_hk",
+	# Crouching attacks
+	"cr_lp","cr_mp","cr_hp","cr_lk","cr_mk","cr_hk",
+	# Jump attacks
+	"jump_lp","jump_mp","jump_hp","jump_lk","jump_mk","jump_hk",
+	# Special moves
+	"powerkk","spnk","fireball","dp","super",
+	# Movement
 	"Dash","Backdash","block","cr_block",
 	"Jump_F","Jump_B","Jump_V","hit","knockfly","layground","wakeup"
 ]
-const ATTACK_ANIMS := ["st_mp","st_mk","jump_mp","jump_mk","powerkk","spnk","fireball","dp","super"]
+const ATTACK_ANIMS := [
+	# Standing attacks
+	"st_lp","st_mp","st_hp","st_lk","st_mk","st_hk",
+	# Crouching attacks
+	"cr_lp","cr_mp","cr_hp","cr_lk","cr_mk","cr_hk",
+	# Jump attacks
+	"jump_lp","jump_mp","jump_hp","jump_lk","jump_mk","jump_hk",
+	# Special moves
+	"powerkk","spnk","fireball","dp","super"
+]
 const JUMP_ANIMS := ["Jump_F","Jump_B","Jump_V"]
 
 @onready var frame_count_label: Label = $FrameCountLabel
@@ -163,7 +180,9 @@ func _process(delta: float) -> void:
 
 # ── 核心邏輯 ─────────────────────
 func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_driven: bool, on_floor: bool) -> void:
-	var jump_to_attack := last_animation in JUMP_ANIMS and anim_name in ["jump_mp","jump_mk"]
+	# Jump attacks: all jump punch/kick variations
+	const JUMP_ATTACK_ANIMS := ["jump_lp","jump_mp","jump_hp","jump_lk","jump_mk","jump_hk"]
+	var jump_to_attack := last_animation in JUMP_ANIMS and anim_name in JUMP_ATTACK_ANIMS
 	var knockfly_chain := knockfly_chain_active and anim_name in ["knockfly","layground","wakeup"]
 	
 	if anim_name == "knockfly" and not knockfly_chain_active:
