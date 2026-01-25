@@ -1,4 +1,4 @@
-[gd_scene load_steps=110 format=3 uid="uid://b6x784i20q4tq"]
+[gd_scene load_steps=111 format=3 uid="uid://b6x784i20q4tq"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_ix25f"]
 [ext_resource type="Resource" uid="uid://cvb6od4v5o7vq" path="res://data/p2_attack_data.tres" id="2_jo7nc"]
@@ -4589,6 +4589,9 @@ animation = &"hit"
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_wv6ou"]
 animation = &"jump_hk"
 
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_808jx"]
+animation = &"jump_lk"
+
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_bhnal"]
 animation = &"jump_mk"
 
@@ -4679,6 +4682,8 @@ states/hit/node = SubResource("AnimationNodeAnimation_idi7q")
 states/hit/position = Vector2(194, 246)
 states/jump_hk/node = SubResource("AnimationNodeAnimation_wv6ou")
 states/jump_hk/position = Vector2(447, -55)
+states/jump_lk/node = SubResource("AnimationNodeAnimation_808jx")
+states/jump_lk/position = Vector2(637, -55)
 states/jump_mk/node = SubResource("AnimationNodeAnimation_bhnal")
 states/jump_mk/position = Vector2(567, 35)
 states/jump_mp/node = SubResource("AnimationNodeAnimation_2dedv")

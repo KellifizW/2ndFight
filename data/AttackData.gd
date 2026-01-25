@@ -85,17 +85,41 @@ class_name AttackData extends Resource
 @export var cr_hk_knockback: float = 350.0
 @export var cr_hk_movement: AttackMovement = null
 
+# ── jump_lp ──
+@export var jump_lp_damage: float = 6.0
+@export var jump_lp_hitstun: float = 0.30
+@export var jump_lp_blockstun: float = 0.200
+@export var jump_lp_knockback: float = 180.0
+
 # ── jump_mp ──
 @export var jump_mp_damage: float = 8.0
 @export var jump_mp_hitstun: float = 0.40
 @export var jump_mp_blockstun: float = 0.267
 @export var jump_mp_knockback: float = 220.0
 
+# ── jump_hp ──
+@export var jump_hp_damage: float = 12.0
+@export var jump_hp_hitstun: float = 0.50
+@export var jump_hp_blockstun: float = 0.333
+@export var jump_hp_knockback: float = 320.0
+
+# ── jump_lk ──
+@export var jump_lk_damage: float = 7.0
+@export var jump_lk_hitstun: float = 0.40
+@export var jump_lk_blockstun: float = 0.233
+@export var jump_lk_knockback: float = 200.0
+
 # ── jump_mk ──
 @export var jump_mk_damage: float = 9.0
 @export var jump_mk_hitstun: float = 0.50
 @export var jump_mk_blockstun: float = 0.300
 @export var jump_mk_knockback: float = 260.0
+
+# ── jump_hk ──
+@export var jump_hk_damage: float = 11.0
+@export var jump_hk_hitstun: float = 0.60
+@export var jump_hk_blockstun: float = 0.367
+@export var jump_hk_knockback: float = 380.0
 
 # Dictionary accessors for code compatibility
 var st_lp: Dictionary:
@@ -122,7 +146,15 @@ var cr_mk: Dictionary:
 	get: return { "damage": cr_mk_damage, "hitstun": cr_mk_hitstun, "blockstun": cr_mk_blockstun, "knockback": cr_mk_knockback, "movement": cr_mk_movement }
 var cr_hk: Dictionary:
 	get: return { "damage": cr_hk_damage, "hitstun": cr_hk_hitstun, "blockstun": cr_hk_blockstun, "knockback": cr_hk_knockback, "movement": cr_hk_movement }
+var jump_lp: Dictionary:
+	get: return { "damage": jump_lp_damage, "hitstun": jump_lp_hitstun, "blockstun": jump_lp_blockstun, "knockback": jump_lp_knockback }
 var jump_mp: Dictionary:
 	get: return { "damage": jump_mp_damage, "hitstun": jump_mp_hitstun, "blockstun": jump_mp_blockstun, "knockback": jump_mp_knockback }
+var jump_hp: Dictionary:
+	get: return { "damage": jump_hp_damage, "hitstun": jump_hp_hitstun, "blockstun": jump_hp_blockstun, "knockback": jump_hp_knockback }
+var jump_lk: Dictionary:
+	get: return { "damage": jump_lk_damage, "hitstun": jump_lk_hitstun, "blockstun": jump_lk_blockstun, "knockback": jump_lk_knockback }
 var jump_mk: Dictionary:
 	get: return { "damage": jump_mk_damage, "hitstun": jump_mk_hitstun, "blockstun": jump_mk_blockstun, "knockback": jump_mk_knockback }
+var jump_hk: Dictionary:
+	get: return { "damage": jump_hk_damage, "hitstun": jump_hk_hitstun, "blockstun": jump_hk_blockstun, "knockback": jump_hk_knockback }

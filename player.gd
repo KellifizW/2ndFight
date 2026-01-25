@@ -22,8 +22,12 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 	"cr_lk": attack_data.cr_lk,
 	"cr_mk": attack_data.cr_mk,
 	"cr_hk": attack_data.cr_hk,
+	"jump_lp": attack_data.jump_lp,
 	"jump_mp": attack_data.jump_mp,
+	"jump_hp": attack_data.jump_hp,
+	"jump_lk": attack_data.jump_lk,
 	"jump_mk": attack_data.jump_mk,
+	"jump_hk": attack_data.jump_hk,
 }.duplicate(true)
 
 @export var powerkk_blockstun: float = 0.3833
@@ -126,8 +130,12 @@ var player_anim_resets: Dictionary = {
 	"cr_lk": func(): reset_attack_state(),
 	"cr_mk": func(): reset_attack_state(),
 	"cr_hk": func(): reset_attack_state(),
+	"jump_lp": func(): reset_air_state(),
 	"jump_mp": func(): reset_air_state(),
+	"jump_hp": func(): reset_air_state(),
+	"jump_lk": func(): reset_air_state(),
 	"jump_mk": func(): reset_air_state(),
+	"jump_hk": func(): reset_air_state(),
 	"jump_v": func():
 		if is_on_floor():
 			is_jumping = false
@@ -350,7 +358,7 @@ func _physics_process(delta: float) -> void:
 			player_controller.consume_button_input("st_lp")
 		is_air_attacking = true
 		has_air_attacked = true
-		_execute_attack("jump_mp")
+		_execute_attack("jump_lp")
 	elif input_data.st_mp_pressed and is_valid_air_state:
 		# Consume the buffered input
 		if player_controller and player_controller.has_method("consume_button_input"):
@@ -364,14 +372,14 @@ func _physics_process(delta: float) -> void:
 			player_controller.consume_button_input("st_hp")
 		is_air_attacking = true
 		has_air_attacked = true
-		_execute_attack("jump_mp")
+		_execute_attack("jump_hp")
 	elif input_data.st_lk_pressed and is_valid_air_state:
 		# Consume the buffered input
 		if player_controller and player_controller.has_method("consume_button_input"):
 			player_controller.consume_button_input("st_lk")
 		is_air_attacking = true
 		has_air_attacked = true
-		_execute_attack("jump_mk")
+		_execute_attack("jump_lk")
 	elif input_data.st_mk_pressed and is_valid_air_state:
 		# Consume the buffered input
 		if player_controller and player_controller.has_method("consume_button_input"):
@@ -385,7 +393,7 @@ func _physics_process(delta: float) -> void:
 			player_controller.consume_button_input("st_hk")
 		is_air_attacking = true
 		has_air_attacked = true
-		_execute_attack("jump_mk")
+		_execute_attack("jump_hk")
 
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
