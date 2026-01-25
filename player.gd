@@ -78,14 +78,18 @@ func reset_attack_state() -> void:
 	if attack_movement_handler:
 		attack_movement_handler.stop_movement()
 	update_facing_direction()
-	_update_animation_state(0, false)
+	# 获取当前真实的输入状态，保持蹲状态
+	var input_data = get_input()
+	_update_animation_state(0, input_data.crouch_pressed)
 
 func reset_landing_state() -> void:
 	is_landing = false
 	landing_lock_timer = 0.0
 	landing_facing_lock = false
 	update_facing_direction()
-	_update_animation_state(0, false)
+	# 获取当前真实的输入状态，保持蹲状态
+	var input_data = get_input()
+	_update_animation_state(0, input_data.crouch_pressed)
 
 func reset_air_state() -> void:
 	if is_on_floor():
@@ -107,14 +111,18 @@ func reset_special_state() -> void:
 		move_set.stop_special_move()
 	is_facing_locked = false
 	force_update_facing_direction()
-	_update_animation_state(0, false)
+	# 获取当前真实的输入状态，保持蹲状态
+	var input_data = get_input()
+	_update_animation_state(0, input_data.crouch_pressed)
 
 var player_anim_resets: Dictionary = {
 	"landing": func():
 		is_landing = false
 		landing_lock_timer = 0.0
 		has_air_attacked = false
-		_update_animation_state(0, false),
+		# 获取当前真实的输入状态，保持蹲状态
+		var input_data = get_input()
+		_update_animation_state(0, input_data.crouch_pressed),
 	"st_lp": func(): reset_attack_state(),
 	"st_mp": func(): reset_attack_state(),
 	"st_hp": func(): reset_attack_state(),
