@@ -1,0 +1,220 @@
+class_name HitResponseHandler extends Node
+
+## HitResponseHandler - Phase 4 Refactoring
+##
+## 職責: 處理攻擊擊中對手時的所有邏輯
+## - 碰撞檢測與過濾
+## - 攻擊數據查詢（ATTACK_TABLE / MoveSet）
+## - 調用目標的 take_hit()
+## - VFX/SFX 效果觸發
+## - Pushback 處理
+## - Hit-confirm cancel 信號
+##
+## 基於業界格鬥遊戲模式：
+## - Street Fighter V: HitDetector with damage calculator
+## - Guilty Gear Strive: DamageHandler with effect spawner
+## - Tekken 8: CollisionSystem with hit response
+
+# ── 引用 ──
+var parent_player: Node = null
+var world: Node = null
+
+# ── VFX 系統 ──
+const VFXImpact = preload("res://vfx_impact.gd")
+
+func _init(player: Node) -> void:
+	parent_player = player
+
+func _ready() -> void:
+	world = get_tree().get_first_node_in_group("world")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 主要碰撞處理
+# ═══════════════════════════════════════════════════════════════════════════
+
+func handle_hitbox_collision(area: Area2D) -> void:
+	"""處理 Hitbox 碰撞到 Hurtbox 的邏輯"""
+	# ── 碰撞過濾 ──
+	if not _is_valid_hit(area):
+		return
+	
+	var target = area.get_parent()
+	var was_in_stun = target.is_hit or target.is_knockfly
+	
+	if not world:
+		return
+	
+	# ── 請求擊中凍結（Slow-mo）──
+	var slowmo = world.get_node_or_null("SlowMoController")
+	if slowmo:
+		slowmo.request_hit_freeze()
+	
+	# ── 獲取攻擊參數 ──
+	var hit_params = _get_hit_parameters()
+	
+	# ── 調用目標的 take_hit ──
+	target.take_hit(
+		hit_params.hitstun,
+		hit_params.blockstun,
+		hit_params.damage,
+		hit_params.skip_push,
+		hit_params.force_knockfly,
+		hit_params.knockfly_params,
+		hit_params.knockback
+	)
+	
+	# ── 播放音效 ──
+	var is_blocked: bool = target.is_blocking
+	_play_hit_sound(is_blocked)
+	
+	# ── 生成 VFX ──
+	var contact = _calculate_contact_point(area)
+	_spawn_hit_vfx(is_blocked, contact, target.is_on_floor())
+	
+	# ── 發射擊中信號（用於 Hit-confirm cancel）──
+	var stun_duration = hit_params.blockstun if is_blocked else hit_params.hitstun
+	if parent_player.has_signal("hit_detected"):
+		parent_player.hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
+	
+	# ── Pushback 處理 ──
+	if not hit_params.penetrable:
+		_handle_corner_pushback(target, stun_duration)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 內部輔助函數
+# ═══════════════════════════════════════════════════════════════════════════
+
+func _is_valid_hit(area: Area2D) -> bool:
+	"""檢查碰撞是否有效"""
+	if area.name != "Hurtbox":
+		return false
+	if not area.get_parent().is_in_group("players"):
+		return false
+	if area.get_parent() == parent_player:
+		return false
+	return true
+
+func _get_hit_parameters() -> Dictionary:
+	"""從 ATTACK_TABLE 或 MoveSet 獲取攻擊參數"""
+	var params = {
+		"hitstun": 0.35,
+		"blockstun": 0.267,
+		"damage": parent_player.current_damage if "current_damage" in parent_player else 10.0,
+		"skip_push": false,
+		"force_knockfly": false,
+		"knockfly_params": {},
+		"knockback": -1.0,
+		"penetrable": false
+	}
+	
+	var attack_type = parent_player.attack_type if "attack_type" in parent_player else "none"
+	var attack_table = parent_player.ATTACK_TABLE if "ATTACK_TABLE" in parent_player else {}
+	var move_set = parent_player.move_set if "move_set" in parent_player else null
+	
+	# ── 優先從 ATTACK_TABLE 查詢 ──
+	if attack_table.has(attack_type):
+		var a = attack_table[attack_type]
+		params.hitstun = a.get("hitstun", params.hitstun)
+		params.blockstun = a.get("blockstun", params.blockstun)
+		params.damage = a.get("damage", params.damage)
+		params.knockback = a.get("knockback", -1.0)
+	
+	# ── 如果是特殊招式，從 MoveSet 查詢 ──
+	elif move_set and move_set.is_spmove and move_set.current_move_state.active_move:
+		var active_move = move_set.current_move_state.active_move
+		params.damage = active_move.damage
+		params.knockback = active_move.knockback
+		params.penetrable = active_move.penetrable  # MoveData 是類，直接訪問屬性
+		
+		# ── 特殊招式的特殊參數 ──
+		var move_name = active_move.name
+		if move_name == "powerkk":
+			params.hitstun = 0.65
+			params.blockstun = parent_player.powerkk_blockstun if "powerkk_blockstun" in parent_player else 0.3833
+		elif move_name == "spnk":
+			params.hitstun = 0.45
+			params.blockstun = parent_player.powerkk_blockstun if "powerkk_blockstun" in parent_player else 0.3833
+			# spnk 的傷害會根據動畫時間調整
+			var animation_player = parent_player.animation_player if "animation_player" in parent_player else null
+			if animation_player:
+				var pos = animation_player.current_animation_position
+				if pos < 0.2667:
+					params.damage = 6.0
+		elif move_name == "fireball":
+			params.hitstun = 0.35
+			params.blockstun = 0.233
+			params.skip_push = true
+		elif move_name == "super":
+			params.hitstun = 0.45
+			params.blockstun = 0.3
+		elif move_name == "dp":
+			params.hitstun = 0.65
+			params.blockstun = parent_player.powerkk_blockstun if "powerkk_blockstun" in parent_player else 0.3833
+			params.force_knockfly = true
+			params.knockfly_params = {
+				"gravity": active_move.knockfly_gravity,  # MoveData 類屬性
+				"vertical_speed": active_move.knockfly_vertical_speed,
+				"horizontal_speed": active_move.knockfly_horizontal_speed,
+				"duration": params.hitstun
+			}
+	
+	return params
+
+func _play_hit_sound(is_blocked: bool) -> void:
+	"""播放擊中/格擋音效"""
+	if is_blocked:
+		var block_sound = parent_player.get_node_or_null("BlockSoundPlayer")
+		if block_sound and block_sound.has_method("play"):
+			block_sound.play()
+	else:
+		var hit_sound = parent_player.get_node_or_null("HitSoundPlayer")
+		if hit_sound and hit_sound.has_method("play"):
+			hit_sound.play()
+
+func _calculate_contact_point(area: Area2D) -> Vector2:
+	"""計算碰撞接觸點"""
+	var contact = _get_contact_point_internal(area)
+	if contact == Vector2.ZERO:
+		var hitbox = parent_player.get_node_or_null("Hitbox")
+		if hitbox:
+			contact = (area.global_position + hitbox.global_position) / 2.0
+		else:
+			contact = area.global_position
+	return contact
+
+func _get_contact_point_internal(area: Area2D) -> Vector2:
+	"""獲取實際的接觸點（從 Player 複製）"""
+	var hitbox = parent_player.get_node_or_null("Hitbox")
+	if not hitbox or not parent_player.has_method("get_contact_point"):
+		return Vector2.ZERO
+	return parent_player.get_contact_point(hitbox, area)
+
+func _spawn_hit_vfx(is_blocked: bool, contact: Vector2, target_on_floor: bool) -> void:
+	"""生成擊中特效"""
+	var vfx_type = "block" if is_blocked else "hit"
+	var adjusted_contact = contact
+	
+	# 空中擊中時調整 Y 座標
+	if not target_on_floor:
+		adjusted_contact.y += 10
+	
+	var facing = parent_player.facing_direction if "facing_direction" in parent_player else 1.0
+	VFXImpact.spawn_vfx(world, vfx_type, adjusted_contact, facing)
+
+func _handle_corner_pushback(target: Node, stun_duration: float) -> void:
+	"""處理角落推回"""
+	var push_manager = get_tree().get_first_node_in_group("push_manager")
+	if not push_manager or not push_manager.is_at_corner(target):
+		return
+	
+	if not parent_player.has_method("get_facing_multiplier"):
+		return
+	
+	var corner_push_distance = parent_player.corner_push_distance if "corner_push_distance" in parent_player else 250.0
+	var push_duration = stun_duration
+	
+	parent_player.is_push_back = true
+	parent_player.push_back_timer = push_duration
+	parent_player.initial_push_back = push_duration
+	parent_player.push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
+	parent_player.fixed_velocity.x = int(-parent_player.push_back_velocity * parent_player.get_facing_multiplier())

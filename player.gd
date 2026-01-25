@@ -35,10 +35,12 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 @onready var player_controller = $PlayerController if has_node("PlayerController") else null
 
-# 新增 Handlers (Phase 1-2 重構)
+# 新增 Handlers (Phase 1-4 重構)
 @onready var shadow_sync_handler: ShadowSyncHandler = null
 @onready var attack_movement_handler: AttackMovementHandler = null
 @onready var cancel_window_handler: CancelWindowHandler = null
+@onready var attack_executor: AttackExecutor = null
+@onready var hit_response_handler: HitResponseHandler = null
 
 # 新增：由 world.gd 動態生成時設定，決定這個角色是左邊還是右邊玩家
 var seat: String = "player_a"  # "player_a" 或 "player_b"
@@ -115,55 +117,12 @@ func reset_special_state() -> void:
 	var input_data = get_input()
 	_update_animation_state(0, input_data.crouch_pressed)
 
-var player_anim_resets: Dictionary = {
-	"landing": func():
-		is_landing = false
-		landing_lock_timer = 0.0
-		has_air_attacked = false
-		# 获取当前真实的输入状态，保持蹲状态
-		var input_data = get_input()
-		_update_animation_state(0, input_data.crouch_pressed),
-	"st_lp": func(): reset_attack_state(),
-	"st_mp": func(): reset_attack_state(),
-	"st_hp": func(): reset_attack_state(),
-	"st_lk": func(): reset_attack_state(),
-	"st_mk": func(): reset_attack_state(),
-	"st_hk": func(): reset_attack_state(),
-	"cr_lp": func(): reset_attack_state(),
-	"cr_mp": func(): reset_attack_state(),
-	"cr_hp": func(): reset_attack_state(),
-	"cr_lk": func(): reset_attack_state(),
-	"cr_mk": func(): reset_attack_state(),
-	"cr_hk": func(): reset_attack_state(),
-	"jump_lp": func(): reset_air_state(),
-	"jump_mp": func(): reset_air_state(),
-	"jump_hp": func(): reset_air_state(),
-	"jump_lk": func(): reset_air_state(),
-	"jump_mk": func(): reset_air_state(),
-	"jump_hk": func(): reset_air_state(),
-	"jump_v": func():
-		if is_on_floor():
-			is_jumping = false
-			var input_data = get_input()
-			if (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed
-				or input_data.st_mp_pressed or input_data.st_mk_pressed
-				or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed):
-				is_landing = false
-				landing_facing_lock = false
-				update_facing_direction()
-				_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-			else:
-				is_landing = true
-				landing_lock_timer = landing_duration,
-	"Jump_V": func(): player_anim_resets["jump_v"].call(),
-	"Jump_F": func(): player_anim_resets["jump_v"].call(),
-	"Jump_B": func(): player_anim_resets["jump_v"].call(),
-	"fireball": func(): reset_special_state(),
-	"powerkk": func(): reset_special_state(),
-	"spnk": func(): reset_special_state(),
-	"dp": func(): reset_special_state(),
-	"hdk": func(): reset_special_state(),  # ← 加上這一行！
-}
+# ── 動畫重置分類（Phase 4 優化）──
+const GROUND_ATTACK_ANIMS = ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk",
+							  "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk"]
+const AIR_ATTACK_ANIMS = ["jump_lp", "jump_mp", "jump_hp", "jump_lk", "jump_mk", "jump_hk"]
+const JUMP_ANIMS = ["jump_v", "Jump_V", "Jump_F", "Jump_B"]
+const SPECIAL_ANIMS = ["fireball", "powerkk", "spnk", "dp", "hdk"]
 
 func _ready() -> void:
 	super._ready()
@@ -322,135 +281,24 @@ func _physics_process(delta: float) -> void:
 		input_data.st_mk_pressed = false
 		input_data.st_hk_pressed = false
 
+	# ── 地面攻擊執行（使用 AttackExecutor Handler）──
 	if (input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed or input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed) and is_valid_ground_state:
 		force_update_facing_direction()
-		if is_crouching:
-			if input_data.st_lp_pressed:
-				# Consume the buffered input
-				if player_controller and player_controller.has_method("consume_button_input"):
-					player_controller.consume_button_input("st_lp")
-				_execute_attack("cr_lp")
-			elif input_data.st_mp_pressed:
-				# Consume the buffered input
-				if player_controller and player_controller.has_method("consume_button_input"):
-					player_controller.consume_button_input("st_mp")
-				_execute_attack("cr_mp")
-			elif input_data.st_hp_pressed:
-				# Consume the buffered input
-				if player_controller and player_controller.has_method("consume_button_input"):
-					player_controller.consume_button_input("st_hp")
-				_execute_attack("cr_hp")
-			elif input_data.st_lk_pressed:
-				# Consume the buffered input
-				if player_controller and player_controller.has_method("consume_button_input"):
-					player_controller.consume_button_input("st_lk")
-				_execute_attack("cr_lk")
-			elif input_data.st_mk_pressed:
-				# Consume the buffered input
-				if player_controller and player_controller.has_method("consume_button_input"):
-					player_controller.consume_button_input("st_mk")
-				_execute_attack("cr_mk")
-			elif input_data.st_hk_pressed:
-				# Consume the buffered input
-				if player_controller and player_controller.has_method("consume_button_input"):
-					player_controller.consume_button_input("st_hk")
-				_execute_attack("cr_hk")
-		else:
-			if input_data.st_lp_pressed:
-				# Consume the buffered input
-				if player_controller and player_controller.has_method("consume_button_input"):
-					player_controller.consume_button_input("st_lp")
-				_execute_attack("st_lp")
-			elif input_data.st_mp_pressed:
-				# Consume the buffered input
-				if player_controller and player_controller.has_method("consume_button_input"):
-					player_controller.consume_button_input("st_mp")
-				_execute_attack("st_mp")
-			elif input_data.st_hp_pressed:
-				# Consume the buffered input
-				if player_controller and player_controller.has_method("consume_button_input"):
-					player_controller.consume_button_input("st_hp")
-				_execute_attack("st_hp")
-			elif input_data.st_lk_pressed:
-				# Consume the buffered input
-				if player_controller and player_controller.has_method("consume_button_input"):
-					player_controller.consume_button_input("st_lk")
-				_execute_attack("st_lk")
-			elif input_data.st_mk_pressed:
-				# Consume the buffered input
-				if player_controller and player_controller.has_method("consume_button_input"):
-					player_controller.consume_button_input("st_mk")
-				_execute_attack("st_mk")
-			elif input_data.st_hk_pressed:
-				# Consume the buffered input
-				if player_controller and player_controller.has_method("consume_button_input"):
-					player_controller.consume_button_input("st_hk")
-				_execute_attack("st_hk")
-		# 只有在沒有攻擊移動激活時才清零速度
-		var has_active_movement = attack_movement_handler and attack_movement_handler.is_active()
-		if not is_push_back and not has_active_movement:
-			fixed_velocity.x = 0
+		if attack_executor and attack_executor.try_execute_ground_attack(input_data, is_crouching):
+			# 攻擊已執行，只有在沒有攻擊移動激活時才清零速度
+			var has_active_movement = attack_movement_handler and attack_movement_handler.is_active()
+			if not is_push_back and not has_active_movement:
+				fixed_velocity.x = 0
 
+	# ── 空中攻擊執行（使用 AttackExecutor Handler）──
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked and not is_layground
 	
-	# Debug: Check why air attack might be blocked
-	if not is_on_floor() and is_jumping and (input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed or input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed):
-		if not is_valid_air_state:
-			var blocked_reasons = []
-			if is_on_floor(): blocked_reasons.append("on_floor")
-			if not is_jumping: blocked_reasons.append("not_jumping")
-			if is_air_attacking: blocked_reasons.append("is_air_attacking")
-			if is_blocking: blocked_reasons.append("is_blocking")
-			if is_knockfly: blocked_reasons.append("is_knockfly")
-			if is_hit: blocked_reasons.append("is_hit")
-			if is_wakeup: blocked_reasons.append("is_wakeup")
-			if has_air_attacked: blocked_reasons.append("has_air_attacked=TRUE")
-			if is_layground: blocked_reasons.append("is_layground")
-			print("[AIR ATTACK BLOCKED] Seat: ", seat, " | Reasons: ", blocked_reasons)
-	
-	if input_data.st_lp_pressed and is_valid_air_state:
-		print("[AIR ATTACK START] Executing jump_lp | Seat: ", seat)
-		# Consume the buffered input
-		if player_controller and player_controller.has_method("consume_button_input"):
-			player_controller.consume_button_input("st_lp")
-		is_air_attacking = true
-		has_air_attacked = true
-		_execute_attack("jump_lp")
-	elif input_data.st_mp_pressed and is_valid_air_state:
-		# Consume the buffered input
-		if player_controller and player_controller.has_method("consume_button_input"):
-			player_controller.consume_button_input("st_mp")
-		is_air_attacking = true
-		has_air_attacked = true
-		_execute_attack("jump_mp")
-	elif input_data.st_hp_pressed and is_valid_air_state:
-		# Consume the buffered input
-		if player_controller and player_controller.has_method("consume_button_input"):
-			player_controller.consume_button_input("st_hp")
-		is_air_attacking = true
-		has_air_attacked = true
-		_execute_attack("jump_hp")
-	elif input_data.st_lk_pressed and is_valid_air_state:
-		# Consume the buffered input
-		if player_controller and player_controller.has_method("consume_button_input"):
-			player_controller.consume_button_input("st_lk")
-		is_air_attacking = true
-		has_air_attacked = true
-		_execute_attack("jump_lk")
-	elif input_data.st_mk_pressed and is_valid_air_state:
-		# Consume the buffered input
-		if player_controller and player_controller.has_method("consume_button_input"):
-			player_controller.consume_button_input("st_mk")
-		is_air_attacking = true
-		has_air_attacked = true
-		_execute_attack("jump_mk")
-	elif input_data.st_hk_pressed and is_valid_air_state:
-		# Consume the buffered input
-		if player_controller and player_controller.has_method("consume_button_input"):
-			player_controller.consume_button_input("st_hk")
-		is_air_attacking = true
-		has_air_attacked = true
-		_execute_attack("jump_hk")
+	if is_valid_air_state and attack_executor:
+		attack_executor.try_execute_air_attack(input_data)
+	else:
+		# 調試：顯示空中攻擊被阻擋的原因
+		if attack_executor:
+			attack_executor.debug_air_attack_blocked(input_data, self)
 
 	if landing_lock_timer > 0:
 		landing_lock_timer -= delta
@@ -558,101 +406,55 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 
 # Override parent's animation finished handler to use player_anim_resets
 func _on_animation_player_finished(anim_name: String) -> void:
-	if anim_name in player_anim_resets:
-		player_anim_resets[anim_name].call()
-		return
-	super._on_animation_player_finished(anim_name)
+	"""動畫完成回調（Phase 4 優化：使用分類判斷）"""
+	# 地面攻擊重置
+	if anim_name in GROUND_ATTACK_ANIMS:
+		reset_attack_state()
+	# 空中攻擊重置
+	elif anim_name in AIR_ATTACK_ANIMS:
+		reset_air_state()
+	# 跳躍重置
+	elif anim_name in JUMP_ANIMS:
+		_reset_jump_state()
+	# 特殊招式重置
+	elif anim_name in SPECIAL_ANIMS:
+		reset_special_state()
+	# 著地重置
+	elif anim_name == "landing":
+		_reset_landing_anim()
+	else:
+		# 如果不在上述分類中，調用父類方法
+		super._on_animation_player_finished(anim_name)
 
-# ── 擊中處理 ─────────────────────
+func _reset_jump_state() -> void:
+	"""跳躍動畫結束重置"""
+	if is_on_floor():
+		is_jumping = false
+		var input_data = get_input()
+		if (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed
+			or input_data.st_mp_pressed or input_data.st_mk_pressed
+			or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed):
+			is_landing = false
+			landing_facing_lock = false
+			update_facing_direction()
+			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+		else:
+			is_landing = true
+			landing_lock_timer = landing_duration
+
+func _reset_landing_anim() -> void:
+	"""著地動畫結束重置"""
+	is_landing = false
+	landing_lock_timer = 0.0
+	has_air_attacked = false
+	var input_data = get_input()
+	_update_animation_state(0, input_data.crouch_pressed)
+
+# ── 擊中處理（Phase 4：委派給 HitResponseHandler）─────────────────────
 func _on_hitbox_area_entered(area: Area2D) -> void:
-	if area.name != "Hurtbox" or not area.get_parent().is_in_group("players") or area.get_parent() == self:
-		return
-	var target = area.get_parent()
-	var was_in_stun = target.is_hit or target.is_knockfly
-	if not world: return
-
-	var slowmo = world.get_node_or_null("SlowMoController")
-	if slowmo: slowmo.request_hit_freeze()
-
-	var hitstun := 0.35
-	var blockstun := 0.267
-	var damage := current_damage
-	var skip_push := false
-	var force_knockfly := false
-	var knockfly_params := {}
-
-	if ATTACK_TABLE.has(attack_type):
-		var a = ATTACK_TABLE[attack_type]
-		hitstun = a.hitstun
-		blockstun = a.blockstun
-		damage = a.damage
-	elif move_set and move_set.is_spmove and move_set.current_move_state.active_move:
-		var active_move = move_set.current_move_state.active_move
-		damage = active_move.damage
-		if active_move.name == "powerkk":
-			hitstun = 0.65
-			blockstun = powerkk_blockstun
-		elif active_move.name == "spnk":
-			hitstun = 0.45
-			blockstun = powerkk_blockstun
-			var pos = animation_player.current_animation_position if animation_player else 0.0
-			if pos < 0.2667: damage = 6.0
-		elif active_move.name == "fireball":
-			hitstun = 0.35
-			blockstun = 0.233
-			skip_push = true
-		elif active_move.name == "super":
-			hitstun = 0.45
-			blockstun = 0.3
-		elif active_move.name == "dp":
-			hitstun = 0.65
-			blockstun = powerkk_blockstun
-			# DP 应该在对方没有格挡时强制触发 knockfly（无论对方是否在使用特殊技能）
-			force_knockfly = true
-			knockfly_params = {
-				"gravity": active_move.knockfly_gravity,
-				"vertical_speed": active_move.knockfly_vertical_speed,
-				"horizontal_speed": active_move.knockfly_horizontal_speed,
-				"duration": hitstun
-			}
-
-	var knockback_dist = -1.0
-	if ATTACK_TABLE.has(attack_type):
-		knockback_dist = ATTACK_TABLE[attack_type].get("knockback", -1.0)
-	elif move_set and move_set.is_spmove and move_set.current_move_state.active_move:
-		knockback_dist = move_set.current_move_state.active_move.knockback
-	
-	target.take_hit(hitstun, blockstun, damage, skip_push, force_knockfly, knockfly_params, knockback_dist)
-
-	var is_blocked: bool = target.is_blocking
-	var stun_duration = blockstun if is_blocked else hitstun
-	hit_detected.emit(target.name, stun_duration, is_blocked, was_in_stun)
-
-	var hit_sound = $HitSoundPlayer if has_node("HitSoundPlayer") else null
-	var block_sound = $BlockSoundPlayer if has_node("BlockSoundPlayer") else null
-	if is_blocked and block_sound:
-		block_sound.play()
-	elif not is_blocked and hit_sound:
-		hit_sound.play()
-
-	var vfx_type = "block" if is_blocked else "hit"
-	var contact = get_contact_point($Hitbox, area)
-	if contact == Vector2.ZERO:
-		contact = (area.global_position + $Hitbox.global_position) / 2.0
-	if not target.is_on_floor():
-		contact.y += 10
-	VFXImpact.spawn_vfx(world, vfx_type, contact, facing_direction)
-
-	if move_set and move_set.is_spmove and move_set.current_move_state.active_move and move_set.current_move_state.active_move.penetrable:
-		return
-	var push_manager = get_tree().get_first_node_in_group("push_manager")
-	if push_manager and push_manager.is_at_corner(target):
-		var push_duration = stun_duration
-		is_push_back = true
-		push_back_timer = push_duration
-		initial_push_back = push_duration
-		push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
-		fixed_velocity.x = int(-push_back_velocity * get_facing_multiplier())
+	"""Hitbox 碰撞處理（委派給 HitResponseHandler）"""
+	if hit_response_handler:
+		hit_response_handler.handle_hitbox_collision(area)
 
 func _on_hit_detected(_target: String, _stun_duration: float, _is_blocked: bool, _was_in_stun: bool) -> void:
 	# 擊中確認取消（Hit-Confirm Cancel）：只有在擊中對手時才真正開啟取消窗口
@@ -759,23 +561,35 @@ func _execute_attack(attack_name: String) -> void:
 # ══════════════════════════════════════════════════════════════════
 
 func _initialize_handlers() -> void:
-	"""初始化所有 Handlers"""
-	# ShadowSyncHandler
+	"""初始化所有 Handlers (Phase 1-3)"""
+	# Phase 1: ShadowSyncHandler
 	var shadow_handler = ShadowSyncHandler.new()
 	shadow_handler.name = "ShadowSyncHandler"
 	add_child(shadow_handler)
 	shadow_sync_handler = shadow_handler
 	
-	# AttackMovementHandler
+	# Phase 2: AttackMovementHandler
 	var movement_handler = AttackMovementHandler.new()
 	movement_handler.name = "AttackMovementHandler"
 	add_child(movement_handler)
 	attack_movement_handler = movement_handler
 	
-	# CancelWindowHandler
+	# Phase 2: CancelWindowHandler
 	var cancel_handler = CancelWindowHandler.new()
 	cancel_handler.name = "CancelWindowHandler"
 	add_child(cancel_handler)
 	cancel_window_handler = cancel_handler
 	
-	print("[Player] Handlers 初始化完成 | Seat: ", seat)
+	# Phase 3: AttackExecutor
+	var executor = AttackExecutor.new(self)
+	executor.name = "AttackExecutor"
+	add_child(executor)
+	attack_executor = executor
+	
+	# Phase 4: HitResponseHandler
+	var hit_handler = HitResponseHandler.new(self)
+	hit_handler.name = "HitResponseHandler"
+	add_child(hit_handler)
+	hit_response_handler = hit_handler
+	
+	print("[Player] Handlers 初始化完成 (Phase 1-4) | Seat: ", seat)
