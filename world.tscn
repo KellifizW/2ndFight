@@ -204,15 +204,29 @@ theme_override_font_sizes/font_size = 12
 script = ExtResource("12_cbp6q")
 enabled = true
 
-[node name="HitboxDebugDisplay" type="Label" parent="UI"]
+[node name="HitboxDebugP1" type="Label" parent="UI"]
 anchors_preset = 4
 anchor_top = 0.5
 anchor_bottom = 0.5
-offset_top = -11.5
-offset_right = 40.0
-offset_bottom = 11.5
+offset_top = -119.25
+offset_right = 232.0
+offset_bottom = 119.25
 grow_vertical = 2
 script = ExtResource("13_26xuy")
+
+[node name="HitboxDebugP2" type="Label" parent="UI"]
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -216.0
+offset_top = -85.75
+offset_bottom = 85.75
+grow_horizontal = 0
+grow_vertical = 2
+script = ExtResource("13_26xuy")
+target_player_seat = "player_b"
 
 [node name="CPUController" type="Node" parent="."]
 script = ExtResource("6_dwbse")

@@ -648,7 +648,7 @@ func _sync_shadow_animation() -> void:
 		shadow_sprite.offset = body_sprite.offset
 		shadow_sprite.flip_h = facing_direction < 0
 		shadow_sprite.global_position.x = global_position.x
-		shadow_sprite.global_position.y = 570 + 110
+		shadow_sprite.global_position.y = 570 + 120
 		
 		if is_on_floor():
 			mat.set_shader_parameter("blur_factor", 0.0)

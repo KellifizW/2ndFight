@@ -8,7 +8,8 @@
 script = ExtResource("1_e6rab")
 st_hp_damage = 10.0
 st_hp_movement = ExtResource("2_ybc3s")
-st_mk_damage = 12.0
+st_lk_damage = 5.0
+st_mk_damage = 8.0
 st_mk_hitstun = 0.7
 st_mk_knockback = 300.0
 st_hk_damage = 16.0

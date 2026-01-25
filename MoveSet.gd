@@ -151,7 +151,7 @@ func _initialize_move_library() -> void:
 		"spnk", "DEN", 12.0, 280.0, 1.2, 250.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 	)
 	move_library["hdk"] = MoveData.new(
-		"hdk", "DEN", 15.0, 290.0, 1.1, 200.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+		"hdk", "DEN", 6.0, 290.0, 1.1, 200.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 	)
 	
 	# Universal moves

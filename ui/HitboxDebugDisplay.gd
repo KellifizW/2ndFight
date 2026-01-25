@@ -1,29 +1,44 @@
 extends Label
 
 # ============================================================
-# HITBOX DEBUG DISPLAY
+# HITBOX DEBUG DISPLAY (SINGLE PLAYER)
 # ============================================================
-# 實時顯示 Hitbox 檢測系統的狀態
-# - 當前距離
+# 實時顯示單個玩家的 Hitbox 檢測系統狀態
 # - 攻擊範圍
 # - Hitbox/Hurtbox 尺寸
 # - 碰撞檢測狀態
+# - 威脅等級
 #
 # 使用方法：
-# 1. 在場景中添加一個 Label 節點
-# 2. 附加此腳本
-# 3. 在 Inspector 中配置選項
-# 4. 運行遊戲即可看到實時數據
+# 1. 在場景中添加兩個 Label 節點（一個給 P1，一個給 P2）
+# 2. 分別附加此腳本
+# 3. 設置 target_player_seat 為 "player_a" 或 "player_b"
+# 4. 在 Inspector 中配置其他選項
+# 5. 運行遊戲即可看到實時數據
 
 # ============================================================
 # 配置選項
 # ============================================================
 
+## 選擇要追蹤的玩家座位
+@export_enum("player_a", "player_b") var target_player_seat: String = "player_a"
+
+## 啟用/禁用調試顯示
 @export var enabled: bool = true
-@export var update_interval: float = 0.1  # 更新頻率（秒），避免影響性能
+
+## 更新頻率（秒），避免影響性能
+@export var update_interval: float = 0.1
+
+## 顯示到對手的距離
 @export var show_distance: bool = true
+
+## 顯示 Hitbox 信息
 @export var show_hitbox_info: bool = true
+
+## 顯示碰撞檢測狀態
 @export var show_collision_status: bool = true
+
+## 顯示威脅等級（僅 AI 玩家）
 @export var show_threat_level: bool = true
 
 # ============================================================
@@ -31,11 +46,12 @@ extends Label
 # ============================================================
 
 var world: Node = null
-var player_a: Player = null
-var player_b: Player = null
+var target_player: Player = null  # 要追蹤的玩家
+var opponent: Player = null  # 對手玩家
 var hitbox_cache: HitboxCache = null
 
 var update_timer: float = 0.0
+var player_display_name: String = ""  # P1 或 P2
 
 func _repeat_string(s: String, count: int) -> String:
 	"""重複字符串 count 次"""
@@ -76,14 +92,23 @@ func _initialize() -> void:
 	print("[HITBOX DEBUG] 調試顯示已初始化")
 
 func _find_players() -> void:
-	"""尋找玩家節點"""
+	"""尋找玩家節點並設置目標玩家"""
 	var players = get_tree().get_nodes_in_group("players")
 	
-	if players.size() >= 2:
-		player_a = players[0]
-		player_b = players[1]
-	elif players.size() == 1:
-		player_a = players[0]
+	if players.size() < 1:
+		push_warning("[HITBOX DEBUG] 警告：未找到玩家節點")
+		return
+	
+	# 根據 target_player_seat 設置目標玩家
+	for player in players:
+		if player.seat == target_player_seat:
+			target_player = player
+			player_display_name = "P1" if target_player_seat == "player_a" else "P2"
+		else:
+			opponent = player
+	
+	if not target_player:
+		push_warning("[HITBOX DEBUG] 警告：未找到座位為 %s 的玩家" % target_player_seat)
 
 func _process(delta: float) -> void:
 	if not enabled or not visible:
@@ -97,16 +122,16 @@ func _process(delta: float) -> void:
 
 func _update_display() -> void:
 	"""更新顯示內容"""
-	if not hitbox_cache or not player_a or not player_b:
-		text = "[HITBOX DEBUG] 等待初始化..."
+	if not hitbox_cache or not target_player:
+		text = "[%s DEBUG] 等待初始化..." % player_display_name
 		return
 	
-	var display_text = "[HITBOX DEBUG]\n"
-	display_text += _repeat_string("=", 40) + "\n"
+	var display_text = "[%s HITBOX]\n" % player_display_name
+	display_text += _repeat_string("=", 30) + "\n"
 	
-	# 顯示距離
-	if show_distance:
-		var distance = abs(player_a.global_position.x - player_b.global_position.x)
+	# 顯示距離（到對手）
+	if show_distance and opponent:
+		var distance = abs(target_player.global_position.x - opponent.global_position.x)
 		display_text += "📏 距離: %.1f px\n" % distance
 	
 	# 顯示 Hitbox 信息
@@ -121,128 +146,88 @@ func _update_display() -> void:
 	if show_threat_level:
 		display_text += _get_threat_info()
 	
-	display_text += _repeat_string("=", 40)
+	display_text += _repeat_string("=", 30)
 	
 	text = display_text
 
 func _get_hitbox_info() -> String:
-	"""獲取 Hitbox 信息"""
-	var info = "\n📦 Hitbox 信息:\n"
+	"""獲取目標玩家的 Hitbox 信息"""
+	var info = "\n📦 Hitbox:\n"
 	
-	# Player A
-	if player_a.is_attacking and "attack_type" in player_a:
-		var attack_name = player_a.attack_type
-		var hitbox = hitbox_cache.get_hitbox_data(player_a.character_id, attack_name)
-		var attack_range = hitbox_cache.get_attack_range(player_a.character_id, attack_name)
-		info += "  P1 攻擊: %s\n" % attack_name
+	# 目標玩家的攻擊信息
+	if target_player.is_attacking and "attack_type" in target_player:
+		var attack_name = target_player.attack_type
+		var hitbox = hitbox_cache.get_hitbox_data(target_player.character_id, attack_name)
+		var attack_range = hitbox_cache.get_attack_range(target_player.character_id, attack_name)
+		info += "  🗡️ 攻擊: %s\n" % attack_name
 		info += "    尺寸: %s\n" % hitbox.size
 		info += "    範圍: %.1f px\n" % attack_range
-	
-	# Player B
-	if player_b.is_attacking and "attack_type" in player_b:
-		var attack_name = player_b.attack_type
-		var hitbox = hitbox_cache.get_hitbox_data(player_b.character_id, attack_name)
-		var attack_range = hitbox_cache.get_attack_range(player_b.character_id, attack_name)
-		info += "  P2 攻擊: %s\n" % attack_name
-		info += "    尺寸: %s\n" % hitbox.size
-		info += "    範圍: %.1f px\n" % attack_range
+	else:
+		info += "  🗡️ 攻擊: 無\n"
 	
 	# Hurtbox 信息
-	var p1_hurtbox = hitbox_cache.get_hurtbox_data(player_a.character_id)
-	var p2_hurtbox = hitbox_cache.get_hurtbox_data(player_b.character_id)
-	
-	info += "  P1 Hurtbox: %s\n" % p1_hurtbox.size
-	info += "  P2 Hurtbox: %s\n" % p2_hurtbox.size
+	var hurtbox = hitbox_cache.get_hurtbox_data(target_player.character_id)
+	info += "  🛡️ Hurtbox: %s\n" % hurtbox.size
 	
 	return info
 
 func _get_collision_status() -> String:
 	"""獲取碰撞檢測狀態"""
-	var status = "\n🎯 碰撞檢測:\n"
+	if not opponent:
+		return "\n🎯 碰撞: (無對手)\n"
 	
-	var has_collision = false
+	var status = "\n🎯 碰撞:\n"
 	
-	# 檢查 Player A 的攻擊是否與 Player B 碰撞
-	if player_a.is_attacking and "attack_type" in player_a:
-		var attack_name = player_a.attack_type
-		var facing = player_a.get("facing_direction") if "facing_direction" in player_a else 1.0
+	# 檢查目標玩家的攻擊是否命中對手
+	if target_player.is_attacking and "attack_type" in target_player:
+		var attack_name = target_player.attack_type
+		var facing = target_player.get("facing_direction") if "facing_direction" in target_player else 1.0
 		var collision = hitbox_cache.check_hitbox_collision(
-			player_a.global_position,
-			player_a.character_id,
+			target_player.global_position,
+			target_player.character_id,
 			attack_name,
-			player_b.global_position,
-			player_b.character_id,
+			opponent.global_position,
+			opponent.character_id,
 			facing
 		)
 		
 		if collision:
-			status += "  ⚠️ P1 攻擊 (%s) 與 P2 碰撞！\n" % attack_name
-			has_collision = true
-	
-	# 檢查 Player B 的攻擊是否與 Player A 碰撞
-	if player_b.is_attacking and "attack_type" in player_b:
-		var attack_name = player_b.attack_type
-		var facing = player_b.get("facing_direction") if "facing_direction" in player_b else 1.0
-		var collision = hitbox_cache.check_hitbox_collision(
-			player_b.global_position,
-			player_b.character_id,
-			attack_name,
-			player_a.global_position,
-			player_a.character_id,
-			facing
-		)
-		
-		if collision:
-			status += "  ⚠️ P2 攻擊 (%s) 與 P1 碰撞！\n" % attack_name
-			has_collision = true
-	
-	if not has_collision:
-		status += "  ✅ 無碰撞\n"
+			status += "  ⚠️ 命中對手！\n"
+		else:
+			status += "  ❌ 未命中\n"
+	else:
+		status += "  ➖ 未攻擊\n"
 	
 	return status
 
 func _get_threat_info() -> String:
-	"""獲取威脅等級信息"""
-	var info = "\n🚨 威脅評估:\n"
+	"""獲取威脅等級信息（僅適用於 AI 玩家）"""
+	var info = "\n🚨 威脅:\n"
 	
-	# 獲取 AI 行為節點
-	var ai_behavior = null
-	if player_a.has_node("AIBehavior") and player_a.get_node("AIBehavior").ai_enabled:
-		ai_behavior = player_a.get_node("AIBehavior")
-	elif player_b.has_node("AIBehavior") and player_b.get_node("AIBehavior").ai_enabled:
-		ai_behavior = player_b.get_node("AIBehavior")
+	if not opponent:
+		return info + "  (無對手)\n"
 	
-	if ai_behavior and ai_behavior.threat_system:
-		var ai_player = player_a if player_a.has_node("AIBehavior") else player_b
-		var opponent = player_b if ai_player == player_a else player_a
-		
-		var threat = ai_behavior.threat_system.evaluate_threats(ai_player, opponent)
-		
-		var threat_level_str = ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"][threat.level]
-		info += "  等級: %s\n" % threat_level_str
-		
-		if threat.source != "":
-			info += "  來源: %s\n" % threat.source
-		
-		if threat.frames_until_hit < 999:
-			info += "  撞擊幀數: %d\n" % threat.frames_until_hit
-		
-		if threat.recommended_response != "":
-			info += "  建議: %s\n" % threat.recommended_response
-	else:
-		info += "  (AI 未啟用)\n"
+	# 檢查目標玩家是否有 AI
+	if not target_player.has_node("AIBehavior"):
+		return info + "  (非 AI)\n"
+	
+	var ai_behavior = target_player.get_node("AIBehavior")
+	
+	if not ai_behavior.ai_enabled or not ai_behavior.threat_system:
+		return info + "  (AI 未啟用)\n"
+	
+	var threat = ai_behavior.threat_system.evaluate_threats(target_player, opponent)
+	
+	var threat_level_str = ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"][threat.level]
+	info += "  等級: %s\n" % threat_level_str
+	
+	if threat.source != "":
+		info += "  來源: %s\n" % threat.source
+	
+	if threat.frames_until_hit < 999:
+		info += "  幀數: %d\n" % threat.frames_until_hit
+	
+	if threat.recommended_response != "":
+		info += "  建議: %s\n" % threat.recommended_response
 	
 	return info
-
-# ============================================================
-# 公開接口
-# ============================================================
-
-func set_enabled(value: bool) -> void:
-	"""啟用/禁用調試顯示"""
-	enabled = value
-	visible = value
-
-func set_update_interval(interval: float) -> void:
-	"""設置更新頻率"""
-	update_interval = max(0.05, interval)  # 最快 0.05 秒（20 FPS）
