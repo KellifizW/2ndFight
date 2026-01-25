@@ -1,19 +1,23 @@
-[gd_resource type="Resource" script_class="AttackData" load_steps=4 format=3 uid="uid://cvb6od4v5o7vq"]
+[gd_resource type="Resource" script_class="AttackData" load_steps=6 format=3 uid="uid://cvb6od4v5o7vq"]
 
 [ext_resource type="Script" uid="uid://ccjfweg28wskh" path="res://data/AttackData.gd" id="1_e6rab"]
 [ext_resource type="Resource" uid="uid://hqrdjr3uchi2" path="res://data/den_cr_hk_movement.tres" id="1_tfxke"]
 [ext_resource type="Resource" uid="uid://0kevkaj8da10" path="res://data/den_st_hp_movement.tres" id="2_ybc3s"]
+[ext_resource type="Resource" uid="uid://rml3g2464d76" path="res://data/den_st_hk_movement.tres" id="3_pjwwx"]
+[ext_resource type="Resource" uid="uid://doln5l3i1xaf8" path="res://data/den_st_mk_movement.tres" id="4_lgwdk"]
 
 [resource]
 script = ExtResource("1_e6rab")
 st_hp_damage = 10.0
 st_hp_movement = ExtResource("2_ybc3s")
-st_lk_damage = 5.0
-st_mk_damage = 8.0
+st_lk_damage = 3.0
+st_mk_damage = 6.0
 st_mk_hitstun = 0.7
 st_mk_knockback = 300.0
-st_hk_damage = 16.0
+st_mk_movement = ExtResource("4_lgwdk")
+st_hk_damage = 9.0
 st_hk_hitstun = 0.8
+st_hk_movement = ExtResource("3_pjwwx")
 cr_lp_hitstun = 0.267
 cr_lp_blockstun = 0.183
 cr_mp_damage = 9.0

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="AttackMovement" load_steps=2 format=3 uid="uid://rml3g2464d76"]
+
+[ext_resource type="Script" uid="uid://do60xtl0h0rgp" path="res://data/AttackMovement.gd" id="1_v660w"]
+
+[resource]
+script = ExtResource("1_v660w")
+enabled = true
+distance = 70.0
+duration = 0.25
+curve_type = 5
+metadata/_custom_type_script = "uid://do60xtl0h0rgp"
