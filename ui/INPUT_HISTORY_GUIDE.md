@@ -1,9 +1,19 @@
 # InputHistoryDisplay 使用指南
 
-## 功能說明
-`InputHistoryDisplay.gd` 是一個視覺化輸入歷史顯示組件，參考 Sakuga-Engine 的設計。它會實時顯示玩家最近的輸入操作，包括方向、按鈕和持續幀數。
+> **注意**：此為舊版文字版本的文檔，已被 InputHistoryDisplayIcon（圖標版）取代。
+> 建議使用圖標版：參見 [ICON_HISTORY_SETUP.md](ICON_HISTORY_SETUP.md) 和 [ICON_QUICK_START.md](ICON_QUICK_START.md)
 
-## 使用步驟
+## 功能說明（已棄用）
+`InputHistoryDisplay.gd` 是文字版輸入歷史顯示組件（已被圖標版取代）。
+
+**請使用新的圖標版本：**
+- 📄 [InputHistoryDisplayIcon.gd](InputHistoryDisplayIcon.gd) - 圖標版主腳本
+- 📖 [ICON_QUICK_START.md](ICON_QUICK_START.md) - 5分鐘快速設置
+- 📖 [ICON_HISTORY_SETUP.md](ICON_HISTORY_SETUP.md) - 詳細使用指南
+
+---
+
+## 舊版使用步驟（已棄用）
 
 ### 1. 創建 UI 場景
 
@@ -94,13 +104,25 @@
 ## 顯示格式說明
 
 ```
-方向  按鈕  幀數
-----  ----  ----
-→     MP    3f    # 向前按住 MP，持續 3 幀
-↓     -     12f   # 蹲下，持續 12 幀
-↘     LP    2f    # 斜下前+LP，持續 2 幀
-○     -     5f    # 中立位置，持續 5 幀
+幀  方向  按鈕      
+----  ----  --------  
+3     →     MP        # 向前按住 MP，持續 3 幀
+12    ↓     -         # 蹲下，持續 12 幀
+2     ↘     LP        # 斜下前+LP，持續 2 幀
+5     ○     LP+LK     # 同時按 LP 和 LK，持續 5 幀 ⭐ 新功能
+1     ←     HP+HK     # 同時按 HP 和 HK
+99    →     MP        # 最多顯示 99 幀 ⭐ 新功能
 ```
+
+**多按鈕同時顯示**：系統現在支援同時按下多個按鈕的顯示！
+- 例如：`LP+LK` 表示同時按下 LP 和 LK（投技）
+- 例如：`MP+MK` 表示同時按下 MP 和 MK
+- 最多可顯示 6 個按鈕組合（如 `LP+MP+HP+LK+MK+HK`）
+
+**幀數顯示優化** ⭐ 新功能：
+- 幀數顯示在最前面，編排更緊淊
+- 最多顯示 99 幀，避免長時間持續輸入的數字過大
+- 只顯示數字，不顯示 "f" 後綴，更簡潔
 
 方向符號對應：
 - `○` = 中立 (NEUTRAL)
@@ -109,6 +131,17 @@
 - `→` = 前 (FORWARD)
 - `↙` = 下後 (DOWN_BACK)
 - `←` = 後 (BACK)
+- `↑` = 上 (UP) ⭐ 新功能
+- `↗` = 上前 (UP_FORWARD) ⭐ 新功能
+- `↖` = 上後 (UP_BACK) ⭐ 新功能
+
+按鈕對應：
+- `LP` = 輕拳 (Light Punch)
+- `MP` = 中拳 (Medium Punch)
+- `HP` = 重拳 (Heavy Punch)
+- `LK` = 輕腳 (Light Kick)
+- `MK` = 中腳 (Medium Kick)
+- `HK` = 重腳 (Heavy Kick)
 
 ## 進階設置
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b1rshtgffko8w"
-path="res://.godot/imported/punch.png-4d567657a23b51a9fe635de09ebdce05.ctex"
+uid="uid://beyka1rkp1eii"
+path="res://.godot/imported/arrow.png-e7b4b534ecaece3b1c4582bbb2e945a8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/commands/punch.png"
-dest_files=["res://.godot/imported/punch.png-4d567657a23b51a9fe635de09ebdce05.ctex"]
+source_file="res://assets/ui/cmdbttn/arrow.png"
+dest_files=["res://.godot/imported/arrow.png-e7b4b534ecaece3b1c4582bbb2e945a8.ctex"]
 
 [params]
 

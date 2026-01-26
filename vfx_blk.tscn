@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://b3fnkau3l2ucr"]
+[gd_scene load_steps=19 format=3 uid="uid://b3fnkau3l2ucr"]
 
 [ext_resource type="Script" uid="uid://dowb57vy1aew4" path="res://vfx_impact.gd" id="1_xm6gv"]
 [ext_resource type="Texture2D" uid="uid://dm52t6xjph1us" path="res://assets/texture/21.png" id="2_ivt7l"]
@@ -43,7 +43,13 @@ point_count = 2
 [sub_resource type="CurveTexture" id="CurveTexture_ivt7l"]
 curve = SubResource("Curve_xm6gv")
 
+[sub_resource type="Curve" id="Curve_srr75"]
+_limits = [-200.0, 200.0, 0.0, 1.0]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
 [sub_resource type="CurveTexture" id="CurveTexture_5881g"]
+curve = SubResource("Curve_srr75")
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_5881g"]
 particle_flag_disable_z = true
@@ -77,6 +83,7 @@ scale = Vector2(0.6, 1)
 emitting = false
 amount = 1
 texture = ExtResource("2_ivt7l")
+lifetime = 1.5
 one_shot = true
 speed_scale = 10.0
 explosiveness = 1.0
@@ -89,9 +96,10 @@ scale = Vector2(0.5, 1)
 emitting = false
 amount = 100
 texture = ExtResource("3_ivt7l")
+lifetime = 1.5
 one_shot = true
-speed_scale = 10.0
-explosiveness = 1.0
+speed_scale = 7.0
+explosiveness = 0.9
 randomness = 1.0
 process_material = SubResource("ParticleProcessMaterial_5881g")
 
@@ -101,8 +109,9 @@ material = SubResource("CanvasItemMaterial_5881g")
 emitting = false
 amount = 80
 texture = ExtResource("3_ivt7l")
-lifetime = 0.09999999999999999
+lifetime = 0.2
 one_shot = true
+speed_scale = 1.5
 explosiveness = 0.6
 fixed_fps = 60
 process_material = ExtResource("4_ivt7l")

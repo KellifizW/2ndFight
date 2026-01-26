@@ -20,22 +20,25 @@ class InputHistoryElement:
 	
 	func _init():
 		container = HBoxContainer.new()
+		container.add_theme_constant_override("separation", 4)  # 元素間距
 		direction_label = Label.new()
 		buttons_label = Label.new()
 		frames_label = Label.new()
 		
-		direction_label.custom_minimum_size = Vector2(60, 20)
-		buttons_label.custom_minimum_size = Vector2(80, 20)
-		frames_label.custom_minimum_size = Vector2(40, 20)
+		frames_label.custom_minimum_size = Vector2(35, 20)  # 縮小寬度（兩位數 + 邊距）
+		direction_label.custom_minimum_size = Vector2(40, 20)
+		buttons_label.custom_minimum_size = Vector2(120, 20)  # 增加寬度以容納多按鈕 (如 "LP+LK+HP")
 		
 		# 增加字體大小以便可見
-		direction_label.add_theme_font_size_override("font_size", 16)
-		buttons_label.add_theme_font_size_override("font_size", 16)
-		frames_label.add_theme_font_size_override("font_size", 16)
+		frames_label.add_theme_font_size_override("font_size", 18)
+		frames_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT  # 數字右對齊
+		direction_label.add_theme_font_size_override("font_size", 20)
+		buttons_label.add_theme_font_size_override("font_size", 20)
 		
+		# ⭐ 順序：幀數 → 方向 → 按鈕
+		container.add_child(frames_label)
 		container.add_child(direction_label)
 		container.add_child(buttons_label)
-		container.add_child(frames_label)
 	
 	func set_input_data(raw_input: int, duration: int):
 		# Parse direction
@@ -47,23 +50,40 @@ class InputHistoryElement:
 			3: dir_text = "→"      # FORWARD
 			4: dir_text = "↙"      # DOWN_BACK
 			5: dir_text = "←"      # BACK
+			6: dir_text = "↑"      # UP
+			7: dir_text = "↗"      # UP_FORWARD
+			8: dir_text = "↖"      # UP_BACK
 			_: dir_text = "○"      # NEUTRAL
 		
 		direction_label.text = dir_text
 		
-		# Parse buttons
+		# Parse buttons (支援多按鈕，使用位元遮罩)
 		var buttons = raw_input & 0xFF
-		var button_text = ""
-		if buttons == 1: button_text = "LP"
-		elif buttons == 2: button_text = "MP"
-		elif buttons == 3: button_text = "HP"
-		elif buttons == 4: button_text = "LK"
-		elif buttons == 5: button_text = "MK"
-		elif buttons == 6: button_text = "HK"
-		else: button_text = "-"
+		var button_parts: Array[String] = []
 		
-		buttons_label.text = button_text
-		frames_label.text = str(duration) + "f"
+		# 檢查每個按鈕位元（按優先級順序）
+		if buttons & 1:    # ST_LP (1 << 0)
+			button_parts.append("LP")
+		if buttons & 2:    # ST_MP (1 << 1)
+			button_parts.append("MP")
+		if buttons & 4:    # ST_HP (1 << 2)
+			button_parts.append("HP")
+		if buttons & 8:    # ST_LK (1 << 3)
+			button_parts.append("LK")
+		if buttons & 16:   # ST_MK (1 << 4)
+			button_parts.append("MK")
+		if buttons & 32:   # ST_HK (1 << 5)
+			button_parts.append("HK")
+		
+		# 組合按鈕文字（用 + 連接，例如 "LP+LK"）
+		if button_parts.size() > 0:
+			buttons_label.text = "+".join(button_parts)
+		else:
+			buttons_label.text = "-"
+		
+		# 設置幀數（⭐ 最多顯示 99，只顯示數字）
+		var display_duration = min(duration, 99)
+		frames_label.text = str(display_duration)
 	
 	func clear():
 		direction_label.text = ""

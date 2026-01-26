@@ -132,7 +132,10 @@ class InputRegistry:
     var b_charge: int = 0         # Button charge
 ```
 
-Directional inputs use **relative to facing** (auto-mirrored for player_b).
+**Direction encoding**: Uses **absolute direction** (actual key pressed), NOT relative to facing.
+- `move_right` always encodes as FORWARD(3) → displays →
+- `move_left` always encodes as BACK(5) → displays ←
+- This ensures both players see the same direction for the same key press
 
 **Input history compression**: Only creates new entry when input changes, accumulating `duration` for repeated inputs (saves ~70% memory).
 
@@ -140,7 +143,7 @@ Directional inputs use **relative to facing** (auto-mirrored for player_b).
 18-frame input buffer implementation |
 | `PushManager.gd` | Pushbox collision, corner push physics |
 | **UI Components (ui/ folder)** | |
-| `ui/InputHistoryDisplay.gd` | Visual input history (last 10 inputs with directions/buttons)
+| `ui/InputHistoryDisplayIcon.gd` | Icon-based input history (displays actual key directions, max 99 frames) |
 |------|---------|
 | `world.gd` | Main game loop, player spawning, physics constants |
 | `Movement.gd` | Base physics, handler orchestration |
@@ -265,7 +268,7 @@ if input_manager.detect_fireball(input_history):
 ```
 
 ### Debugging Tools
-- **InputHistoryDisplay** (ui/InputHistoryDisplay.gd): Shows last 10 inputs with directions/buttons/frames (see [ui/INPUT_HISTORY_GUIDE.md](ui/INPUT_HISTORY_GUIDE.md))
+- **InputHistoryDisplayIcon** (ui/InputHistoryDisplayIcon.gd): Shows last 10 inputs with icon graphics (see [ui/ICON_QUICK_START.md](ui/ICON_QUICK_START.md) and [ui/ICON_HISTORY_SETUP.md](ui/ICON_HISTORY_SETUP.md))
 - **FrameBar** (FrameBar.tscn): Visual frame advantage display
 - **InputBufferDebug**: Real-time buffer visualization (statistics mode recommended)
 - **Debug labels**: `position_label`, `animation_label`, `combo_label` in world.gd
@@ -285,11 +288,12 @@ if input_manager.detect_fireball(input_history):
 
 ---
 
-**Enhanced input system with charge tracking and history compression (inspired by Sakuga-Engine)
+**Enhanced input system with charge tracking and history compression (inspired by Sakuga-Engine)**
 - Special moves now use input buffer (18 frames) for more lenient execution
-- InputHistoryDisplay UI component for visual input debugging
-- Input buffer system (18:
-- Input buffer system (5 frames, see INPUT_BUFFER_IMPLEMENTATION.md)
+- InputHistoryDisplayIcon UI component with icon graphics (arrow/circle/punch/kick)
+- Direction display shows actual key presses (not relative to facing)
+- Frame count capped at 99, displayed first without "f" suffix
+- Input buffer system (18 frames, see INPUT_BUFFER_IMPLEMENTATION.md)
 - Movement handler refactoring (11 handlers, see REFACTORING_SUMMARY.md)
 - Data-driven moveset (MoveData class, see MOVESET_REFACTORING_SUMMARY.md)
 - Frame-based hitstun/blockstun (replaced delta timers)

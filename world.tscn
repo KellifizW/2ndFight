@@ -14,8 +14,8 @@
 [ext_resource type="Script" uid="uid://difd2h2ijxtjl" path="res://InputBufferDebug.gd" id="12_cbp6q"]
 [ext_resource type="AudioStream" uid="uid://edw4r0cjrhy6" path="res://audio/bgm.mp3" id="12_k3n1d"]
 [ext_resource type="Script" uid="uid://4ckupm30y5q3" path="res://ui/HitboxDebugDisplay.gd" id="13_26xuy"]
-[ext_resource type="PackedScene" uid="uid://cksm3px6ek3dc" path="res://ui/InputHistoryDisplay.tscn" id="14_bc84e"]
 [ext_resource type="Resource" uid="uid://b8qgdymiybxrq" path="res://characters/DAV.character.tres" id="15_26xuy"]
+[ext_resource type="PackedScene" uid="uid://cqrn1wwdo20e6" path="res://ui/InputHistoryDisplayIcon.tscn" id="15_wukud"]
 [ext_resource type="PackedScene" uid="uid://c5l4a1b0wwbtl" path="res://assets/ingameUI/countdown_timer.tscn" id="16_2u3nc"]
 [ext_resource type="Resource" uid="uid://bnbes5q0352er" path="res://characters/DEN.character.tres" id="17_bc84e"]
 [ext_resource type="Shader" uid="uid://di8lua7wssr65" path="res://shadow.gdshader" id="17_cbp6q"]
@@ -102,14 +102,16 @@ horizontal_alignment = 1
 
 [node name="AnimationLabel" type="Label" parent="UI"]
 layout_direction = 1
-anchors_preset = 4
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_left = 1100.0
-offset_top = 280.0
-offset_right = 1150.0
-offset_bottom = 303.0
-grow_vertical = 2
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -25.0
+offset_top = -23.0
+offset_right = 25.0
+grow_horizontal = 2
+grow_vertical = 0
 text = "Ani:"
 
 [node name="FPS" type="Label" parent="UI"]
@@ -193,7 +195,6 @@ offset_bottom = 61.380028
 scale = Vector2(0.85, 0.85)
 
 [node name="InputBufferDebug" type="Label" parent="UI"]
-visible = false
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
@@ -204,6 +205,7 @@ size_flags_horizontal = 4
 size_flags_vertical = 8
 theme_override_font_sizes/font_size = 12
 script = ExtResource("12_cbp6q")
+enabled = true
 
 [node name="HitboxDebugP1" type="Label" parent="UI"]
 visible = false
@@ -232,19 +234,26 @@ grow_vertical = 2
 script = ExtResource("13_26xuy")
 target_player_seat = "player_b"
 
-[node name="P1InputHistory" parent="UI" instance=ExtResource("14_bc84e")]
+[node name="InputHistoryP1" parent="UI" instance=ExtResource("15_wukud")]
 anchors_preset = 4
 anchor_top = 0.5
-anchor_right = 0.0
 anchor_bottom = 0.5
-grow_horizontal = 1
+offset_top = -160.0
+offset_bottom = -160.0
 
-[node name="P2InputHistory" parent="UI" instance=ExtResource("14_bc84e")]
+[node name="InputHistoryP2" parent="UI" instance=ExtResource("15_wukud")]
+layout_direction = 2
 anchors_preset = 6
 anchor_left = 1.0
 anchor_top = 0.5
+anchor_right = 1.0
 anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -160.0
+offset_right = 40.0
+offset_bottom = 440.0
 grow_horizontal = 0
+grow_vertical = 2
 track_player = "Player B"
 
 [node name="CPUController" type="Node" parent="."]

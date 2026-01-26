@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://cqrn1wwdo20e6"]
+
+[ext_resource type="Script" uid="uid://4qncpy5ddlws" path="res://ui/InputHistoryDisplayIcon.gd" id="1_c67a3"]
+
+[node name="InputHistoryDisplayIcon" type="VBoxContainer"]
+offset_right = 300.0
+offset_bottom = 700.0
+scale = Vector2(0.8, 0.8)
+script = ExtResource("1_c67a3")

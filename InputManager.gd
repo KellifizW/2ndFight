@@ -5,8 +5,17 @@ class_name InputManager extends Node
 # Manages motion input detection with buffer support for special moves
 # ============================================================
 
-enum DirectionalInputs { NEUTRAL = 0, DOWN = 1, DOWN_FORWARD = 2, FORWARD = 3, DOWN_BACK = 4, BACK = 5 }
-enum ButtonInputs { NONE = 0, ST_LP = 1, ST_MP = 2, ST_HP = 3, ST_LK = 4, ST_MK = 5, ST_HK = 6 }
+enum DirectionalInputs { NEUTRAL = 0, DOWN = 1, DOWN_FORWARD = 2, FORWARD = 3, DOWN_BACK = 4, BACK = 5, UP = 6, UP_FORWARD = 7, UP_BACK = 8 }
+# 改為位元遮罩以支援多按鈕同時按下
+enum ButtonInputs { 
+	NONE = 0, 
+	ST_LP = 1,      # 1 << 0
+	ST_MP = 2,      # 1 << 1
+	ST_HP = 4,      # 1 << 2
+	ST_LK = 8,      # 1 << 3
+	ST_MK = 16,     # 1 << 4
+	ST_HK = 32      # 1 << 5
+}
 enum ButtonMode { PRESS, HOLD }
 
 const INPUT_HISTORY_SIZE: int = 240  # 歷史記錄大小，約 4 秒 (60 FPS)
@@ -170,25 +179,44 @@ func get_current_raw_input() -> int:
 	
 	var dir = DirectionalInputs.NEUTRAL
 	var down = Input.is_action_pressed("crouch" + suffix)
-	var forward = Input.is_action_pressed(("move_right" if input_side > 0 else "move_left") + suffix)
-	var back = Input.is_action_pressed(("move_left" if input_side > 0 else "move_right") + suffix)
+	var up = Input.is_action_pressed("jump" + suffix)
+	# ⭐ 改為使用絕對方向（實際按鍵），不根據角色面向反轉
+	var right = Input.is_action_pressed("move_right" + suffix)
+	var left = Input.is_action_pressed("move_left" + suffix)
 	
-	if down and forward and not back:
-		dir = DirectionalInputs.DOWN_FORWARD
-	elif down and back and not forward:
-		dir = DirectionalInputs.DOWN_BACK
-	elif down and not (forward or back):
+	# 優先級: 上下互斥（下 > 上），左右互斥（右 > 左）
+	# 使用絕對方向編碼：RIGHT=FORWARD(3), LEFT=BACK(5)
+	if down and right and not left:
+		dir = DirectionalInputs.DOWN_FORWARD  # 下+右
+	elif down and left and not right:
+		dir = DirectionalInputs.DOWN_BACK  # 下+左
+	elif down and not (right or left):
 		dir = DirectionalInputs.DOWN
-	elif forward and not (down or back):
-		dir = DirectionalInputs.FORWARD
-	elif back and not (down or forward):
-		dir = DirectionalInputs.BACK
+	elif up and right and not left:
+		dir = DirectionalInputs.UP_FORWARD  # 上+右
+	elif up and left and not right:
+		dir = DirectionalInputs.UP_BACK  # 上+左
+	elif up and not (right or left):
+		dir = DirectionalInputs.UP
+	elif right and not (down or left or up):
+		dir = DirectionalInputs.FORWARD  # 右
+	elif left and not (down or right or up):
+		dir = DirectionalInputs.BACK  # 左
 	
-	var buttons = ButtonInputs.NONE
-	if Input.is_action_just_pressed("st_mp" + suffix):
-		buttons = ButtonInputs.ST_MP
-	elif Input.is_action_just_pressed("st_mk" + suffix):
-		buttons = ButtonInputs.ST_MK
+	# 使用位元遮罩支援多按鈕同時按下
+	var buttons = 0
+	if Input.is_action_pressed("st_lp" + suffix):
+		buttons |= ButtonInputs.ST_LP
+	if Input.is_action_pressed("st_mp" + suffix):
+		buttons |= ButtonInputs.ST_MP
+	if Input.is_action_pressed("st_hp" + suffix):
+		buttons |= ButtonInputs.ST_HP
+	if Input.is_action_pressed("st_lk" + suffix):
+		buttons |= ButtonInputs.ST_LK
+	if Input.is_action_pressed("st_mk" + suffix):
+		buttons |= ButtonInputs.ST_MK
+	if Input.is_action_pressed("st_hk" + suffix):
+		buttons |= ButtonInputs.ST_HK
 	
 	return (dir << 8) | buttons
 
@@ -210,6 +238,32 @@ func insert_to_history(raw_input: int):
 	else:
 		# Same input - just increment duration
 		input_history[current_history].duration += 1
+	
+	# Update charge buffers
+	_update_charge_buffers()
+
+func get_relative_direction(absolute_dir: int) -> int:
+	"""
+	將絕對方向轉換為相對方向（用於招式檢測）
+	absolute_dir: 絕對方向（FORWARD=右, BACK=左）
+	返回: 相對方向（FORWARD=前, BACK=後，根據 input_side）
+	"""
+	if input_side < 0:  # 面向左（需要鏡像）
+		match absolute_dir:
+			DirectionalInputs.FORWARD:  # 絕對右 → 相對後
+				return DirectionalInputs.BACK
+			DirectionalInputs.BACK:  # 絕對左 → 相對前
+				return DirectionalInputs.FORWARD
+			DirectionalInputs.DOWN_FORWARD:  # 絕對下右 → 相對下後
+				return DirectionalInputs.DOWN_BACK
+			DirectionalInputs.DOWN_BACK:  # 絕對下左 → 相對下前
+				return DirectionalInputs.DOWN_FORWARD
+			DirectionalInputs.UP_FORWARD:  # 絕對上右 → 相對上後
+				return DirectionalInputs.UP_BACK
+			DirectionalInputs.UP_BACK:  # 絕對上左 → 相對上前
+				return DirectionalInputs.UP_FORWARD
+	# input_side > 0（面向右）或其他方向不需要轉換
+	return absolute_dir
 	
 	# Update charge buffers
 	_update_charge_buffers()
@@ -238,7 +292,7 @@ func _update_charge_buffers() -> void:
 	
 	# Vertical charge
 	var down_pressed = (curr.raw_input >> 8) in [DirectionalInputs.DOWN, DirectionalInputs.DOWN_BACK, DirectionalInputs.DOWN_FORWARD]
-	var up_pressed = false  # Add if you have up inputs
+	var up_pressed = (curr.raw_input >> 8) in [DirectionalInputs.UP, DirectionalInputs.UP_BACK, DirectionalInputs.UP_FORWARD]
 	
 	if down_pressed:
 		if curr.v_charge > 0:
@@ -372,103 +426,24 @@ func detect_special_move() -> String:
 # check_motion is already defined above (line 276), so we continue with check_input
 
 func check_input(index: int, directional: int, buttons: int, dir_mode: int, but_mode: int) -> bool:
-	var parent = get_parent()
-	var suffix = "_p2" if parent.seat == "player_b" else ""
-	var forward_action = "move_right" + suffix if input_side > 0 else "move_left" + suffix
-	var back_action = "move_left" + suffix if input_side > 0 else "move_right" + suffix
-	var down_action = "crouch" + suffix
-	var button_action = "st_mp" + suffix if buttons == ButtonInputs.ST_MP else "st_mk" + suffix if buttons == ButtonInputs.ST_MK else ""
+	"""
+	檢查指定歷史索引的輸入是否匹配招式步驟
+	注意：directional 參數是相對方向（FORWARD=前，BACK=後）
+	"""
+	var raw = input_history[index].raw_input
+	var absolute_dir = raw >> 8
+	var input_buttons = raw & 0xFF
 	
-	var down = false
-	var forward = false
-	var back = false
-	var button = false
+	# ⭐ 將絕對方向轉換為相對方向（用於招式檢測）
+	var relative_dir = get_relative_direction(absolute_dir)
 	
-	match dir_mode:
-		ButtonMode.PRESS:
-			down = was_pressed(index, down_action)
-			forward = was_pressed(index, forward_action)
-			back = was_pressed(index, back_action)
-		ButtonMode.HOLD:
-			down = is_being_pressed(index, down_action)
-			forward = is_being_pressed(index, forward_action)
-			back = is_being_pressed(index, back_action)
+	# 檢查方向是否匹配
+	var dir_match = (directional == relative_dir)
 	
-	match but_mode:
-		ButtonMode.PRESS:
-			button = was_pressed(index, button_action)
-		ButtonMode.HOLD:
-			button = is_being_pressed(index, button_action)
-	
-	var dir_match = false
-	if directional == DirectionalInputs.NEUTRAL:
-		dir_match = not (down or forward or back)
-	else:
-		dir_match = (directional == DirectionalInputs.DOWN and down and not (forward or back)) or \
-			(directional == DirectionalInputs.DOWN_FORWARD and down and forward and not back) or \
-			(directional == DirectionalInputs.FORWARD and forward and not (down or back)) or \
-			(directional == DirectionalInputs.DOWN_BACK and down and back and not forward) or \
-			(directional == DirectionalInputs.BACK and back and not (down or forward))
-	
-	var but_match = (buttons == 0) or button
+	# 檢查按鈕是否匹配
+	var but_match = (buttons == ButtonInputs.NONE) or ((input_buttons & buttons) != 0)
 	
 	return dir_match and but_match
-
-func is_being_pressed(index: int, action: String) -> bool:
-	var raw = input_history[index].raw_input
-	var dir = raw >> 8
-	var buttons = raw & 0xFF
-	
-	if action.begins_with("crouch"):
-		return dir == DirectionalInputs.DOWN or dir == DirectionalInputs.DOWN_FORWARD or dir == DirectionalInputs.DOWN_BACK
-	elif action.begins_with("move_right"):
-		return (dir == DirectionalInputs.FORWARD or dir == DirectionalInputs.DOWN_FORWARD) if input_side > 0 else (dir == DirectionalInputs.BACK or dir == DirectionalInputs.DOWN_BACK)
-	elif action.begins_with("move_left"):
-		return (dir == DirectionalInputs.BACK or dir == DirectionalInputs.DOWN_BACK) if input_side > 0 else (dir == DirectionalInputs.FORWARD or dir == DirectionalInputs.DOWN_FORWARD)
-	elif action.begins_with("st_mp"):
-		return buttons == ButtonInputs.ST_MP
-	elif action.begins_with("st_mk"):
-		return buttons == ButtonInputs.ST_MK
-	return false
-
-func was_pressed(index: int, action: String) -> bool:
-	var prev_index = (index - 1 + INPUT_HISTORY_SIZE) % INPUT_HISTORY_SIZE
-	var curr_raw = input_history[index].raw_input
-	var prev_raw = input_history[prev_index].raw_input
-	var curr_dir = curr_raw >> 8
-	var prev_dir = prev_raw >> 8
-	var curr_buttons = curr_raw & 0xFF
-	var prev_buttons = prev_raw & 0xFF
-	
-	if action.begins_with("crouch"):
-		return (curr_dir == DirectionalInputs.DOWN or curr_dir == DirectionalInputs.DOWN_FORWARD or curr_dir == DirectionalInputs.DOWN_BACK) and \
-			   (prev_dir != DirectionalInputs.DOWN and prev_dir != DirectionalInputs.DOWN_FORWARD and prev_dir != DirectionalInputs.DOWN_BACK) and \
-			   input_history[index].duration <= 10
-	elif action.begins_with("move_right"):
-		if input_side > 0:
-			return (curr_dir == DirectionalInputs.FORWARD or curr_dir == DirectionalInputs.DOWN_FORWARD) and \
-				   (prev_dir != DirectionalInputs.FORWARD and prev_dir != DirectionalInputs.DOWN_FORWARD) and \
-				   input_history[index].duration <= 10
-		else:
-			return (curr_dir == DirectionalInputs.BACK or curr_dir == DirectionalInputs.DOWN_BACK) and \
-				   (prev_dir != DirectionalInputs.BACK and prev_dir != DirectionalInputs.DOWN_BACK) and \
-				   input_history[index].duration <= 10
-	elif action.begins_with("move_left"):
-		if input_side > 0:
-			return (curr_dir == DirectionalInputs.BACK or curr_dir == DirectionalInputs.DOWN_BACK) and \
-				   (prev_dir != DirectionalInputs.BACK and prev_dir != DirectionalInputs.DOWN_BACK) and \
-				   input_history[index].duration <= 10
-		else:
-			return (curr_dir == DirectionalInputs.FORWARD or curr_dir == DirectionalInputs.DOWN_FORWARD) and \
-				   (prev_dir != DirectionalInputs.FORWARD and prev_dir != DirectionalInputs.DOWN_FORWARD) and \
-				   input_history[index].duration <= 10
-	elif action.begins_with("st_mp"):
-		return curr_buttons == ButtonInputs.ST_MP and prev_buttons != ButtonInputs.ST_MP and \
-			   input_history[index].duration <= 5
-	elif action.begins_with("st_mk"):
-		return curr_buttons == ButtonInputs.ST_MK and prev_buttons != ButtonInputs.ST_MK and \
-			   input_history[index].duration <= 5
-	return false
 
 # ============================================================
 # UTILITY METHODS
