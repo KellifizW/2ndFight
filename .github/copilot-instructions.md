@@ -8,9 +8,16 @@ This is a **Godot 4.x 2D fighting game** using a **fixed-point physics system** 
 ```
 Movement (Node2D) → Fighter → Player
 ```
-- **Movement**: Base physics, handlers (11 specialized handlers), fixed-point math
-- **Fighter**: Damage, hitstun/blockstun (frame-based), collision detection
-- **Player**: Attack systems, combos, AI/human input integration
+- **Movement**: Base physics, 11 specialized handlers (see handlers/ section), fixed-point math
+- **Fighter**: Damage, hitstun/blockstun (frame-based), collision detection, health system
+- **Player**: Attack systems, combos, 5 combat handlers, AI/human input integration
+
+**Combat Handlers** (scripts/combat/handlers/):
+- `AttackExecutor`: Attack state machine and execution
+- `AttackMovementHandler`: Forward/backward movement during attacks
+- `CancelWindowHandler`: Combo cancel timing windows
+- `HitResponseHandler`: Hit/block reactions and frame advantage
+- `ShadowSyncHandler`: Visual shadow positioning
 
 ### Critical Systems
 
@@ -31,37 +38,56 @@ player.fixed_velocity.x = int(speed * world.SIMULATION_SCALE)
 **Why**: Ensures deterministic physics for online play and replays. Never use float arithmetic for position/velocity.
 
 #### 2. Handler-Based Movement Architecture
-Movement.gd delegates to **11 specialized handlers** (see [REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md)):
-- `InputHandler`: Input retrieval
-- `AnimationManager`: Animation tree state management
+Movement.gd delegates to **11 specialized handlers** (root-level files):
+- `InputHandler`: Input state retrieval (not processing)
+- `AnimationManager`: AnimationTree state management
 - `DashHandler`, `JumpHandler`, `WalkHandler`: Movement mechanics
 - `BlockingHandler`, `FacingHandler`: Defensive/orientation logic
 - `KnockflyHandler`, `GravityHandler`, `LandingHandler`: Physics states
-- `TimerHandler`: All timer decrements
+- `TimerHandler`: Centralized timer decrements (landing, dash, cancel_window)
 
-**When modifying movement**: Edit the appropriate handler, not Movement.gd directly.
+**Additional Combat Handlers** (scripts/combat/handlers/):
+- `AttackExecutor`: Attack lifecycle (startup, active, recovery frames)
+- `AttackMovementHandler`: Character displacement during attacks (forward steps, lunges)
+- `CancelWindowHandler`: Frame-perfect combo cancels
+- `HitResponseHandler`: Damage application, frame advantage calculation
+- `ShadowSyncHandler`: Shadow sprite positioning
+
+**When modifying movement/combat**: Edit the appropriate handler, not Movement.gd or Player.gd directly. Each handler is self-contained with clear responsibilities.
 
 #### 3. Data-Driven Move System
 **All attacks/specials use resource-based data** (see [MOVESET_REFACTORING_SUMMARY.md](MOVESET_REFACTORING_SUMMARY.md)):
 
 ```gdscript
-// MoveSet.gd - Centralized move library
+// MoveSet.gd - Centralized special moves library
 class MoveData:
     var name: String
-    var character_requirement: String  // "DAV", "DEN", "*"
+    var character_requirement: String  // "DAV", "DEN", "*" (all characters)
     var damage, knockback, duration: float
     var move_distance, jump_speed: float
     // ...
 
-// Normal attacks: AttackData/*.tres resources
-@export var attack_data: AttackData
+// Normal attacks: AttackData/*.tres resources (data/ folder)
+@export var attack_data: AttackData  // Loaded in Player.gd
 ATTACK_TABLE = {
-    "st_mp": attack_data.st_mp,  // Each attack is a .tres resource
-    "cr_mk": attack_data.cr_mk,
+    "st_mp": attack_data.st_mp,  // Each attack references a .tres resource
+    "cr_mk": attack_data.cr_mk,  // Contains damage/hitstun/blockstun/knockback
 }
+
+// Attack movement data (forward lunges, backward steps)
+@export var st_mp_movement: AttackMovement  // Optional per-attack displacement
 ```
 
-**To add new moves**: Create MoveData entry in move_library, don't add scalar variables.
+**To add new normal attacks**:
+1. Add properties to AttackData.gd (e.g., `@export var new_attack_damage: float`)
+2. Create/update attack data resource in `data/p1_attack_data.tres` and `data/p2_attack_data.tres`
+3. Add to Player.ATTACK_TABLE dictionary
+4. Create animation in character's AnimationPlayer
+
+**To add new special moves**:
+1. Add MoveData entry to MoveSet.move_library (set character_requirement: "DAV"/"DEN"/"*")
+2. Define motion input sequence in InputManager.gd (e.g., FIREBALL_SEQUENCE)
+3. Add detection logic in MoveSet._handle_input()
 
 #### 4. Dual-Player System ("Seat" Architecture)
 Players distinguished by **seat** (`"player_a"` or `"player_b"`), NOT by ID:
@@ -83,7 +109,9 @@ if input_data.st_mp_pressed:
     player_controller.consume_button_input("st_mp")
 ```
 
-**Buffer window**: 5 frames (~83ms). Adjust `BUFFER_FRAMES` in InputBuffer.gd if needed.
+**Buffer window**: 18 frames (~300ms). Adjust `BUFFER_FRAMES` in InputBuffer.gd if needed.
+
+**Special moves are also buffered**: InputManager detects motion inputs and automatically records them into the buffer (e.g., "fireball", "dp", "powerkk").
 
 #### 6. Special Move Detection
 **InputManager.gd** detects motion inputs (quarter-circles, DPs, etc.):
@@ -94,13 +122,25 @@ const FIREBALL_SEQUENCE = [
     {"directional": DOWN_FORWARD, ...},
     {"directional": FORWARD, "buttons": ST_MP, ...}
 ]
+
+// Optimized InputRegistry with charge tracking (inspired by Sakuga-Engine)
+class InputRegistry:
+    var raw_input: int = 0        # Bit-masked input
+    var duration: int = 0         # Frames held (compresses history)
+    var h_charge: int = 0         # Horizontal charge (-left, +right)
+    var v_charge: int = 0         # Vertical charge (-down, +up)
+    var b_charge: int = 0         # Button charge
 ```
 
 Directional inputs use **relative to facing** (auto-mirrored for player_b).
 
-### Key File Map
+**Input history compression**: Only creates new entry when input changes, accumulating `duration` for repeated inputs (saves ~70% memory).
 
-| File | Purpose |
+### Key File Map
+18-frame input buffer implementation |
+| `PushManager.gd` | Pushbox collision, corner push physics |
+| **UI Components (ui/ folder)** | |
+| `ui/InputHistoryDisplay.gd` | Visual input history (last 10 inputs with directions/buttons)
 |------|---------|
 | `world.gd` | Main game loop, player spawning, physics constants |
 | `Movement.gd` | Base physics, handler orchestration |
@@ -111,6 +151,18 @@ Directional inputs use **relative to facing** (auto-mirrored for player_b).
 | `InputManager.gd` | Motion input detection (quarter-circles, DPs) |
 | `InputBuffer.gd` | 5-frame input buffer implementation |
 | `PushManager.gd` | Pushbox collision, corner push physics |
+| **AI System (ai/ folder)** | |
+| `ai_behavior.gd` | AI main controller, action commitment system |
+| `AIDecisionLayers.gd` | 5-layer decision system (survival→punish→tactical→positioning→idle) |
+| `ThreatAssessment.gd` | Threat detection (ground attacks, projectiles, air attacks) |
+| `AIComboSystem.gd` | Pre-defined combo execution and tracking |
+| `FrameDataManager.gd` | Frame data for moves (startup/active/recovery) |
+| `SpaceControl.gd` | Zone control, corner escapes, ideal distance |
+| `cpu_controller.gd` | Toggle AI on/off (C key for P1, V key for P2) |
+| **Data Resources** | |
+| `data/AttackData.gd` | Normal attack properties (damage/stun/knockback) |
+| `data/AttackMovement.gd` | Attack displacement data (forward lunges, etc.) |
+| `characters/CharacterData.gd` | Character metadata (name, short_id, stats) |
 
 ### Animation System
 Uses **AnimationTree with StateMachine**:
@@ -152,6 +204,12 @@ Stop-Process -Name "Godot*" -Force
 2. Create character scene `characters/XXX.tscn` with animations
 3. Set character_data.short_id (e.g., "WOO")
 4. Add character-specific moves to MoveSet with character_requirement
+5. Create character-specific attack data resources if needed (data/XXX_attack_data.tres)
+
+**Toggle AI control**:
+- Press **C** to toggle Player A AI (player_a)
+- Press **V** to toggle Player B AI (player_b)
+- AI system uses 5-layer decision architecture (survival → punish → tactical → positioning → idle)
 
 **Debug input buffer**:
 1. Attach InputBufferDebug.gd to a Label node
@@ -207,6 +265,7 @@ if input_manager.detect_fireball(input_history):
 ```
 
 ### Debugging Tools
+- **InputHistoryDisplay** (ui/InputHistoryDisplay.gd): Shows last 10 inputs with directions/buttons/frames (see [ui/INPUT_HISTORY_GUIDE.md](ui/INPUT_HISTORY_GUIDE.md))
 - **FrameBar** (FrameBar.tscn): Visual frame advantage display
 - **InputBufferDebug**: Real-time buffer visualization (statistics mode recommended)
 - **Debug labels**: `position_label`, `animation_label`, `combo_label` in world.gd
@@ -226,7 +285,10 @@ if input_manager.detect_fireball(input_history):
 
 ---
 
-**Recent Major Changes**:
+**Enhanced input system with charge tracking and history compression (inspired by Sakuga-Engine)
+- Special moves now use input buffer (18 frames) for more lenient execution
+- InputHistoryDisplay UI component for visual input debugging
+- Input buffer system (18:
 - Input buffer system (5 frames, see INPUT_BUFFER_IMPLEMENTATION.md)
 - Movement handler refactoring (11 handlers, see REFACTORING_SUMMARY.md)
 - Data-driven moveset (MoveData class, see MOVESET_REFACTORING_SUMMARY.md)

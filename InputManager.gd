@@ -1,5 +1,10 @@
 class_name InputManager extends Node
 
+# ============================================================
+# INPUT SYSTEM INTEGRATION
+# Manages motion input detection with buffer support for special moves
+# ============================================================
+
 enum DirectionalInputs { NEUTRAL = 0, DOWN = 1, DOWN_FORWARD = 2, FORWARD = 3, DOWN_BACK = 4, BACK = 5 }
 enum ButtonInputs { NONE = 0, ST_LP = 1, ST_MP = 2, ST_HP = 3, ST_LK = 4, ST_MK = 5, ST_HK = 6 }
 enum ButtonMode { PRESS, HOLD }
@@ -7,6 +12,10 @@ enum ButtonMode { PRESS, HOLD }
 const INPUT_HISTORY_SIZE: int = 240  # 歷史記錄大小，約 4 秒 (60 FPS)
 const INPUT_BUFFER: int = 10  # 輸入緩衝區，約 0.167 秒
 const MAX_TOTAL_FRAMES: int = 120  # 總匹配時間限制，約 2 秒
+
+# Special move detection result cache (prevents double-detection in same frame)
+var detected_special_this_frame: String = ""
+var last_detection_frame: int = 0
 
 const FIREBALL_SEQUENCE: Array[Dictionary] = [
 	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
@@ -91,10 +100,32 @@ var input_history: Array[InputRegistry] = []
 var current_history: int = 0
 var input_side: int = 1  # 1 = 面對右, -1 = 面對左
 
+# ============================================================
+# ENHANCED INPUT REGISTRY (inspired by Sakuga-Engine)
+# ============================================================
+class InputRegistry:
+	var raw_input: int = 0        # Bit-masked input
+	var duration: int = 0         # How many frames this input has been held
+	var h_charge: int = 0         # Horizontal charge (negative = left, positive = right)
+	var v_charge: int = 0         # Vertical charge (negative = down, positive = up)
+	var b_charge: int = 0         # Button charge (any button held)
+	
+	func is_null() -> bool:
+		return raw_input == 0
+	
+	func reset() -> void:
+		raw_input = 0
+		duration = 0
+		# Don't reset charges - they carry over
+
 func _ready():
 	input_history.resize(INPUT_HISTORY_SIZE)
 	for i in INPUT_HISTORY_SIZE:
 		input_history[i] = InputRegistry.new()
+
+func _physics_process(_delta: float) -> void:
+	# Reset detection cache each frame
+	detected_special_this_frame = ""
 
 func update_input():
 	var raw_input = get_current_raw_input()
@@ -162,10 +193,70 @@ func get_current_raw_input() -> int:
 	return (dir << 8) | buttons
 
 func insert_to_history(raw_input: int):
-	current_history = (current_history + 1) % INPUT_HISTORY_SIZE
-	input_history[current_history] = InputRegistry.new()
-	input_history[current_history].raw_input = raw_input
-	input_history[current_history].duration = 1
+	# ⭐ Optimization: Only create new entry if input changed (like Sakuga-Engine)
+	if input_history[current_history].raw_input != raw_input:
+		# Input changed - move to next slot
+		var previous_index = current_history
+		current_history = (current_history + 1) % INPUT_HISTORY_SIZE
+		
+		input_history[current_history] = InputRegistry.new()
+		input_history[current_history].raw_input = raw_input
+		input_history[current_history].duration = 1
+		
+		# Carry over charge values from previous input
+		input_history[current_history].h_charge = input_history[previous_index].h_charge
+		input_history[current_history].v_charge = input_history[previous_index].v_charge
+		input_history[current_history].b_charge = input_history[previous_index].b_charge
+	else:
+		# Same input - just increment duration
+		input_history[current_history].duration += 1
+	
+	# Update charge buffers
+	_update_charge_buffers()
+
+# ============================================================
+# CHARGE SYSTEM (inspired by Sakuga-Engine)
+# Automatically tracks how long directional/button inputs are held
+# ============================================================
+func _update_charge_buffers() -> void:
+	var curr = input_history[current_history]
+	
+	# Horizontal charge
+	var left_pressed = (curr.raw_input >> 8) in [DirectionalInputs.BACK, DirectionalInputs.DOWN_BACK]
+	var right_pressed = (curr.raw_input >> 8) in [DirectionalInputs.FORWARD, DirectionalInputs.DOWN_FORWARD]
+	
+	if left_pressed:
+		if curr.h_charge > 0:
+			curr.h_charge = 0  # Reset if direction changed
+		curr.h_charge -= 1
+	elif right_pressed:
+		if curr.h_charge < 0:
+			curr.h_charge = 0
+		curr.h_charge += 1
+	else:
+		curr.h_charge = 0  # Reset when neutral
+	
+	# Vertical charge
+	var down_pressed = (curr.raw_input >> 8) in [DirectionalInputs.DOWN, DirectionalInputs.DOWN_BACK, DirectionalInputs.DOWN_FORWARD]
+	var up_pressed = false  # Add if you have up inputs
+	
+	if down_pressed:
+		if curr.v_charge > 0:
+			curr.v_charge = 0
+		curr.v_charge -= 1
+	elif up_pressed:
+		if curr.v_charge < 0:
+			curr.v_charge = 0
+		curr.v_charge += 1
+	else:
+		curr.v_charge = 0
+	
+	# Button charge (any button held)
+	var any_button = (curr.raw_input & 0xFF) != ButtonInputs.NONE
+	if any_button:
+		curr.b_charge += 1
+	else:
+		curr.b_charge = 0
 		
 func check_fireball_input() -> bool:
 	return check_motion(fireball_motion)
@@ -224,6 +315,61 @@ func check_motion(motion: Dictionary) -> bool:
 			break
 	
 	return found
+
+# ============================================================
+# ENHANCED SPECIAL MOVE DETECTION (with buffer support)
+# Returns the name of detected special move or empty string
+# ============================================================
+
+func detect_special_move() -> String:
+	"""
+	檢測所有可能的特殊招式，返回檢測到的招式名稱
+	優先級：super > DP > powerkk/spnk > fireball/hdk
+	"""
+	# Prevent double-detection in same frame
+	if last_detection_frame == Engine.get_physics_frames():
+		return detected_special_this_frame
+	
+	last_detection_frame = Engine.get_physics_frames()
+	
+	var parent = get_parent()
+	var character_id = parent.character_id if parent and "character_id" in parent else "UNKNOWN"
+	
+	# Check in priority order
+	# Note: Only check moves available to this character
+	
+	# Super (DAV only for now)
+	# TODO: Add super detection if needed
+	
+	# DP (DAV only)
+	if character_id == "DAV" and check_dp_input():
+		detected_special_this_frame = "dp"
+		return "dp"
+	
+	# PowerKK (DAV only)
+	if character_id == "DAV" and check_powerkk_input():
+		detected_special_this_frame = "powerkk"
+		return "powerkk"
+	
+	# SPNK (DEN only)
+	if character_id == "DEN" and check_spnk_input():
+		detected_special_this_frame = "spnk"
+		return "spnk"
+	
+	# HDK (DEN only)
+	if character_id == "DEN" and check_hdk_input():
+		detected_special_this_frame = "hdk"
+		return "hdk"
+	
+	# Fireball (universal)
+	if check_fireball_input():
+		detected_special_this_frame = "fireball"
+		return "fireball"
+	
+	detected_special_this_frame = ""
+	return ""
+
+# check_motion is already defined above (line 276), so we continue with check_input
 
 func check_input(index: int, directional: int, buttons: int, dir_mode: int, but_mode: int) -> bool:
 	var parent = get_parent()
@@ -324,6 +470,42 @@ func was_pressed(index: int, action: String) -> bool:
 			   input_history[index].duration <= 5
 	return false
 
-class InputRegistry:
-	var raw_input: int = 0
-	var duration: int = 0
+# ============================================================
+# UTILITY METHODS
+# ============================================================
+
+func get_current_input() -> InputRegistry:
+	"""Get the current input registry"""
+	return input_history[current_history]
+
+func get_button_charge() -> int:
+	"""Get how long any button has been held"""
+	return input_history[current_history].b_charge
+
+func get_h_charge() -> int:
+	"""Get horizontal charge (negative = left/back, positive = right/forward)"""
+	return input_history[current_history].h_charge
+
+func get_v_charge() -> int:
+	"""Get vertical charge (negative = down, positive = up)"""
+	return input_history[current_history].v_charge
+
+func is_neutral() -> bool:
+	"""Check if current input is neutral (no inputs)"""
+	return input_history[current_history].is_null()
+
+# ============================================================
+# CHARGE-BASED SPECIAL MOVES (for future use)
+# Example: Guile's Flash Kick requires holding down for 2 seconds
+# ============================================================
+
+func check_charge_special(direction: DirectionalInputs, required_frames: int) -> bool:
+	"""
+	Check if a charge requirement is met
+	Example: check_charge_special(DirectionalInputs.BACK, 120) for 2 second back charge
+	"""
+	if direction == DirectionalInputs.BACK:
+		return abs(input_history[current_history].h_charge) >= required_frames
+	elif direction == DirectionalInputs.DOWN:
+		return abs(input_history[current_history].v_charge) >= required_frames
+	return false

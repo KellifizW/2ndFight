@@ -422,28 +422,32 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 		return true
 	
 	if input_data.get("dp_pressed", false) and not parent.is_attacking and not is_spmove:
-		# DP is detected by InputManager motion, but consume st_mp that triggers it
+		# Consume buffered DP special move (detected by motion input)
 		if controller and controller.has_method("consume_button_input"):
-			controller.consume_button_input("st_mp")
+			controller.consume_button_input("dp")  # Consume the special move buffer
+			controller.consume_button_input("st_mp")  # Also consume trigger button
 		start_dp()
 		return true
 	
 	if input_data.get("spm2_pressed", false) and not parent.is_attacking and not is_spmove:
 		if parent.is_ai_controlled:
 			print("[MoveSet._handle_input] %s spm2_pressed detected (AI=true)" % parent.name)
-		# Consume the buffered input (fireball uses st_mp)
+		# Consume buffered fireball (detected by motion input)
 		if controller and controller.has_method("consume_button_input"):
-			controller.consume_button_input("st_mp")
+			controller.consume_button_input("fireball")  # Consume the special move buffer
+			controller.consume_button_input("st_mp")  # Also consume trigger button
 		start_fireball()
 		return true
 	
 	if input_data.get("spm1_pressed", false) and not parent.is_attacking and not is_spmove:
-		# Consume appropriate button
+		# Consume appropriate buffered special move
 		if controller and controller.has_method("consume_button_input"):
 			if parent.character_id == "DAV":
-				controller.consume_button_input("st_mp")  # powerkk uses st_mp
+				controller.consume_button_input("powerkk")  # Consume the special move buffer
+				controller.consume_button_input("st_mp")  # Also consume trigger button
 			elif parent.character_id == "DEN":
-				controller.consume_button_input("st_mk")  # spnk uses st_mk
+				controller.consume_button_input("spnk")  # Consume the special move buffer
+				controller.consume_button_input("st_mk")  # Also consume trigger button
 		
 		if parent.character_id == "DAV":
 			start_powerkk()
@@ -452,9 +456,10 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 		return true
 	
 	if input_data.get("spm3_pressed", false) and parent.character_id == "DEN" and not parent.is_attacking and not is_spmove:
-		# Consume the buffered input (hdk uses st_mk)
+		# Consume buffered HDK
 		if controller and controller.has_method("consume_button_input"):
-			controller.consume_button_input("st_mk")
+			controller.consume_button_input("hdk")  # Consume the special move buffer
+			controller.consume_button_input("st_mk")  # Also consume trigger button
 		start_hdk()
 		return true
 	

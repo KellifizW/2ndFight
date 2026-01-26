@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://cksm3px6ek3dc"]
+
+[ext_resource type="Script" uid="uid://nuvwtbjlv22r" path="res://ui/InputHistoryDisplay.gd" id="1_pdxoq"]
+
+[node name="InputHistoryDisplay" type="VBoxContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_pdxoq")

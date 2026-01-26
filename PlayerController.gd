@@ -52,6 +52,15 @@ func _physics_process(_delta: float) -> void:
 	var super_action = "super" + suffix
 	if InputMap.has_action(super_action) and Input.is_action_just_pressed(super_action):
 		input_buffer.record_input("super")
+	
+	# Check for special move inputs via InputManager
+	var input_manager = player_node.get_node_or_null("InputManager")
+	if input_manager and input_manager.has_method("detect_special_move"):
+		var detected_special = input_manager.detect_special_move()
+		if detected_special != "":
+			# Record the detected special move into buffer
+			input_buffer.record_input(detected_special)
+			# print("[PlayerController] Detected and buffered special move: %s" % detected_special)
 
 # 每幀更新雙擊計時器
 func _process(delta: float) -> void:
@@ -125,13 +134,40 @@ func get_input_data() -> Dictionary:
 	var super_pressed = input_buffer.is_input_buffered("super")
 	var dp_pressed    = false
 	
-	# === 輸入序列檢測（保持原邏輯，但改用 character_id 判斷角色）===
+	# === 檢查 buffer 中的特殊招式（優先級最高）===
+	var fireball_buffered = input_buffer.is_input_buffered("fireball")
+	var powerkk_buffered = input_buffer.is_input_buffered("powerkk")
+	var spnk_buffered = input_buffer.is_input_buffered("spnk")
+	var hdk_buffered = input_buffer.is_input_buffered("hdk")
+	var dp_buffered = input_buffer.is_input_buffered("dp")
+	
+	# 如果 buffer 中有特殊招式，設置對應的標誌
+	if fireball_buffered:
+		spm2_pressed = true
+		st_mp_pressed = false  # 防止同時觸發普通攻擊
+	if powerkk_buffered:
+		spm1_pressed = true
+		st_mp_pressed = false
+	if spnk_buffered:
+		spm1_pressed = true
+		st_mk_pressed = false
+	if hdk_buffered:
+		spm3_pressed = true
+		st_mk_pressed = false
+	if dp_buffered:
+		dp_pressed = true
+		st_mp_pressed = false
+	
+	# === 舊版輸入序列檢測（作為備用，但不應該再需要了）===
+	# 已經被 InputManager.detect_special_move() 和 buffer 系統取代
+	# 保留這些代碼以防萬一，但在正常情況下不會執行到
 	var input_manager = get_parent().get_node("InputManager") if get_parent().has_node("InputManager") else null
 	var character_id: String = "UNKNOWN"
 	if get_parent() and "character_id" in get_parent():
 		character_id = get_parent().character_id
 	
-	if input_manager:
+	# 只有在 buffer 中沒有檢測到特殊招式時才執行舊邏輯（fallback）
+	if input_manager and not (fireball_buffered or powerkk_buffered or spnk_buffered or hdk_buffered or dp_buffered):
 		# DAV（原本 p1）的招式
 		if character_id == "DAV" and input_manager.check_powerkk_input():
 			spm1_pressed = true
