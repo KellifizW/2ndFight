@@ -45,13 +45,21 @@ func _physics_process(delta: float) -> void:
 	if hitstun_frames > 0:
 		hitstun_frames -= 1
 		is_hit = true
-		if animation_state and animation_state.get_current_node() != "hit":
-			animation_state.travel("hit")
+		# 不再在此強制播放動畫，讓 AnimationManager 根據狀態決定
 		if hitstun_frames <= 0:
-			print("[FIXED-FRAME HITSTUN END] %s 完全結束！" % name)
-			is_hit = false
+			print("[FIXED-FRAME HITSTUN END] %s 完全結束！is_air_hit_backjump=%s" % [name, is_air_hit_backjump])
+			# 如果不是在空中受擊狀態，才清除 is_hit
+			if not is_air_hit_backjump:
+				is_hit = false
+				print("[HITSTUN] %s is_hit 被清除（不在空中受擊）" % name)
+			else:
+				print("[HITSTUN] %s is_hit 保持 true（在空中受擊中）" % name)
 	else:
-		is_hit = false
+		# 如果不是在空中受擊狀態，才清除 is_hit
+		if not is_air_hit_backjump:
+			if is_hit:
+				print("[HITSTUN] %s is_hit 在 else 分支被清除" % name)
+			is_hit = false
 
 	# ── 【固定幀數 blockstun】與 hitstun 完全一致──
 	if blockstun_frames > 0:
@@ -171,14 +179,9 @@ func take_hit(
 	var facing_mult = get_facing_multiplier()
 	var should_knockfly: bool = force_knockfly or damage > 10.0 or (healthbar != null and healthbar.current_health <= 0)
 	
-	# ── 關鍵修正：空中受擊時，強制清除跳躍相關狀態，避免速度疊加 ──
+	# ── 清除跳躍延遲（避免與受擊狀態衝突）──
 	if not is_on_floor():
-		# 取消任何正在進行的跳躍延遲或剛跳狀態
 		jump_delay_timer = 0.0
-		just_jumped = false
-		is_jumping = false
-		is_air_hit_backjump = false
-		air_hit_backjump_timer = 0.0
 	
 	if should_knockfly:
 		# ── Knockfly 專用處理 ──
@@ -226,14 +229,19 @@ func take_hit(
 		print("[FIXED-FRAME HITSTUN START] %s 進入 hit，%d 幀 (%.3f秒)" % [name, hit_frames, hitstun_duration])
 		
 		if not is_on_floor():
-			# 空中普通攻擊：強制使用後跳邏輯
+			# 空中普通攻擊：強制使用後跳邏輯，垂直速度為正常跳躍的 0.7 倍
 			is_air_hit_backjump = true
 			air_hit_backjump_timer = air_hit_backjump_duration
+			is_jumping = true  # 確保 GravityHandler 正常應用重力
+			just_jumped = true  # 防止 GravityHandler 重置速度為 0
 			fixed_velocity.x = int(-air_hit_backjump_speed * world.SIMULATION_SCALE * facing_mult)
-			fixed_velocity.y = int(air_hit_backjump_up_speed * world.SIMULATION_SCALE)  # 只用後跳上升速度
+			# 使用正常跳躍速度的 0.7 倍作為垂直速度（jump_vertical_speed 約為 -2300）
+			var normal_jump_speed = jump_vertical_speed if "jump_vertical_speed" in self else -2300.0
+			fixed_velocity.y = int(normal_jump_speed * 0.7 * world.SIMULATION_SCALE)
 			is_immune_to_floor_snap = true
 			floor_snap_immunity_timer = floor_snap_immunity_duration
 			fixed_position.y -= 2
+			print("[AIR HIT] %s 空中受擊 → 後跳速度 x=%d, y=%d (0.7x 正常跳躍)" % [name, fixed_velocity.x, fixed_velocity.y])
 		else:
 			# 地面普通受擊 → 只有 hitstun，無垂直速度（讓 PushManager 處理水平推擊）
 			fixed_velocity.y = 0

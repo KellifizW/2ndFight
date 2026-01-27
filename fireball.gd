@@ -117,14 +117,16 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		
 		# VFX
 		var vfx_position = (global_position + area.global_position) / 2.0
-		var vfx_scene_path = "res://vfx_blk.tscn" if is_blocked else "res://vfx_hit.tscn"
-		var vfx_scene = load(vfx_scene_path)
-		if vfx_scene:
-			var vfx = vfx_scene.instantiate()
-			vfx.global_position = vfx_position
-			get_tree().current_scene.add_child(vfx)
-		else:
-			push_error("無法載入 VFX 場景：%s" % vfx_scene_path)
+		var vfx_type = "block" if is_blocked else "hit"
+		
+		# 使用預載和預熱的資源（零卡頓）
+		var preloader = get_tree().get_first_node_in_group("resource_preloader")
+		if preloader:
+			var vfx_scene = preloader.get_vfx_scene(vfx_type)
+			if vfx_scene:
+				var vfx = vfx_scene.instantiate()
+				vfx.global_position = vfx_position
+				get_tree().current_scene.add_child(vfx)
 
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if not is_active: return
@@ -178,11 +180,15 @@ func _on_proximitybox_area_entered(area: Area2D) -> void:
 			
 			# 格擋 VFX
 			var vfx_position = (global_position + area.global_position) / 2.0
-			var vfx_blk = load("res://vfx_blk.tscn")
-			if vfx_blk:
-				var vfx = vfx_blk.instantiate()
-				vfx.global_position = vfx_position
-				get_tree().current_scene.add_child(vfx)
+			
+			# 使用預載和預熱的資源（零卡頓）
+			var preloader = get_tree().get_first_node_in_group("resource_preloader")
+			if preloader:
+				var vfx_scene = preloader.get_vfx_scene("block")
+				if vfx_scene:
+					var vfx = vfx_scene.instantiate()
+					vfx.global_position = vfx_position
+					get_tree().current_scene.add_child(vfx)
 
 func _on_animation_finished(anim_name: String) -> void:
 	if anim_name == "fireball/ball_impact":

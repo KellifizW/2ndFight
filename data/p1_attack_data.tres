@@ -1,10 +1,10 @@
-[gd_resource type="Resource" script_class="AttackData" load_steps=2 format=3 uid="uid://dsdxakjhgv04k"]
+[gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://dsdxakjhgv04k"]
 
 [ext_resource type="Script" uid="uid://ccjfweg28wskh" path="res://data/AttackData.gd" id="1_6mkls"]
 
 [resource]
 script = ExtResource("1_6mkls")
-st_mk_damage = 10.0
+st_mk_damage = 6.0
 st_mk_hitstun = 0.7
 st_mk_knockback = 350.0
 st_hk_damage = 16.0
@@ -18,11 +18,11 @@ cr_mp_knockback = 200.0
 cr_hp_damage = 13.0
 cr_hp_knockback = 320.0
 cr_lk_damage = 6.0
-cr_lk_hitstun = 0.45
+cr_lk_hitstun = 0.3
 cr_lk_blockstun = 0.217
 cr_lk_knockback = 180.0
-cr_mk_damage = 11.0
-cr_mk_hitstun = 0.65
+cr_mk_damage = 6.0
+cr_mk_hitstun = 0.383
 cr_mk_blockstun = 0.283
 cr_mk_knockback = 280.0
 cr_hk_damage = 15.0

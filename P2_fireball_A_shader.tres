@@ -1,4 +1,4 @@
-[gd_resource type="VisualShader" load_steps=8 format=3 uid="uid://deog7x82ywb8r"]
+[gd_resource type="VisualShader" format=3 uid="uid://deog7x82ywb8r"]
 
 [sub_resource type="VisualShaderNodeTexture2DParameter" id="VisualShaderNodeTexture2DParameter_vse0w"]
 parameter_name = "Dissolver_texture"
@@ -31,47 +31,6 @@ source = 5
 texture_type = 1
 
 [resource]
-code = "shader_type canvas_item;
-render_mode blend_mix, unshaded;
-
-uniform sampler2D Dissolver_texture : source_color, repeat_enable;
-uniform sampler2D Flame_Texture : source_color;
-
-
-
-void vertex() {
-// Input:5
-	vec4 n_out5p0 = COLOR;
-	float n_out5p4 = n_out5p0.a;
-
-
-	vec4 n_out3p0;
-// Texture2D:3
-	n_out3p0 = texture(Dissolver_texture, UV);
-	float n_out3p1 = n_out3p0.r;
-
-
-// SmoothStep:4
-	float n_in4p1 = 1.00000;
-	float n_out4p0 = smoothstep(n_out5p4, n_in4p1, n_out3p1);
-
-
-	vec4 n_out8p0;
-// Texture2D:8
-	n_out8p0 = texture(Flame_Texture, UV);
-	float n_out8p1 = n_out8p0.r;
-
-
-// FloatOp:6
-	float n_out6p0 = n_out4p0 * n_out8p1;
-
-
-// Output:0
-	COLOR.a = n_out6p0;
-
-
-}
-"
 mode = 1
 flags/unshaded = true
 flags/light_only = false

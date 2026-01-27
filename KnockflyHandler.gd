@@ -14,8 +14,20 @@ func handle_knockfly_layground(delta: float, _floor_y: int) -> void:
 		movement_node.fixed_velocity.y += int(gravity * delta)
 		apply_air_friction(movement_node.default_air_friction, delta)
 		if movement_node.air_hit_backjump_timer <= 0 or movement_node.is_on_floor():
+			print("[KNOCKFLY] %s 空中受擊結束：timer=%.3f, on_floor=%s" % [movement_node.name, movement_node.air_hit_backjump_timer, movement_node.is_on_floor()])
 			movement_node.is_air_hit_backjump = false
-			movement_node.is_hit = true
+			# 空中被打回到地面後不播放 hit 動畫，清除受擊狀態
+			movement_node.is_hit = false
+			movement_node.hitstun_frames = 0
+			# 只在落地時清除跳躍狀態，如果還在空中就保持 is_jumping 並設置 jump_dir 為後跳
+			if movement_node.is_on_floor():
+				movement_node.is_jumping = false
+				movement_node.just_jumped = false
+				print("[KNOCKFLY] %s 落地，清除跳躍狀態" % movement_node.name)
+			else:
+				# 設置 jump_dir 為後跳方向（與 facing 相反），確保播放 Jump_B
+				movement_node.jump_dir = -movement_node.facing_direction
+				print("[KNOCKFLY] %s 仍在空中，設置 jump_dir=%.1f (後跳方向)" % [movement_node.name, movement_node.jump_dir])
 		return
 
 	if movement_node.is_knockfly:

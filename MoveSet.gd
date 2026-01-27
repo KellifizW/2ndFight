@@ -470,10 +470,17 @@ func _process_projectile_spawn(delta: float, _world: Node) -> void:
 	
 	if current_move_state.spawn_timer <= 0 and current_move_state.spawn_timer > -delta:
 		print("[MoveSet._process_projectile_spawn] %s attempting to spawn fireball" % parent.name)
-		var scene_path = "res://%s_fireball.tscn" % parent.character_id
-		var fireball_scene: PackedScene = load(scene_path)
-		if fireball_scene == null:
-			push_error("Cannot load fireball scene: %s" % scene_path)
+		
+		# 使用預載和預熱的資源（零卡頓）
+		var preloader = get_tree().get_first_node_in_group("resource_preloader")
+		if not preloader:
+			push_error("ResourcePreloadManager not found")
+			stop_special_move()
+			return
+		
+		var fireball_scene: PackedScene = preloader.get_fireball_scene(parent.character_id)
+		if not fireball_scene:
+			push_error("Fireball scene not found for character: %s" % parent.character_id)
 			stop_special_move()
 			return
 		
@@ -483,7 +490,7 @@ func _process_projectile_spawn(delta: float, _world: Node) -> void:
 		fb.fireball_owner = parent
 		fb.global_position = parent.global_position + Vector2(fireball_x_offset * parent.facing_direction, fireball_y_offset)
 		get_tree().current_scene.add_child(fb)
-		print("[MoveSet] %s spawned fireball: %s at position %s" % [parent.name, scene_path, fb.global_position])
+		print("[MoveSet] %s spawned fireball at position %s" % [parent.name, fb.global_position])
 
 func _process_jump(delta: float, world: Node, move: MoveData) -> void:
 	current_move_state.jump_timer -= delta

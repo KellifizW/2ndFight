@@ -41,6 +41,12 @@ extends Label
 ## 顯示威脅等級（僅 AI 玩家）
 @export var show_threat_level: bool = true
 
+## 顯示 Proximitybox 狀態
+@export var show_proximity_status: bool = true
+
+## 始終顯示（即使不是AI模式也顯示）
+@export var always_show: bool = true
+
 # ============================================================
 # 內部變量
 # ============================================================
@@ -134,6 +140,10 @@ func _update_display() -> void:
 		var distance = abs(target_player.global_position.x - opponent.global_position.x)
 		display_text += "📏 距離: %.1f px\n" % distance
 	
+	# 顯示 Proximitybox 狀態（新增）
+	if show_proximity_status:
+		display_text += _get_proximity_status()
+	
 	# 顯示 Hitbox 信息
 	if show_hitbox_info:
 		display_text += _get_hitbox_info()
@@ -142,7 +152,7 @@ func _update_display() -> void:
 	if show_collision_status:
 		display_text += _get_collision_status()
 	
-	# 顯示威脅等級
+	# 顯示威脅等級（如果啟用always_show，即使非AI也顯示基本狀態）
 	if show_threat_level:
 		display_text += _get_threat_info()
 	
@@ -200,12 +210,64 @@ func _get_collision_status() -> String:
 	
 	return status
 
+func _get_proximity_status() -> String:
+	"""獲取 Proximitybox 狀態"""
+	var status = "\n📍 Proximity:\n"
+	
+	if not opponent:
+		return status + "  (無對手)\n"
+	
+	# 檢查 is_opponent_proximity 和 is_proximity_blocking
+	var is_opp_prox = target_player.get("is_opponent_proximity") if "is_opponent_proximity" in target_player else false
+	var is_prox_block = target_player.get("is_proximity_blocking") if "is_proximity_blocking" in target_player else false
+	var is_holding_back = target_player.get("is_holding_back") if "is_holding_back" in target_player else false
+	var facing = target_player.get("facing_direction") if "facing_direction" in target_player else 1.0
+	
+	status += "  對手在範圍: %s\n" % ("✅ 是" if is_opp_prox else "❌ 否")
+	status += "  按後退鍵: %s\n" % ("✅ 是" if is_holding_back else "❌ 否")
+	status += "  Prox Block: %s\n" % ("🛡️ 激活" if is_prox_block else "❌ 未激活")
+	status += "  面向: %s\n" % ("→ 右" if facing > 0 else "← 左")
+	
+	# 檢查對手的 Proximitybox 是否有效
+	if opponent.has_node("Proximitybox"):
+		var prox_box = opponent.get_node("Proximitybox")
+		var prox_shape = prox_box.get_node_or_null("ProxShape")
+		if prox_shape and prox_shape.shape:
+			var prox_disabled = prox_shape.disabled
+			status += "  對手Prox啟用: %s\n" % ("✅ 是" if not prox_disabled else "❌ 否")
+			if not prox_disabled:
+				var shape_size = prox_shape.shape.size if prox_shape.shape is RectangleShape2D else Vector2.ZERO
+				status += "    尺寸: %s\n" % shape_size
+		else:
+			status += "  對手Prox: ❌ 無Shape\n"
+	else:
+		status += "  對手Prox: ❌ 無節點\n"
+	
+	# 檢查 Hurtbox 碰撞層級設置
+	if target_player.has_node("Hurtbox"):
+		var hurtbox = target_player.get_node("Hurtbox")
+		var collision_mask = hurtbox.collision_mask
+		var can_detect_prox = (collision_mask & 64) != 0  # Layer 7 = 64
+		status += "  Hurtbox可檢測Prox: %s (mask=%d)\n" % ["✅ 是" if can_detect_prox else "❌ 否", collision_mask]
+	
+	return status
+
 func _get_threat_info() -> String:
 	"""獲取威脅等級信息（僅適用於 AI 玩家）"""
 	var info = "\n🚨 威脅:\n"
 	
 	if not opponent:
 		return info + "  (無對手)\n"
+	
+	# 如果 always_show 啟用，即使非 AI 也顯示基本攻擊狀態
+	if always_show and not target_player.has_node("AIBehavior"):
+		if opponent.get("is_attacking") if "is_attacking" in opponent else false:
+			info += "  對手攻擊: ✅ 是\n"
+			if "attack_type" in opponent:
+				info += "  攻擊類型: %s\n" % opponent.attack_type
+		else:
+			info += "  對手攻擊: ❌ 否\n"
+		return info
 	
 	# 檢查目標玩家是否有 AI
 	if not target_player.has_node("AIBehavior"):

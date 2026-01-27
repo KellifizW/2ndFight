@@ -80,6 +80,15 @@ func _ready() -> void:
 	print("[WORLD] HitboxCache 已初始化")
 	
 	# ============================================================
+	# 初始化 ResourcePreloadManager（特效預載系統）
+	# ============================================================
+	var resource_preloader = ResourcePreloadManager.new()
+	resource_preloader.name = "ResourcePreloader"
+	add_child(resource_preloader)
+	resource_preloader.add_to_group("resource_preloader")
+	print("[WORLD] ResourcePreloadManager 已初始化")
+	
+	# ============================================================
 	# 初始化 AI 性能監視器（Phase 2 優化）
 	# ============================================================
 	if enable_performance_monitoring:

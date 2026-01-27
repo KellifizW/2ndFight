@@ -356,15 +356,15 @@ func get_is_knockfly() -> bool:
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = true
-		var input_dir: int = get_input().input_dir
-		if input_dir * facing_direction < 0 and is_on_floor() and not (is_hit or is_knockfly or is_layground):
-			is_proximity_blocking = true
-			fixed_velocity.x = 0
+		var player_seat = player.seat if player and "seat" in player else "?"
+		print("[PROXIMITY] %s: 對手進入proximity range" % player_seat)
 
 func _on_hurtbox_area_exited(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = false
 		is_proximity_blocking = false
+		var player_seat = player.seat if player and "seat" in player else "?"
+		print("[PROXIMITY] %s: 對手離開proximity range" % player_seat)
 
 func _set_facing(new_facing: float) -> void:
 	facing_handler.set_facing(new_facing)

@@ -6,20 +6,20 @@ class_name VFXImpact
 var facing_direction: float = 1.0
 
 static func spawn_vfx(parent: Node, vfx_type: String, pos: Vector2, facing: float = 1.0) -> VFXImpact:
-	var vfx_scene_path: String
-	if vfx_type == "block":
-		vfx_scene_path = "res://vfx_blk.tscn"
-	else:
-		vfx_scene_path = "res://vfx_hit.tscn"
+	# 使用預載和預熱的資源（零卡頓）
+	var preloader = parent.get_tree().get_first_node_in_group("resource_preloader")
+	if not preloader:
+		push_error("Error: ResourcePreloadManager not found")
+		return null
 	
-	var vfx_scene = load(vfx_scene_path)
+	var vfx_scene: PackedScene = preloader.get_vfx_scene(vfx_type)
 	if not vfx_scene:
-		push_error("Error: Failed to load VFX scene %s" % vfx_scene_path)
+		push_error("Error: VFX scene not found for type: %s" % vfx_type)
 		return null
 	
 	var vfx = vfx_scene.instantiate() as VFXImpact
 	if not vfx:
-		push_error("Error: Failed to instantiate VFX from %s" % vfx_scene_path)
+		push_error("Error: Failed to instantiate VFX")
 		return null
 	
 	parent.add_child(vfx)
