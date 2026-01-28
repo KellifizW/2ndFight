@@ -6,7 +6,7 @@ class_name InputBuffer extends Node
 # ============================================================
 
 # Buffer window in frames (60 FPS)
-const BUFFER_FRAMES: int = 18  # ~83ms buffer window (standard for fighting games)
+const BUFFER_FRAMES: int = 30  
 
 # Buffer entry structure
 class BufferEntry:

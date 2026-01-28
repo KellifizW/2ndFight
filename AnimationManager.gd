@@ -21,14 +21,11 @@ func set_animation_conditions(target_state: String, on_floor: bool, crouch_input
 func compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	# 優先處理空中受擊狀態，確保不會被 jump_dir 覆寫
 	if "is_air_hit_backjump" in movement_node and movement_node.is_air_hit_backjump:
-		print("[COMPUTE] %s 返回 Jump_B (優先級1: is_air_hit_backjump)" % movement_node.name)
 		return "Jump_B"
 	
 	if movement_node.is_hit:
 		# 空中受擊永遠播放 Jump_B（後跳）動畫，地面受擊才播放 hit 動畫
-		var result = "hit" if on_floor else "Jump_B"
-		print("[COMPUTE] %s 返回 %s (優先級2: is_hit, on_floor=%s)" % [movement_node.name, result, on_floor])
-		return result
+		return "hit" if on_floor else "Jump_B"
 	
 	if movement_node.is_layground:
 		return "layground"
@@ -70,9 +67,7 @@ func compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, ani
 		if "is_air_attacking" in movement_node and (movement_node.is_air_attacking or ("has_air_attacked" in movement_node and movement_node.has_air_attacked)):
 			return movement_node.get("attack_type") if "attack_type" in movement_node else "jump_mp"
 		else:
-			var jump_anim = "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
-			print("[COMPUTE] %s 返回 %s (跳躍邏輯: is_jumping=%s, jump_dir=%.1f)" % [movement_node.name, jump_anim, movement_node.is_jumping, anim_jump_dir])
-			return jump_anim
+			return "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
 	
 	return "Walk"
 
@@ -85,12 +80,6 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var anim_dir: float = dir_x * movement_node.facing_direction
 	var anim_jump_dir: float = movement_node.jump_dir * movement_node.facing_direction
 	var target_state: String = movement_node._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
-	
-	# 調試：在空中受擊期間，始終顯示狀態
-	if "is_air_hit_backjump" in movement_node and movement_node.is_air_hit_backjump:
-		print("[UPDATE] %s curr=%s, target=%s, is_air_hit_backjump=%s, is_hit=%s" % [
-			movement_node.name, curr_state, target_state, movement_node.is_air_hit_backjump, movement_node.is_hit
-		])
 	
 	var ui_root = movement_node.get_tree().get_first_node_in_group("ui")
 	var healthbar_name = "PlayerAHealthbar" if movement_node.seat == "player_a" else "PlayerBHealthbar"
@@ -107,7 +96,6 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	
 	if curr_state != target_state:
 		if not (target_state == "knockfly" and movement_node.is_knockfly_animation_finished and not movement_node.is_on_floor()):
-			print("[TRAVEL] %s animation_state.travel(%s)" % [movement_node.name, target_state])
 			movement_node.animation_state.travel(target_state)
 	
 	if target_state == "Walk":

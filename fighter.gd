@@ -45,20 +45,14 @@ func _physics_process(delta: float) -> void:
 	if hitstun_frames > 0:
 		hitstun_frames -= 1
 		is_hit = true
-		# 不再在此強制播放動畫，讓 AnimationManager 根據狀態決定
 		if hitstun_frames <= 0:
-			print("[FIXED-FRAME HITSTUN END] %s 完全結束！is_air_hit_backjump=%s" % [name, is_air_hit_backjump])
+			print("[FIXED-FRAME HITSTUN END] %s 完全結束！" % name)
 			# 如果不是在空中受擊狀態，才清除 is_hit
 			if not is_air_hit_backjump:
 				is_hit = false
-				print("[HITSTUN] %s is_hit 被清除（不在空中受擊）" % name)
-			else:
-				print("[HITSTUN] %s is_hit 保持 true（在空中受擊中）" % name)
 	else:
 		# 如果不是在空中受擊狀態，才清除 is_hit
 		if not is_air_hit_backjump:
-			if is_hit:
-				print("[HITSTUN] %s is_hit 在 else 分支被清除" % name)
 			is_hit = false
 
 	# ── 【固定幀數 blockstun】與 hitstun 完全一致──
