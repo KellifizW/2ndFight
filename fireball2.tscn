@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://c1o1luiebb0hi"]
+
+[ext_resource type="Texture2D" uid="uid://cb12lqtylixiy" path="res://assets/fireball/T_fire1.png" id="1_ggj0v"]
+
+[sub_resource type="Environment" id="Environment_5cfiu"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_hc2fp"]
+
+[sub_resource type="Curve" id="Curve_w28ia"]
+_data = [Vector2(0, 0.52808213), 0.0, 1.4424657, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_podjy"]
+curve = SubResource("Curve_w28ia")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_3x6d3"]
+lifetime_randomness = 0.2
+particle_flag_rotate_y = true
+particle_flag_disable_z = true
+emission_shape = 1
+emission_sphere_radius = 10.0
+angle_min = -179.99998
+angle_max = 180.00002
+direction = Vector3(-100, 0, 0)
+spread = 50.0
+initial_velocity_min = 1.0
+initial_velocity_max = 80.0
+radial_velocity_min = -2.2351742e-05
+radial_velocity_max = 14.789977
+gravity = Vector3(-100, 0, 0)
+scale_min = 0.9
+scale_max = 1.4
+scale_curve = SubResource("CurveTexture_podjy")
+color = Color(1.3961765, 2.055, 2.055, 1)
+
+[node name="Node2D" type="Node2D" unique_id=451497190]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1199939008]
+environment = SubResource("Environment_5cfiu")
+
+[node name="GPUParticles2D" type="GPUParticles2D" parent="." unique_id=476601440]
+material = SubResource("CanvasItemMaterial_hc2fp")
+amount = 50
+texture = ExtResource("1_ggj0v")
+lifetime = 1.2
+process_material = SubResource("ParticleProcessMaterial_3x6d3")

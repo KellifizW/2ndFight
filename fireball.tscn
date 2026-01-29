@@ -1,13 +1,13 @@
-[gd_scene load_steps=28 format=3 uid="uid://ck7d2l0lqx403"]
+[gd_scene format=3 uid="uid://ck7d2l0lqx403"]
 
 [ext_resource type="Script" uid="uid://2srsoq8uppfe" path="res://fireball.gd" id="1_nknkd"]
 [ext_resource type="Shader" uid="uid://deog7x82ywb8r" path="res://P2_fireball_A_shader.tres" id="2_s8xu1"]
-[ext_resource type="Texture2D" uid="uid://dfi8ibhnd7tbq" path="res://assets/fireball/T_VFX_Noise_2.PNG" id="3_17xic"]
-[ext_resource type="Texture2D" uid="uid://budvrxmxqy1d6" path="res://assets/fireball/T_VFX_PerlinNoise_Tiled.png" id="4_qit32"]
-[ext_resource type="Texture2D" uid="uid://2rj5mhuheo8x" path="res://assets/fireball/circle_05.png" id="5_avoqh"]
-[ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="6_14d0s"]
-[ext_resource type="AudioStream" uid="uid://rp7ewg5mlgh0" path="res://audio/fireball_spawn.mp3" id="7_5fhu6"]
-[ext_resource type="AudioStream" uid="uid://dgqp33vjqdvqk" path="res://audio/fireball_vanish.wav" id="8_lgd32"]
+[ext_resource type="Texture2D" uid="uid://dn4shxg7jnp16" path="res://assets/fireball/T_VFX_Noise_2.PNG" id="3_17xic"]
+[ext_resource type="Texture2D" uid="uid://dqkqiysvf8ghs" path="res://assets/fireball/T_VFX_PerlinNoise_Tiled.png" id="4_qit32"]
+[ext_resource type="Texture2D" uid="uid://cfhk8vpx6utag" path="res://assets/fireball/circle_05.png" id="5_avoqh"]
+[ext_resource type="Texture2D" uid="uid://b6poq4uxqguy5" path="res://assets/Davis2.png" id="6_14d0s"]
+[ext_resource type="AudioStream" uid="uid://c6e4qlxr1vsmb" path="res://audio/fireball_spawn.mp3" id="7_5fhu6"]
+[ext_resource type="AudioStream" uid="uid://cu68di8c2n3ps" path="res://audio/fireball_vanish.wav" id="8_lgd32"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_vsxo4"]
 shader = ExtResource("2_s8xu1")
@@ -205,12 +205,12 @@ size = Vector2(40, 20)
 [sub_resource type="Environment" id="Environment_3bmh0"]
 glow_enabled = true
 
-[node name="Fireball" type="Area2D"]
+[node name="Fireball" type="Area2D" unique_id=1292672226]
 collision_layer = 4
 collision_mask = 0
 script = ExtResource("1_nknkd")
 
-[node name="VFX_ball" type="GPUParticles2D" parent="."]
+[node name="VFX_ball" type="GPUParticles2D" parent="." unique_id=1757242523]
 material = SubResource("ShaderMaterial_vsxo4")
 amount = 20
 texture = ExtResource("5_avoqh")
@@ -219,7 +219,7 @@ speed_scale = 3.0
 fixed_fps = 60
 process_material = SubResource("ParticleProcessMaterial_8e0u4")
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1399084993]
 visible = false
 scale = Vector2(10, 10)
 texture = ExtResource("6_14d0s")
@@ -228,43 +228,41 @@ hframes = 10
 vframes = 19
 frame = 181
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
-libraries = {
-&"fireball": SubResource("AnimationLibrary_46qut")
-}
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=984647132]
+libraries/fireball = SubResource("AnimationLibrary_46qut")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1637507190]
 shape = SubResource("RectangleShape2D_imvl6")
 
-[node name="Hitbox" type="Area2D" parent="."]
+[node name="Hitbox" type="Area2D" parent="." unique_id=542530142]
 collision_layer = 4
 collision_mask = 34
 
-[node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
+[node name="HitShape" type="CollisionShape2D" parent="Hitbox" unique_id=1158839897]
 shape = SubResource("RectangleShape2D_258ym")
 debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
-[node name="Hurtbox" type="Area2D" parent="."]
+[node name="Hurtbox" type="Area2D" parent="." unique_id=741079144]
 collision_layer = 16
 collision_mask = 8
 
-[node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]
+[node name="HurtShape" type="CollisionShape2D" parent="Hurtbox" unique_id=382516452]
 shape = SubResource("RectangleShape2D_kcguo")
 
-[node name="Proximitybox" type="Area2D" parent="."]
+[node name="Proximitybox" type="Area2D" parent="." unique_id=636086976]
 collision_layer = 0
 collision_mask = 64
 
-[node name="ProxShape" type="CollisionShape2D" parent="Proximitybox"]
+[node name="ProxShape" type="CollisionShape2D" parent="Proximitybox" unique_id=1488414576]
 shape = SubResource("RectangleShape2D_twj7m")
 debug_color = Color(0.62189, 0.533606, 0, 0.42)
 
-[node name="SpawnSoundPlayer" type="AudioStreamPlayer" parent="."]
+[node name="SpawnSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=66744416]
 stream = ExtResource("7_5fhu6")
 
-[node name="HitSoundPlayer" type="AudioStreamPlayer" parent="."]
+[node name="HitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=338589148]
 stream = ExtResource("8_lgd32")
 pitch_scale = 1.1
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=409545164]
 environment = SubResource("Environment_3bmh0")

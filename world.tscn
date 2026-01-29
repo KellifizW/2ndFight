@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
-[ext_resource type="Texture2D" uid="uid://cl5cldwpbfwt6" path="res://assets/stage.png" id="1_fj7yv"]
+[ext_resource type="Texture2D" uid="uid://dgde4231ic5cc" path="res://assets/stage.png" id="1_fj7yv"]
 [ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://FollowCamera.tscn" id="3_gbfbk"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
-[ext_resource type="FontFile" uid="uid://doprqju6a18sf" path="res://fonts/Roundex.otf" id="4_cbp6q"]
+[ext_resource type="FontFile" uid="uid://d2yj0i6c3jbxg" path="res://fonts/Roundex.otf" id="4_cbp6q"]
 [ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://ai/cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://slow_mo_controller.gd" id="7_pkg7o"]
@@ -12,7 +12,7 @@
 [ext_resource type="FontFile" uid="uid://drt5it72nn35m" path="res://fonts/SF_font_file.tres" id="9_hiqwa"]
 [ext_resource type="Script" uid="uid://cydy3y7rrkibl" path="res://PushManager.gd" id="9_ioo17"]
 [ext_resource type="Script" uid="uid://difd2h2ijxtjl" path="res://InputBufferDebug.gd" id="12_cbp6q"]
-[ext_resource type="AudioStream" uid="uid://edw4r0cjrhy6" path="res://audio/bgm.mp3" id="12_k3n1d"]
+[ext_resource type="AudioStream" uid="uid://brk2dcuhf5ypg" path="res://audio/bgm.mp3" id="12_k3n1d"]
 [ext_resource type="Script" uid="uid://4ckupm30y5q3" path="res://ui/HitboxDebugDisplay.gd" id="13_26xuy"]
 [ext_resource type="Resource" uid="uid://b8qgdymiybxrq" path="res://characters/DAV.character.tres" id="15_26xuy"]
 [ext_resource type="PackedScene" uid="uid://cqrn1wwdo20e6" path="res://ui/InputHistoryDisplayIcon.tscn" id="15_wukud"]
@@ -43,28 +43,27 @@ shader_parameter/blur_factor = 0.0
 
 [node name="World" type="Node2D" unique_id=530271091]
 script = ExtResource("1_aqk2v")
-arena_left = null
-arena_right = null
 bgm_max_volume_db = -15.0
-enable_performance_monitoring = null
-profiling_log_interval = null
 player_a_character = ExtResource("15_26xuy")
 player_b_character = ExtResource("17_bc84e")
 
 [node name="TextureRect" type="TextureRect" parent="." unique_id=350568051]
-modulate = Color(1, 0.898039, 0.670588, 0.772549)
+modulate = Color(0.8268999, 0.8557154, 0.8557154, 1)
 z_index = -1
 material = SubResource("ShaderMaterial_2u3nc")
-offset_left = -419.00003
-offset_top = -197.0
-offset_right = 2781.0
-offset_bottom = 1023.0
-scale = Vector2(0.77, 0.77)
+offset_left = -148.00003
+offset_top = -18.000004
+offset_right = 3212.0
+offset_bottom = 1262.0
+scale = Vector2(0.58, 0.58)
+size_flags_horizontal = 4
+size_flags_vertical = 4
 texture = ExtResource("1_fj7yv")
 
 [node name="FollowCamera" parent="." unique_id=1002113294 instance=ExtResource("3_gbfbk")]
 position = Vector2(640, 360)
 scale = Vector2(1e-05, 1e-05)
+base_y_offset = 150.0
 
 [node name="StaticBody2D" type="StaticBody2D" parent="." unique_id=617859896]
 position = Vector2(750, 700)
@@ -281,7 +280,7 @@ modulate = Color(0.16078432, 0.16078432, 0.16078432, 1)
 z_index = -1
 material = SubResource("ShaderMaterial_wukud")
 position = Vector2(0, 108)
-scale = Vector2(0.45, 0.09)
+scale = Vector2(0.45, 0.07)
 sprite_frames = ExtResource("18_26xuy")
 animation = &"idle"
 offset = Vector2(0, -20)
@@ -291,6 +290,6 @@ modulate = Color(0.07058824, 0.07058824, 0.07058824, 1)
 z_index = -1
 material = SubResource("ShaderMaterial_il2jm")
 position = Vector2(0, 120)
-scale = Vector2(0.48, 0.09)
+scale = Vector2(0.48, 0.07)
 sprite_frames = ExtResource("19_bc84e")
 offset = Vector2(0, -25.98)

@@ -1,16 +1,16 @@
 [gd_resource type="ParticleProcessMaterial" format=3 uid="uid://b0icseqbxuht5"]
 
 [sub_resource type="Curve" id="Curve_nayii"]
-_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
 point_count = 2
 
 [sub_resource type="Curve" id="Curve_enca7"]
 _limits = [0.0, 5.0, 0.0, 1.0]
-_data = [Vector2(0, 5), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+_data = [Vector2(0, 5), 0.0, 0.0, 0, 0, Vector2(1, 5), 0.0, 0.0, 0, 0]
 point_count = 2
 
 [sub_resource type="Curve" id="Curve_1sgck"]
-_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
 point_count = 2
 
 [sub_resource type="CurveXYZTexture" id="CurveXYZTexture_6yqp0"]
@@ -20,12 +20,12 @@ curve_z = SubResource("Curve_1sgck")
 
 [resource]
 lifetime_randomness = 0.5
-particle_flag_align_y = true
-spread = 180.0
+direction = Vector3(-1, 0, 0)
+spread = 100.0
 initial_velocity_min = 0.5
 initial_velocity_max = 300.0
 gravity = Vector3(0, -20, 0)
 scale_min = 0.099999994
 scale_max = 0.29999998
 scale_curve = SubResource("CurveXYZTexture_6yqp0")
-color = Color(7.8425736, 3.2875552, 1.7252303, 1)
+color = Color(0.41762477, 0.67955214, 1.3266667, 1)

@@ -58,7 +58,7 @@ func sync_shadow() -> void:
 	
 	# 同步位置
 	shadow_sprite.global_position.x = parent_player.global_position.x
-	shadow_sprite.global_position.y = 570 + 120  # 固定在地面下方
+	shadow_sprite.global_position.y = 555 + 120  # 固定在地面下方
 	
 	# 更新模糊效果（基於高度）
 	update_blur(mat)

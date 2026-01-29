@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="AttackData" load_steps=6 format=3 uid="uid://cvb6od4v5o7vq"]
+[gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://cvb6od4v5o7vq"]
 
 [ext_resource type="Script" uid="uid://ccjfweg28wskh" path="res://data/AttackData.gd" id="1_e6rab"]
 [ext_resource type="Resource" uid="uid://hqrdjr3uchi2" path="res://data/den_cr_hk_movement.tres" id="1_tfxke"]
@@ -10,12 +10,9 @@
 script = ExtResource("1_e6rab")
 st_hp_damage = 10.0
 st_hp_movement = ExtResource("2_ybc3s")
-st_lk_damage = 3.0
-st_mk_damage = 6.0
 st_mk_hitstun = 0.7
 st_mk_knockback = 300.0
 st_mk_movement = ExtResource("4_lgwdk")
-st_hk_damage = 9.0
 st_hk_hitstun = 0.8
 st_hk_movement = ExtResource("3_pjwwx")
 cr_lp_hitstun = 0.267
@@ -24,7 +21,7 @@ cr_mp_damage = 9.0
 cr_mp_hitstun = 0.383
 cr_mp_blockstun = 0.25
 cr_mp_knockback = 200.0
-cr_hp_damage = 13.0
+cr_hp_damage = 8.0
 cr_hp_knockback = 320.0
 cr_lk_damage = 6.0
 cr_lk_hitstun = 0.45
@@ -39,16 +36,12 @@ cr_hk_hitstun = 0.75
 cr_hk_blockstun = 0.35
 cr_hk_knockback = 380.0
 cr_hk_movement = ExtResource("1_tfxke")
-jump_lp_damage = 3.0
-jump_mp_damage = 6.0
 jump_mp_hitstun = 0.5
 jump_mp_blockstun = 0.283
 jump_mp_knockback = 280.0
-jump_hp_damage = 9.0
 jump_mk_damage = 10.0
 jump_mk_hitstun = 0.45
 jump_mk_blockstun = 0.25
 jump_mk_knockback = 100.0
-jump_hk_damage = 9.0
 jump_hk_knockback = 300.0
 metadata/_custom_type_script = "uid://ccjfweg28wskh"
