@@ -1,12 +1,12 @@
 extends Area2D
 
-var speed: float = 800.0          # 預設速度（DAV）
+var speed: float = 800.0
 var direction: int = 1
-var damage: float = 15.0          # 預設傷害（DAV）
+var damage: float = 15.0
 var blockstun_duration: float = 0.3
 var is_active: bool = true
-var owner_character_id: String = "DAV"  # 現在使用 character_id 而不是舊的 p1/p2
-var fireball_owner: Node = null           # 發射者的 Player 實例（避免打到自己）
+var owner_character_id: String = "DAV"
+var fireball_owner: Node = null
 
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer
@@ -16,10 +16,14 @@ var fireball_owner: Node = null           # 發射者的 Player 實例（避免�
 @onready var spawn_sound_player = $SpawnSoundPlayer
 @onready var hit_sound_player = $HitSoundPlayer
 
+# 粒子節點引用
+@onready var hit_particles: GPUParticles2D = $hit
+@onready var ringexp_particles: GPUParticles2D = $ringexp
+@onready var run_particles: GPUParticles2D = $run     # ← 新增這一行
+
 func _ready() -> void:
 	add_to_group("fireball")
 	
-	# 根據角色設定參數（DAV 與 DEN 不同）
 	if owner_character_id == "DAV":
 		speed = 800.0
 		damage = 15.0
@@ -32,11 +36,9 @@ func _ready() -> void:
 	if sprite == null:
 		push_error("Error: Sprite2D node not found in Fireball!")
 	else:
-		# 場景反轉邏輯（與 Movement.gd 一致）
 		scale.x = direction
 		scale.y = 1
 		sprite.scale.x = 1.0
-		# DEN 的 offset 調整（假設你原本有針對 P2 調整）
 		if owner_character_id == "DEN":
 			sprite.offset.x = abs(sprite.offset.x)
 	
@@ -57,7 +59,6 @@ func _ready() -> void:
 	monitoring = true
 	monitorable = true
 	
-	# 生成音效
 	if spawn_sound_player:
 		spawn_sound_player.play()
 	else:
@@ -69,19 +70,22 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if is_active:
 		position.x += speed * direction * delta
-	# 超出畫面自動銷毀
+	
 	if position.x > 2000 or position.x < -2000:
 		print("Fireball out of bounds, destroying at position: %s" % position.x)
 		queue_free()
 
+func _stop_trail_immediately() -> void:
+	if run_particles:
+		run_particles.emitting = false
+		run_particles.queue_free()          # 立即移除節點，最快消失
+		# 或是你也可以選擇： run_particles.visible = false  (但節點還在，比較浪費)
+
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	if not is_active: return
 	
-	# 過濾 1: 不要打發射者角色
 	if fireball_owner and area.get_parent() == fireball_owner:
 		return
-	
-	# 過濾 2: 不要打自己的 Hurtbox（內部碰撞）
 	if area.get_parent() == self:
 		return
 	
@@ -90,6 +94,18 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		is_active = false
 		if hitbox: hitbox.monitoring = false
 		if prox_shape: prox_shape.disabled = true
+		
+		# 立即停止並移除飛行軌跡粒子
+		_stop_trail_immediately()
+		
+		# 爆破粒子
+		if hit_particles:
+			hit_particles.restart()
+			hit_particles.emitting = true
+		if ringexp_particles:
+			ringexp_particles.restart()
+			ringexp_particles.emitting = true
+		
 		animation_player.play("fireball/ball_impact")
 		
 		var world = get_tree().get_first_node_in_group("world")
@@ -98,12 +114,13 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 			if slowmo_controller:
 				slowmo_controller.request_hit_freeze()
 		
-		target.take_hit(blockstun_duration, blockstun_duration, damage, false)
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
+		var actual_damage = damage if not is_blocked else 0.0
+		target.take_hit(blockstun_duration, blockstun_duration, actual_damage, false)
+		
 		if target.has_signal("hit_detected"):
 			target.hit_detected.emit(name, blockstun_duration, is_blocked)
 		
-		# 擊中音效
 		if hit_sound_player:
 			var sound = hit_sound_player.duplicate()
 			get_tree().current_scene.add_child(sound)
@@ -113,13 +130,10 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 			push_warning("Warning: HitSoundPlayer not found in Fireball!")
 		
 		print("Fireball hit %s, is_blocked: %s, damage: %s, owner: %s" %
-			[target.name, is_blocked, damage, owner_character_id])
+			[target.name, is_blocked, actual_damage, owner_character_id])
 		
-		# VFX
 		var vfx_position = (global_position + area.global_position) / 2.0
 		var vfx_type = "block" if is_blocked else "hit"
-		
-		# 使用預載和預熱的資源（零卡頓）
 		var preloader = get_tree().get_first_node_in_group("resource_preloader")
 		if preloader:
 			var vfx_scene = preloader.get_vfx_scene(vfx_type)
@@ -131,11 +145,8 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 func _on_hurtbox_area_entered(area: Area2D) -> void:
 	if not is_active: return
 	
-	# 過濾 1: 不要被發射者角色打到
 	if fireball_owner and area.get_parent() == fireball_owner:
 		return
-	
-	# 過濾 2: 不要被自己的 Hitbox 打到（內部碰撞）
 	if area.get_parent() == self:
 		return
 	
@@ -143,6 +154,10 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 		is_active = false
 		if hitbox: hitbox.monitoring = false
 		if prox_shape: prox_shape.disabled = true
+		
+		# 被其他火球或攻擊打到，也停止軌跡
+		_stop_trail_immediately()
+		
 		animation_player.play("fireball/ball_impact")
 		
 		if area.get_parent().is_in_group("fireball"):
@@ -153,7 +168,6 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 func _on_proximitybox_area_entered(area: Area2D) -> void:
 	if not is_active: return
 	
-	# 過濾自己，避免近距離格擋自己
 	if fireball_owner and area.get_parent() == fireball_owner:
 		return
 	
@@ -163,13 +177,23 @@ func _on_proximitybox_area_entered(area: Area2D) -> void:
 			is_active = false
 			if hitbox: hitbox.monitoring = false
 			if prox_shape: prox_shape.disabled = true
+			
+			# 近距離格擋也停止軌跡 + 播放爆破
+			_stop_trail_immediately()
+			
+			if hit_particles:
+				hit_particles.restart()
+				hit_particles.emitting = true
+			if ringexp_particles:
+				ringexp_particles.restart()
+				ringexp_particles.emitting = true
+			
 			animation_player.play("fireball/ball_impact")
 			
-			target.take_hit(blockstun_duration, 0.0, false)  # 格擋無傷害
+			target.take_hit(blockstun_duration, 0.0, false)
 			if target.has_signal("block_detected"):
 				target.block_detected.emit(name, "proximity")
 			
-			# 近距離格擋音效
 			if hit_sound_player:
 				var sound = hit_sound_player.duplicate()
 				get_tree().current_scene.add_child(sound)
@@ -178,10 +202,7 @@ func _on_proximitybox_area_entered(area: Area2D) -> void:
 			
 			print("Fireball proximity blocked by %s, owner: %s" % [target.name, owner_character_id])
 			
-			# 格擋 VFX
 			var vfx_position = (global_position + area.global_position) / 2.0
-			
-			# 使用預載和預熱的資源（零卡頓）
 			var preloader = get_tree().get_first_node_in_group("resource_preloader")
 			if preloader:
 				var vfx_scene = preloader.get_vfx_scene("block")

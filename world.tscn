@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
-[ext_resource type="Texture2D" uid="uid://dgde4231ic5cc" path="res://assets/stage.png" id="1_fj7yv"]
+[ext_resource type="Texture2D" uid="uid://cl5cldwpbfwt6" path="res://assets/stage.png" id="1_fj7yv"]
 [ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://FollowCamera.tscn" id="3_gbfbk"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
-[ext_resource type="FontFile" uid="uid://d2yj0i6c3jbxg" path="res://fonts/Roundex.otf" id="4_cbp6q"]
+[ext_resource type="FontFile" uid="uid://doprqju6a18sf" path="res://fonts/Roundex.otf" id="4_cbp6q"]
 [ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://ai/cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://slow_mo_controller.gd" id="7_pkg7o"]
@@ -12,7 +12,7 @@
 [ext_resource type="FontFile" uid="uid://drt5it72nn35m" path="res://fonts/SF_font_file.tres" id="9_hiqwa"]
 [ext_resource type="Script" uid="uid://cydy3y7rrkibl" path="res://PushManager.gd" id="9_ioo17"]
 [ext_resource type="Script" uid="uid://difd2h2ijxtjl" path="res://InputBufferDebug.gd" id="12_cbp6q"]
-[ext_resource type="AudioStream" uid="uid://brk2dcuhf5ypg" path="res://audio/bgm.mp3" id="12_k3n1d"]
+[ext_resource type="AudioStream" uid="uid://edw4r0cjrhy6" path="res://audio/bgm.mp3" id="12_k3n1d"]
 [ext_resource type="Script" uid="uid://4ckupm30y5q3" path="res://ui/HitboxDebugDisplay.gd" id="13_26xuy"]
 [ext_resource type="Resource" uid="uid://b8qgdymiybxrq" path="res://characters/DAV.character.tres" id="15_26xuy"]
 [ext_resource type="PackedScene" uid="uid://cqrn1wwdo20e6" path="res://ui/InputHistoryDisplayIcon.tscn" id="15_wukud"]
@@ -211,6 +211,7 @@ script = ExtResource("12_cbp6q")
 enabled = true
 
 [node name="HitboxDebugP1" type="Label" parent="UI" unique_id=1220062444]
+visible = false
 anchors_preset = 4
 anchor_top = 0.5
 anchor_bottom = 0.5
@@ -221,6 +222,7 @@ grow_vertical = 2
 script = ExtResource("13_26xuy")
 
 [node name="HitboxDebugP2" type="Label" parent="UI" unique_id=308506981]
+visible = false
 layout_direction = 2
 anchors_preset = 6
 anchor_left = 1.0
@@ -236,7 +238,6 @@ script = ExtResource("13_26xuy")
 target_player_seat = "player_b"
 
 [node name="InputHistoryP1" parent="UI" unique_id=2101508390 instance=ExtResource("15_wukud")]
-visible = false
 anchors_preset = 4
 anchor_top = 0.5
 anchor_bottom = 0.5
@@ -244,7 +245,6 @@ offset_top = -160.0
 offset_bottom = -160.0
 
 [node name="InputHistoryP2" parent="UI" unique_id=923989271 instance=ExtResource("15_wukud")]
-visible = false
 layout_direction = 2
 anchors_preset = 6
 anchor_left = 1.0

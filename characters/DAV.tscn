@@ -6,6 +6,7 @@
 [ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="4_0wmxw"]
 [ext_resource type="Texture2D" uid="uid://dtrspm0lofn8v" path="res://assets/texture/smoke/smoke_01.png" id="5_7kano"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://MoveSet.gd" id="6_b3w3n"]
+[ext_resource type="PackedScene" uid="uid://c6auncdpwmjdd" path="res://assets/fireball/spawnfire.tscn" id="6_rnech"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_t485y"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://PlayerController.gd" id="8_hshs3"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://InputManager.gd" id="9_sbsnw"]
@@ -357,6 +358,78 @@ tracks/27/path = NodePath("Proximitybox/ProxShape:disabled")
 tracks/27/interp = 1
 tracks/27/loop_wrap = true
 tracks/27/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+tracks/28/type = "value"
+tracks/28/imported = false
+tracks/28/enabled = true
+tracks/28/path = NodePath("spawnfire/tail:position")
+tracks/28/interp = 1
+tracks/28/loop_wrap = true
+tracks/28/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0, 0)]
+}
+tracks/29/type = "value"
+tracks/29/imported = false
+tracks/29/enabled = true
+tracks/29/path = NodePath("spawnfire/ball:position")
+tracks/29/interp = 1
+tracks/29/loop_wrap = true
+tracks/29/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0, 0)]
+}
+tracks/30/type = "value"
+tracks/30/imported = false
+tracks/30/enabled = true
+tracks/30/path = NodePath("spawnfire/ball:one_shot")
+tracks/30/interp = 1
+tracks/30/loop_wrap = true
+tracks/30/keys = {
+"times": PackedFloat32Array(),
+"transitions": PackedFloat32Array(),
+"update": 1,
+"values": []
+}
+tracks/31/type = "value"
+tracks/31/imported = false
+tracks/31/enabled = true
+tracks/31/path = NodePath("spawnfire/ball:emitting")
+tracks/31/interp = 1
+tracks/31/loop_wrap = true
+tracks/31/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+tracks/32/type = "value"
+tracks/32/imported = false
+tracks/32/enabled = true
+tracks/32/path = NodePath("spawnfire/tail:one_shot")
+tracks/32/interp = 1
+tracks/32/loop_wrap = true
+tracks/32/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [true]
+}
+tracks/33/type = "value"
+tracks/33/imported = false
+tracks/33/enabled = true
+tracks/33/path = NodePath("spawnfire/tail:emitting")
+tracks/33/interp = 1
+tracks/33/loop_wrap = true
+tracks/33/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
@@ -2550,7 +2623,6 @@ tracks/10/keys = {
 [sub_resource type="Animation" id="Animation_aar5g"]
 resource_name = "davis_fireball"
 length = 0.8
-loop_mode = 1
 step = 0.0333
 tracks/0/type = "value"
 tracks/0/imported = false
@@ -2599,6 +2671,78 @@ tracks/3/keys = {
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [0, 1, 2, 3, 4, 5, 6, 7]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("spawnfire/ball:position")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0, 0.16666667),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [Vector2(-30, 0), Vector2(110, -40)]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("spawnfire/tail:position")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0, 0.16666667),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [Vector2(0, 0), Vector2(110, -40)]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("spawnfire/ball:one_shot")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [true]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("spawnfire/ball:emitting")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0, 0.46666667),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [true, false]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("spawnfire/tail:one_shot")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [true]
+}
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("spawnfire/tail:emitting")
+tracks/9/interp = 1
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0, 0.7),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [true, false]
 }
 
 [sub_resource type="Animation" id="Animation_5b203"]
@@ -6008,6 +6152,15 @@ explosiveness = 0.9
 fixed_fps = 60
 process_material = SubResource("ParticleProcessMaterial_6w4w0")
 
+[node name="spawnfire" parent="." unique_id=633017874 instance=ExtResource("6_rnech")]
+
+[node name="ball" parent="spawnfire" index="0" unique_id=1256229706]
+lifetime = 0.4
+
+[node name="tail" parent="spawnfire" index="1" unique_id=1103609953]
+amount = 20
+speed_scale = 0.8
+
 [node name="MoveSet" type="Node" parent="." unique_id=1579431232]
 script = ExtResource("6_b3w3n")
 
@@ -6039,3 +6192,5 @@ volume_db = -5.0
 
 [node name="FireballCallPlayer" type="AudioStreamPlayer" parent="." unique_id=940213604]
 stream = ExtResource("14_smpwk")
+
+[editable path="spawnfire"]

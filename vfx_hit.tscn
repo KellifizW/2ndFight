@@ -1,13 +1,13 @@
 [gd_scene format=3 uid="uid://ch1ju50maflfw"]
 
-[ext_resource type="Texture2D" uid="uid://bmho01pc4e7ci" path="res://assets/T_VFX_simple_ss.png" id="1_42wi3"]
+[ext_resource type="Texture2D" uid="uid://bmjae6pnph2g8" path="res://assets/T_VFX_simple_ss.png" id="1_42wi3"]
 [ext_resource type="Script" uid="uid://dowb57vy1aew4" path="res://vfx_impact.gd" id="1_i4h24"]
-[ext_resource type="Texture2D" uid="uid://dppydau5m4p5a" path="res://assets/ring_s.png" id="2_42wi3"]
-[ext_resource type="Material" uid="uid://b0icseqbxuht5" path="res://vfx/vfx_hit.tres" id="4_h8u72"]
-[ext_resource type="Texture2D" uid="uid://jelryjr7r4gd" path="res://assets/texture/15a.png" id="4_ogjf0"]
-[ext_resource type="Texture2D" uid="uid://2j5ndkh8ro5e" path="res://assets/texture/20.png" id="5_6yyi1"]
+[ext_resource type="Texture2D" uid="uid://47hjn72dc7ig" path="res://assets/ring_s.png" id="2_42wi3"]
+[ext_resource type="Material" path="res://vfx/vfx_hit_newfix.tres" id="4_h8u72"]
+[ext_resource type="Texture2D" uid="uid://bpl48hd1uf5x3" path="res://assets/texture/15a.png" id="4_ogjf0"]
+[ext_resource type="Texture2D" uid="uid://dou7pshvabu48" path="res://assets/texture/20.png" id="5_6yyi1"]
 [ext_resource type="Material" uid="uid://cxaqfmv8pkne7" path="res://vfx/vfx_hit_spitF.tres" id="5_any2n"]
-[ext_resource type="Texture2D" uid="uid://gxsiyutug1b4" path="res://assets/Flare00.PNG" id="6_4dmgk"]
+[ext_resource type="Texture2D" uid="uid://d1k0e88ma3g1q" path="res://assets/Flare00.PNG" id="6_4dmgk"]
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_6yyi1"]
 blend_mode = 1
