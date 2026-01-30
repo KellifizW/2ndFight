@@ -2,13 +2,13 @@
 
 [ext_resource type="Script" uid="uid://2srsoq8uppfe" path="res://fireball.gd" id="1_nknkd"]
 [ext_resource type="Shader" uid="uid://deog7x82ywb8r" path="res://P2_fireball_A_shader.tres" id="2_s8xu1"]
-[ext_resource type="Texture2D" uid="uid://dfi8ibhnd7tbq" path="res://assets/fireball/T_VFX_Noise_2.PNG" id="3_17xic"]
-[ext_resource type="Texture2D" uid="uid://budvrxmxqy1d6" path="res://assets/fireball/T_VFX_PerlinNoise_Tiled.png" id="4_qit32"]
-[ext_resource type="Texture2D" uid="uid://2rj5mhuheo8x" path="res://assets/fireball/circle_05.png" id="5_avoqh"]
-[ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="6_14d0s"]
-[ext_resource type="AudioStream" uid="uid://rp7ewg5mlgh0" path="res://audio/fireball_spawn.mp3" id="7_5fhu6"]
-[ext_resource type="Texture2D" uid="uid://bmjae6pnph2g8" path="res://assets/T_VFX_simple_ss.png" id="8_17xic"]
-[ext_resource type="AudioStream" uid="uid://dgqp33vjqdvqk" path="res://audio/fireball_vanish.wav" id="8_lgd32"]
+[ext_resource type="Texture2D" uid="uid://dn4shxg7jnp16" path="res://assets/fireball/T_VFX_Noise_2.PNG" id="3_17xic"]
+[ext_resource type="Texture2D" uid="uid://dqkqiysvf8ghs" path="res://assets/fireball/T_VFX_PerlinNoise_Tiled.png" id="4_qit32"]
+[ext_resource type="Texture2D" uid="uid://cfhk8vpx6utag" path="res://assets/fireball/circle_05.png" id="5_avoqh"]
+[ext_resource type="Texture2D" uid="uid://b6poq4uxqguy5" path="res://assets/Davis2.png" id="6_14d0s"]
+[ext_resource type="AudioStream" uid="uid://c6e4qlxr1vsmb" path="res://audio/fireball_spawn.mp3" id="7_5fhu6"]
+[ext_resource type="Texture2D" uid="uid://d343qdtuisdy4" path="res://assets/fireball/T_VFX_Glo31.png" id="8_17xic"]
+[ext_resource type="AudioStream" uid="uid://cu68di8c2n3ps" path="res://audio/fireball_vanish.wav" id="8_lgd32"]
 [ext_resource type="Texture2D" uid="uid://mnpm6slbrlep" path="res://assets/fireball/T_fire2.png" id="9_s8xu1"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_vsxo4"]
@@ -251,22 +251,22 @@ color_ramp = SubResource("GradientTexture1D_17xic")
 alpha_curve = SubResource("CurveTexture_s8xu1")
 
 [sub_resource type="Curve" id="Curve_avoqh"]
-_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.41388887, 0), 0.0, 0.0, 0, 0]
-point_count = 2
+_data = [Vector2(0.09722222, 0), 0.0, 0.0, 0, 0, Vector2(0.16666666, 1), 0.0, 0.0, 0, 0, Vector2(0.45833328, 0), 0.0, 0.0, 0, 0]
+point_count = 3
 
 [sub_resource type="CurveTexture" id="CurveTexture_17xic"]
 texture_mode = 1
 curve = SubResource("Curve_avoqh")
 
 [sub_resource type="Gradient" id="Gradient_14d0s"]
-offsets = PackedFloat32Array(0, 0.054, 0.342)
-colors = PackedColorArray(1, 1, 1, 1, 0.00039789692, 0.12963504, 0.50666106, 1, 0, 0.078431375, 0.14901961, 0.5019608)
+offsets = PackedFloat32Array(0, 0.11077844, 0.33832335)
+colors = PackedColorArray(1, 1, 1, 1, 0.00039789692, 0.12963504, 0.50666106, 1, 0, 0.0012836292, 0.003203662, 0.90588236)
 
 [sub_resource type="GradientTexture1D" id="GradientTexture1D_qit32"]
 gradient = SubResource("Gradient_14d0s")
 
 [sub_resource type="Curve" id="Curve_5fhu6"]
-_data = [Vector2(0, 0.17925596), 0.0, 0.9324281, 0, 0, Vector2(0.02996254, 0.70687705), 0.0, 0.0, 0, 0, Vector2(0.29166666, 0), 0.0, 0.0, 0, 0]
+_data = [Vector2(0, 0.39173013), 0.0, 0.9324281, 0, 0, Vector2(0.02996254, 0.70687705), 0.0, 0.0, 0, 0, Vector2(0.7527777, 0), 0.0, 0.0, 0, 0]
 point_count = 3
 
 [sub_resource type="CurveTexture" id="CurveTexture_avoqh"]
@@ -282,24 +282,52 @@ angle_min = -360.0
 angle_max = 360.00003
 direction = Vector3(100, 0, 0)
 spread = 90.0
-initial_velocity_min = 334.27
-initial_velocity_max = 490.94
+initial_velocity_min = 150.0
+initial_velocity_max = 300.0
 radial_velocity_min = 0.99997765
 radial_velocity_max = 1.9999776
 gravity = Vector3(100, 0, 0)
-scale_min = 0.39999998
-scale_max = 2.0
+scale_min = 0.19999999
 scale_curve = SubResource("CurveTexture_avoqh")
 color = Color(2.0376163, 3.0623097, 5.6880865, 1)
 color_ramp = SubResource("GradientTexture1D_qit32")
 alpha_curve = SubResource("CurveTexture_17xic")
 
+[sub_resource type="Curve" id="Curve_17xic"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.16666666, 1), 0.0, 0.0, 0, 0, Vector2(0.45833328, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="CurveTexture_lgd32"]
+texture_mode = 1
+curve = SubResource("Curve_17xic")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_17xic"]
+lifetime_randomness = 0.2
+particle_flag_rotate_y = true
+particle_flag_disable_z = true
+emission_shape = 1
+emission_sphere_radius = 10.0
+angle_min = -360.0
+angle_max = 360.00003
+direction = Vector3(100, 0, 0)
+spread = 180.0
+initial_velocity_min = 150.0
+initial_velocity_max = 300.0
+radial_velocity_min = 0.99997765
+radial_velocity_max = 1.9999776
+gravity = Vector3(100, 0, 0)
+scale_min = 0.19999999
+scale_curve = SubResource("CurveTexture_avoqh")
+color = Color(2.0376163, 3.0623097, 5.6880865, 1)
+color_ramp = SubResource("GradientTexture1D_qit32")
+alpha_curve = SubResource("CurveTexture_lgd32")
+
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_qit32"]
 blend_mode = 1
 
 [sub_resource type="Curve" id="Curve_lgd32"]
-_data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]
-point_count = 2
+_data = [Vector2(0.077777766, 0), 0.0, 6.3157897, 0, 1, Vector2(0.2361111, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), -1.3090909, 0.0, 1, 0]
+point_count = 3
 
 [sub_resource type="CurveTexture" id="CurveTexture_14d0s"]
 curve = SubResource("Curve_lgd32")
@@ -321,8 +349,8 @@ gravity = Vector3(0, 0, 0)
 radial_accel_min = -68.1
 radial_accel_max = -37.280003
 radial_accel_curve = SubResource("CurveTexture_5fhu6")
-scale_min = 0.29999998
-scale_max = 0.9
+scale_min = 0.049999997
+scale_max = 0.099999994
 color = Color(0.74, 1.488, 2.117, 1)
 alpha_curve = SubResource("CurveTexture_14d0s")
 
@@ -404,10 +432,21 @@ amount = 70
 texture = ExtResource("9_s8xu1")
 lifetime = 1.5
 one_shot = true
-speed_scale = 1.5
 explosiveness = 1.0
 fixed_fps = 120
 process_material = SubResource("ParticleProcessMaterial_s8xu1")
+
+[node name="hitexp" type="GPUParticles2D" parent="." unique_id=422908278]
+material = SubResource("CanvasItemMaterial_17xic")
+emitting = false
+amount = 50
+texture = ExtResource("9_s8xu1")
+one_shot = true
+speed_scale = 3.0
+explosiveness = 1.0
+randomness = 0.59
+fixed_fps = 120
+process_material = SubResource("ParticleProcessMaterial_17xic")
 
 [node name="ringexp" type="GPUParticles2D" parent="." unique_id=1620030733]
 material = SubResource("CanvasItemMaterial_qit32")

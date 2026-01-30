@@ -1,8 +1,8 @@
 extends Area2D
 
-var speed: float = 800.0
+var speed: float = 800.0          # 預設速度（DAV）
 var direction: int = 1
-var damage: float = 15.0
+var damage: float = 15.0          # 預設傷害（DAV）
 var blockstun_duration: float = 0.3
 var is_active: bool = true
 var owner_character_id: String = "DAV"
@@ -17,9 +17,10 @@ var fireball_owner: Node = null
 @onready var hit_sound_player = $HitSoundPlayer
 
 # 粒子節點引用
+@onready var run_particles: GPUParticles2D = $run
 @onready var hit_particles: GPUParticles2D = $hit
 @onready var ringexp_particles: GPUParticles2D = $ringexp
-@onready var run_particles: GPUParticles2D = $run     # ← 新增這一行
+@onready var hitexp_particles: GPUParticles2D = $hitexp   # 新增的擊中特效
 
 func _ready() -> void:
 	add_to_group("fireball")
@@ -59,6 +60,18 @@ func _ready() -> void:
 	monitoring = true
 	monitorable = true
 	
+	# 只關閉爆破粒子，不呼叫 restart() 以避免意外觸發
+	if hit_particles:
+		hit_particles.emitting = false
+	if ringexp_particles:
+		ringexp_particles.emitting = false
+	if hitexp_particles:
+		hitexp_particles.emitting = false
+	
+	# 飛行軌跡保持開啟
+	if run_particles:
+		run_particles.emitting = true
+	
 	if spawn_sound_player:
 		spawn_sound_player.play()
 	else:
@@ -78,8 +91,18 @@ func _physics_process(delta: float) -> void:
 func _stop_trail_immediately() -> void:
 	if run_particles:
 		run_particles.emitting = false
-		run_particles.queue_free()          # 立即移除節點，最快消失
-		# 或是你也可以選擇： run_particles.visible = false  (但節點還在，比較浪費)
+		run_particles.queue_free()
+
+func _play_explosion_particles() -> void:
+	if hit_particles:
+		hit_particles.restart()
+		hit_particles.emitting = true
+	if ringexp_particles:
+		ringexp_particles.restart()
+		ringexp_particles.emitting = true
+	if hitexp_particles:
+		hitexp_particles.restart()
+		hitexp_particles.emitting = true
 
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	if not is_active: return
@@ -95,16 +118,8 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		if hitbox: hitbox.monitoring = false
 		if prox_shape: prox_shape.disabled = true
 		
-		# 立即停止並移除飛行軌跡粒子
 		_stop_trail_immediately()
-		
-		# 爆破粒子
-		if hit_particles:
-			hit_particles.restart()
-			hit_particles.emitting = true
-		if ringexp_particles:
-			ringexp_particles.restart()
-			ringexp_particles.emitting = true
+		_play_explosion_particles()  # 觸發 hit + ringexp + hitexp
 		
 		animation_player.play("fireball/ball_impact")
 		
@@ -155,9 +170,7 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 		if hitbox: hitbox.monitoring = false
 		if prox_shape: prox_shape.disabled = true
 		
-		# 被其他火球或攻擊打到，也停止軌跡
 		_stop_trail_immediately()
-		
 		animation_player.play("fireball/ball_impact")
 		
 		if area.get_parent().is_in_group("fireball"):
@@ -178,15 +191,8 @@ func _on_proximitybox_area_entered(area: Area2D) -> void:
 			if hitbox: hitbox.monitoring = false
 			if prox_shape: prox_shape.disabled = true
 			
-			# 近距離格擋也停止軌跡 + 播放爆破
 			_stop_trail_immediately()
-			
-			if hit_particles:
-				hit_particles.restart()
-				hit_particles.emitting = true
-			if ringexp_particles:
-				ringexp_particles.restart()
-				ringexp_particles.emitting = true
+			_play_explosion_particles()  # 近距離格擋也觸發三個粒子
 			
 			animation_player.play("fireball/ball_impact")
 			
