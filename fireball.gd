@@ -164,14 +164,16 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		
 		# 不在這裡播放爆炸效果，等穿透完成後再播放
 		
-		# 立即造成傷害（不等穿透完成）
+		# 🟢 【重要】先呼叫 take_hit() 讓受擊動畫立即播放
+		target.take_hit(blockstun_duration, blockstun_duration, damage, false)
+		
+		# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（Slow-mo）
+		# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中
 		var world = get_tree().get_first_node_in_group("world")
 		if world:
 			var slowmo_controller = world.get_node_or_null("SlowMoController")
 			if slowmo_controller:
 				slowmo_controller.request_hit_freeze()
-		
-		target.take_hit(blockstun_duration, blockstun_duration, damage, false)
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		if target.has_signal("hit_detected"):
 			target.hit_detected.emit(name, blockstun_duration, is_blocked)

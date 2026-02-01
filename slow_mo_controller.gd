@@ -5,6 +5,9 @@ class_name SlowMoController
 signal time_scale_changed(new_time_scale: float)
 signal hit_slowmo_finished  # 🟢 Hit stop 完成信號，讓 hitstun/knockback 在 hit stop 後開始
 
+# ⚙️ 設置選項
+@export var enable_hitstop: bool = true  # 是否開啟 hitstop 功能
+
 # 時間縮放參數
 var normal_time_scale: float = 1
 var slowmo_time_scale: float = 0.2
@@ -42,6 +45,11 @@ func request_slowmo_change():
 
 # 請求擊中慢動作效果
 func request_hit_freeze():
+	if not enable_hitstop:
+		print("Debug: Hit slowmo request ignored (enable_hitstop=%s)" % enable_hitstop)
+		# 🟢 即使跳過慢動作，仍發送信號讓 hitstun/knockback 正常進行
+		emit_signal("hit_slowmo_finished")
+		return
 	if slowmo_active or is_hit_slowmo:
 		print("Debug: Hit slowmo request ignored (slowmo_active=%s, is_hit_slowmo=%s)" % [slowmo_active, is_hit_slowmo])
 		return  # 避免重複觸發

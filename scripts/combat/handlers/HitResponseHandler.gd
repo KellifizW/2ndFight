@@ -44,15 +44,11 @@ func handle_hitbox_collision(area: Area2D) -> void:
 	if not world:
 		return
 	
-	# ── 請求擊中凍結（Slow-mo）──
-	var slowmo = world.get_node_or_null("SlowMoController")
-	if slowmo:
-		slowmo.request_hit_freeze()
-	
 	# ── 獲取攻擊參數 ──
 	var hit_params = _get_hit_parameters()
 	
-	# ── 調用目標的 take_hit ──
+	# 🟢 【重要】先呼叫 take_hit() 讓受擊動畫立即播放
+	# 這確保在 hitstop 凍結之前，角色已經開始播放受擊動畫
 	target.take_hit(
 		hit_params.hitstun,
 		hit_params.blockstun,
@@ -62,6 +58,12 @@ func handle_hitbox_collision(area: Area2D) -> void:
 		hit_params.knockfly_params,
 		hit_params.knockback
 	)
+	
+	# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（Slow-mo）
+	# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中，而不是在啟動時
+	var slowmo = world.get_node_or_null("SlowMoController")
+	if slowmo:
+		slowmo.request_hit_freeze()
 	
 	# ── 播放音效 ──
 	var is_blocked: bool = target.is_blocking

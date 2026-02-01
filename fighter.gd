@@ -275,7 +275,7 @@ func take_hit(
 			# 計算 knockback 速度（必須在設置 pending_hit_params 之前）
 			if not skip_push:
 				var push_distance = knockback_distance if knockback_distance > 0 else hit_push_distance
-				var knockback_velocity = push_distance * world.SIMULATION_SCALE * 10.0
+				var knockback_velocity = push_distance * world.SIMULATION_SCALE * 4.0
 				pending_hit_params["hit_push_initial_velocity"] = knockback_velocity
 		else:
 			# Hit stop 未進行或已完成 → 立即設置 hitstun/knockback/blockstun
@@ -316,9 +316,9 @@ func take_hit(
 				])
 			
 			knockback_start_time = 0.0  # 重置時間戳，讓 PushManager 重新記錄
-			# 使用合理的速度係數（10.0），搭配二次方衰減產生平滑後移
-			# 🟢 將 knockback 值放大 10 倍，讓設定 100 = 實際 1000 的效果
-			hit_push_initial_velocity = push_distance * world.SIMULATION_SCALE * 10.0
+			# 使用合理的速度係數（4.0），搭配二次方衰減產生平滑後移
+			# 🟢 降低初始速度係數，讓減速感更明顯（減速曲線可見度提高）
+			hit_push_initial_velocity = push_distance * world.SIMULATION_SCALE * 4.0
 			
 			# 🟢 如果不在等待 hit stop 結束，才立即啟動 knockback
 			if not waiting_for_hit_stop_end:

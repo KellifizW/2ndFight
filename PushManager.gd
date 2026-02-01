@@ -2,14 +2,28 @@ class_name PushManager extends Node
 
 const SIMULATION_SCALE: float = 1000.0
 
+# 🟢 Knockback 減速模式 Enum
+enum DecelMode {
+	POWER,           # 幂函數減速
+	EASE_OUT,        # 緩動出（開始快減速，後期平緩）
+	EASE_IN_OUT,     # 緩動進出（S形曲線）
+	LINEAR_THRESHOLD # 線性閾值（分段式）
+}
+
 @export var PUSH_FRICTION: float = 66.0
 @export var collision_epsilon: float = 5.0
 @export var arena_left: float = 0.0
 @export var arena_right: float = 1600.0
 @export var ground_push_multiplier: float = 0.6  # 地面推開倍數
 @export var jump_push_multiplier: float = 1.0   # 跳躍推開倍數 (降低此值可減少跳躍越過時的推開距離)
-@export var knockback_deceleration_power: float = 3.0  # 🟢 Knockback 減速指數
-													   # 1.0=線性, 2.0=二次方, 3.0+=越來越快減速
+
+# 🟢 Knockback 減速曲線控制組（在 Inspector 中可自由調整）
+@export_group("Knockback Deceleration Curve")
+@export var knockback_deceleration_mode: DecelMode = DecelMode.POWER  # 下拉選單選擇減速模式
+@export var knockback_deceleration_power: float = 2.0  # 用於 POWER 模式：1.0=線性, 2.0=二次方, 3.0+=越來越快減速
+@export var knockback_ease_strength: float = 1.5  # 用於 EASE_OUT 模式：控制緩動強度 (1.0-3.0)
+@export var knockback_linear_threshold: float = 0.3  # 用於 LINEAR_THRESHOLD 模式：何時開始減速 (0.0-1.0)
+@export var knockback_minimum_velocity_ratio: float = 0.05  # 最小速度比例 (0.0-0.5)，防止完全停止
 
 var players: Array = []
 
@@ -53,6 +67,45 @@ func get_depth(a: Collider, b: Collider) -> Vector2i:
 	depth.y = max(0, depth.y)
 	return depth
 
+# 🟢 計算 Knockback 減速倍數 - 支援多種曲線模式
+func calculate_knockback_speed_multiplier(remaining_ratio: float) -> float:
+	"""
+	remaining_ratio: 0.0 (完成) ~ 1.0 (開始)
+	返回值：速度倍數 0.0 ~ 1.0
+	"""
+	match knockback_deceleration_mode:
+		# 模式 1: 幂函數（Power）- 最簡單直接
+		DecelMode.POWER:
+			return pow(remaining_ratio, knockback_deceleration_power)
+		
+		# 模式 2: 緩動出（Ease Out）- 開始快減速，後期平緩
+		DecelMode.EASE_OUT:
+			# 1 - (1 - remaining_ratio)^strength
+			var inverse = 1.0 - remaining_ratio
+			return 1.0 - pow(inverse, knockback_ease_strength)
+		
+		# 模式 3: 緩動進出（Ease In Out）- 開始減速緩，中間快，後期緩
+		DecelMode.EASE_IN_OUT:
+			if remaining_ratio < 0.5:
+				var t = remaining_ratio * 2.0
+				return 0.5 * pow(t, knockback_ease_strength)
+			else:
+				var t = (remaining_ratio - 0.5) * 2.0
+				return 0.5 + 0.5 * (1.0 - pow(1.0 - t, knockback_ease_strength))
+		
+		# 模式 4: 線性閾值（Linear Threshold）- 開始線性，超過閾值後快速減速
+		DecelMode.LINEAR_THRESHOLD:
+			if remaining_ratio >= knockback_linear_threshold:
+				# 線性區間
+				return remaining_ratio
+			else:
+				# 快速減速區間
+				var normalized = remaining_ratio / knockback_linear_threshold
+				return knockback_linear_threshold * pow(normalized, knockback_deceleration_power)
+		
+		_:  # 默認使用 Power 模式
+			return pow(remaining_ratio, knockback_deceleration_power)
+
 func _ready() -> void:
 	players = get_tree().get_nodes_in_group("players")
 	add_to_group("push_manager")
@@ -93,9 +146,8 @@ func _physics_process(delta: float) -> void:
 				print("[KNOCKBACK WARNING] %s - initial_knockback_frames 是 0！使用 1 避免除以 0" % player.name)
 			
 			var remaining_ratio: float = player.knockback_frames / float(total_knockback_frames)
-			# 🟢 使用可配置的減速指數，支援提早減速效果
-			# remaining_ratio^power：指數越高，減速越快、越早開始
-			var speed_multiplier: float = pow(remaining_ratio, knockback_deceleration_power)
+			# 🟢 使用新的多模式減速曲線計算函數
+			var speed_multiplier: float = calculate_knockback_speed_multiplier(remaining_ratio)
 			player.fixed_velocity.x = int(-player.hit_push_velocity * speed_multiplier * player.facing_direction)
 			
 			# 🔴 重要：knockback_frames 的遞減現在在 Fighter._physics_process 中處理
