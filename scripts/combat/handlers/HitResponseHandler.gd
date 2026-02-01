@@ -47,6 +47,12 @@ func handle_hitbox_collision(area: Area2D) -> void:
 	# ── 獲取攻擊參數 ──
 	var hit_params = _get_hit_parameters()
 	
+	print("═══════════════════════════════════════════════════════════")
+	print("[HitResponseHandler] %s 擊中 %s" % [parent_player.name, target.name])
+	print("  - hitstun: %d frames (%.3fs)" % [hit_params.hitstun, hit_params.hitstun / 60.0])
+	print("  - blockstun: %d frames (%.3fs)" % [hit_params.blockstun, hit_params.blockstun / 60.0])
+	print("  - damage: %.1f" % hit_params.damage)
+	
 	# 🟢 【重要】先呼叫 take_hit() 讓受擊動畫立即播放
 	# 這確保在 hitstop 凍結之前，角色已經開始播放受擊動畫
 	target.take_hit(
@@ -99,8 +105,8 @@ func _is_valid_hit(area: Area2D) -> bool:
 func _get_hit_parameters() -> Dictionary:
 	"""從 ATTACK_TABLE 或 MoveSet 獲取攻擊參數"""
 	var params = {
-		"hitstun": 0.35,
-		"blockstun": 0.267,
+		"hitstun": 18,      # 18 幀 = 0.30 秒
+		"blockstun": 10,    # 10 幀 = 0.167 秒
 		"damage": parent_player.current_damage if "current_damage" in parent_player else 10.0,
 		"skip_push": false,
 		"force_knockfly": false,
@@ -116,8 +122,8 @@ func _get_hit_parameters() -> Dictionary:
 	# ── 優先從 ATTACK_TABLE 查詢 ──
 	if attack_table.has(attack_type):
 		var a = attack_table[attack_type]
-		params.hitstun = a.get("hitstun", params.hitstun)
-		params.blockstun = a.get("blockstun", params.blockstun)
+		params.hitstun = a.get("hitstun", params.hitstun)      # 現在是幀數
+		params.blockstun = a.get("blockstun", params.blockstun) # 現在是幀數
 		params.damage = a.get("damage", params.damage)
 		params.knockback = a.get("knockback", -1.0)
 	
@@ -131,11 +137,11 @@ func _get_hit_parameters() -> Dictionary:
 		# ── 特殊招式的特殊參數 ──
 		var move_name = active_move.name
 		if move_name == "powerkk":
-			params.hitstun = 0.65
-			params.blockstun = parent_player.powerkk_blockstun if "powerkk_blockstun" in parent_player else 0.3833
+			params.hitstun = 39      # 39 幀 = 0.65 秒
+			params.blockstun = 23    # 23 幀 = 0.383 秒
 		elif move_name == "spnk":
-			params.hitstun = 0.45
-			params.blockstun = parent_player.powerkk_blockstun if "powerkk_blockstun" in parent_player else 0.3833
+			params.hitstun = 27      # 27 幀 = 0.45 秒
+			params.blockstun = 23    # 23 幀 = 0.383 秒
 			# spnk 的傷害會根據動畫時間調整
 			var animation_player = parent_player.animation_player if "animation_player" in parent_player else null
 			if animation_player:
@@ -143,15 +149,15 @@ func _get_hit_parameters() -> Dictionary:
 				if pos < 0.2667:
 					params.damage = 6.0
 		elif move_name == "fireball":
-			params.hitstun = 0.35
-			params.blockstun = 0.233
+			params.hitstun = 60     # 🟢 60 邏輯幀 = 1.0 秒（可修改此值影響 fireball hitstun）
+			params.blockstun = 14   # 14 邏輯幀 = 0.233 秒
 			params.skip_push = true
 		elif move_name == "super":
-			params.hitstun = 0.45
-			params.blockstun = 0.3
+			params.hitstun = 27     # 27 幀 = 0.45 秒
+			params.blockstun = 18   # 18 幀 = 0.30 秒
 		elif move_name == "dp":
-			params.hitstun = 0.65
-			params.blockstun = parent_player.powerkk_blockstun if "powerkk_blockstun" in parent_player else 0.3833
+			params.hitstun = 39     # 39 幀 = 0.65 秒
+			params.blockstun = 23   # 23 幀 = 0.383 秒
 			params.force_knockfly = true
 			params.knockfly_params = {
 				"gravity": active_move.knockfly_gravity,  # MoveData 類屬性
@@ -220,3 +226,14 @@ func _handle_corner_pushback(target: Node, stun_duration: float) -> void:
 	parent_player.initial_push_back = push_duration
 	parent_player.push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
 	parent_player.fixed_velocity.x = int(-parent_player.push_back_velocity * parent_player.get_facing_multiplier())
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 【新增】Fireball 專用：供 fireball.gd 動態讀取 hitstun 參數
+# ═══════════════════════════════════════════════════════════════════════════
+
+func get_fireball_hitstun_frames() -> int:
+	"""
+	供 fireball.gd 調用，動態讀取火球的 hitstun 幀數
+	這樣修改此值時無需同時修改 fireball.gd
+	"""
+	return 60  # 🟢 60 邏輯幀 = 1.0 秒（修改此值即可控制 fireball hitstun）

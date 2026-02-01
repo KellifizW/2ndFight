@@ -36,6 +36,8 @@ func handle_knockfly_layground(delta: float, _floor_y: int) -> void:
 		if movement_node.is_on_floor():
 			movement_node.fixed_velocity = Vector2i.ZERO
 			movement_node.is_knockfly = false
+			movement_node.knockfly_velocity_x = 0.0  # 🟢 重置 knockfly_velocity_x，確保下次跳躍不會繼承
+			movement_node.knockfly_timer = 0.0  # 🟢 完全清除 timer
 			movement_node.is_layground = true
 			movement_node.layground_timer = movement_node.layground_duration
 			movement_node.is_knockfly_animation_finished = false
@@ -71,6 +73,8 @@ func reset_layground_with_health_check() -> void:
 			health_check_done = true
 		movement_node.is_layground = true
 		movement_node.is_knockfly = false
+		movement_node.knockfly_velocity_x = 0.0  # 🟢 確保完全清除
+		movement_node.knockfly_timer = 0.0  # 🟢 確保 timer 清除
 		movement_node.is_knockfly_animation_finished = false
 		return
 	
@@ -78,6 +82,8 @@ func reset_layground_with_health_check() -> void:
 	health_check_done = false
 	movement_node.is_layground = false
 	movement_node.is_knockfly = false
+	movement_node.knockfly_velocity_x = 0.0  # 🟢 確保完全清除
+	movement_node.knockfly_timer = 0.0  # 🟢 確保 timer 清除
 	movement_node.is_knockfly_animation_finished = false
 	
 	if "is_wakeup" in movement_node.get_parent() and "is_wakeup_locked" in movement_node.get_parent():

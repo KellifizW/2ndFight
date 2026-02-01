@@ -4,6 +4,7 @@ signal block_detected(target: String, block_type: String)
 
 static var PHYSICS_FPS: int = 60
 const DISPLAY_FPS: int = 60
+const LOGIC_FPS: int = 60  # 邏輯幀率（遊戲設計基礎）
 
 func _enter_tree() -> void:
 	PHYSICS_FPS = Engine.physics_ticks_per_second   # 這裡才真正賦值
@@ -17,17 +18,26 @@ var current_damage: float = 0.0
 @export var min_hitstun_duration: float = 8.0 / 60.0
 
 # ── 固定幀數控制（hitstun & blockstun & knockback 都使用）──
-var hitstun_frames: int = 0          # hitstun 固定幀數
-var blockstun_frames: int = 0        # blockstun 固定幀數
-var knockback_frames: int = 0        # knockback 固定幀數（與 hitstun 同步）
-var initial_knockback_frames: int = 0  # ✅ NEW: 保存初始 knockback 幀數（用於衰減計算）
-var knockback_delay_frames: int = 0  # knockback 延遲幀數
-var initial_blockstun_frames: int = 0 # 用於 push 計算
+var hitstun_frames: int = 0          # hitstun 固定幀數（物理幀）
+var blockstun_frames: int = 0        # blockstun 固定幀數（物理幀）
+var knockback_frames: int = 0        # knockback 固定幀數（物理幀）
+var initial_knockback_frames: int = 0  # ✅ 保存初始 knockback 幀數（物理幀）
+var knockback_delay_frames: int = 0  # knockback 延遲幀數（物理幀）
+var initial_blockstun_frames: int = 0 # 用於 push 計算（物理幀）
 const FPS: int = 60
 
 # 🟢 待執行的 hit 參數（等待 hit stop 完成後才實際啟動）
 var pending_hit_params: Dictionary = {}  # 存儲 take_hit 的所有參數
 var waiting_for_hit_stop_end: bool = false  # 標記是否在等待 hit stop 完成
+
+# 🟢 邏輯幀到物理幀轉換函數
+func logic_frames_to_physics_frames(logic_frames: int) -> int:
+	"""將邏輯幀（60 FPS）轉換為物理幀（實際 FPS）"""
+	return int(round(logic_frames * float(PHYSICS_FPS) / float(LOGIC_FPS)))
+
+func logic_seconds_to_physics_frames(seconds: float) -> int:
+	"""將秒數轉換為物理幀"""
+	return int(round(seconds * float(PHYSICS_FPS)))
 
 func sec_to_frames(seconds: float) -> int:
 	return int(round(seconds * PHYSICS_FPS))
@@ -137,8 +147,8 @@ func post_physics_process(_delta: float) -> void:
 
 # ── 【關鍵修復】take_hit：hitstun & blockstun 都使用固定幀數，並改用新版掉血方式──
 func take_hit(
-	hitstun_duration: float = 0.35,
-	blockstun_duration: float = 0.267,
+	hitstun_duration: int = 18,
+	blockstun_duration: int = 10,
 	damage: float = 10.0,
 	skip_push: bool = false,
 	force_knockfly: bool = false,
@@ -149,7 +159,18 @@ func take_hit(
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
 	
-	print("[DEBUG] take_hit() 接收 → hitstun: %.3f, blockstun: %.3f, damage: %.1f" % [hitstun_duration, blockstun_duration, damage])
+	# 🟢 輸入是邏輯幀（60 FPS 基準），需轉換為物理幀
+	var physics_hitstun = logic_frames_to_physics_frames(hitstun_duration)
+	var physics_blockstun = logic_frames_to_physics_frames(blockstun_duration)
+	
+	print("═══════════════════════════════════════════════════════════")
+	print("[TAKE_HIT] %s 接收擊中 @ 時間: %.3f" % [name, Time.get_ticks_msec() / 1000.0])
+	print("  - 輸入 hitstun: %d 邏輯幀 (60FPS 基準)" % hitstun_duration)
+	print("    → 轉換為: %d 物理幀 (%d FPS 實際)" % [physics_hitstun, PHYSICS_FPS])
+	print("    → 實際時間: %.3f秒" % (physics_hitstun / float(PHYSICS_FPS)))
+	print("  - 輸入 blockstun: %d 邏輯幀" % blockstun_duration)
+	print("    → 轉換為: %d 物理幀" % physics_blockstun)
+	print("  - damage: %.1f" % damage)
 	
 	# 記錄被擊中時是否處於蹲姿（用於選擇正確的受擊動畫）
 	was_hit_while_crouching = is_crouching
@@ -175,12 +196,11 @@ func take_hit(
 		# ...（格擋部分保持原樣，不改動）
 		is_blocking = true
 		is_crouch_blocking = input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0
-		var block_frames = max(sec_to_frames(blockstun_duration), sec_to_frames(min_hitstun_duration))
-		blockstun_frames = block_frames
-		initial_blockstun_frames = block_frames
-		initial_blockstun = blockstun_duration
-		block_timer = blockstun_duration
-		print("[FIXED-FRAME BLOCKSTUN START] %s 進入格擋，%d 幀 (%.3f秒)" % [name, block_frames, blockstun_duration])
+		blockstun_frames = physics_blockstun  # ✅ 使用轉換後的物理幀
+		initial_blockstun_frames = physics_blockstun
+		initial_blockstun = physics_blockstun / float(PHYSICS_FPS)  # 轉換回秒數用於其他計算
+		block_timer = physics_blockstun / float(PHYSICS_FPS)
+		print("[BLOCKSTUN START] %s 進入格擋 → %d 物理幀 (%.3f秒)" % [name, blockstun_frames, block_timer])
 		fixed_velocity.x = 0
 		fixed_velocity.y = 0
 		if not skip_push:
@@ -229,6 +249,8 @@ func take_hit(
 		
 		is_knockfly = true
 		knockfly_timer = max(params.duration, min_hitstun_duration)
+		# 🟢 【關鍵修復】同時設置 knockfly_duration，確保 PushManager 的速度計算正確
+		knockfly_duration = knockfly_timer  # duration 必須與 timer 一致
 		is_immune_to_floor_snap = true
 		floor_snap_immunity_timer = floor_snap_immunity_duration
 		
@@ -249,14 +271,21 @@ func take_hit(
 		is_jumping = true
 		
 		if not skip_push:
-			knockfly_velocity_x = -knockfly_horizontal_speed * world.SIMULATION_SCALE * facing_mult
+			# 設置 knockfly_horizontal_speed 屬性
+			if "horizontal_speed" in params:
+				knockfly_horizontal_speed = params["horizontal_speed"]
+			
+			var calculated_velocity = -knockfly_horizontal_speed * world.SIMULATION_SCALE * facing_mult
+			knockfly_velocity_x = calculated_velocity
+			fixed_velocity.x = int(knockfly_velocity_x)
 		
 		_update_animation_state(0, input_data.crouch_pressed)
 		
 	else:
 		# ── 普通受擊 → 空中/地面分別處理 ──
 		is_hit = true
-		var hit_frames = max(sec_to_frames(hitstun_duration), sec_to_frames(min_hitstun_duration))
+		var hit_frames = physics_hitstun  # ✅ 使用轉換後的物理幀
+		var hitstun_seconds = hit_frames / float(PHYSICS_FPS)
 		
 		# 🟢 檢查是否有 hit stop 正在進行
 		var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
@@ -268,7 +297,7 @@ func take_hit(
 				"hit_frames": hit_frames,
 				"blockstun": 0,  # 普通受擊不設置 blockstun
 				"skip_push": skip_push,
-				"knockback_delay_frames": sec_to_frames(knockback_delay_duration),
+				"knockback_delay_frames": logic_frames_to_physics_frames(int(round(knockback_delay_duration * LOGIC_FPS))),
 				"hit_push_initial_velocity": 0.0  # 將在下面計算
 			}
 			
@@ -280,11 +309,13 @@ func take_hit(
 		else:
 			# Hit stop 未進行或已完成 → 立即設置 hitstun/knockback/blockstun
 			hitstun_frames = hit_frames
-			initial_hitstun = hitstun_duration
+			initial_hitstun = hitstun_seconds
 		
 		# hit_timer = 延遲 + hitstun時間，確保knockback完整執行
-		hit_timer = knockback_delay_duration + hitstun_duration
-		print("[FIXED-FRAME HITSTUN START] %s 進入 hit，%d 幀 (%.3f秒)，hit_timer=%.3fs" % [name, hit_frames, hitstun_duration, hit_timer])
+		hit_timer = knockback_delay_duration + hitstun_seconds
+		print("[HITSTUN START] %s 進入受擊，%d 物理幀 (%.3f秒)，hit_timer=%.3fs @ %.3fs" % [
+			name, hit_frames, hitstun_seconds, hit_timer, Time.get_ticks_msec() / 1000.0
+		])
 		
 		if not is_on_floor():
 			# 空中普通攻擊：強制使用後跳邏輯，垂直速度為正常跳躍的 0.7 倍
@@ -306,8 +337,8 @@ func take_hit(
 		
 		if not skip_push:
 			var push_distance = knockback_distance if knockback_distance > 0 else hit_push_distance
-			# knockback 使用固定幀數系統，持續時間 = hitstun 時間
-			knockback_delay_frames = sec_to_frames(knockback_delay_duration)  # 延遲也轉換為幀數
+			# knockback 使用固定幀數系統，持續時間 = hitstun 時間（物理幀）
+			knockback_delay_frames = logic_frames_to_physics_frames(int(round(knockback_delay_duration * LOGIC_FPS)))  # 延遲轉換為物理幀
 			
 			# 🔴 DEBUG: 檢查 take_hit() 是否被多次調用
 			if knockback_frames > 0 or initial_knockback_frames > 0:
@@ -335,15 +366,17 @@ func take_hit(
 					initial_knockback_frames = hit_frames  # ✅ NEW: 預先保存初始值
 					hit_push_velocity = 0.0  # 延遲期間無速度
 			
-			print("\n[KNOCKBACK SETUP] %s" % name)
-			print("  - Push Distance: %.1f pixels" % push_distance)
-			print("  - Initial Velocity: %.1f units" % hit_push_initial_velocity)
-			print("  - Delay Duration: %.2fs (%d frames)" % [knockback_delay_duration, knockback_delay_frames])
-			print("  - Knockback Duration: %.2fs (%d frames)" % [hitstun_duration, hit_frames])
-			print("  - Total Duration: %.2fs" % (knockback_delay_duration + hitstun_duration))
-			print("  - knockback_frames: %d, knockback_delay_frames: %d" % [knockback_frames, knockback_delay_frames])
+			print("\n[KNOCKBACK DEBUG] %s @ 時間: %.3fs" % [name, Time.get_ticks_msec() / 1000.0])
+			print("  - 推擊距離: %.1f pixels" % push_distance)
+			print("  - 初始速度: %.1f units" % hit_push_initial_velocity)
+			print("  - 延遲: %.2fs (%d 物理幀)" % [knockback_delay_duration, knockback_delay_frames])
+			print("  - Hitstun: %.2fs (%d 物理幀)" % [hitstun_seconds, hit_frames])
+			print("  - 總持續時間: %.2fs" % (knockback_delay_duration + hitstun_seconds))
+			print("  - knockback_frames: %d, initial: %d, delay_frames: %d (均為物理幀)" % [knockback_frames, initial_knockback_frames, knockback_delay_frames])
 			if waiting_for_hit_stop_end:
-				print("  - ⏳ 等待 hit stop 結束...\n")
+				print("  - ⏳ 等待 hit stop...\n")
+			else:
+				print("  - ✓ 立即啟動\n")
 func take_knockfly() -> void:
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove

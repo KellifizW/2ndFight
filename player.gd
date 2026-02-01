@@ -195,8 +195,8 @@ func get_input() -> Dictionary:
 
 # Override take_hit to clear attack timer when getting hit
 func take_hit(
-	hitstun_duration: float = 0.35,
-	blockstun_duration: float = 0.267,
+	hitstun_duration: int = 18,
+	blockstun_duration: int = 10,
 	damage: float = 10.0,
 	skip_push: bool = false,
 	force_knockfly: bool = false,

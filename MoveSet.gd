@@ -136,27 +136,27 @@ func _ready() -> void:
 func _initialize_move_library() -> void:
 	# DAV moves
 	move_library["powerkk"] = MoveData.new(
-		"powerkk", "DAV", 12.0, 600.0, 0.933, 150.0, 0.0, 0.0, false, false, 0.0, "special", false, "three_phase",0.25 , 0.2, 0.55, 0.0, 0.0, 0.0
+		"powerkk", "DAV", 12.0, 600.0, 56.0, 150.0, 0.0, 0.0, false, false, 0.0, "special", false, "three_phase", 0.25, 0.2, 0.55, 0.0, 0.0, 0.0
 	)
 	move_library["super"] = MoveData.new(
-		"super", "DAV", 5.0, 200.0, 2.6, 200.0, 0.9, -210.0, true, false, 200000.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+		"super", "DAV", 5.0, 200.0, 156.0, 200.0, 54.0, -210.0, true, false, 200000.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 	)
 	move_library["dp"] = MoveData.new(
-		"dp", "DAV", 5.0, 320.0, 0.9, 200.0, 0.0667, -2000.0, false, false, 6200000.0, "special", true, "none", 0.0, 0.0, 0.0,
-		6200000.0, -2700.0, 100.0
+		"dp", "DAV", 5.0, 320.0, 54.0, 200.0, 4.0, -2000.0, false, false, 6200000.0, "special", true, "none", 0.0, 0.0, 0.0,
+		6200000.0, -2700.0, 20.0  # 🟢 knockfly_horizontal_speed: 100→20 (防止閃飛太遠)
 	)
 	
 	# DEN moves
 	move_library["spnk"] = MoveData.new(
-		"spnk", "DEN", 12.0, 280.0, 1.2, 250.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+		"spnk", "DEN", 12.0, 280.0, 72.0, 250.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 	)
 	move_library["hdk"] = MoveData.new(
-		"hdk", "DEN", 3.0, 290.0, 1.1, 200.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+		"hdk", "DEN", 3.0, 290.0, 66.0, 200.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 	)
 	
 	# Universal moves
 	move_library["fireball"] = MoveData.new(
-		"fireball", "*", 10.0, 150.0, 0.3, 0.0, 0.0, 0.0, false, true, 0.0, "fireball", true, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+		"fireball", "*", 10.0, 150.0, 18.0, 0.0, 0.0, 0.0, false, true, 0.0, "fireball", true, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 	)
 
 # ============================================================
@@ -187,8 +187,10 @@ func _start_special(move_name: String) -> void:
 	is_spmove_animation_playing = true
 	
 	current_move_state.active_move = move_data
-	current_move_state.timer = move_data.duration
-	current_move_state.jump_timer = move_data.jump_delay
+	# 🟢 將邏輯幀轉換為秒數（邏輯幀基於 60 FPS）
+	current_move_state.timer = move_data.duration / 60.0
+	# 🟢 將邏輯幀轉換為秒數
+	current_move_state.jump_timer = move_data.jump_delay / 60.0
 	current_move_state.has_jumped = false
 	current_move_state.initial_facing = parent.facing_direction
 	current_move_state.initial_parent_scale_x = parent.scale.x
@@ -209,9 +211,9 @@ func _start_special(move_name: String) -> void:
 	# Calculate velocity
 	var world = get_tree().get_first_node_in_group("world")
 	if world and move_data.move_distance > 0:
-		var base_speed = (move_data.move_distance / move_data.duration) * world.SIMULATION_SCALE * parent.facing_direction
+		var base_speed = (move_data.move_distance / (move_data.duration / 60.0)) * world.SIMULATION_SCALE * parent.facing_direction
 		current_move_state.initial_speed = base_speed
-		current_move_state.total_duration = move_data.duration
+		current_move_state.total_duration = move_data.duration / 60.0  # 🟢 轉換為秒數
 		
 		# Set initial velocity based on acceleration curve
 		if move_data.acceleration_curve == "accelerate":

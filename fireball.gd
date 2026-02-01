@@ -3,7 +3,8 @@ extends Area2D
 var speed: float = 800.0          # 預設速度（DAV）
 var direction: int = 1
 var damage: float = 8.0          # 預設傷害（DAV）
-var blockstun_duration: float = 0.3
+var hitstun_frames: int = 24       # 🟢 hitstun：預設 24 幀（從 HitResponseHandler 動態讀取）
+var blockstun_duration_frames: int = 14  # 14 幀 @60FPS = 0.233 秒
 var is_active: bool = true
 var is_penetrating: bool = false  # 擊中後的穿透狀態
 var penetration_distance: float = 100.0  # 穿透距離（進入對手body內部）
@@ -165,18 +166,34 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		# 不在這裡播放爆炸效果，等穿透完成後再播放
 		
 		# 🟢 【重要】先呼叫 take_hit() 讓受擊動畫立即播放
-		target.take_hit(blockstun_duration, blockstun_duration, damage, false)
+		# 🟢 從 HitResponseHandler 動態讀取最新的 hitstun 值（每次擊中時讀取，確保修改立即生效）
+		var world = get_tree().get_first_node_in_group("world")
+		var final_hitstun = hitstun_frames  # 使用預設值 60
+		var read_success = false
+		if world:
+			var p1 = world.get_node_or_null("Player_A")
+			if p1:
+				var hit_response = p1.get_node_or_null("HitResponseHandler")
+				if hit_response:
+					if hit_response.has_method("get_fireball_hitstun_frames"):
+						final_hitstun = hit_response.get_fireball_hitstun_frames()
+						read_success = true
+						print("[Fireball Hit] 從 HitResponseHandler 讀取 hitstun_frames = %d" % final_hitstun)
+		
+		if not read_success:
+			print("[Fireball Hit] ⚠️ 無法從 HitResponseHandler 讀取，使用預設值 %d" % final_hitstun)
+		
+		target.take_hit(final_hitstun, blockstun_duration_frames, damage, false)
 		
 		# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（Slow-mo）
 		# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中
-		var world = get_tree().get_first_node_in_group("world")
 		if world:
 			var slowmo_controller = world.get_node_or_null("SlowMoController")
 			if slowmo_controller:
 				slowmo_controller.request_hit_freeze()
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		if target.has_signal("hit_detected"):
-			target.hit_detected.emit(name, blockstun_duration, is_blocked)
+			target.hit_detected.emit(name, blockstun_duration_frames, is_blocked)
 		
 		# 擊中音效
 		if hit_sound_player:
@@ -252,7 +269,7 @@ func _on_proximitybox_area_entered(area: Area2D) -> void:
 			
 			# 不在這裡播放爆炸效果，等穿透完成後再播放
 			
-			target.take_hit(blockstun_duration, 0.0, false)  # 格擋無傷害
+			target.take_hit(blockstun_duration_frames, 0, false)  # 格擋無傷害
 			if target.has_signal("block_detected"):
 				target.block_detected.emit(name, "proximity")
 			
