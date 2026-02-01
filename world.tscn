@@ -275,6 +275,7 @@ script = ExtResource("7_pkg7o")
 [node name="PushManager" type="Node" parent="." unique_id=921268698]
 script = ExtResource("9_ioo17")
 jump_push_multiplier = 0.0
+knockback_deceleration_power = 4.0
 
 [node name="ControlHistory" type="Node" parent="." unique_id=800036317]
 

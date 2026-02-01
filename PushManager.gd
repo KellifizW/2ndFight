@@ -8,6 +8,8 @@ const SIMULATION_SCALE: float = 1000.0
 @export var arena_right: float = 1600.0
 @export var ground_push_multiplier: float = 0.6  # 地面推開倍數
 @export var jump_push_multiplier: float = 1.0   # 跳躍推開倍數 (降低此值可減少跳躍越過時的推開距離)
+@export var knockback_deceleration_power: float = 3.0  # 🟢 Knockback 減速指數
+													   # 1.0=線性, 2.0=二次方, 3.0+=越來越快減速
 
 var players: Array = []
 
@@ -71,18 +73,89 @@ func _physics_process(delta: float) -> void:
 					player.push_back_velocity = 0.0
 					player.initial_push_back = 0.0
 					player.fixed_velocity.x = 0
+		
+		# ────────────────────────────────────────────────────────────────────────
+		# ── 【Knockback 執行 - 獨立於 hitstun，確保完整執行】──
+		# ────────────────────────────────────────────────────────────────────────
+		if player.knockback_frames > 0:
+			# 🔴 DEBUG: 首次執行 knockback 時記錄時間
+			if player.knockback_start_time <= 0:
+				player.knockback_start_time = Time.get_ticks_msec() / 1000.0
+				print("[KNOCKBACK EXECUTION START] %s - Time: %.3f, knockback_frames: %d, initial_knockback_frames: %d, hitstun_frames: %d" % [
+					player.name, player.knockback_start_time, player.knockback_frames, player.initial_knockback_frames, player.hitstun_frames
+				])
+			
+			# 計算衰減倍數（二次方衰減曲線）
+			# 使用 initial_knockback_frames（初始值，固定不變），而非 hitstun_frames（會變動）
+			var total_knockback_frames = player.initial_knockback_frames
+			if total_knockback_frames <= 0:
+				total_knockback_frames = 1  # 避免除以 0
+				print("[KNOCKBACK WARNING] %s - initial_knockback_frames 是 0！使用 1 避免除以 0" % player.name)
+			
+			var remaining_ratio: float = player.knockback_frames / float(total_knockback_frames)
+			# 🟢 使用可配置的減速指數，支援提早減速效果
+			# remaining_ratio^power：指數越高，減速越快、越早開始
+			var speed_multiplier: float = pow(remaining_ratio, knockback_deceleration_power)
+			player.fixed_velocity.x = int(-player.hit_push_velocity * speed_multiplier * player.facing_direction)
+			
+			# 🔴 重要：knockback_frames 的遞減現在在 Fighter._physics_process 中處理
+			# 這裡只負責計算並應用速度，不負責遞減幀數
+			var old_frames = player.knockback_frames
+			
+			# 每 6 幀顯示一次進度（約 0.1 秒）
+			if int(old_frames) % 6 == 0 or player.knockback_frames <= 0:
+				var elapsed_frames = total_knockback_frames - player.knockback_frames
+				var progress_percent = elapsed_frames * 100.0 / total_knockback_frames
+				
+				if total_knockback_frames <= 0:
+					progress_percent = 0.0
+				
+				print("[KNOCKBACK PROGRESS] %s - %.1f%% complete, remaining: %d frames, total_expected: %d, velocity: %d" % [
+					player.name, progress_percent, player.knockback_frames, total_knockback_frames, player.fixed_velocity.x
+				])
+			
+			# Knockback結束檢查
+			if player.knockback_frames <= 0:
+				var expected_frames = player.initial_knockback_frames  # ✅ 使用初始值
+				var physics_fps = Engine.physics_ticks_per_second  # ✅ 使用動態 FPS
+				var expected_duration = expected_frames / float(physics_fps)
+				
+				# knockback_frames 和 hitstun_frames 現在完全同步（都在 Fighter._physics_process 中遞減）
+				# 所以實際執行的幀數應該等於初始值
+				var actual_duration_by_frames = expected_duration
+				
+				# 牆上時鐘計時（用於參考，但可能因 time_scale 而不同）
+				var actual_duration_by_clock = 0.0
+				if player.knockback_start_time > 0:
+					actual_duration_by_clock = (Time.get_ticks_msec() / 1000.0) - player.knockback_start_time
+				
+				print("\n[KNOCKBACK END] %s" % player.name)
+				print("  - Expected Duration: %.3fs (%d frames @%d FPS)" % [expected_duration, expected_frames, physics_fps])
+				print("  - Actual Duration (by frames): %.3fs" % actual_duration_by_frames)
+				print("  - Actual Duration (by clock): %.3fs (可能因 time_scale 而異)" % actual_duration_by_clock)
+				
+				var sync_status = "✅ 同步" if abs(actual_duration_by_frames - expected_duration) < 0.05 else "❌ 不同步"
+				print("  - Sync Status: %s\n" % sync_status)
+				
+				player.knockback_frames = 0
+				player.hit_push_velocity = 0.0
+				player.hit_push_initial_velocity = 0.0
+				player.knockback_start_time = 0.0
+				player.fixed_velocity.x = 0
+		
+		# ────────────────────────────────────────────────────────────────────────
+		# ── 【Hitstun 和 Hit_timer（舊的Delta系統，保留用於兼容）】──
+		# ────────────────────────────────────────────────────────────────────────
 		if player.is_hit:
 			if player.hit_timer > 0:
 				player.hit_timer -= delta
-				if player.hit_push_timer > 0:
-					player.fixed_velocity.x = int(-player.hit_push_velocity * player.facing_direction * (player.hit_push_timer / player.initial_hitstun))
-					player.hit_push_timer -= delta
+				
+				# ── Hitstun結束檢查 (與knockback獨立) ──
 				if player.hit_timer <= 0:
 					player.is_hit = false
-					player.hit_push_timer = 0.0
-					player.hit_push_velocity = 0.0
+					player.hit_push_delay_timer = 0.0
 					player.initial_hitstun = 0.0
-					player.fixed_velocity.x = 0
+					player.hit_timer = 0.0
 		if player.block_timer > 0:
 			player.block_timer -= delta
 			if player.block_push_timer > 0:

@@ -3,6 +3,7 @@ extends Node
 class_name SlowMoController
 
 signal time_scale_changed(new_time_scale: float)
+signal hit_slowmo_finished  # 🟢 Hit stop 完成信號，讓 hitstun/knockback 在 hit stop 後開始
 
 # 時間縮放參數
 var normal_time_scale: float = 1
@@ -108,3 +109,5 @@ func _on_hit_slowmo_finished():
 	var duration_sec = (Time.get_ticks_msec() - hit_start_time) / 1000.0
 	print("Debug: Hit slowmo duration: %s seconds" % duration_sec)
 	print("Debug: Hit slowmo finished, is_hit_slowmo=%s, time_scale=%s" % [is_hit_slowmo, Engine.time_scale])
+	# 🟢 發送信號通知所有 Fighter，hit stop 已完成，可以開始 hitstun/knockback/blockstun
+	emit_signal("hit_slowmo_finished")

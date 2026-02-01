@@ -112,10 +112,17 @@ var block_type: String = "none"
 @export var block_push_distance: float = 250.0
 @export var hit_push_distance: float = 250.0
 @export var floor_snap_immunity_duration: float = 0.1
+@export var knockback_delay_duration: float = 0.0  # 暫時取消延遲來除錯
+@export var knockback_deceleration: float = 0.75   # Knockback減速率 (每幀乘以此值，越小減速越明顯)
 
 var initial_hitstun: float = 0.0
+var knockback_total_time: float = 0.0  # Knockback總時間（等於hitstun時間）
+var knockback_start_time: float = 0.0  # Knockback開始時間（用於統計）
 var hit_push_velocity: float = 0.0
 var hit_push_timer: float = 0.0
+var hit_push_delay_timer: float = 0.0  # Knockback延遲計時器
+var hit_push_initial_velocity: float = 0.0  # 初始knockback速度 (用於減速計算)
+var hit_push_offset: int = 0  # Knockback每幀的position offset (fixed-point單位)
 var initial_blockstun: float = 0.0
 var block_push_velocity: float = 0.0
 var block_push_timer: float = 0.0
