@@ -5,6 +5,10 @@ var direction: int = 1
 var damage: float = 8.0          # 預設傷害（DAV）
 var blockstun_duration: float = 0.3
 var is_active: bool = true
+var is_penetrating: bool = false  # 擊中後的穿透狀態
+var penetration_distance: float = 100.0  # 穿透距離（進入對手body內部）
+var penetration_traveled: float = 0.0  # 已穿透的距離
+var hit_target: Node = null  # 記錄擊中的目標
 var owner_character_id: String = "DAV"  # 現在使用 character_id 而不是舊的 p1/p2
 var fireball_owner: Node = null           # 發射者的 Player 實例（避免打到自己）
 
@@ -87,6 +91,18 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if is_active:
 		position.x += speed * direction * delta
+	elif is_penetrating:
+		# 擊中後繼續移動進入對手body內部
+		var move_distance = speed * direction * delta
+		position.x += move_distance
+		penetration_traveled += abs(move_distance)
+		
+		if penetration_traveled >= penetration_distance:
+			# 完成穿透，停止移動並播放爆炸效果
+			is_penetrating = false
+			_stop_trail_immediately()
+			_play_explosion_particles()
+			animation_player.play("fireball/ball_impact")
 	
 	# 超出鏡頭可見範圍自動銷毀（基於實際鏡頭位置動態檢測）
 	var camera = get_viewport().get_camera_2d()
@@ -133,16 +149,22 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 	
 	if area.name == "Hurtbox" and area.get_parent().is_in_group("players"):
 		var target = area.get_parent()
+		
+		# 進入穿透模式，繼續移動進入對手body內部
 		is_active = false
+		is_penetrating = true
+		hit_target = target
+		penetration_traveled = 0.0
+		
+		# 立即禁用碰撞檢測，避免重複觸發
 		if hitbox: hitbox.monitoring = false
 		if prox_shape: prox_shape.disabled = true
 		
-		_stop_trail_immediately()
-		_play_explosion_particles()  # 觸發 hit + ringexp + hitexp
 		_clear_owner_reference()
 		
-		animation_player.play("fireball/ball_impact")
+		# 不在這裡播放爆炸效果，等穿透完成後再播放
 		
+		# 立即造成傷害（不等穿透完成）
 		var world = get_tree().get_first_node_in_group("world")
 		if world:
 			var slowmo_controller = world.get_node_or_null("SlowMoController")
@@ -215,15 +237,18 @@ func _on_proximitybox_area_entered(area: Area2D) -> void:
 	if area.name == "Hurtbox" and area.get_parent().is_in_group("players"):
 		var target = area.get_parent()
 		if target.is_holding_back or target.is_crouch_blocking:
+			# 進入穿透模式
 			is_active = false
+			is_penetrating = true
+			hit_target = target
+			penetration_traveled = 0.0
+			
 			if hitbox: hitbox.monitoring = false
 			if prox_shape: prox_shape.disabled = true
 			
-			_stop_trail_immediately()
-			_play_explosion_particles()  # 近距離格擋也觸發三個粒子
 			_clear_owner_reference()
 			
-			animation_player.play("fireball/ball_impact")
+			# 不在這裡播放爆炸效果，等穿透完成後再播放
 			
 			target.take_hit(blockstun_duration, 0.0, false)  # 格擋無傷害
 			if target.has_signal("block_detected"):
