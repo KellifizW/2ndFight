@@ -50,10 +50,12 @@ func _physics_process(delta: float) -> void:
 			# 如果不是在空中受擊狀態，才清除 is_hit
 			if not is_air_hit_backjump:
 				is_hit = false
+				was_hit_while_crouching = false  # 重置蹲姿受擊標記
 	else:
 		# 如果不是在空中受擊狀態，才清除 is_hit
 		if not is_air_hit_backjump:
 			is_hit = false
+			was_hit_while_crouching = false  # 重置蹲姿受擊標記
 
 	# ── 【固定幀數 blockstun】與 hitstun 完全一致──
 	if blockstun_frames > 0:
@@ -113,6 +115,9 @@ func take_hit(
 		return
 	
 	print("[DEBUG] take_hit() 接收 → hitstun: %.3f, blockstun: %.3f, damage: %.1f" % [hitstun_duration, blockstun_duration, damage])
+	
+	# 記錄被擊中時是否處於蹲姿（用於選擇正確的受擊動畫）
+	was_hit_while_crouching = is_crouching
 	
 	# Clear input buffer when getting hit
 	if has_node("PlayerController"):

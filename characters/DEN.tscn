@@ -5755,7 +5755,7 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 89
+frame = 141
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
@@ -5781,7 +5781,7 @@ disabled = true
 debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 
 [node name="Hurtbox" type="Area2D" parent="." unique_id=122481601]
-collision_mask = 67
+collision_mask = 195
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox" unique_id=26003821]
 position = Vector2(10, 40)

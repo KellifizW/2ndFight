@@ -269,6 +269,10 @@ func start_fireball() -> void:
 	if parent.is_attacking or is_spmove:
 		print("[MoveSet] %s: Cannot start fireball - is_attacking=%s, is_spmove=%s" % [parent.name, parent.is_attacking, is_spmove])
 		return
+	# 檢查是否已有活躍的 fireball（同一時間只能有一個）
+	if parent.active_fireball != null and is_instance_valid(parent.active_fireball):
+		print("[MoveSet] %s: Cannot start fireball - active_fireball already exists" % parent.name)
+		return
 	print("[MoveSet] %s: Starting fireball (AI=%s)" % [parent.name, parent.is_ai_controlled])
 	_start_special("fireball")
 
@@ -490,6 +494,8 @@ func _process_projectile_spawn(delta: float, _world: Node) -> void:
 		fb.fireball_owner = parent
 		fb.global_position = parent.global_position + Vector2(fireball_x_offset * parent.facing_direction, fireball_y_offset)
 		get_tree().current_scene.add_child(fb)
+		# 將 fireball 引用存儲到 parent（同一時間只能有一個）
+		parent.active_fireball = fb
 		print("[MoveSet] %s spawned fireball at position %s" % [parent.name, fb.global_position])
 
 func _process_jump(delta: float, world: Node, move: MoveData) -> void:

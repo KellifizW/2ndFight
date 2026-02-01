@@ -36,6 +36,7 @@ var is_knockfly_animation_finished: bool = false
 var was_crouching_last_frame: bool = false
 var is_crouch_held: bool = false
 var is_crouching: bool = false
+var was_hit_while_crouching: bool = false  # 記錄被擊中時是否處於蹲姿
 
 # ── 跳躍 ──────────────────────────────────
 var jump_vertical_speed: float = -2300.0
@@ -354,17 +355,36 @@ func get_is_knockfly() -> bool:
 	return is_knockfly
 
 func _on_hurtbox_area_entered(area: Area2D) -> void:
+	var player_seat = player.seat if player and "seat" in player else "?"
+	
+	# 檢測對手玩家的 Proximitybox
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = true
-		var player_seat = player.seat if player and "seat" in player else "?"
-		print("[PROXIMITY] %s: 對手進入proximity range" % player_seat)
+		print("[PROXIMITY] %s: 對手玩家進入proximity range" % player_seat)
+		return
+	
+	# 檢測 fireball 的 proximity area (Layer 8 = 128)
+	if area.collision_layer & 128:  # Layer 8 檢測
+		is_opponent_proximity = true
+		print("[PROXIMITY] %s: Fireball proximity 進入 (layer=%d, name=%s)" % [player_seat, area.collision_layer, area.name])
+		return
 
 func _on_hurtbox_area_exited(area: Area2D) -> void:
+	var player_seat = player.seat if player and "seat" in player else "?"
+	
+	# 檢測對手玩家的 Proximitybox 離開
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = false
 		is_proximity_blocking = false
-		var player_seat = player.seat if player and "seat" in player else "?"
-		print("[PROXIMITY] %s: 對手離開proximity range" % player_seat)
+		print("[PROXIMITY] %s: 對手玩家離開proximity range" % player_seat)
+		return
+	
+	# 檢測 fireball 的 proximity area 離開 (Layer 8 = 128)
+	if area.collision_layer & 128:
+		is_opponent_proximity = false
+		is_proximity_blocking = false
+		print("[PROXIMITY] %s: Fireball proximity 離開 (layer=%d, name=%s)" % [player_seat, area.collision_layer, area.name])
+		return
 
 func _set_facing(new_facing: float) -> void:
 	facing_handler.set_facing(new_facing)

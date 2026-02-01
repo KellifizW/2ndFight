@@ -49,6 +49,9 @@ var seat: String = "player_a"  # "player_a" 或 "player_b"
 var character_id: String:
 	get: return character_data.short_id if character_data else "UNKNOWN"
 
+# Fireball 管理：追蹤當前活躍的 fireball 實例（同一時間只能有一個）
+var active_fireball: Node = null
+
 # ── 狀態旗標 ─────────────────────
 var current_mode: String = "ground_stand"
 var attack_type: String = "none"
@@ -362,7 +365,10 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 	if is_hit:
 		if not on_floor and ("is_air_hit_backjump" in self and self.is_air_hit_backjump):
 			return "Jump_B"
-		return "hit" if on_floor else "Jump_B"
+		# 地面受擊：根據受擊時的姿勢選擇動畫
+		if on_floor:
+			return "cr_hit" if was_hit_while_crouching else "hit"
+		return "Jump_B"
 
 	if move_set and move_set.is_spmove:
 		var active_move_name = move_set.get_active_move_name()

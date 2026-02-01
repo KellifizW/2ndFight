@@ -67,6 +67,26 @@ color = Color(2.7330875, 3.1229057, 3.111093, 1)
 color_ramp = SubResource("GradientTexture1D_rs0mt")
 alpha_curve = SubResource("CurveTexture_vwh0f")
 
+[sub_resource type="Animation" id="Animation_17xic"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("run:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(1, 1)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_qit32"]
+_data = {
+&"RESET": SubResource("Animation_17xic")
+}
+
 [sub_resource type="Animation" id="Animation_3ch2m"]
 length = 0.001
 tracks/0/type = "value"
@@ -154,7 +174,7 @@ tracks/2/keys = {
 "times": PackedFloat32Array(0, 0.36666667),
 "transitions": PackedFloat32Array(1, 1),
 "update": 0,
-"values": [Vector2(30, 20), Vector2(60, 20)]
+"values": [Vector2(200, 20), Vector2(200, 20)]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
@@ -163,10 +183,22 @@ tracks/3/path = NodePath("Proximitybox/ProxShape:shape:size")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.36666667),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(250, 100)]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("run:scale")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0, 1),
 "transitions": PackedFloat32Array(1, 1),
 "update": 0,
-"values": [Vector2(40, 20), Vector2(70, 20)]
+"values": [Vector2(1, 1), Vector2(5, 1)]
 }
 
 [sub_resource type="Animation" id="Animation_twj7m"]
@@ -193,16 +225,7 @@ _data = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_imvl6"]
-size = Vector2(30, 20)
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_258ym"]
-size = Vector2(30, 20)
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_kcguo"]
-size = Vector2(27, 30)
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_twj7m"]
-size = Vector2(40, 20)
+size = Vector2(200, 20)
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_17xic"]
 
@@ -249,6 +272,15 @@ scale_curve = SubResource("CurveTexture_qit32")
 color = Color(2.0376163, 3.0623097, 5.6880865, 1)
 color_ramp = SubResource("GradientTexture1D_17xic")
 alpha_curve = SubResource("CurveTexture_s8xu1")
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_258ym"]
+size = Vector2(120, 100)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_kcguo"]
+size = Vector2(120, 100)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_twj7m"]
+size = Vector2(250, 100)
 
 [sub_resource type="Curve" id="Curve_avoqh"]
 _data = [Vector2(0.09722222, 0), 0.0, 0.0, 0, 0, Vector2(0.16666666, 1), 0.0, 0.0, 0, 0, Vector2(0.45833328, 0), 0.0, 0.0, 0, 0]
@@ -379,43 +411,15 @@ texture = ExtResource("6_14d0s")
 offset = Vector2(0, 5)
 hframes = 10
 vframes = 19
-frame = 181
+frame = 180
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=831705060]
+libraries/ = SubResource("AnimationLibrary_qit32")
 libraries/fireball = SubResource("AnimationLibrary_46qut")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1016708526]
-visible = false
+position = Vector2(-20, 0)
 shape = SubResource("RectangleShape2D_imvl6")
-
-[node name="Hitbox" type="Area2D" parent="." unique_id=27814229]
-visible = false
-collision_layer = 2
-collision_mask = 3
-
-[node name="HitShape" type="CollisionShape2D" parent="Hitbox" unique_id=1049685025]
-visible = false
-shape = SubResource("RectangleShape2D_258ym")
-debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
-
-[node name="Hurtbox" type="Area2D" parent="." unique_id=1410642871]
-visible = false
-collision_layer = 2
-collision_mask = 2
-
-[node name="HurtShape" type="CollisionShape2D" parent="Hurtbox" unique_id=844650875]
-visible = false
-shape = SubResource("RectangleShape2D_kcguo")
-
-[node name="Proximitybox" type="Area2D" parent="." unique_id=101643187]
-visible = false
-collision_layer = 0
-collision_mask = 64
-
-[node name="ProxShape" type="CollisionShape2D" parent="Proximitybox" unique_id=194818277]
-visible = false
-shape = SubResource("RectangleShape2D_twj7m")
-debug_color = Color(0.62189, 0.533606, 0, 0.42)
 
 [node name="run" type="GPUParticles2D" parent="." unique_id=900510970]
 material = SubResource("CanvasItemMaterial_17xic")
@@ -424,6 +428,32 @@ texture = ExtResource("9_s8xu1")
 lifetime = 1.66
 fixed_fps = 120
 process_material = SubResource("ParticleProcessMaterial_5fhu6")
+
+[node name="Hitbox" type="Area2D" parent="." unique_id=27814229]
+collision_layer = 2
+collision_mask = 3
+
+[node name="HitShape" type="CollisionShape2D" parent="Hitbox" unique_id=1049685025]
+position = Vector2(-20, 0)
+shape = SubResource("RectangleShape2D_258ym")
+debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
+
+[node name="Hurtbox" type="Area2D" parent="." unique_id=1410642871]
+collision_layer = 2
+collision_mask = 2
+
+[node name="HurtShape" type="CollisionShape2D" parent="Hurtbox" unique_id=844650875]
+position = Vector2(-20, 0)
+shape = SubResource("RectangleShape2D_kcguo")
+
+[node name="Proximitybox" type="Area2D" parent="." unique_id=101643187]
+collision_layer = 128
+collision_mask = 0
+
+[node name="ProxShape" type="CollisionShape2D" parent="Proximitybox" unique_id=194818277]
+position = Vector2(-20, 0)
+shape = SubResource("RectangleShape2D_twj7m")
+debug_color = Color(0.62352943, 0.53333336, 0, 0.11372549)
 
 [node name="hit" type="GPUParticles2D" parent="." unique_id=2118489577]
 material = SubResource("CanvasItemMaterial_17xic")

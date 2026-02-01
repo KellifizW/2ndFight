@@ -24,8 +24,11 @@ func compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, ani
 		return "Jump_B"
 	
 	if movement_node.is_hit:
-		# 空中受擊永遠播放 Jump_B（後跳）動畫，地面受擊才播放 hit 動畫
-		return "hit" if on_floor else "Jump_B"
+		# 空中受擊永遠播放 Jump_B（後跳）動畫
+		if not on_floor:
+			return "Jump_B"
+		# 地面受擊：根據受擊時的姿勢選擇動畫
+		return "cr_hit" if movement_node.was_hit_while_crouching else "hit"
 	
 	if movement_node.is_layground:
 		return "layground"
