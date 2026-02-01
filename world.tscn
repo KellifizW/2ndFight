@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://dgde4231ic5cc" path="res://assets/stage.png" id="1_fj7yv"]
 [ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://FollowCamera.tscn" id="3_gbfbk"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
-[ext_resource type="FontFile" uid="uid://d2yj0i6c3jbxg" path="res://fonts/Roundex.otf" id="4_cbp6q"]
+[ext_resource type="FontFile" uid="uid://cj4hyo1deaafb" path="res://fonts/RZ Musashi.ttf" id="6_bc84e"]
 [ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://ai/cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://slow_mo_controller.gd" id="7_pkg7o"]
@@ -92,8 +92,12 @@ offset_right = 74.08
 offset_bottom = -23.800003
 grow_vertical = 0
 pivot_offset = Vector2(20, 10)
-theme_override_fonts/font = ExtResource("4_cbp6q")
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 20
+theme_override_fonts/font = ExtResource("6_bc84e")
 theme_override_font_sizes/font_size = 60
+text = "99HIT! "
 
 [node name="HitLabel" type="Label" parent="UI" unique_id=1416879046]
 anchors_preset = 5

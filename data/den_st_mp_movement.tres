@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="AttackMovement" format=3 uid="uid://cmntakyoa06uv"]
+
+[ext_resource type="Script" uid="uid://do60xtl0h0rgp" path="res://data/AttackMovement.gd" id="1_mvbby"]
+
+[resource]
+script = ExtResource("1_mvbby")
+enabled = true
+distance = 8.0
+duration = 0.2
+curve_type = 5
+metadata/_custom_type_script = "uid://do60xtl0h0rgp"

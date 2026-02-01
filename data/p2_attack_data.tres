@@ -5,9 +5,11 @@
 [ext_resource type="Resource" uid="uid://0kevkaj8da10" path="res://data/den_st_hp_movement.tres" id="2_ybc3s"]
 [ext_resource type="Resource" uid="uid://rml3g2464d76" path="res://data/den_st_hk_movement.tres" id="3_pjwwx"]
 [ext_resource type="Resource" uid="uid://doln5l3i1xaf8" path="res://data/den_st_mk_movement.tres" id="4_lgwdk"]
+[ext_resource type="Resource" uid="uid://cmntakyoa06uv" path="res://data/den_st_mp_movement.tres" id="6_h3se8"]
 
 [resource]
 script = ExtResource("1_e6rab")
+st_mp_movement = ExtResource("6_h3se8")
 st_hp_damage = 10.0
 st_hp_movement = ExtResource("2_ybc3s")
 st_mk_hitstun = 0.7
