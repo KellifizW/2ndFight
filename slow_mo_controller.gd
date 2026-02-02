@@ -58,6 +58,12 @@ func request_hit_freeze():
 		print("Debug: Hit slowmo request ignored (slowmo_active=%s, is_hit_slowmo=%s)" % [slowmo_active, is_hit_slowmo])
 		return  # 避免重複觸發
 	is_hit_slowmo = true
+	
+	# 🟢 【新增】暫停幀計數器
+	var frame_counter = get_tree().root.get_node_or_null("World/FrameCounter")
+	if frame_counter:
+		frame_counter.pause()
+	
 	if tween and tween.is_running():
 		tween.kill()  # 停止正在運行的 Tween
 	
@@ -122,6 +128,11 @@ func _on_hit_slowmo_finished():
 	is_hit_slowmo = false
 	Engine.time_scale = normal_time_scale  # 確保時間縮放完全恢復
 	emit_signal("time_scale_changed", normal_time_scale)
+	
+	# 🟢 【新增】恢復幀計數器
+	var frame_counter = get_tree().root.get_node_or_null("World/FrameCounter")
+	if frame_counter:
+		frame_counter.resume()
 	
 	# 🟢 【修正】恢復所有玩家的動畫速度
 	if sync_animation_speed:

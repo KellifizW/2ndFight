@@ -47,20 +47,29 @@ var combo_target: String = ""
 var combo_reset_timer: float = 0.0
 const COMBO_BUFFER: float = 0.2
 
-# Hit Advantage
+# Hit Advantage (改用幀計數器)
 var hit_time: float = 0.0
 var attacker: Node = null
 var target_player: Node = null
-var attacker_recover_time: float = 0.0
-var target_recover_time: float = 0.0
+var attacker_recover_frame: int = -1
+var target_recover_frame: int = -1
 var advantage_calculated: bool = false
 
-# Block Advantage
+# 🟢 【新增】攻擊幀數記錄（用於確定恢復時間）
+var attack_start_frame: int = -1
+var attack_duration_frames: int = 0
+var hit_frame: int = -1
+var hitstun_frames: int = 0
+
+# Block Advantage (改用幀計數器)
 var block_attacker: Node = null
 var blocker: Node = null
-var block_attack_recover_time: float = 0.0
-var block_defend_recover_time: float = 0.0
+var block_attack_recover_frame: int = -1
+var block_defend_recover_frame: int = -1
 var block_advantage_calculated: bool = false
+
+# 幀計數器實例
+var frame_counter: FrameCounter = null
 
 var is_fading_out: bool = false
 var is_bgm_enabled: bool = true
@@ -100,6 +109,14 @@ func _ready() -> void:
 		print("[WORLD] ✓ AI 性能監視器已啟用 (每 %.1f 秒輸出一次報告，檢查 Console 標籤)" % profiling_log_interval)
 	else:
 		print("[WORLD] ℹ️ AI 性能監視器已禁用 (在 Inspector 中設置 enable_performance_monitoring = True 以啟用)")
+	
+	# ============================================================
+	# 🟢 【新增】初始化幀計數器（替代浮點時間戳）
+	# ============================================================
+	frame_counter = FrameCounter.new()
+	frame_counter.name = "FrameCounter"
+	add_child(frame_counter)
+	print("[WORLD] ✓ FrameCounter 已初始化 - 精確的幀級時間追蹤")
 	
 	# ============================================================
 	# 🟢 【新增】初始化 Hit Stop 時機調試器
@@ -271,71 +288,118 @@ func _physics_process(delta: float) -> void:
 
 # （以下函式保持不變，只修正了血量檢查部分）
 func _calculate_hit_advantage() -> void:
-	# 檢查攻擊者是否恢復（同時考慮 is_attacking 和特殊動作狀態）
-	if attacker_recover_time == 0.0 and is_instance_valid(attacker):
-		var is_still_attacking = false
-		
-		# 檢查1：is_attacking 標誌
-		if attacker.is_attacking:
-			is_still_attacking = true
-		
-		# 檢查2：是否在執行特殊動作
-		var move_set = attacker.get_node_or_null("MoveSet")
-		if move_set and (move_set.is_special_moving or move_set.is_spmove):
-			is_still_attacking = true
-		
-		# 檢查3：檢查動畫播放狀態（確保不在攻擊動畫中）
-		var animation_state = attacker.animation_state
-		if animation_state:
-			var current_anim = animation_state.get_current_node()
-			# 如果動畫名稱包含攻擊類型（st_mp, cr_mk 等），仍在攻擊
-			if current_anim and (current_anim.contains("st_") or current_anim.contains("cr_") or 
-				current_anim.contains("jump_") or current_anim == "powerkk" or current_anim == "spnk" or
-				current_anim.contains("fireball") or current_anim.contains("dp")):
-				is_still_attacking = true
-		
-		if not is_still_attacking:
-			attacker_recover_time = Time.get_unix_time_from_system()
-			print("Debug: Attacker %s recovered at %.3f" % [attacker.name, attacker_recover_time])
+	# 🟢 【改進】使用確定的幀數計算，避免狀態檢查和轉換誤差
+	if not frame_counter or hit_frame == -1 or target_recover_frame != -1:
+		return
 	
-	# 檢查目標是否恢復
-	if target_recover_time == 0.0 and is_instance_valid(target_player):
-		var still_in_hitstun := false
-		if target_player.has_method("is_in_hitstun"):
-			still_in_hitstun = target_player.is_in_hitstun()
-		elif "is_hit" in target_player:
-			still_in_hitstun = target_player.is_hit
-		
-		if not still_in_hitstun and not target_player.is_blocking:
-			target_recover_time = Time.get_unix_time_from_system()
-			print("Debug: Target %s recovered at %.3f" % [target_player.name, target_recover_time])
+	# 🟢 【第1步】計算被擊者恢復時間（基於確定的 hitstun_frames）
+	if target_recover_frame == -1 and is_instance_valid(target_player):
+		# 直接使用 target_player.hitstun_frames（物理幀，已是確定值）
+		if "hitstun_frames" in target_player and target_player.hitstun_frames > 0:
+			# ✅ 兩個都是物理幀，直接相加（無轉換誤差）
+			target_recover_frame = hit_frame + target_player.hitstun_frames
+			print("[ADVANTAGE CALC] Target 恢復時間計算：")
+			print("  - 被擊幀: %d 物理幀" % hit_frame)
+			print("  - hitstun_frames: %d 物理幀 (來自 Fighter.gd 已轉換值)" % target_player.hitstun_frames)
+			print("  - 目標恢復幀: %d 物理幀" % target_recover_frame)
+		else:
+			# 備用方案（不應到達）
+			var fallback_hitstun = int(hitstun_frames * frame_counter.FPS_RATIO) if hitstun_frames > 0 else 26
+			target_recover_frame = hit_frame + fallback_hitstun
+			print("[ADVANTAGE CALC] Target 恢復時間計算（備用）：")
+			print("  - 被擊幀: %d 物理幀" % hit_frame)
+			print("  - hitstun_frames (備用): %d 物理幀" % fallback_hitstun)
+			print("  - 目標恢復幀: %d 物理幀" % target_recover_frame)
 	
-	# 只要雙方都恢復了，就計算優勢（無論順序如何）
-	if attacker_recover_time > 0.0 and target_recover_time > 0.0 and not advantage_calculated:
-		# 計算真實秒數差異（精確值）
-		var adv_sec = target_recover_time - attacker_recover_time
-		# 計算幀數（用於顯示幀數信息）
-		var adv_frames = int(round(adv_sec * 60.0))
-		# 傳遞真實秒數和幀數
-		_update_advantage_labels(attacker, adv_frames, false, adv_sec)
+	# 🟢 【第2步】計算攻擊者恢復時間（基於記錄的攻擊開始幀）
+	if attacker_recover_frame == -1 and is_instance_valid(attacker):
+		# 🟢 【關鍵改進】使用攻擊開始幀 + 攻擊時長（避免浮點誤差）
+		# 這比使用 attack_duration_timer 更精確，因為 timer 遞減時有浮點精度問題
+		
+		if "attack_type" in attacker and attack_start_frame != -1 and attack_duration_frames > 0:
+			# ✅ 最精確方式：使用記錄的開始幀 + 攻擊時長
+			attacker_recover_frame = attack_start_frame + attack_duration_frames
+			print("[ADVANTAGE CALC] Attacker 恢復時間計算（使用記錄的攻擊開始幀）：")
+			print("  - 攻擊開始幀: %d 物理幀" % attack_start_frame)
+			print("  - 攻擊時長: %d 物理幀" % attack_duration_frames)
+			print("  - 攻擊恢復幀: %d 物理幀 (%d + %d)" % [attacker_recover_frame, attack_start_frame, attack_duration_frames])
+		elif "attack_duration_timer" in attacker:
+			# 備用方案：使用計時器
+			var timer_remaining = attacker.attack_duration_timer
+			if timer_remaining <= 0.0:
+				# 攻擊已結束，記錄當前幀
+				attacker_recover_frame = frame_counter.get_current_frame()
+				print("[ADVANTAGE CALC] Attacker 恢復時間計算（計時器已結束）：")
+				print("  - attack_duration_timer: %.6f 秒 (已結束)" % timer_remaining)
+				print("  - 攻擊恢復幀: %d 物理幀" % attacker_recover_frame)
+			else:
+				# 攻擊仍在進行，預估恢復幀
+				var remaining_frames = int(round(timer_remaining * frame_counter.PHYSICS_FPS))
+				attacker_recover_frame = frame_counter.get_current_frame() + remaining_frames
+				print("[ADVANTAGE CALC] Attacker 恢復時間計算（計時器預估）：")
+				print("  - attack_duration_timer: %.6f 秒 (仍在進行)" % timer_remaining)
+				print("  - 剩餘物理幀: %d" % remaining_frames)
+				print("  - 預期攻擊恢復幀: %d 物理幀 (當前 %d + 剩餘 %d)" % [
+					attacker_recover_frame, frame_counter.get_current_frame(), remaining_frames
+				])
+		else:
+			# 備用：檢查動畫
+			var is_still_attacking = false
+			var animation_state = attacker.animation_state
+			if animation_state:
+				var current_anim = animation_state.get_current_node()
+				if current_anim and (current_anim.contains("st_") or current_anim.contains("cr_") or 
+					current_anim.contains("jump_") or current_anim == "powerkk" or current_anim == "spnk" or
+					current_anim.contains("fireball") or current_anim.contains("dp")):
+					is_still_attacking = true
+			
+			if not is_still_attacking:
+				attacker_recover_frame = frame_counter.get_current_frame()
+				print("[ADVANTAGE CALC] Attacker 恢復時間計算（動畫已結束）：")
+				print("  - 攻擊恢復幀: %d 物理幀" % attacker_recover_frame)
+	
+	# 🟢 【第3步】計算優勢（都確認恢復時）
+	if attacker_recover_frame != -1 and target_recover_frame != -1 and not advantage_calculated:
+		# 物理幀計算（都是 120 FPS，直接計算）
+		var physics_advantage_frames = target_recover_frame - attacker_recover_frame
+		
+		# 邏輯幀計算（轉換為 60 FPS）
+		var logic_advantage_frames = int(round(float(physics_advantage_frames) / frame_counter.FPS_RATIO))
+		
+		# 秒數計算（基於邏輯幀）
+		var advantage_seconds = frame_counter.logic_frames_to_seconds(logic_advantage_frames)
+		
+		# 詳細除錯輸出
+		print("[ADVANTAGE CALC] ════════════════════════════════════════")
+		print("[ADVANTAGE CALC] 最終優勢計算結果：")
+		print("  - Attacker 恢復幀: %d 物理幀 (%.1f 邏輯幀)" % [attacker_recover_frame, float(attacker_recover_frame) / frame_counter.FPS_RATIO])
+		print("  - Target 恢復幀: %d 物理幀 (%.1f 邏輯幀)" % [target_recover_frame, float(target_recover_frame) / frame_counter.FPS_RATIO])
+		print("  - 物理幀差異: %d (120 FPS)" % physics_advantage_frames)
+		print("  - 邏輯幀差異: %d (60 FPS) [%d / 2.0 = %.2f → 舍入為 %d]" % [
+			logic_advantage_frames, physics_advantage_frames, float(physics_advantage_frames) / 2.0, logic_advantage_frames
+		])
+		print("  - 秒數優勢: %.6f 秒 (%d / 60.0)" % [advantage_seconds, logic_advantage_frames])
+		print("[ADVANTAGE CALC] ════════════════════════════════════════")
+		
+		_update_advantage_labels(attacker, logic_advantage_frames, false, advantage_seconds)
 		advantage_calculated = true
-		print("Debug: Advantage calculated - Attacker: %.3f, Target: %.3f, Diff: %d frames (%.6f real seconds)" % [
-			attacker_recover_time, target_recover_time, adv_frames, adv_sec
+		print("[HIT ADVANTAGE] ✓ 優勢計算完成 - %s: %dF (%.6f秒)" % [
+			attacker.name, logic_advantage_frames, advantage_seconds
 		])
 
 func _calculate_block_advantage() -> void:
 	var valid = is_instance_valid(block_attacker) and is_instance_valid(blocker)
 	if not valid: return
 	
-	if block_attack_recover_time == 0.0 and not block_attacker.is_attacking:
+	if block_attack_recover_frame == -1 and not block_attacker.is_attacking and frame_counter:
 		var move_set = block_attacker.get_node_or_null("MoveSet")
 		var recovered = true
 		if move_set:
 			recovered = not (move_set.is_special_moving or move_set.is_spmove)
 		if recovered:
-			block_attack_recover_time = Time.get_unix_time_from_system()
+			block_attack_recover_frame = frame_counter.get_current_frame()  # ✅ 記錄幀數
 	
-	if block_defend_recover_time == 0.0:
+	if block_defend_recover_frame == -1 and frame_counter:
 		var recovered = false
 		if blocker.has_method("is_in_blockstun"):
 			recovered = not blocker.is_in_blockstun()
@@ -346,16 +410,17 @@ func _calculate_block_advantage() -> void:
 			recovered = anim not in ["block", "cr_block"]
 		
 		if recovered:
-			block_defend_recover_time = Time.get_unix_time_from_system()
+			block_defend_recover_frame = frame_counter.get_current_frame()  # ✅ 記錄幀數
 	
-	if block_attack_recover_time > 0.0 and block_defend_recover_time > 0.0:
-		# 計算真實秒數差異（精確值）
-		var advantage_sec = block_defend_recover_time - block_attack_recover_time
-		# 計算幀數（用於顯示幀數信息）
-		var advantage_frames = int(round(advantage_sec * 60.0))
-		# 傳遞真實秒數和幀數
-		_update_advantage_labels(block_attacker, advantage_frames, true, advantage_sec)
+	if block_attack_recover_frame != -1 and block_defend_recover_frame != -1 and frame_counter:
+		var physics_advantage_frames = block_defend_recover_frame - block_attack_recover_frame  # 120 FPS 物理幀
+		var logic_advantage_frames = frame_counter.get_logic_frame_difference(block_attack_recover_frame, block_defend_recover_frame)  # ✅ 轉換為 60 FPS 邏輯幀
+		var advantage_seconds = frame_counter.logic_frames_to_seconds(logic_advantage_frames)  # ✅ 基於 60 FPS 計算秒數
+		_update_advantage_labels(block_attacker, logic_advantage_frames, true, advantage_seconds)
 		block_advantage_calculated = true
+		print("[BLOCK ADVANTAGE] ✓ 優勢計算完成 - %s: %dF (%.6f秒) - 精確幀級計算 (物理幀: %d → 邏輯幀: %d)" % [
+			block_attacker.name, logic_advantage_frames, advantage_seconds, physics_advantage_frames, logic_advantage_frames
+		])
 
 func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_block: bool = false, real_seconds: float = 0.0) -> void:
 	# 計算各玩家的優勢幀數
@@ -453,7 +518,7 @@ func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_blo
 	else:
 		advantage_sec_str = "0.000s"
 	
-	var attacker_name = attacker_node.name if attacker_node else "Unknown"
+	var attacker_name = attacker_node.name if attacker_node else StringName("Unknown")
 	print("[ADVANTAGE] %s → %s 的優勢：%sF (%s) → P1: %s / P2: %s" % [
 		type,
 		attacker_name,
@@ -592,13 +657,13 @@ func reset_players() -> void:
 	hit_time = 0.0
 	attacker = null
 	target_player = null
-	attacker_recover_time = 0.0
-	target_recover_time = 0.0
+	attacker_recover_frame = -1
+	target_recover_frame = -1
 	advantage_calculated = false
 	block_attacker = null
 	blocker = null
-	block_attack_recover_time = 0.0
-	block_defend_recover_time = 0.0
+	block_attack_recover_frame = -1
+	block_defend_recover_frame = -1
 	block_advantage_calculated = false
 	
 	if p1_advantage_label:
@@ -606,12 +671,24 @@ func reset_players() -> void:
 	if p2_advantage_label:
 		p2_advantage_label.text = "P2 Adv: 0"
 	
+	# 重置優勢計算（改用幀計數器）
+	attacker_recover_frame = -1
+	target_recover_frame = -1
+	block_attack_recover_frame = -1
+	block_defend_recover_frame = -1
+	advantage_calculated = false
+	block_advantage_calculated = false
+	
+	# 重置幀計數器
+	if frame_counter:
+		frame_counter.reset()
+	
 	if frame_bar_p1:
 		frame_bar_p1.reset_frame_bar()
 	if frame_bar_p2:
 		frame_bar_p2.reset_frame_bar()
 	
-	print("Debug: Players reset! Positions, health, animations, frame bars, and advantages restored at %s ms" % Time.get_ticks_msec())
+	print("[WORLD] ✓ 玩家重置完成 - 位置、血量、動畫、幀條、優勢已恢復 | FrameCounter 重置至 0")
 
 func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool) -> void:
 	var hit_time_ms = Time.get_ticks_msec()
@@ -630,14 +707,59 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		
 		attacker = player_a if target == player_b.name else player_b
 		target_player = player_b if target == player_b.name else player_a
-		attacker_recover_time = 0.0
-		target_recover_time = 0.0
+		
+		# 🟢 【改進】直接使用 target_player 的 hitstun_frames（避免信號傳遞的轉換誤差）
+		if attacker and target_player and frame_counter:
+			# 記錄當前被擊時的幀數（120 FPS 物理幀）
+			hit_frame = frame_counter.get_current_frame()
+			
+			# 🟢 【關鍵】直接取得被擊者的 hitstun_frames（已是物理幀，無誤差）
+			if "hitstun_frames" in target_player:
+				hitstun_frames = target_player.hitstun_frames  # ✅ 物理幀，直接使用
+				print("[HIT DETECTED DEBUG] hitstun_frames = %d (物理幀，來自 Fighter.gd)" % hitstun_frames)
+			else:
+				# 備用：轉換信號的 stun_duration（邏輯幀）→ 物理幀
+				hitstun_frames = int(stun_duration * frame_counter.FPS_RATIO)
+				print("[HIT DETECTED DEBUG] hitstun_frames = %d (從 stun_duration 轉換，%.1f 邏輯幀 × %.1f)" % [hitstun_frames, stun_duration, frame_counter.FPS_RATIO])
+			
+			# 🟢 【新增】取得攻擊時長和開始幀（從動畫，轉換為物理幀）
+			if "animation_player" in attacker and "attack_type" in attacker:
+				var anim_player = attacker.animation_player
+				var attack_type = attacker.attack_type
+				if anim_player and anim_player.has_animation(attack_type):
+					var anim_length = anim_player.get_animation(attack_type).length
+					attack_duration_frames = int(round(anim_length * frame_counter.PHYSICS_FPS))
+					print("[HIT DETECTED DEBUG] attack_duration_frames = %d (從動畫 %.3f 秒轉換，%s)" % [
+						attack_duration_frames, anim_length, attack_type
+					])
+				else:
+					# 備用：從計時器推算
+					attack_duration_frames = int(round(attacker.attack_duration_timer * frame_counter.PHYSICS_FPS))
+					print("[HIT DETECTED DEBUG] attack_duration_frames = %d (從 timer 推算，%.3f 秒)" % [
+						attack_duration_frames, attacker.attack_duration_timer
+					])
+			else:
+				# 備用：使用計時器
+				if "attack_duration_timer" in attacker:
+					attack_duration_frames = int(round(attacker.attack_duration_timer * frame_counter.PHYSICS_FPS))
+					print("[HIT DETECTED DEBUG] attack_duration_frames = %d (從 timer %.3f 秒轉換)" % [attack_duration_frames, attacker.attack_duration_timer])
+			
+			# 🟢 【新增】直接使用 attacker 記錄的 attack_start_frame（由 player.gd 設定）
+			if "attack_start_frame" in attacker:
+				attack_start_frame = attacker.attack_start_frame
+				print("[HIT DETECTED DEBUG] attack_start_frame = %d (來自 player.gd 記錄)" % attack_start_frame)
+			
+			
+			print("[HIT DETECTED DEBUG] hit_frame = %d 物理幀 / %.1f 邏輯幀" % [hit_frame, hit_frame / frame_counter.FPS_RATIO])
+		
+		attacker_recover_frame = -1
+		target_recover_frame = -1
 		advantage_calculated = false
 		
 		block_attacker = null
 		blocker = null
-		block_attack_recover_time = 0.0
-		block_defend_recover_time = 0.0
+		block_attack_recover_frame = -1
+		block_defend_recover_frame = -1
 		block_advantage_calculated = false
 		
 	else:
@@ -647,16 +769,16 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		
 		block_attacker = player_a if target == player_b.name else player_b
 		blocker = player_b if target == player_b.name else player_a
-		block_attack_recover_time = 0.0
-		block_defend_recover_time = 0.0
+		block_attack_recover_frame = -1
+		block_defend_recover_frame = -1
 		block_advantage_calculated = false
 		
 		attacker = null
 		target_player = null
 		advantage_calculated = true
 	
-	var attacker_name: String = attacker.name if attacker else "none"
-	var target_name: String = target_player.name if target_player else "none"
+	var attacker_name: String = str(attacker.name) if attacker else "none"
+	var target_name: String = str(target_player.name) if target_player else "none"
 	print("Debug: Hit detected at %s ms, attacker=%s, target=%s" % [hit_time_ms, attacker_name, target_name])
 
 func _on_block_detected(target: String, block_type: String) -> void:

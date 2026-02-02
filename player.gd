@@ -63,6 +63,7 @@ var is_special_moving: bool = false
 var landing_lock_timer: float = 0.0
 var has_air_attacked: bool = false
 var attack_duration_timer: float = 0.0  # Timer to track attack duration
+var attack_start_frame: int = -1  # 🟢 Frame when attack started (120 FPS physics frame)
 var wakeup_timer: float = 0.0  # Timer to track wakeup duration
 var is_facing_locked: bool = false
 
@@ -78,6 +79,7 @@ func reset_attack_state() -> void:
 	is_attacking = false
 	attack_type = "none"
 	attack_duration_timer = 0.0
+	attack_start_frame = -1  # 🟢 重置攻擊開始幀
 	if cancel_window_handler:
 		cancel_window_handler.reset()
 	if attack_movement_handler:
@@ -541,6 +543,14 @@ func _execute_attack(attack_name: String) -> void:
 	current_damage = ATTACK_TABLE[attack_name].damage
 	is_attacking = true
 	attack_type = attack_name
+	
+	# 🟢 【新增】記錄攻擊開始幀（用於精確計算優勢）
+	var frame_counter = get_tree().root.get_node_or_null("World/FrameCounter")
+	if frame_counter:
+		attack_start_frame = frame_counter.get_current_frame()
+		print("[EXECUTE_ATTACK] 記錄攻擊開始幀：%d (120 FPS 物理幀)" % attack_start_frame)
+	else:
+		attack_start_frame = -1
 	
 	# Get animation duration and set timer
 	if animation_player and animation_player.has_animation(attack_name):
