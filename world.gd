@@ -101,6 +101,16 @@ func _ready() -> void:
 	else:
 		print("[WORLD] ℹ️ AI 性能監視器已禁用 (在 Inspector 中設置 enable_performance_monitoring = True 以啟用)")
 	
+	# ============================================================
+	# 🟢 【新增】初始化 Hit Stop 時機調試器
+	# ============================================================
+	var hitstop_debug = HitStopTimingDebugger.new()
+	hitstop_debug.name = "HitStopTimingDebugger"
+	hitstop_debug.enabled = true  # 設為 false 可關閉調試輸出
+	hitstop_debug.detailed_logging = false  # 設為 true 可查看更詳細的日誌
+	add_child(hitstop_debug)
+	print("[WORLD] ✓ HitStopTimingDebugger 已初始化 (詳細日誌: %s)" % hitstop_debug.detailed_logging)
+	
 	# 關鍵修正：優先從選角畫面讀取角色（SelectedCharacters 是 Autoload 全局單例）
 	if SelectedCharacters.p1_character != null and SelectedCharacters.p2_character != null:
 		player_a_character = SelectedCharacters.p1_character

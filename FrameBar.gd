@@ -52,6 +52,11 @@ var _hitstun_start_logged: bool = false
 var _last_block_timer: float = 0.0
 var _blockstun_start_logged: bool = false
 
+# 🟢 【新增】Hit stop 追蹤變數
+var _is_in_hitstop: bool = false
+var _hitstop_paused_counter: int = 0  # Hit stop 期間暫停的幀數
+var _last_hitstop_state: bool = false
+
 # 常數表
 const TRACKED_ANIMS := [
 	# Standing attacks
@@ -117,6 +122,29 @@ func initialize(target: Node, opponent: Node = null) -> void:
 # ── 主循環 ─────────────────────
 func _process(delta: float) -> void:
 	if not playback or not animation_player or not target_player or not hitbox_shape:
+		return
+	
+	# 🟢 【新增】檢查是否在 hit stop 期間
+	var world = get_tree().get_first_node_in_group("world")
+	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
+	_is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo
+	
+	# 🟢 【新增】Hit stop 狀態變化檢測與調試
+	if _is_in_hitstop and not _last_hitstop_state:
+		print("[FRAMEBAR] %s - Hit stop 開始，暫停幀數計算" % target_player.name)
+		_last_hitstop_state = true
+	elif not _is_in_hitstop and _last_hitstop_state:
+		print("[FRAMEBAR] %s - Hit stop 結束，恢復幀數計算（暫停了 %d 次更新）" % [
+			target_player.name, _hitstop_paused_counter
+		])
+		_hitstop_paused_counter = 0
+		_last_hitstop_state = false
+	
+	# 🟢 【修正】Hit stop 期間跳過幀數更新，但仍保持視覺更新
+	if _is_in_hitstop:
+		_hitstop_paused_counter += 1
+		# 保持 UI 更新但不計數新幀
+		queue_redraw()
 		return
 	
 	# ── 除錯：hitstun（固定幀數）追蹤 ─────────────────────
@@ -223,7 +251,14 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 		frame_data[current_frame] = state
 	
 	if timer_driven or knockfly_chain or block_hit_chain_active:
+		var old_counter = display_frame_counter
 		display_frame_counter += 1
+		
+		# 🟢 【新增】調試信息：重要的幀數遞增（僅在關鍵狀態變化時輸出）
+		if old_counter == 0 or (flags.hit and old_counter % 10 == 0) or (flags.blocking and old_counter % 10 == 0):
+			print("[FRAMEBAR COUNTER] %s - display_frame_counter: %d → %d (anim: %s, state: %d, timer_driven: %s)" % [
+				target_player.name, old_counter, display_frame_counter, anim_name, state, timer_driven
+			])
 	
 	value = min(current_frame + 1, total_frames)
 	queue_redraw()

@@ -7,11 +7,15 @@ signal hit_slowmo_finished  # 🟢 Hit stop 完成信號，讓 hitstun/knockback
 
 # ⚙️ 設置選項
 @export var enable_hitstop: bool = true  # 是否開啟 hitstop 功能
+@export var sync_animation_speed: bool = true  # 是否同步動畫速度（解決連段時機問題）
 
 # 時間縮放參數
 var normal_time_scale: float = 1
 var slowmo_time_scale: float = 0.2
-var hit_slowmo_time_scale: float = 0.02  
+var hit_slowmo_time_scale: float = 0.02
+
+# 追蹤受影響的玩家（用於同步動畫速度）
+var affected_players: Array[Node] = []  
 var slowmo_enter_time: float = 0.4   
 var slowmo_exit_time: float = 0.4   
 var slowmo_active: bool = false      
@@ -56,6 +60,11 @@ func request_hit_freeze():
 	is_hit_slowmo = true
 	if tween and tween.is_running():
 		tween.kill()  # 停止正在運行的 Tween
+	
+	# 🟢 【修正】同步所有玩家的動畫速度，確保動畫與物理同步暫停
+	if sync_animation_speed:
+		_sync_player_animations(hit_slowmo_time_scale)
+	
 	tween = create_tween()
 	tween.set_trans(Tween.TRANS_LINEAR)
 	tween.set_ease(Tween.EASE_IN_OUT)
@@ -113,9 +122,63 @@ func _on_hit_slowmo_finished():
 	is_hit_slowmo = false
 	Engine.time_scale = normal_time_scale  # 確保時間縮放完全恢復
 	emit_signal("time_scale_changed", normal_time_scale)
+	
+	# 🟢 【修正】恢復所有玩家的動畫速度
+	if sync_animation_speed:
+		_sync_player_animations(1.0)
+	
 	# 除錯：計算並打印真實持續時間（秒）
 	var duration_sec = (Time.get_ticks_msec() - hit_start_time) / 1000.0
 	print("Debug: Hit slowmo duration: %s seconds" % duration_sec)
 	print("Debug: Hit slowmo finished, is_hit_slowmo=%s, time_scale=%s" % [is_hit_slowmo, Engine.time_scale])
 	# 🟢 發送信號通知所有 Fighter，hit stop 已完成，可以開始 hitstun/knockback/blockstun
 	emit_signal("hit_slowmo_finished")
+# 手動切換慢動作開關（用於測試或手動控制）
+func toggle_slowmo():
+	request_slowmo_change()
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🟢 【修正】同步玩家動畫速度方法
+# ═══════════════════════════════════════════════════════════════════════════
+
+func register_player(player: Node) -> void:
+	"""註冊玩家，用於同步動畫速度"""
+	if player not in affected_players:
+		affected_players.append(player)
+		if Engine.is_editor_hint():
+			return
+		print("[SLOWMO] 註冊玩家：%s" % player.name)
+
+func unregister_player(player: Node) -> void:
+	"""取消註冊玩家"""
+	if player in affected_players:
+		affected_players.erase(player)
+		if Engine.is_editor_hint():
+			return
+		print("[SLOWMO] 取消註冊玩家：%s" % player.name)
+
+func _sync_player_animations(speed_scale: float) -> void:
+	"""同步所有註冊玩家的動畫速度"""
+	# 如果沒有註冊的玩家，自動查找場景中的所有玩家
+	if affected_players.is_empty():
+		var players = get_tree().get_nodes_in_group("players")
+		for player in players:
+			if player.has_node("AnimationPlayer"):
+				affected_players.append(player)
+	
+	# 設置所有玩家的動畫速度
+	for player in affected_players:
+		if not is_instance_valid(player):
+			continue
+		
+		if player.has_node("AnimationPlayer"):
+			var anim_player = player.get_node("AnimationPlayer")
+			anim_player.speed_scale = speed_scale
+			
+			if Engine.is_editor_hint():
+				continue
+			
+			if speed_scale < 1.0:
+				print("[SLOWMO SYNC] %s 動畫減速：%.3f" % [player.name, speed_scale])
+			else:
+				print("[SLOWMO SYNC] %s 動畫恢復：%.3f" % [player.name, speed_scale])

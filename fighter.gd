@@ -13,6 +13,9 @@ func _enter_tree() -> void:
 @onready var hitbox = $Hitbox/HitShape if has_node("Hitbox/HitShape") else null
 @onready var proximitybox = $Proximitybox/ProxShape if has_node("Proximitybox/ProxShape") else null
 
+# 🟢 【新增】Hit Stop 時機調試器（用於診斷連段時機問題）
+var hitstop_debugger: HitStopTimingDebugger = null
+
 var is_being_pushed: bool = false
 var current_damage: float = 0.0
 @export var min_hitstun_duration: float = 8.0 / 60.0
@@ -29,6 +32,7 @@ const FPS: int = 60
 # 🟢 待執行的 hit 參數（等待 hit stop 完成後才實際啟動）
 var pending_hit_params: Dictionary = {}  # 存儲 take_hit 的所有參數
 var waiting_for_hit_stop_end: bool = false  # 標記是否在等待 hit stop 完成
+var last_hit_attack_name: String = ""  # 🟢 【新增】記錄最近一次受到的攻擊名稱（用於調試）
 
 # 🟢 邏輯幀到物理幀轉換函數
 func logic_frames_to_physics_frames(logic_frames: int) -> int:
@@ -57,10 +61,23 @@ func _ready() -> void:
 	if world and world.has_node("SlowMoController"):
 		var slowmo_controller = world.get_node("SlowMoController")
 		slowmo_controller.hit_slowmo_finished.connect(_on_hit_slowmo_finished)
+	
+	# 🟢 【新增】獲取場景中的 HitStopTimingDebugger（如果存在）
+	if world and world.has_node("HitStopTimingDebugger"):
+		hitstop_debugger = world.get_node("HitStopTimingDebugger")
 
 func _physics_process(delta: float) -> void:
 	if not world:
 		print("Warning: World node not found in group 'world' for %s" % name)
+		return
+
+	# 🟢 【修正】檢查是否在 hit stop 期間，如果是則暫停所有幀數遞減
+	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
+	var is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo
+	
+	# 🟢 Hit stop 期間，完全跳過幀數遞減邏輯
+	if is_in_hitstop:
+		# 在 hit stop 期間不執行任何幀數遞減，保持狀態凍結
 		return
 
 	# ── 【固定幀數 knockback_delay】──
@@ -301,6 +318,14 @@ func take_hit(
 				"hit_push_initial_velocity": 0.0  # 將在下面計算
 			}
 			
+			# 🟢 【新增】記錄 Hit Stop 開始事件（用於調試）
+			if hitstop_debugger:
+				var attacker = _find_attacker()
+				if attacker:
+					var attack_name = attacker.get("attack_type") if "attack_type" in attacker else "unknown"
+					last_hit_attack_name = attack_name
+					hitstop_debugger.start_hitstop_event(attacker, self, attack_name)
+			
 			# 計算 knockback 速度（必須在設置 pending_hit_params 之前）
 			if not skip_push:
 				var push_distance = knockback_distance if knockback_distance > 0 else hit_push_distance
@@ -438,6 +463,7 @@ func is_in_hitstun() -> bool:
 
 func is_in_blockstun() -> bool:
 	return blockstun_frames > 0
+
 # 🟢 Hit stop 完成後的回調 - 啟動被延遲的 hitstun/knockback/blockstun
 func _on_hit_slowmo_finished() -> void:
 	if waiting_for_hit_stop_end and pending_hit_params.size() > 0:
@@ -445,6 +471,12 @@ func _on_hit_slowmo_finished() -> void:
 		_apply_pending_hit_effect()
 		waiting_for_hit_stop_end = false
 		pending_hit_params.clear()
+		
+		# 🟢 【新增】記錄 Hit Stop 結束事件（用於調試）
+		if hitstop_debugger:
+			var attacker = _find_attacker()
+			if attacker:
+				hitstop_debugger.end_hitstop_event(attacker, self)
 
 # 🟢 實際應用被延遲的 hit 效果（在 hit stop 完成後執行）
 func _apply_pending_hit_effect() -> void:
@@ -479,3 +511,19 @@ func _apply_pending_hit_effect() -> void:
 	print("[HIT EFFECT APPLIED] %s - hitstun: %d frames, blockstun: %d frames, knockback: %d frames" % [
 		name, hitstun_frames, blockstun_frames, knockback_frames
 	])
+
+# 🟢 【新增】查找攻擊者（用於調試）
+func _find_attacker() -> Node:
+	"""嘗試找到攻擊這個角色的玩家"""
+	var all_players = get_tree().get_nodes_in_group("players")
+	for p in all_players:
+		if p == self:
+			continue
+		# 簡單判斷：如果另一個玩家正在攻擊，假設是他
+		if "is_attacking" in p and p.is_attacking:
+			return p
+	# 如果找不到，返回第一個不是自己的玩家
+	for p in all_players:
+		if p != self:
+			return p
+	return null
