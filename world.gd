@@ -339,11 +339,22 @@ func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_blo
 		b_frames = advantage_frames
 		a_frames = -advantage_frames
 	
+	# 計算秒數（60 FPS）
+	var a_seconds = a_frames / 60.0
+	var b_seconds = b_frames / 60.0
+	
+	# 格式化顯示文本：幀數 + 秒數
 	var a_text = "P1 Adv: "
 	var b_text = "P2 Adv: "
 	
-	a_text += ("+%d" % a_frames) if a_frames > 0 else str(a_frames)
-	b_text += ("+%d" % b_frames) if b_frames > 0 else str(b_frames)
+	var a_frames_str = ("+%d" % a_frames) if a_frames > 0 else str(a_frames)
+	var b_frames_str = ("+%d" % b_frames) if b_frames > 0 else str(b_frames)
+	
+	var a_seconds_str = ("%.3fs" % a_seconds) if a_frames != 0 else "0.000s"
+	var b_seconds_str = ("%.3fs" % b_seconds) if b_frames != 0 else "0.000s"
+	
+	a_text += "%sF (%s)" % [a_frames_str, a_seconds_str]
+	b_text += "%sF (%s)" % [b_frames_str, b_seconds_str]
 	
 	if p1_advantage_label:
 		p1_advantage_label.text = a_text
@@ -352,9 +363,11 @@ func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_blo
 	
 	var type = "Block" if is_block else "Hit"
 	var advantage_str = "+%d" % advantage_frames if advantage_frames > 0 else str(advantage_frames)
-	print("[ADVANTAGE] %s → 攻擊者優勢 %sF → Player A: %s / Player B: %s" % [
+	var advantage_sec_str = "%.3fs" % (advantage_frames / 60.0)
+	print("[ADVANTAGE] %s → 攻擊者優勢 %sF (%s) → Player A: %s / Player B: %s" % [
 		type,
 		advantage_str,
+		advantage_sec_str,
 		a_text, b_text
 	])
 
