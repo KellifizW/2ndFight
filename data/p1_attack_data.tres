@@ -6,7 +6,7 @@
 
 [resource]
 script = ExtResource("1_6mkls")
-st_lp_hitstun_frames = 8
+st_lp_hitstun_frames = 13
 st_lp_knockback = 120.0
 st_mp_knockback = 125.0
 st_hp_knockback = 130.0

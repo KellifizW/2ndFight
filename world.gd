@@ -271,15 +271,34 @@ func _physics_process(delta: float) -> void:
 
 # （以下函式保持不變，只修正了血量檢查部分）
 func _calculate_hit_advantage() -> void:
-	if attacker_recover_time == 0.0 and is_instance_valid(attacker) and not attacker.is_attacking:
+	# 檢查攻擊者是否恢復（同時考慮 is_attacking 和特殊動作狀態）
+	if attacker_recover_time == 0.0 and is_instance_valid(attacker):
+		var is_still_attacking = false
+		
+		# 檢查1：is_attacking 標誌
+		if attacker.is_attacking:
+			is_still_attacking = true
+		
+		# 檢查2：是否在執行特殊動作
 		var move_set = attacker.get_node_or_null("MoveSet")
-		var recovered = true
-		if move_set:
-			recovered = not (move_set.is_special_moving or move_set.is_spmove)
-		if recovered:
+		if move_set and (move_set.is_special_moving or move_set.is_spmove):
+			is_still_attacking = true
+		
+		# 檢查3：檢查動畫播放狀態（確保不在攻擊動畫中）
+		var animation_state = attacker.animation_state
+		if animation_state:
+			var current_anim = animation_state.get_current_node()
+			# 如果動畫名稱包含攻擊類型（st_mp, cr_mk 等），仍在攻擊
+			if current_anim and (current_anim.contains("st_") or current_anim.contains("cr_") or 
+				current_anim.contains("jump_") or current_anim == "powerkk" or current_anim == "spnk" or
+				current_anim.contains("fireball") or current_anim.contains("dp")):
+				is_still_attacking = true
+		
+		if not is_still_attacking:
 			attacker_recover_time = Time.get_unix_time_from_system()
 			print("Debug: Attacker %s recovered at %.3f" % [attacker.name, attacker_recover_time])
 	
+	# 檢查目標是否恢復
 	if target_recover_time == 0.0 and is_instance_valid(target_player):
 		var still_in_hitstun := false
 		if target_player.has_method("is_in_hitstun"):
@@ -290,12 +309,19 @@ func _calculate_hit_advantage() -> void:
 		if not still_in_hitstun and not target_player.is_blocking:
 			target_recover_time = Time.get_unix_time_from_system()
 			print("Debug: Target %s recovered at %.3f" % [target_player.name, target_recover_time])
-			
-			if attacker_recover_time > 0.0:
-				var adv_sec = target_recover_time - attacker_recover_time
-				var adv_frames = int(round(adv_sec * 60.0))
-				_update_advantage_labels(attacker, adv_frames)
-				advantage_calculated = true
+	
+	# 只要雙方都恢復了，就計算優勢（無論順序如何）
+	if attacker_recover_time > 0.0 and target_recover_time > 0.0 and not advantage_calculated:
+		# 計算真實秒數差異（精確值）
+		var adv_sec = target_recover_time - attacker_recover_time
+		# 計算幀數（用於顯示幀數信息）
+		var adv_frames = int(round(adv_sec * 60.0))
+		# 傳遞真實秒數和幀數
+		_update_advantage_labels(attacker, adv_frames, false, adv_sec)
+		advantage_calculated = true
+		print("Debug: Advantage calculated - Attacker: %.3f, Target: %.3f, Diff: %d frames (%.6f real seconds)" % [
+			attacker_recover_time, target_recover_time, adv_frames, adv_sec
+		])
 
 func _calculate_block_advantage() -> void:
 	var valid = is_instance_valid(block_attacker) and is_instance_valid(blocker)
@@ -323,35 +349,84 @@ func _calculate_block_advantage() -> void:
 			block_defend_recover_time = Time.get_unix_time_from_system()
 	
 	if block_attack_recover_time > 0.0 and block_defend_recover_time > 0.0:
+		# 計算真實秒數差異（精確值）
 		var advantage_sec = block_defend_recover_time - block_attack_recover_time
+		# 計算幀數（用於顯示幀數信息）
 		var advantage_frames = int(round(advantage_sec * 60.0))
-		_update_advantage_labels(block_attacker, advantage_frames, true)
+		# 傳遞真實秒數和幀數
+		_update_advantage_labels(block_attacker, advantage_frames, true, advantage_sec)
 		block_advantage_calculated = true
 
-func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_block: bool = false) -> void:
+func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_block: bool = false, real_seconds: float = 0.0) -> void:
+	# 計算各玩家的優勢幀數
+	# 正數 = 有利（可以更早繼續進攻）
+	# 負數 = 不利（被打會更晚恢復，在防守時受罰）
 	var a_frames = 0
 	var b_frames = 0
 	
 	if attacker_node == player_a:
+		# P1 是攻擊者
 		a_frames = advantage_frames
 		b_frames = -advantage_frames
 	else:
+		# P2 是攻擊者
 		b_frames = advantage_frames
 		a_frames = -advantage_frames
 	
-	# 計算秒數（60 FPS）
-	var a_seconds = a_frames / 60.0
-	var b_seconds = b_frames / 60.0
+	# 計算秒數
+	# 如果有傳入真實秒數，則使用真實秒數（精確值）
+	# 否則從幀數計算（向後相容）
+	var a_seconds: float
+	var b_seconds: float
+	if real_seconds != 0.0:
+		# 使用真實讀取的秒數（精確）
+		a_seconds = real_seconds
+		b_seconds = -real_seconds
+	else:
+		# 從幀數計算（舊方法，精度會損失）
+		a_seconds = a_frames / 60.0
+		b_seconds = b_frames / 60.0
 	
 	# 格式化顯示文本：幀數 + 秒數
+	# 注意：支持正數（有利）和負數（不利）
 	var a_text = "P1 Adv: "
 	var b_text = "P2 Adv: "
 	
-	var a_frames_str = ("+%d" % a_frames) if a_frames > 0 else str(a_frames)
-	var b_frames_str = ("+%d" % b_frames) if b_frames > 0 else str(b_frames)
+	# 格式化幀數字符串 - 明確顯示正負號
+	var a_frames_str: String
+	if a_frames > 0:
+		a_frames_str = "+%d" % a_frames
+	elif a_frames < 0:
+		a_frames_str = "%d" % a_frames  # 負號會自動包含
+	else:
+		a_frames_str = "0"
 	
-	var a_seconds_str = ("%.3fs" % a_seconds) if a_frames != 0 else "0.000s"
-	var b_seconds_str = ("%.3fs" % b_seconds) if b_frames != 0 else "0.000s"
+	var b_frames_str: String
+	if b_frames > 0:
+		b_frames_str = "+%d" % b_frames
+	elif b_frames < 0:
+		b_frames_str = "%d" % b_frames  # 負號會自動包含
+	else:
+		b_frames_str = "0"
+	
+	# 格式化秒數字符串 - 使用絕對值以保持符號一致
+	var a_seconds_str: String
+	if a_frames != 0:
+		if a_frames > 0:
+			a_seconds_str = "+%.3fs" % a_seconds
+		else:
+			a_seconds_str = "%.3fs" % a_seconds  # 負號會自動包含
+	else:
+		a_seconds_str = "0.000s"
+	
+	var b_seconds_str: String
+	if b_frames != 0:
+		if b_frames > 0:
+			b_seconds_str = "+%.3fs" % b_seconds
+		else:
+			b_seconds_str = "%.3fs" % b_seconds  # 負號會自動包含
+	else:
+		b_seconds_str = "0.000s"
 	
 	a_text += "%sF (%s)" % [a_frames_str, a_seconds_str]
 	b_text += "%sF (%s)" % [b_frames_str, b_seconds_str]
@@ -362,10 +437,26 @@ func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_blo
 		p2_advantage_label.text = b_text
 	
 	var type = "Block" if is_block else "Hit"
-	var advantage_str = "+%d" % advantage_frames if advantage_frames > 0 else str(advantage_frames)
-	var advantage_sec_str = "%.3fs" % (advantage_frames / 60.0)
-	print("[ADVANTAGE] %s → 攻擊者優勢 %sF (%s) → Player A: %s / Player B: %s" % [
+	var advantage_str: String
+	if advantage_frames > 0:
+		advantage_str = "+%d" % advantage_frames
+	elif advantage_frames < 0:
+		advantage_str = "%d" % advantage_frames
+	else:
+		advantage_str = "0"
+	
+	var advantage_sec_str: String
+	if advantage_frames > 0:
+		advantage_sec_str = "+%.3fs" % (advantage_frames / 60.0)
+	elif advantage_frames < 0:
+		advantage_sec_str = "%.3fs" % (advantage_frames / 60.0)
+	else:
+		advantage_sec_str = "0.000s"
+	
+	var attacker_name = attacker_node.name if attacker_node else "Unknown"
+	print("[ADVANTAGE] %s → %s 的優勢：%sF (%s) → P1: %s / P2: %s" % [
 		type,
+		attacker_name,
 		advantage_str,
 		advantage_sec_str,
 		a_text, b_text
