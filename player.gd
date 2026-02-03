@@ -124,6 +124,11 @@ func reset_special_state() -> void:
 
 # ── Fireball 生成方法（由動畫 Call Method 調用）──
 func _spawn_fireball() -> void:
+	# 🟢 【新增】通知 FrameBar call method 已被觸發
+	var frame_bar = get_tree().get_first_node_in_group("frame_bar_" + seat) if seat else null
+	if frame_bar and frame_bar.has_method("on_fireball_call_method_triggered"):
+		frame_bar.on_fireball_call_method_triggered()
+	
 	if move_set and move_set.has_method("execute_fireball_spawn"):
 		move_set.execute_fireball_spawn()
 
@@ -154,6 +159,9 @@ func _ready() -> void:
 		# Connect to Player's override
 		animation_player.animation_finished.connect(_on_animation_player_finished)
 		print("[PLAYER READY] Connected animation_player.animation_finished to Player's handler | Seat: ", seat)
+	
+	# 🟢 【新增】設置 metadata 讓 FrameBar 可以找到玩家的 seat
+	set_meta("player_seat", seat)
 	
 	add_to_group("players")
 	if player_controller:

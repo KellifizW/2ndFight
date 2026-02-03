@@ -61,6 +61,11 @@ var _last_hitstop_state: bool = false
 # 🟢 【新增】物理幀追蹤（防止 display_frame_counter 在每個渲染幀都遞增）
 var _last_physics_frame: int = 0
 
+# 🟢 【新增】Fireball Startup/Active 追蹤
+var fireball_tracking_active: bool = false           # 是否正在追蹤 fireball
+var fireball_call_method_triggered: bool = false    # Call method 是否已觸發
+var fireball_startup_frame_count: int = 0           # Startup 的幀計數（call method 觸發時的 frame index）
+
 # 常數表
 const TRACKED_ANIMS := [
 	# Standing attacks
@@ -119,6 +124,12 @@ func initialize(target: Node, opponent: Node = null) -> void:
 	playback = animation_tree.get("parameters/playback") if animation_tree else null
 	animation_player = target.get_node("AnimationPlayer")
 	hitbox_shape = target.get_node("Hitbox/HitShape")
+	
+	# 🟢 【新增】註冊到 group，讓 Player 可以找到這個 FrameBar
+	if target.has_meta("player_seat"):
+		var seat = target.get_meta("player_seat")
+		add_to_group("frame_bar_" + seat)
+		print("[FRAMEBAR] 已註冊到 group: frame_bar_%s" % seat)
 	
 	if playback and not animation_tree.animation_finished.is_connected(_on_animation_finished):
 		animation_tree.animation_finished.connect(_on_animation_finished)
@@ -212,7 +223,8 @@ func _process(delta: float) -> void:
 		_process_tracked(anim_name, pos, flags, timer_driven, on_floor)
 	else:
 		if is_tracking:
-			reset_frame_bar()
+			# 🟢 【修改】不清空資料，只停止追蹤，保持顯示
+			is_tracking = false
 
 # ── 核心邏輯 ─────────────────────
 func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_driven: bool, on_floor: bool) -> void:
@@ -323,6 +335,24 @@ func _get_state(anim_name: String, flags: Dictionary, on_floor: bool) -> int:
 	if flags.layground: return 9
 	if flags.wakeup: return 10
 	
+	# 🟢 【新增】Fireball 特殊處理 - 區分 startup 和 active
+	# 只有在主動追蹤 fireball 時才更新狀態
+	if anim_name == "fireball" and fireball_tracking_active:
+		if not fireball_call_method_triggered:
+			# Call method 尚未觸發，全部是 startup（藍色）
+			return 0
+		elif current_frame <= fireball_startup_frame_count:
+			# Startup 階段（call method 前）- 使用藍色（0）
+			return 0
+		else:
+			# Active 階段（call method 後）- 使用紅色（1）
+			return 1
+	
+	# 如果曾經是 fireball 但現在不追蹤，不要修改其狀態（保持顯示）
+	if anim_name != "fireball" and not fireball_tracking_active and frame_data.size() > 0:
+		# 不是當前動畫，且 fireball 已完結，返回 -1 表示不更新
+		return -1
+	
 	if anim_name in ATTACK_ANIMS:
 		if not hitbox_shape or hitbox_shape.disabled or hitbox_shape.shape == null:
 			return 0 if not was_active else 2
@@ -387,6 +417,23 @@ func _start_new_animation(anim_name: String) -> void:
 		if not is_airborne:
 			jump_frame_count = 0
 	
+	# 🟢 【修改】開始新動畫時，清空舊資料並開始追蹤
+	# 當進入新的被追蹤動畫時，清空舊進度條資料
+	if anim_name == "fireball":
+		fireball_tracking_active = true
+		fireball_call_method_triggered = false
+		fireball_startup_frame_count = 0
+		print("[FRAMEBAR] %s - 開始追蹤 fireball 動畫，舊資料已保存到歷史" % target_player.name)
+	else:
+		# 當離開 fireball 動畫時，停止追蹤但保持顯示
+		if fireball_tracking_active and anim_name != last_animation:
+			# 只在動畫改變時重置（不是每次都重置）
+			print("[FRAMEBAR] %s - 結束 fireball 追蹤 (Startup:%d)，進度條將保持顯示" % [
+				target_player.name, fireball_startup_frame_count
+			])
+			fireball_tracking_active = false
+			fireball_call_method_triggered = false
+	
 	current_animation = anim_name
 	last_animation = anim_name
 	is_tracking = true
@@ -416,20 +463,23 @@ func _draw_frame(i: int, state: int, w: float) -> void:
 
 # ── 重置與 Label ─────────────────────
 func reset_frame_bar() -> void:
-	value = 0
-	current_frame = 0
-	if frame_data.size() > 0:
-		history_frame_data.append_array(frame_data)
-	frame_data.clear()
-	is_tracking = true
+	# 🟢 【修改】保持顯示舊資料，不清空。新動畫會自動清空
+	is_tracking = false
 	was_active = false
-	jump_frame_count = 0 if not is_airborne else jump_frame_count
-	jump_to_attack_offset = 0
-	is_jump_attack_active = false
-	knockfly_chain_active = false
-	block_hit_chain_active = false
-	blockstun_active_frames = 0
+	# 只重置跟蹤狀態，不清空 frame_data
+	# value = 0
+	# current_frame = 0
+	# frame_data.clear()
 	queue_redraw()
+
+# 🟢 【新增】Call method 觸發回調（由 Player._spawn_fireball() 調用）
+func on_fireball_call_method_triggered() -> void:
+	if fireball_tracking_active and not fireball_call_method_triggered:
+		fireball_call_method_triggered = true
+		fireball_startup_frame_count = current_frame
+		print("[FRAMEBAR FIREBALL] %s - Call method 已觸發！Startup 幀數: %d" % [
+			target_player.name, fireball_startup_frame_count
+		])
 
 func update_frame_count_label(anim_name: String) -> void:
 	if not frame_count_label: return
@@ -451,6 +501,20 @@ func update_frame_count_label(anim_name: String) -> void:
 	var text := "%s: " % anim_name
 	if knockfly_chain_completed:
 		text += "K:%dF L:%dF W:%dF Total:%dF" % [counts.K, counts.L, counts.W, knockfly_total_frames]
+	# 🟢 【新增】Fireball 特殊顯示 - 展示 S(startup) A(active) R(recovery)
+	elif anim_name == "fireball":
+		if fireball_call_method_triggered and fireball_startup_frame_count > 0:
+			# Call method 已觸發，計算 startup/active/recovery
+			var startup_frames = fireball_startup_frame_count
+			var active_start = fireball_startup_frame_count
+			var total_animated = frame_data.size()
+			var active_frames = total_animated - startup_frames
+			var recovery_frames = 0  # 由於 active 很短，recovery 就是剩下的
+			
+			text += "S:%d A:%d R:%d Total:%dF" % [startup_frames, active_frames, recovery_frames, total_animated]
+		else:
+			# Call method 尚未觸發
+			text += "S:0 A:%d R:0 (等待 call method...)" % frame_data.size()
 	elif anim_name in ATTACK_ANIMS:
 		text += "S:%d A:%d R:%d Total:%dF" % [counts.S, counts.A, counts.R, frame_data.size()]
 	else:
