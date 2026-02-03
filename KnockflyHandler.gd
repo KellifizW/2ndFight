@@ -10,8 +10,9 @@ func _init(movement: Node) -> void:
 func handle_knockfly_layground(delta: float, _floor_y: int) -> void:
 	if movement_node.is_air_hit_backjump:
 		movement_node.air_hit_backjump_timer -= delta
+		# 【統一重力系統】直接應用重力（這個狀態獨立於 GravitySystem）
 		var gravity: int = movement_node.world.GRAVITY if movement_node.world else 6000000
-		movement_node.fixed_velocity.y += int(gravity * delta)
+		movement_node.fixed_velocity.y += int(float(gravity) * delta)
 		apply_air_friction(movement_node.default_air_friction, delta)
 		if movement_node.air_hit_backjump_timer <= 0 or movement_node.is_on_floor():
 			movement_node.is_air_hit_backjump = false
@@ -29,7 +30,9 @@ func handle_knockfly_layground(delta: float, _floor_y: int) -> void:
 
 	if movement_node.is_knockfly:
 		movement_node.knockfly_timer -= delta
-		movement_node.fixed_velocity.y += int(movement_node.knockfly_gravity * delta)
+		# 【重要】重力現在由 GravityHandler 統一管理，在 Movement._handle_gravity() 中應用
+		# 此處不再重複應用重力，避免計算重複
+		# 只負責時間遞減和狀態轉換
 		apply_air_friction(movement_node.air_friction, delta)
 
 		# Only transition to layground if on floor

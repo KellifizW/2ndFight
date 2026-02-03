@@ -146,8 +146,8 @@ func _initialize_move_library() -> void:
 		"super", "DAV", 5.0, 200.0, 156.0, 200.0, 54.0, -210.0, true, false, 200000.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 18
 	)
 	move_library["dp"] = MoveData.new(
-		"dp", "DAV", 5.0, 100.0, 47.0, 80.0, 4.0, -1700.0, false, false, 3000000.0, "special", true, "none", 0.0, 0.0, 0.0,
-		3000000.0, -1700.0, 20.0, 39, 23  # 🟢 jump_speed: -2000→-9000 (升龍拳應有的高度); knockfly_gravity: 確保在被擊中時重力正確
+		"dp", "DAV", 5.0, 100.0, 47.0, 80.0, 4.0, -2000.0, false, false, 7400000.0, "special", true, "none", 0.0, 0.0, 0.0,
+		7400000.0, -2800.0, 20.0, 39, 23  # 🟢 jump_speed: -2000→-9000 (升龍拳應有的高度); knockfly_gravity: 確保在被擊中時重力正確
 	)
 	
 	# DEN moves
@@ -393,11 +393,10 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if move.jump_delay > 0:
 		_process_jump(delta, world, move)
 	
-	# Handle gravity
-	if move.gravity > 0:
-		_apply_gravity(delta, world, move.gravity)
-	else:
-		_apply_gravity(delta, world, world.GRAVITY if world else 0.0)
+	# 【重要】重力現在由 GravitySystem 統一管理，在 Movement._handle_gravity() 中應用
+	# 此處不再重複應用重力，避免計算重複
+	# if move.gravity > 0:
+	#	_apply_gravity(delta, world, move.gravity)
 	
 	# Update velocity based on acceleration curve
 	if move.acceleration_curve != "none" and current_move_state.total_duration > 0:

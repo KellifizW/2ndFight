@@ -39,8 +39,8 @@ var is_crouching: bool = false
 var was_hit_while_crouching: bool = false  # 記錄被擊中時是否處於蹲姿
 
 # ── 跳躍 ──────────────────────────────────
-var jump_vertical_speed: float = -2300.0
-var jump_horizontal_speed: float = 450.0
+var jump_vertical_speed: float = -2500.0
+var jump_horizontal_speed: float = 470.0
 var jump_dir: float = 0.0
 var jump_delay_timer: float = 0.0
 var just_jumped: bool = false

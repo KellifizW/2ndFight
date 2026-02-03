@@ -5,7 +5,7 @@ const SIMULATION_SCALE: int = 1000
 const WALL_LIMIT: int = 1280000
 const STARTING_POSITION: int = 10000
 const FLOOR_Y: int = 550000
-const GRAVITY: int = 6200000
+const GRAVITY: int = 7400000
 @export var arena_left: float = 0.0      # 舞台左邊界（像素）
 @export var arena_right: float = 1600.0  # 舞台右邊界（像素）
 
