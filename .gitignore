@@ -2,5 +2,5 @@
 .godot/
 /android/
 **/*.import
-.vscode\
+.vscode\settings.json
 
