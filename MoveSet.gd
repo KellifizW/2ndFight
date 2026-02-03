@@ -83,7 +83,6 @@ class MoveState:
 	var initial_facing: float = 0.0
 	var initial_parent_scale_x: float = 0.0
 	var initial_sprite_scale_x: float = 0.0
-	var spawn_timer: float = 0.0  # For projectiles
 	# Acceleration curve tracking
 	var initial_speed: float = 0.0
 	var total_duration: float = 0.0
@@ -103,7 +102,6 @@ var current_move_state: MoveState = MoveState.new()
 
 @export var fireball_y_offset: float = -40.0
 @export var fireball_x_offset: float = 40.0
-@export var fireball_spawn_delay: float = 0.2667
 @export var super_freeze_time: float = 0.3
 
 # Global state flags
@@ -168,6 +166,8 @@ func _start_special(move_name: String) -> void:
 		push_error("Move '%s' not found in move library" % move_name)
 		return
 	
+	print("[MoveSet._start_special] Starting move: %s (player: %s)" % [move_name, parent.name])
+	
 	var move_data: MoveData = move_library[move_name]
 	var character_id = parent.character_id if "character_id" in parent else "UNKNOWN"
 	
@@ -196,8 +196,7 @@ func _start_special(move_name: String) -> void:
 	current_move_state.initial_parent_scale_x = parent.scale.x
 	current_move_state.initial_sprite_scale_x = sprite.scale.x
 	
-	if move_data.is_projectile:
-		current_move_state.spawn_timer = fireball_spawn_delay
+	# Projectile spawning is now handled via AnimationPlayer Call Method (_spawn_fireball)
 	
 	# Update parent
 	parent.current_damage = move_data.damage
@@ -229,12 +228,22 @@ func _start_special(move_name: String) -> void:
 		current_move_state.initial_speed = 0.0
 		current_move_state.total_duration = 0.0
 	
-	# Play animation
+	# Play animation via AnimationTree state machine (same as normal attacks)
 	if animation_player and animation_player.has_animation(move_name):
 		var anim = animation_player.get_animation(move_name)
 		current_move_state.timer = anim.length
+		print("[MoveSet._start_special] Animation '%s' found, length: %.3f seconds" % [move_name, anim.length])
+	else:
+		print("[MoveSet._start_special] WARNING: Animation '%s' not found!" % move_name)
 	
-	animation_player.play(move_name)
+	# Use AnimationTree.travel() (prevents dual playback with AnimationPlayer)
+	# parent is Movement which has animation_state
+	if parent and "animation_state" in parent:
+		print("[MoveSet._start_special] Playing via AnimationTree.travel(): %s" % move_name)
+		parent.animation_state.travel(move_name)
+	else:
+		print("[MoveSet._start_special] Fallback: Playing via AnimationPlayer.play(): %s" % move_name)
+		animation_player.play(move_name)
 	
 	# Freeze if needed
 	if move_data.is_freeze:
@@ -472,33 +481,32 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 	return false
 
 func _process_projectile_spawn(delta: float, _world: Node) -> void:
-	current_move_state.spawn_timer -= delta
+	# Projectile spawning is now handled via AnimationPlayer Call Method
+	# This function is deprecated and can be removed after animation setup
+	pass
+
+func execute_fireball_spawn() -> void:
+	if not is_spmove or current_move_state.active_move == null or current_move_state.active_move.name != "fireball":
+		return
 	
-	if current_move_state.spawn_timer <= 0 and current_move_state.spawn_timer > -delta:
-		print("[MoveSet._process_projectile_spawn] %s attempting to spawn fireball" % parent.name)
-		
-		# 使用預載和預熱的資源（零卡頓）
-		var preloader = get_tree().get_first_node_in_group("resource_preloader")
-		if not preloader:
-			push_error("ResourcePreloadManager not found")
-			stop_special_move()
-			return
-		
-		var fireball_scene: PackedScene = preloader.get_fireball_scene(parent.character_id)
-		if not fireball_scene:
-			push_error("Fireball scene not found for character: %s" % parent.character_id)
-			stop_special_move()
-			return
-		
-		var fb = fireball_scene.instantiate()
-		fb.direction = parent.facing_direction
-		fb.owner_character_id = parent.character_id
-		fb.fireball_owner = parent
-		fb.global_position = parent.global_position + Vector2(fireball_x_offset * parent.facing_direction, fireball_y_offset)
-		get_tree().current_scene.add_child(fb)
-		# 將 fireball 引用存儲到 parent（同一時間只能有一個）
-		parent.active_fireball = fb
-		print("[MoveSet] %s spawned fireball at position %s" % [parent.name, fb.global_position])
+	# 使用預載和預熱的資源（零卡頓）
+	var preloader = get_tree().get_first_node_in_group("resource_preloader")
+	if not preloader:
+		push_error("ResourcePreloadManager not found")
+		return
+	
+	var fireball_scene: PackedScene = preloader.get_fireball_scene(parent.character_id)
+	if not fireball_scene:
+		push_error("Fireball scene not found for character: %s" % parent.character_id)
+		return
+	
+	var fb = fireball_scene.instantiate()
+	fb.direction = parent.facing_direction
+	fb.owner_character_id = parent.character_id
+	fb.fireball_owner = parent
+	fb.global_position = parent.global_position + Vector2(fireball_x_offset * parent.facing_direction, fireball_y_offset)
+	get_tree().current_scene.add_child(fb)
+	parent.active_fireball = fb
 
 func _process_jump(delta: float, world: Node, move: MoveData) -> void:
 	current_move_state.jump_timer -= delta
@@ -521,7 +529,9 @@ func _apply_gravity(delta: float, world: Node, gravity: float) -> void:
 # ============================================================
 
 func _on_spmove_animation_finished(anim_name: String) -> void:
+	print("[MoveSet._on_spmove_animation_finished] Animation finished: %s (is_spmove=%s)" % [anim_name, is_spmove])
 	if is_spmove_animation_playing and anim_name in move_library:
+		print("[MoveSet._on_spmove_animation_finished] ✓ Special move animation completed: %s" % anim_name)
 		is_spmove_animation_playing = false
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false

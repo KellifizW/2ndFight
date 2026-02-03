@@ -122,6 +122,11 @@ func reset_special_state() -> void:
 	var input_data = get_input()
 	_update_animation_state(0, input_data.crouch_pressed)
 
+# ── Fireball 生成方法（由動畫 Call Method 調用）──
+func _spawn_fireball() -> void:
+	if move_set and move_set.has_method("execute_fireball_spawn"):
+		move_set.execute_fireball_spawn()
+
 # ── 動畫重置分類（Phase 4 優化）──
 const GROUND_ATTACK_ANIMS = ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk",
 							  "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk"]

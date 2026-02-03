@@ -264,27 +264,6 @@ func _physics_process(delta: float) -> void:
 			# 🔴 重要：knockback_frames 的遞減現在在 Fighter._physics_process 中處理
 			# 這裡只負責計算並應用速度，不負責遞減幀數
 			var old_frames = player.knockback_frames
-			var elapsed_frames = total_knockback_frames - player.knockback_frames
-			
-			# 🟢 詳細的每幀調試信息（每 6 幀顯示一次進度，或在結束時）
-			if debug_knockback_execution and (int(old_frames) % 6 == 0 or player.knockback_frames <= 0):
-				var progress_percent = elapsed_frames * 100.0 / total_knockback_frames
-				
-				if total_knockback_frames <= 0:
-					progress_percent = 0.0
-				
-				var current_x = player.position.x
-				# 🟢 使用儲存的起始位置計算實際移動距離（修復 BUG）
-				var moved_distance = abs(current_x - player.knockback_start_x)  # 實際移動距離
-				
-				print("[KNOCKBACK PROGRESS] %s - Frame %d/%d (%.1f%%)" % [
-					player.name, elapsed_frames, total_knockback_frames, progress_percent
-				])
-				print("  📍 Position: (%.2f, %.2f)" % [current_x, player.position.y])
-				print("  ⚡ Velocity: %d units (%.2f px/frame)" % [player.fixed_velocity.x, float(player.fixed_velocity.x) / SIMULATION_SCALE])
-				print("  📊 Speed Multiplier: %.6f" % speed_multiplier)
-				print("  📏 Distance Moved: %.2f pixels" % moved_distance)
-				print()
 			
 			# Knockback結束檢查
 			if player.knockback_frames <= 0:
@@ -301,18 +280,16 @@ func _physics_process(delta: float) -> void:
 				if player.knockback_start_time > 0:
 					actual_duration_by_clock = (Time.get_ticks_msec() / 1000.0) - player.knockback_start_time
 				
-				# 🟢 詳細的 knockback 結束報告（使用調試開關控制）
+				# 計算總移動距離
+				var final_x = player.position.x
+				var total_moved_distance = abs(final_x - player.knockback_start_x)
+				
+				# 🟢 簡化的 knockback 結束報告（只在完成時顯示統計）
 				if debug_knockback_execution:
-					print("\n╔════════════════════════════════════════════════════════════════╗")
-					print("║ KNOCKBACK EXECUTION END                                      ║")
-					print("╚════════════════════════════════════════════════════════════════╝")
-					print("  🎮 Player: %s" % player.name)
-					print("  📍 Final Position: (%.2f, %.2f)" % [player.position.x, player.position.y])
-					print("  ⏱️  Expected Duration: %.3fs (%d frames @%d FPS)" % [expected_duration, expected_frames, physics_fps])
-					print("  ⏱️  Actual Duration (by frames): %.3fs" % actual_duration_by_frames)
-					print("  ⏱️  Actual Duration (by clock): %.3fs (可能因 time_scale 而異)" % actual_duration_by_clock)
-					var sync_status = "✅ 同步" if abs(actual_duration_by_frames - expected_duration) < 0.05 else "❌ 不同步"
-					print("  ✓ Sync Status: %s" % sync_status)
+					print("\n[KNOCKBACK SUMMARY] %s" % player.name)
+					print("  ⏱️  Duration: %.3fs (%d frames @%d FPS)" % [expected_duration, expected_frames, physics_fps])
+					print("  📍 Final Position: (%.2f, %.2f)" % [final_x, player.position.y])
+					print("  📏 Total Distance: %.2f pixels" % total_moved_distance)
 					print()
 				
 				player.knockback_frames = 0
@@ -334,18 +311,10 @@ func _physics_process(delta: float) -> void:
 			var speed_multiplier: float = calculate_knockback_speed_multiplier(remaining_ratio)
 			player.fixed_velocity.x = int(-player.block_push_initial_velocity * speed_multiplier * player.facing_direction)
 			
-			# 每 6 幀顯示一次進度
-			if int(player.block_knockback_frames) % 6 == 0 or player.block_knockback_frames <= 0:
-				var elapsed_frames = total_block_knockback_frames - player.block_knockback_frames
-				var progress_percent = elapsed_frames * 100.0 / total_block_knockback_frames
-				
-				print("[BLOCK KNOCKBACK PROGRESS] %s - %.1f%% complete, remaining: %d frames, velocity: %d" % [
-					player.name, progress_percent, player.block_knockback_frames, player.fixed_velocity.x
-				])
-			
 			# Block Knockback 結束檢查
 			if player.block_knockback_frames <= 0:
-				print("[BLOCK KNOCKBACK END] %s" % player.name)
+				if debug_knockback_execution:
+					print("[BLOCK KNOCKBACK SUMMARY] %s - completed" % player.name)
 				player.block_knockback_frames = 0
 				player.block_push_initial_velocity = 0.0
 				player.fixed_velocity.x = 0
@@ -367,19 +336,11 @@ func _physics_process(delta: float) -> void:
 			var speed_multiplier: float = calculate_knockback_speed_multiplier(remaining_ratio)
 			player.fixed_velocity.x = int(-player.corner_push_velocity * speed_multiplier * player.facing_direction)
 			
-			# 每 6 幀顯示一次進度
-			if int(player.corner_push_frames) % 6 == 0 or player.corner_push_frames <= 0:
-				var elapsed_frames = total_corner_push_frames - player.corner_push_frames
-				var progress_percent = elapsed_frames * 100.0 / total_corner_push_frames
-				var moved_distance = abs(player.position.x - player.corner_push_start_x)
-				
-				print("[CORNER PUSH PROGRESS] %s - %.1f%% complete, remaining: %d frames, moved: %.2f px, velocity: %d" % [
-					player.name, progress_percent, player.corner_push_frames, moved_distance, player.fixed_velocity.x
-				])
-			
 			# Corner Push 結束檢查
 			if player.corner_push_frames <= 0:
-				print("[CORNER PUSH END] %s" % player.name)
+				var moved_distance = abs(player.position.x - player.corner_push_start_x)
+				if debug_knockback_execution:
+					print("[CORNER PUSH SUMMARY] %s - moved: %.2f px" % [player.name, moved_distance])
 				player.corner_push_frames = 0
 				player.corner_push_velocity = 0.0
 				player.fixed_velocity.x = 0

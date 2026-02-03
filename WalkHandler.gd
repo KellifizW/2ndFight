@@ -2,6 +2,7 @@ class_name WalkHandler extends Node
 
 # Handles walking movement logic
 var movement_node: Node
+var debug_walk_blocked: bool = false  # 調試開關
 
 func _init(movement: Node) -> void:
 	movement_node = movement
@@ -30,7 +31,8 @@ func handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -
 		if "has_air_attacked" in movement_node and movement_node.has_air_attacked: reasons.append("has_air_attacked")
 		if "is_air_attacking" in movement_node and movement_node.is_air_attacking: reasons.append("is_air_attacking")
 		if "is_landing" in movement_node and movement_node.is_landing: reasons.append("is_landing")
-		print("[WALK BLOCKED] Seat: ", movement_node.seat if "seat" in movement_node else "?", " | Reasons: ", reasons)
+		if debug_walk_blocked:
+			print("[WALK BLOCKED] Seat: ", movement_node.seat if "seat" in movement_node else "?", " | Reasons: ", reasons)
 	
 	if can_walk:
 		if input_dir != 0:
