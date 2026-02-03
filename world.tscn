@@ -1,19 +1,19 @@
 [gd_scene format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://world.gd" id="1_aqk2v"]
-[ext_resource type="Texture2D" uid="uid://dgde4231ic5cc" path="res://assets/stage.png" id="1_fj7yv"]
+[ext_resource type="Texture2D" uid="uid://cl5cldwpbfwt6" path="res://assets/stage.png" id="1_fj7yv"]
 [ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://FollowCamera.tscn" id="3_gbfbk"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
-[ext_resource type="FontFile" uid="uid://cj4hyo1deaafb" path="res://fonts/RZ Musashi.ttf" id="6_bc84e"]
+[ext_resource type="FontFile" uid="uid://dxr456rja7emy" path="res://fonts/RZ Musashi.ttf" id="6_bc84e"]
 [ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://ai/cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://slow_mo_controller.gd" id="7_pkg7o"]
 [ext_resource type="PackedScene" uid="uid://dsnvnd8yxiin5" path="res://FrameBar.tscn" id="7_wse8f"]
 [ext_resource type="FontFile" uid="uid://drt5it72nn35m" path="res://fonts/SF_font_file.tres" id="9_hiqwa"]
 [ext_resource type="Script" uid="uid://cydy3y7rrkibl" path="res://PushManager.gd" id="9_ioo17"]
-[ext_resource type="FontFile" uid="uid://crtydv7n04mfj" path="res://fonts/GAMERA__.TTF" id="10_wukud"]
+[ext_resource type="FontFile" uid="uid://b3otlxepkgi5x" path="res://fonts/GAMERA__.TTF" id="10_wukud"]
 [ext_resource type="Script" uid="uid://difd2h2ijxtjl" path="res://InputBufferDebug.gd" id="12_cbp6q"]
-[ext_resource type="AudioStream" uid="uid://brk2dcuhf5ypg" path="res://audio/bgm.mp3" id="12_k3n1d"]
+[ext_resource type="AudioStream" uid="uid://edw4r0cjrhy6" path="res://audio/bgm.mp3" id="12_k3n1d"]
 [ext_resource type="Script" uid="uid://4ckupm30y5q3" path="res://ui/HitboxDebugDisplay.gd" id="13_26xuy"]
 [ext_resource type="Resource" uid="uid://b8qgdymiybxrq" path="res://characters/DAV.character.tres" id="15_26xuy"]
 [ext_resource type="PackedScene" uid="uid://cqrn1wwdo20e6" path="res://ui/InputHistoryDisplayIcon.tscn" id="15_wukud"]
@@ -270,6 +270,10 @@ track_player = "Player B"
 
 [node name="CPUController" type="Node" parent="." unique_id=172666553]
 script = ExtResource("6_dwbse")
+enable_restrictions_a = true
+restricted_moves_a = Array[String](["dp", "powerkk", "fireball"])
+enable_restrictions_b = true
+restricted_moves_b = Array[String](["spnk", "hdk", "fireball"])
 
 [node name="SlowMoController" type="Node" parent="." unique_id=1834090566]
 script = ExtResource("7_pkg7o")

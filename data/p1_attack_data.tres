@@ -7,16 +7,6 @@
 [resource]
 script = ExtResource("1_6mkls")
 st_lp_hitstun_frames = 13
-st_lp_knockback = 100.0
-st_mp_knockback = 125.0
-st_hp_knockback = 130.0
 st_hp_movement = ExtResource("2_ffeoh")
-st_mk_hitstun_frames = 33
-st_mk_knockback = 130.0
-st_hk_hitstun_frames = 20
-st_hk_knockback = 140.0
 st_hk_movement = ExtResource("2_11y2a")
-cr_mp_knockback = 125.0
-cr_lk_hitstun_frames = 15
-cr_lk_knockback = 120.0
 metadata/_custom_type_script = "uid://ccjfweg28wskh"
