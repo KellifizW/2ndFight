@@ -2,6 +2,8 @@ class_name AnimationManager extends Node
 
 # Handles animation state management and updates
 var movement_node: Node
+# 🟢 去重: 追蹤最後一次打印的狀態轉換，避免重複
+var last_printed_transition: String = ""
 
 func _init(movement: Node) -> void:
 	movement_node = movement
@@ -83,6 +85,19 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var anim_dir: float = dir_x * movement_node.facing_direction
 	var anim_jump_dir: float = movement_node.jump_dir * movement_node.facing_direction
 	var target_state: String = movement_node._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
+	
+	# 🟢 【只在實際改變時打印】避免冗餘日誌（Start→Walk在啟動時會重複很多次）
+	if curr_state != target_state:
+		# 過濾掉遊戲啟動時的 Start→Walk 重複（只打印特殊招式和重要狀態轉換）
+		var is_special_relevant = target_state in ["dp", "powerkk", "super", "hdk", "spnk", "knockfly", "layground"] or curr_state in ["dp", "powerkk", "super", "hdk", "spnk", "knockfly", "layground"]
+		if is_special_relevant:
+			# 🟢 去重：只打印新的狀態轉換（不是上一幀已經打過的相同轉換）
+			var transition_key = "%s→%s" % [curr_state, target_state]
+			if last_printed_transition != transition_key:
+				var seat_str = movement_node.seat if "seat" in movement_node else "?"
+				var is_special_moving = movement_node.is_special_moving if "is_special_moving" in movement_node else false
+				print("[STATE_CHANGE] %s: '%s' → '%s' (spmove=%s)" % [seat_str, curr_state, target_state, is_special_moving])
+				last_printed_transition = transition_key
 	
 	var ui_root = movement_node.get_tree().get_first_node_in_group("ui")
 	var healthbar_name = "PlayerAHealthbar" if movement_node.seat == "player_a" else "PlayerBHealthbar"

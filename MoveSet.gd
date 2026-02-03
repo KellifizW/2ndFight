@@ -146,8 +146,8 @@ func _initialize_move_library() -> void:
 		"super", "DAV", 5.0, 200.0, 156.0, 200.0, 54.0, -210.0, true, false, 200000.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 18
 	)
 	move_library["dp"] = MoveData.new(
-		"dp", "DAV", 5.0, 320.0, 54.0, 200.0, 4.0, -2000.0, false, false, 6200000.0, "special", true, "none", 0.0, 0.0, 0.0,
-		6200000.0, -2700.0, 20.0, 39, 23  # 🟢 knockfly_horizontal_speed: 100→20 (防止閃飛太遠)
+		"dp", "DAV", 5.0, 100.0, 47.0, 80.0, 4.0, -1700.0, false, false, 3000000.0, "special", true, "none", 0.0, 0.0, 0.0,
+		3000000.0, -1700.0, 20.0, 39, 23  # 🟢 jump_speed: -2000→-9000 (升龍拳應有的高度); knockfly_gravity: 確保在被擊中時重力正確
 	)
 	
 	# DEN moves
@@ -240,16 +240,31 @@ func _start_special(move_name: String) -> void:
 		current_move_state.timer = anim.length
 		print("[MoveSet._start_special] Animation '%s' found, length: %.3f seconds" % [move_name, anim.length])
 	else:
-		print("[MoveSet._start_special] WARNING: Animation '%s' not found!" % move_name)
+		var seat_str = parent.seat if "seat" in parent else "?"
+		print("[MoveSet._start_special] ⚠️  WARNING: Animation '%s' not found! (Seat: %s)" % [move_name, seat_str])
 	
 	# Use AnimationTree.travel() (prevents dual playback with AnimationPlayer)
 	# parent is Movement which has animation_state
 	if parent and "animation_state" in parent:
-		print("[MoveSet._start_special] Playing via AnimationTree.travel(): %s" % move_name)
-		parent.animation_state.travel(move_name)
+		var current_anim_state: String = parent.animation_state.get_current_node() if parent.animation_state else "(unknown)"
+		var seat_str = parent.seat if "seat" in parent else "?"
+		print("[MoveSet._start_special] 🎬 Playing '%s' | Current AnimTree state: '%s' | Seat: %s" % [move_name, current_anim_state, seat_str])
+		
+		# 🟢 強制重置：如果已經在同一招式狀態，需要直接通過AnimationPlayer強制重啟
+		if current_anim_state == move_name:
+			print("  ⚠️  Already in '%s' state! Forcing reset via AnimationPlayer..." % move_name)
+			# 直接用 AnimationPlayer.play() 強制重新開始動畫（這會重置播放位置到第0幀）
+			if animation_player:
+				animation_player.play(move_name)
+				print("  ✓ AnimationPlayer.play('%s') called - animation restarted from frame 0" % move_name)
+		else:
+			# 正常情況：使用 travel()
+			parent.animation_state.travel(move_name)
+			print("  ✓ AnimTree travel() called | New state: '%s'" % move_name)
 	else:
 		print("[MoveSet._start_special] Fallback: Playing via AnimationPlayer.play(): %s" % move_name)
-		animation_player.play(move_name)
+		if animation_player:
+			animation_player.play(move_name)
 	
 	# Freeze if needed
 	if move_data.is_freeze:
@@ -261,7 +276,8 @@ func _start_special(move_name: String) -> void:
 		sound_player.volume_db = 0.0
 		sound_player.play()
 	
-	print("[MoveSet] Started %s! Character: %s, Duration: %.3f" % [move_name, character_id, current_move_state.timer])
+	var seat_str = parent.seat if "seat" in parent else "?"
+	print("[MoveSet] ✅ Started %s! Char: %s, Duration: %.3f, Seat: %s" % [move_name, character_id, current_move_state.timer, seat_str])
 
 # ============================================================
 # INPUT HANDLERS (Clean, DRY)
@@ -312,6 +328,10 @@ func resume_after_freeze() -> void:
 func stop_special_move() -> void:
 	if not is_spmove:
 		return
+	
+	var move_name = current_move_state.active_move.name if current_move_state.active_move else "UNKNOWN"
+	var seat_str = parent.seat if "seat" in parent else "?"
+	print("[STOP_MOVE] '%s' | Seat: %s" % [move_name, seat_str])
 	
 	is_spmove = false
 	is_special_moving = false
@@ -524,6 +544,9 @@ func _process_jump(delta: float, world: Node, move: MoveData) -> void:
 		parent.fixed_position.y = world.FLOOR_Y - 1
 		parent.is_jumping = true
 		current_move_state.has_jumped = true
+		var seat_str = parent.seat if "seat" in parent else "?"
+		var move_name = move.name if move else "unknown"
+		print("[JUMP_TRIGGERED] %s: %s | velocity.y=%d" % [seat_str, move_name, parent.fixed_velocity.y])
 
 func _apply_gravity(delta: float, world: Node, gravity: float) -> void:
 	if parent.fixed_position.y < world.FLOOR_Y:
@@ -537,14 +560,18 @@ func _apply_gravity(delta: float, world: Node, gravity: float) -> void:
 # ============================================================
 
 func _on_spmove_animation_finished(anim_name: String) -> void:
-	print("[MoveSet._on_spmove_animation_finished] Animation finished: %s (is_spmove=%s)" % [anim_name, is_spmove])
+	var seat_str = parent.seat if "seat" in parent else "?"
+	var current_anim_state: String = parent.animation_state.get_current_node() if parent.animation_state else "(unknown)"
+	print("[🎬 ANIM_FINISHED] Animation '%s' finished | AnimTree now in: '%s' | is_spmove=%s | Seat: %s" % [anim_name, current_anim_state, is_spmove, seat_str])
+	
 	if is_spmove_animation_playing and anim_name in move_library:
-		print("[MoveSet._on_spmove_animation_finished] ✓ Special move animation completed: %s" % anim_name)
+		print("  ✓ Special move animation completed: %s" % anim_name)
 		is_spmove_animation_playing = false
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false
 		
 		if current_move_state.timer > 0:
+			print("  ⏱️  Timer still running (%.3f), deferring stop" % current_move_state.timer)
 			return
 		
 		stop_special_move()

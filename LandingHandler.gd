@@ -20,9 +20,20 @@ func handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
 		
 		var move_set = movement_node.get_node_or_null("MoveSet")
 		if move_set and move_set.is_spmove:
-			if "is_landing" in movement_node:
-				movement_node.is_landing = false
-				movement_node.landing_lock_timer = 0.0
+			# 🟢 【DP自帶著地修正】DP/HDK/POWERKK自帶著地動畫，跳過landing邏輯
+			# 這些招式會獨立播放，不受著地鎖定影響
+			var active_move_name = move_set.get_active_move_name() if move_set.has_method("get_active_move_name") else ""
+			if active_move_name in ["dp", "hdk", "powerkk"]:
+				# 完全跳過著地檢查，讓招式動畫自行播放
+				if "is_landing" in movement_node:
+					movement_node.is_landing = false
+					movement_node.landing_lock_timer = 0.0
+				return
+			else:
+				# 其他特殊招式在著地時立即停止
+				if "is_landing" in movement_node:
+					movement_node.is_landing = false
+					movement_node.landing_lock_timer = 0.0
 		else:
 			if "is_landing" in movement_node and "landing_lock_timer" in movement_node:
 				if not (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed):
