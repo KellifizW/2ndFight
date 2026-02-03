@@ -7,7 +7,12 @@ func _init(movement: Node) -> void:
 	movement_node = movement
 
 func handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
-	var can_walk = movement_node.is_on_floor() and not movement_node.is_attacking and not movement_node.is_dashing and not movement_node.is_backdashing and not is_special_moving and not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.is_layground) and not movement_node.is_crouching
+	# 🟢 【修復】在條件中也要檢查 knockback 和 corner push 狀態
+	var is_in_knockback = "knockback_frames" in movement_node and movement_node.knockback_frames > 0
+	var is_in_corner_push = "corner_push_frames" in movement_node and movement_node.corner_push_frames > 0
+	var is_in_block_knockback = "block_knockback_frames" in movement_node and movement_node.block_knockback_frames > 0
+	
+	var can_walk = movement_node.is_on_floor() and not movement_node.is_attacking and not movement_node.is_dashing and not movement_node.is_backdashing and not is_special_moving and not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.is_layground or is_in_knockback or is_in_corner_push or is_in_block_knockback) and not movement_node.is_crouching
 	
 	if not can_walk and input_dir != 0:
 		var reasons = []
@@ -42,5 +47,6 @@ func handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -
 		# Player extends Fighter extends Movement - so movement_node already has AttackMovementHandler
 		var attack_movement_handler = movement_node.get_node_or_null("AttackMovementHandler") if movement_node.has_method("get_node_or_null") else null
 		var has_attack_movement = attack_movement_handler and attack_movement_handler.is_active()
-		if not has_attack_movement and not (movement_node.is_jumping or movement_node.is_dashing or movement_node.is_backdashing or movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.jump_delay_timer > 0 or is_special_moving or movement_node.is_layground):
+		
+		if not has_attack_movement and not is_in_knockback and not is_in_corner_push and not is_in_block_knockback and not (movement_node.is_jumping or movement_node.is_dashing or movement_node.is_backdashing or movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.jump_delay_timer > 0 or is_special_moving or movement_node.is_layground):
 			movement_node.fixed_velocity.x = 0

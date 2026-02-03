@@ -86,7 +86,7 @@ func handle_hitbox_collision(area: Area2D) -> void:
 	
 	# ── Pushback 處理 ──
 	if not hit_params.penetrable:
-		_handle_corner_pushback(target, stun_duration)
+		_handle_corner_pushback(target, stun_duration, hit_params.knockback)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 內部輔助函數
@@ -209,8 +209,16 @@ func _spawn_hit_vfx(is_blocked: bool, contact: Vector2, target_on_floor: bool) -
 	var facing = parent_player.facing_direction if "facing_direction" in parent_player else 1.0
 	VFXImpact.spawn_vfx(world, vfx_type, adjusted_contact, facing)
 
-func _handle_corner_pushback(target: Node, stun_duration: float) -> void:
-	"""處理角落推回"""
+func _handle_corner_pushback(target: Node, stun_duration: float, knockback_distance: float = -1.0) -> void:
+	"""
+	處理角落推回
+	使用與 knockback 相同的機制，但作用於攻擊者而非被擊者
+	
+	參數：
+	- target: 被擊中的角色
+	- stun_duration: 受擊時間（邏輯幀）
+	- knockback_distance: 原始攻擊的 knockback 距離。如果 -1.0 則使用預設 corner_push_distance
+	"""
 	var push_manager = get_tree().get_first_node_in_group("push_manager")
 	if not push_manager or not push_manager.is_at_corner(target):
 		return
@@ -218,14 +226,41 @@ func _handle_corner_pushback(target: Node, stun_duration: float) -> void:
 	if not parent_player.has_method("get_facing_multiplier"):
 		return
 	
-	var corner_push_distance = parent_player.corner_push_distance if "corner_push_distance" in parent_player else 250.0
-	var push_duration = stun_duration
+	# 🟢 【修復】使用原始攻擊的 knockback 距離，如果沒有則使用預設值
+	var corner_push_distance = knockback_distance
+	if corner_push_distance <= 0:
+		corner_push_distance = parent_player.corner_push_distance if "corner_push_distance" in parent_player else 250.0
 	
-	parent_player.is_push_back = true
-	parent_player.push_back_timer = push_duration
-	parent_player.initial_push_back = push_duration
-	parent_player.push_back_velocity = 2.0 * corner_push_distance * world.SIMULATION_SCALE / push_duration
-	parent_player.fixed_velocity.x = int(-parent_player.push_back_velocity * parent_player.get_facing_multiplier())
+	# 🟢 轉換 stun_duration（邏輯幀）為物理幀
+	var physics_push_frames = int(round(stun_duration * (parent_player.PHYSICS_FPS / 60.0)))
+	
+	# 🟢 使用 PushManager 計算所需的初始速度
+	if push_manager and push_manager.has_method("calculate_required_knockback_velocity"):
+		var target_distance_units = int(corner_push_distance * world.SIMULATION_SCALE)
+		parent_player.corner_push_velocity = push_manager.calculate_required_knockback_velocity(
+			target_distance_units,
+			physics_push_frames,
+			"[CORNER PUSH] " + parent_player.name
+		)
+	else:
+		# 後備方案：使用舊的係數
+		parent_player.corner_push_velocity = corner_push_distance * world.SIMULATION_SCALE * 4.0
+		print("[CORNER PUSH WARNING] PushManager 未找到或無反推函數，使用後備係數")
+	
+	# 🟢 初始化 corner push 狀態（攻擊者被推回）
+	parent_player.corner_push_frames = physics_push_frames
+	parent_player.initial_corner_push_frames = physics_push_frames
+	parent_player.corner_push_start_x = parent_player.position.x
+	
+	print("\n╔════════════════════════════════════════════════════════════════╗")
+	print("║ CORNER PUSH INITIALIZATION (攻擊者被推回)                   ║")
+	print("╚════════════════════════════════════════════════════════════════╝")
+	print("  🎮 Player: %s" % parent_player.name)
+	print("  📍 Position: (%.2f, %.2f)" % [parent_player.position.x, parent_player.position.y])
+	print("  📏 Corner push distance: %.1f pixels (與攻擊 knockback 相同)" % corner_push_distance)
+	print("  ⏱️  Push frames: %d (%.3fs @ 60 FPS)" % [physics_push_frames, physics_push_frames / 60.0])
+	print("  ⚡ Corner push velocity: %.2f units (%.2f px/frame)" % [parent_player.corner_push_velocity, parent_player.corner_push_velocity / world.SIMULATION_SCALE])
+	print()
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 【新增】Fireball 專用：供 fireball.gd 動態讀取 hitstun 參數

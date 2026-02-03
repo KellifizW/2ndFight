@@ -31,6 +31,12 @@ var initial_blockstun_frames: int = 0 # 用於 push 計算（物理幀）
 var block_knockback_frames: int = 0  # block knockback 固定幀數（物理幀）
 var initial_block_knockback_frames: int = 0  # 保存初始 block knockback 幀數（物理幀）
 
+# ── Corner Push 系統（使用與 knockback 相同的機制）──
+var corner_push_frames: int = 0  # corner push 固定幀數（物理幀）
+var initial_corner_push_frames: int = 0  # 保存初始 corner push 幀數（物理幀）
+var corner_push_start_x: float = 0.0  # Corner push 開始時的 X 位置（用於計算移動距離）
+var corner_push_velocity: float = 0.0  # Corner push 初始速度
+
 # ── Knockback 位置追踪（用於計算實際移動距離）──
 var knockback_start_x: float = 0.0  # 🟢 【新增】Knockback 開始時的 X 位置（用於計算移動距離）
 const FPS: int = 60
@@ -127,6 +133,14 @@ func _physics_process(delta: float) -> void:
 		if blockstun_frames <= 0:
 			is_blocking = false
 		block_knockback_frames = 0  # 確保 block knockback 也被清除
+
+	# ── 【Corner Push 幀數遞減】獨立系統，不與 hitstun 同步──
+	if corner_push_frames > 0:
+		corner_push_frames -= 1
+		if corner_push_frames <= 0:
+			corner_push_frames = 0
+			corner_push_velocity = 0.0
+			fixed_velocity.x = 0
 
 	# ── super 先執行（舊的 block_timer 仍然會被減，但我們不再依賴它控制狀態）──
 	super._physics_process(delta)

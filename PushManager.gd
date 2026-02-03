@@ -351,6 +351,40 @@ func _physics_process(delta: float) -> void:
 				player.fixed_velocity.x = 0
 		
 		# ────────────────────────────────────────────────────────────────────────
+		# ── 【Corner Push 執行（使用與 Knockback 相同的機制）】──
+		# ────────────────────────────────────────────────────────────────────────
+		if player.corner_push_frames > 0:
+			# 首次執行時記錄起始位置
+			if player.corner_push_start_x <= 0 or player.corner_push_start_x == player.position.x:
+				player.corner_push_start_x = player.position.x
+			
+			# 計算衰減倍數（使用與 Knockback 相同的曲線系統）
+			var total_corner_push_frames = player.initial_corner_push_frames
+			if total_corner_push_frames <= 0:
+				total_corner_push_frames = 1  # 避免除以 0
+			
+			var remaining_ratio: float = player.corner_push_frames / float(total_corner_push_frames)
+			var speed_multiplier: float = calculate_knockback_speed_multiplier(remaining_ratio)
+			player.fixed_velocity.x = int(-player.corner_push_velocity * speed_multiplier * player.facing_direction)
+			
+			# 每 6 幀顯示一次進度
+			if int(player.corner_push_frames) % 6 == 0 or player.corner_push_frames <= 0:
+				var elapsed_frames = total_corner_push_frames - player.corner_push_frames
+				var progress_percent = elapsed_frames * 100.0 / total_corner_push_frames
+				var moved_distance = abs(player.position.x - player.corner_push_start_x)
+				
+				print("[CORNER PUSH PROGRESS] %s - %.1f%% complete, remaining: %d frames, moved: %.2f px, velocity: %d" % [
+					player.name, progress_percent, player.corner_push_frames, moved_distance, player.fixed_velocity.x
+				])
+			
+			# Corner Push 結束檢查
+			if player.corner_push_frames <= 0:
+				print("[CORNER PUSH END] %s" % player.name)
+				player.corner_push_frames = 0
+				player.corner_push_velocity = 0.0
+				player.fixed_velocity.x = 0
+		
+		# ────────────────────────────────────────────────────────────────────────
 		# ── 【Hitstun 和 Hit_timer（舊的Delta系統，保留用於兼容）】──
 		# ────────────────────────────────────────────────────────────────────────
 		if player.is_hit:
