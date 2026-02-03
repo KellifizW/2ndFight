@@ -25,8 +25,11 @@ var hitstun_frames: int = 0          # hitstun 固定幀數（物理幀）
 var blockstun_frames: int = 0        # blockstun 固定幀數（物理幀）
 var knockback_frames: int = 0        # knockback 固定幀數（物理幀）
 var initial_knockback_frames: int = 0  # ✅ 保存初始 knockback 幀數（物理幀）
-var knockback_delay_frames: int = 0  # knockback 延遲幀數（物理幀）
 var initial_blockstun_frames: int = 0 # 用於 push 計算（物理幀）
+
+# ── Block Knockback 系統（新增）──
+var block_knockback_frames: int = 0  # block knockback 固定幀數（物理幀）
+var initial_block_knockback_frames: int = 0  # 保存初始 block knockback 幀數（物理幀）
 const FPS: int = 60
 
 # 🟢 待執行的 hit 參數（等待 hit stop 完成後才實際啟動）
@@ -80,21 +83,6 @@ func _physics_process(delta: float) -> void:
 		# 在 hit stop 期間不執行任何幀數遞減，保持狀態凍結
 		return
 
-	# ── 【固定幀數 knockback_delay】──
-	if knockback_delay_frames > 0:
-		knockback_delay_frames -= 1
-		# 延遲期間不移動
-		if knockback_delay_frames <= 0:
-			# 延遲結束，啟動 knockback
-			knockback_frames = hitstun_frames  # 同步 knockback 幀數與當前 hitstun 幀數
-			initial_knockback_frames = hitstun_frames  # ✅ NEW: 保存當前 hitstun 幀數作為 knockback 初始值
-			hit_push_velocity = hit_push_initial_velocity  # 恢復 knockback 速度
-			knockback_start_time = Time.get_ticks_msec() / 1000.0
-			if knockback_frames > 0:
-				print("[KNOCKBACK DELAY END] %s - knockback 開始，持續 %d 幀 (%.3f秒 @%d FPS)" % [
-					name, knockback_frames, knockback_frames / float(PHYSICS_FPS), PHYSICS_FPS
-				])
-
 	# ── 【固定幀數 hitstun 和 knockback 同時遞減】──
 	if hitstun_frames > 0:
 		hitstun_frames -= 1
@@ -119,17 +107,23 @@ func _physics_process(delta: float) -> void:
 			was_hit_while_crouching = false  # 重置蹲姿受擊標記
 		knockback_frames = 0  # 確保 knockback 也被清除
 
-	# ── 【固定幀數 blockstun】與 hitstun 完全一致──
+	# ── 【固定幀數 blockstun 及 block knockback】與 hitstun 完全一致──
 	if blockstun_frames > 0:
 		blockstun_frames -= 1
+		# 同時遞減 block_knockback_frames，確保完全同步
+		if block_knockback_frames > 0:
+			block_knockback_frames -= 1
+		
 		is_blocking = true
 		if blockstun_frames <= 0:
 			is_blocking = false
 			block_type = "none"
 			print("[FIXED-FRAME BLOCKSTUN END] %s 格擋結束！" % name)
+			block_knockback_frames = 0  # 確保 block knockback 也被清除
 	else:
 		if blockstun_frames <= 0:
 			is_blocking = false
+		block_knockback_frames = 0  # 確保 block knockback 也被清除
 
 	# ── super 先執行（舊的 block_timer 仍然會被減，但我們不再依賴它控制狀態）──
 	super._physics_process(delta)
@@ -221,8 +215,20 @@ func take_hit(
 		fixed_velocity.x = 0
 		fixed_velocity.y = 0
 		if not skip_push:
+			# ── 【新增】Block Knockback 使用幀計數系統，與 Hit Knockback 對齐 ──
+			# ✅ 關鍵：使用相同的 knockback_distance 參數，確保 block knockback 距離 = hit knockback 距離
+			var push_distance = knockback_distance if knockback_distance > 0 else block_push_distance
+			block_push_initial_velocity = push_distance * world.SIMULATION_SCALE * 4.0  # 使用與 hit knockback 相同的係數
+			block_knockback_frames = physics_blockstun  # Block knockback 持續時間 = blockstun 時間
+			initial_block_knockback_frames = physics_blockstun  # 保存初始幀數用於衰減計算
+			
+			# @deprecated 保留舊變數以維持向後兼容
 			block_push_timer = initial_blockstun
-			block_push_velocity = 2.0 * block_push_distance * world.SIMULATION_SCALE / initial_blockstun
+			block_push_velocity = 2.0 * push_distance * world.SIMULATION_SCALE / initial_blockstun
+			
+			print("[BLOCK KNOCKBACK INIT] %s - block_knockback_frames: %d, push_distance: %.1f, initial_velocity: %.1f" % [
+				name, block_knockback_frames, push_distance, block_push_initial_velocity
+			])
 		block_detected.emit(name, block_type)
 		_update_animation_state(0, input_data.crouch_pressed)
 		print("Debug: Block detected, no damage applied for %s" % name)
@@ -314,7 +320,6 @@ func take_hit(
 				"hit_frames": hit_frames,
 				"blockstun": 0,  # 普通受擊不設置 blockstun
 				"skip_push": skip_push,
-				"knockback_delay_frames": logic_frames_to_physics_frames(int(round(knockback_delay_duration * LOGIC_FPS))),
 				"hit_push_initial_velocity": 0.0  # 將在下面計算
 			}
 			
@@ -336,8 +341,8 @@ func take_hit(
 			hitstun_frames = hit_frames
 			initial_hitstun = hitstun_seconds
 		
-		# hit_timer = 延遲 + hitstun時間，確保knockback完整執行
-		hit_timer = knockback_delay_duration + hitstun_seconds
+		# hit_timer = hitstun時間，確保knockback完整執行
+		hit_timer = hitstun_seconds
 		print("[HITSTUN START] %s 進入受擊，%d 物理幀 (%.3f秒)，hit_timer=%.3fs @ %.3fs" % [
 			name, hit_frames, hitstun_seconds, hit_timer, Time.get_ticks_msec() / 1000.0
 		])
@@ -363,7 +368,6 @@ func take_hit(
 		if not skip_push:
 			var push_distance = knockback_distance if knockback_distance > 0 else hit_push_distance
 			# knockback 使用固定幀數系統，持續時間 = hitstun 時間（物理幀）
-			knockback_delay_frames = logic_frames_to_physics_frames(int(round(knockback_delay_duration * LOGIC_FPS)))  # 延遲轉換為物理幀
 			
 			# 🔴 DEBUG: 檢查 take_hit() 是否被多次調用
 			if knockback_frames > 0 or initial_knockback_frames > 0:
@@ -378,26 +382,18 @@ func take_hit(
 			
 			# 🟢 如果不在等待 hit stop 結束，才立即啟動 knockback
 			if not waiting_for_hit_stop_end:
-				# 如果沒有延遲，立即啟動 knockback
-				if knockback_delay_frames <= 0:
-					knockback_frames = hit_frames  # 立即設置為 hitstun 幀數
-					initial_knockback_frames = hit_frames  # ✅ NEW: 保存初始幀數
-					hit_push_velocity = hit_push_initial_velocity
-					print("[KNOCKBACK RESET] %s - take_hit() 重置 knockback！新的 knockback_frames: %d" % [name, knockback_frames])
-					# 不在這裡設置 knockback_start_time，讓 PushManager 首次執行時記錄
-				else:
-					# 有延遲時，knockback_frames 保持 0，等待延遲結束
-					knockback_frames = 0
-					initial_knockback_frames = hit_frames  # ✅ NEW: 預先保存初始值
-					hit_push_velocity = 0.0  # 延遲期間無速度
+				# 立即啟動 knockback（無延遲）
+				knockback_frames = hit_frames  # 立即設置為 hitstun 幀數
+				initial_knockback_frames = hit_frames  # ✅ 保存初始幀數
+				hit_push_velocity = hit_push_initial_velocity
+				print("[KNOCKBACK RESET] %s - take_hit() 重置 knockback！新的 knockback_frames: %d" % [name, knockback_frames])
+				# 不在這裡設置 knockback_start_time，讓 PushManager 首次執行時記錄
 			
 			print("\n[KNOCKBACK DEBUG] %s @ 時間: %.3fs" % [name, Time.get_ticks_msec() / 1000.0])
 			print("  - 推擊距離: %.1f pixels" % push_distance)
 			print("  - 初始速度: %.1f units" % hit_push_initial_velocity)
-			print("  - 延遲: %.2fs (%d 物理幀)" % [knockback_delay_duration, knockback_delay_frames])
 			print("  - Hitstun: %.2fs (%d 物理幀)" % [hitstun_seconds, hit_frames])
-			print("  - 總持續時間: %.2fs" % (knockback_delay_duration + hitstun_seconds))
-			print("  - knockback_frames: %d, initial: %d, delay_frames: %d (均為物理幀)" % [knockback_frames, initial_knockback_frames, knockback_delay_frames])
+			print("  - knockback_frames: %d, initial: %d (均為物理幀)" % [knockback_frames, initial_knockback_frames])
 			if waiting_for_hit_stop_end:
 				print("  - ⏳ 等待 hit stop...\n")
 			else:
@@ -492,21 +488,13 @@ func _apply_pending_hit_effect() -> void:
 	
 	# 啟動 knockback（如果不跳過 push）
 	if not skip_push:
-		var knockback_delay_frames_val = pending_hit_params.get("knockback_delay_frames", 0)
 		var hit_frames_val = pending_hit_params.get("hit_frames", 0)
 		var hit_push_initial_velocity_val = pending_hit_params.get("hit_push_initial_velocity", 0)
 		
-		knockback_delay_frames = knockback_delay_frames_val
-		
-		# 如果沒有延遲，立即啟動 knockback
-		if knockback_delay_frames <= 0:
-			knockback_frames = hit_frames_val
-			initial_knockback_frames = hit_frames_val
-			hit_push_velocity = hit_push_initial_velocity_val
-		else:
-			knockback_frames = 0
-			initial_knockback_frames = hit_frames_val
-			hit_push_velocity = 0.0
+		# 立即啟動 knockback（無延遲）
+		knockback_frames = hit_frames_val
+		initial_knockback_frames = hit_frames_val
+		hit_push_velocity = hit_push_initial_velocity_val
 	
 	print("[HIT EFFECT APPLIED] %s - hitstun: %d frames, blockstun: %d frames, knockback: %d frames" % [
 		name, hitstun_frames, blockstun_frames, knockback_frames

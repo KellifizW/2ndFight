@@ -118,14 +118,14 @@ func _physics_process(delta: float) -> void:
 	# 處理計時器
 	for player in players:
 		if player.is_push_back:
-			if player.push_back_timer > 0:
-				player.fixed_velocity.x = int(-player.push_back_velocity * player.facing_direction * (player.push_back_timer / player.initial_push_back))
-				player.push_back_timer -= delta
-				if player.push_back_timer <= 0:
-					player.is_push_back = false
-					player.push_back_velocity = 0.0
-					player.initial_push_back = 0.0
-					player.fixed_velocity.x = 0
+			if player.push_back_frames > 0:
+				# Calculate progress (0.0 to 1.0) for smooth deceleration
+				var progress = float(player.push_back_frames) / float(player.initial_push_back_frames)
+				player.fixed_velocity.x = int(-player.push_back_velocity * player.facing_direction * progress)
+				player.push_back_frames -= 1  # Decrement by 1 frame
+			else:
+				player.is_push_back = false
+				player.fixed_velocity.x = 0
 		
 		# ────────────────────────────────────────────────────────────────────────
 		# ── 【Knockback 執行 - 獨立於 hitstun，確保完整執行】──
@@ -196,6 +196,35 @@ func _physics_process(delta: float) -> void:
 				player.fixed_velocity.x = 0
 		
 		# ────────────────────────────────────────────────────────────────────────
+		# ── 【Block Knockback 執行（幀計數系統）】──
+		# ────────────────────────────────────────────────────────────────────────
+		if player.block_knockback_frames > 0:
+			# 計算衰減倍數（使用與 Hit Knockback 相同的曲線系統）
+			var total_block_knockback_frames = player.initial_block_knockback_frames
+			if total_block_knockback_frames <= 0:
+				total_block_knockback_frames = 1  # 避免除以 0
+			
+			var remaining_ratio: float = player.block_knockback_frames / float(total_block_knockback_frames)
+			var speed_multiplier: float = calculate_knockback_speed_multiplier(remaining_ratio)
+			player.fixed_velocity.x = int(-player.block_push_initial_velocity * speed_multiplier * player.facing_direction)
+			
+			# 每 6 幀顯示一次進度
+			if int(player.block_knockback_frames) % 6 == 0 or player.block_knockback_frames <= 0:
+				var elapsed_frames = total_block_knockback_frames - player.block_knockback_frames
+				var progress_percent = elapsed_frames * 100.0 / total_block_knockback_frames
+				
+				print("[BLOCK KNOCKBACK PROGRESS] %s - %.1f%% complete, remaining: %d frames, velocity: %d" % [
+					player.name, progress_percent, player.block_knockback_frames, player.fixed_velocity.x
+				])
+			
+			# Block Knockback 結束檢查
+			if player.block_knockback_frames <= 0:
+				print("[BLOCK KNOCKBACK END] %s" % player.name)
+				player.block_knockback_frames = 0
+				player.block_push_initial_velocity = 0.0
+				player.fixed_velocity.x = 0
+		
+		# ────────────────────────────────────────────────────────────────────────
 		# ── 【Hitstun 和 Hit_timer（舊的Delta系統，保留用於兼容）】──
 		# ────────────────────────────────────────────────────────────────────────
 		if player.is_hit:
@@ -205,22 +234,21 @@ func _physics_process(delta: float) -> void:
 				# ── Hitstun結束檢查 (與knockback獨立) ──
 				if player.hit_timer <= 0:
 					player.is_hit = false
-					player.hit_push_delay_timer = 0.0
 					player.initial_hitstun = 0.0
 					player.hit_timer = 0.0
 		if player.block_timer > 0:
 			player.block_timer -= delta
+			# @deprecated 舊的 Delta-based block pushblock 邏輯（保留向後兼容）
 			if player.block_push_timer > 0:
-				player.fixed_velocity.x = int(-player.block_push_velocity * player.facing_direction * (player.block_push_timer / player.initial_blockstun))
 				player.block_push_timer -= delta
 			if player.block_timer <= 0:
 				player.is_blocking = false
 				player.is_crouch_blocking = false
 				player.block_type = "none"
-				player.block_push_timer = 0.0
-				player.block_push_velocity = 0.0
-				player.initial_blockstun = 0.0
-				player.fixed_velocity.x = 0
+				player.block_push_timer = 0.0  # @deprecated
+				player.block_push_velocity = 0.0  # @deprecated
+				player.initial_blockstun = 0.0  # @deprecated
+				# 注意：block_knockback_frames 的遞減現在在 Fighter._physics_process 中處理
 		if player.knockfly_timer > 0:
 			player.knockfly_timer -= delta
 			if player.is_air_hit_knockfly:

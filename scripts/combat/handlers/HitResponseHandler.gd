@@ -236,4 +236,4 @@ func get_fireball_hitstun_frames() -> int:
 	供 fireball.gd 調用，動態讀取火球的 hitstun 幀數
 	這樣修改此值時無需同時修改 fireball.gd
 	"""
-	return 60  # 🟢 60 邏輯幀 = 1.0 秒（修改此值即可控制 fireball hitstun）
+	return 60  # 🟢 60 邏輯幀 = 1.0 秒（修改此值即可控制 fireball hitstun)
