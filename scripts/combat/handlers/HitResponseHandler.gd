@@ -148,10 +148,6 @@ func _get_hit_parameters() -> Dictionary:
 				var pos = animation_player.current_animation_position
 				if pos < 0.2667:
 					params.damage = 6.0
-		elif move_name == "fireball":
-			params.hitstun = 60     # 🟢 60 邏輯幀 = 1.0 秒（可修改此值影響 fireball hitstun）
-			params.blockstun = 14   # 14 邏輯幀 = 0.233 秒
-			params.skip_push = true
 		elif move_name == "super":
 			params.hitstun = 27     # 27 幀 = 0.45 秒
 			params.blockstun = 18   # 18 幀 = 0.30 秒

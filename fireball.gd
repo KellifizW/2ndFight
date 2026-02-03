@@ -2,9 +2,6 @@ extends Area2D
 
 var speed: float = 800.0          # 預設速度（DAV）
 var direction: int = 1
-var damage: float = 8.0          # 預設傷害（DAV）
-var hitstun_frames: int = 24       # 🟢 hitstun：預設 24 幀（從 HitResponseHandler 動態讀取）
-var blockstun_duration_frames: int = 14  # 14 幀 @60FPS = 0.233 秒
 var is_active: bool = true
 var is_penetrating: bool = false  # 擊中後的穿透狀態
 var penetration_distance: float = 100.0  # 穿透距離（進入對手body內部）
@@ -33,12 +30,10 @@ func _ready() -> void:
 	# 根據角色設定參數（DAV 與 DEN 不同）
 	if owner_character_id == "DAV":
 		speed = 800.0
-		damage = 8.0
 	elif owner_character_id == "DEN":
 		speed = 600.0
-		damage = 7.0
 	else:
-		push_warning("未知的 fireball owner_character_id: %s，使用預設值" % owner_character_id)
+		push_warning("未知的 fireball owner_character_id: %s，使用預設速度" % owner_character_id)
 	
 	if sprite == null:
 		push_error("Error: Sprite2D node not found in Fireball!")
@@ -86,8 +81,8 @@ func _ready() -> void:
 	else:
 		push_warning("Warning: SpawnSoundPlayer not found in Fireball!")
 	
-	print("Debug: Fireball initialized, owner_character_id: %s, speed: %s, damage: %s, direction: %s" %
-		[owner_character_id, speed, damage, direction])
+	print("Debug: Fireball initialized, owner_character_id: %s, speed: %.1f, direction: %d" %
+		[owner_character_id, speed, direction])
 
 func _physics_process(delta: float) -> void:
 	if is_active:
@@ -99,10 +94,9 @@ func _physics_process(delta: float) -> void:
 		penetration_traveled += abs(move_distance)
 		
 		if penetration_traveled >= penetration_distance:
-			# 完成穿透，停止移動並播放爆炸效果
+			# 完成穿透，停止移動並播放衝擊動畫
+			# 🟢 粒子特效已在 _on_hitbox_area_entered() 立即播放，此處不再重複
 			is_penetrating = false
-			_stop_trail_immediately()
-			_play_explosion_particles()
 			animation_player.play("fireball/ball_impact")
 	
 	# 超出鏡頭可見範圍自動銷毀（基於實際鏡頭位置動態檢測）
@@ -120,6 +114,70 @@ func _physics_process(delta: float) -> void:
 				[global_position.x, camera_x, left_bound, right_bound])
 			_clear_owner_reference()
 			queue_free()
+
+func _load_knockback_from_moveset() -> void:
+	"""從 MoveSet 讀取 fireball 的 knockback 值（統一實現）"""
+	if not fireball_owner:
+		return
+	
+	var move_set = fireball_owner.move_set if "move_set" in fireball_owner else null
+	if not move_set:
+		return
+	
+	if move_set.move_library and "fireball" in move_set.move_library:
+		var fireball_move = move_set.move_library["fireball"]
+		print("[Fireball] 初始化完成，owner: %s, MoveSet 已準備" % owner_character_id)
+
+func _get_fireball_params_from_moveset() -> Dictionary:
+	"""
+	從 MoveSet 讀取 fireball 的所有參數（單一來源）
+	返回: {\"damage\": float, \"hitstun\": int, \"blockstun\": int, \"knockback\": float}
+	"""
+	var params = {
+		"damage": 10.0,        # 預設值
+		"hitstun": 18,         # 預設值（邏輯幀）
+		"blockstun": 10,       # 預設值（邏輯幀）
+		"knockback": 80.0      # 預設 knockback
+	}
+	
+	if not fireball_owner:
+		print("[Fireball] WARNING: fireball_owner is null, using default params")
+		return params
+	
+	var move_set = fireball_owner.move_set if "move_set" in fireball_owner else null
+	if not move_set:
+		print("[Fireball] WARNING: move_set is null, using default params")
+		return params
+	
+	if not move_set.move_library:
+		print("[Fireball] WARNING: move_library is null, using default params")
+		return params
+	
+	if "fireball" in move_set.move_library:
+		var fireball_move = move_set.move_library["fireball"]
+		print("[Fireball] fireball_move acquired, checking properties...")
+		print("[Fireball] Has 'damage': %s" % ("damage" in fireball_move))
+		print("[Fireball] Has 'hitstun': %s" % ("hitstun" in fireball_move))
+		print("[Fireball] Has 'blockstun': %s" % ("blockstun" in fireball_move))
+		print("[Fireball] Has 'knockback': %s" % ("knockback" in fireball_move))
+		
+		params["damage"] = fireball_move.damage
+		params["knockback"] = fireball_move.knockback
+		
+		# 🟢 檢查後再訪問，避免崩潰
+		if "hitstun" in fireball_move:
+			params["hitstun"] = fireball_move.hitstun
+		else:
+			print("[Fireball] WARNING: hitstun not found in fireball_move, using default %d" % params["hitstun"])
+		
+		if "blockstun" in fireball_move:
+			params["blockstun"] = fireball_move.blockstun
+		else:
+			print("[Fireball] WARNING: blockstun not found in fireball_move, using default %d" % params["blockstun"])
+		
+		print("[Fireball] 從 MoveSet 讀取參數: damage=%.1f, hitstun=%d, blockstun=%d, knockback=%.1f" % [params["damage"], params["hitstun"], params["blockstun"], params["knockback"]])
+	
+	return params
 
 func _stop_trail_immediately() -> void:
 	if run_particles:
@@ -163,37 +221,9 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		
 		_clear_owner_reference()
 		
-		# 不在這裡播放爆炸效果，等穿透完成後再播放
-		
-		# 🟢 【重要】先呼叫 take_hit() 讓受擊動畫立即播放
-		# 🟢 從 HitResponseHandler 動態讀取最新的 hitstun 值（每次擊中時讀取，確保修改立即生效）
-		var world = get_tree().get_first_node_in_group("world")
-		var final_hitstun = hitstun_frames  # 使用預設值 60
-		var read_success = false
-		if world:
-			var p1 = world.get_node_or_null("Player_A")
-			if p1:
-				var hit_response = p1.get_node_or_null("HitResponseHandler")
-				if hit_response:
-					if hit_response.has_method("get_fireball_hitstun_frames"):
-						final_hitstun = hit_response.get_fireball_hitstun_frames()
-						read_success = true
-						print("[Fireball Hit] 從 HitResponseHandler 讀取 hitstun_frames = %d" % final_hitstun)
-		
-		if not read_success:
-			print("[Fireball Hit] ⚠️ 無法從 HitResponseHandler 讀取，使用預設值 %d" % final_hitstun)
-		
-		target.take_hit(final_hitstun, blockstun_duration_frames, damage, false)
-		
-		# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（Slow-mo）
-		# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中
-		if world:
-			var slowmo_controller = world.get_node_or_null("SlowMoController")
-			if slowmo_controller:
-				slowmo_controller.request_hit_freeze()
-		var is_blocked = target.is_blocking and target.block_type == "ordinary"
-		if target.has_signal("hit_detected"):
-			target.hit_detected.emit(name, blockstun_duration_frames, is_blocked)
+		# 🟢 【重要】立即播放粒子特效和音效（在穿透時持續顯示）
+		_stop_trail_immediately()
+		_play_explosion_particles()
 		
 		# 擊中音效
 		if hit_sound_player:
@@ -204,8 +234,37 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		else:
 			push_warning("Warning: HitSoundPlayer not found in Fireball!")
 		
-		print("Fireball hit %s, is_blocked: %s, damage: %s, owner: %s" %
-			[target.name, is_blocked, damage, owner_character_id])
+		# 🟢 【重要】先呼叫 take_hit() 讓受擊動畫立即播放
+		# 🟢 從 MoveSet 讀取所有參數（單一來源）
+		var fb_params = _get_fireball_params_from_moveset()
+		var final_hitstun = fb_params["hitstun"]
+		var final_blockstun = fb_params["blockstun"]
+		var final_damage = fb_params["damage"]
+		var final_knockback = fb_params["knockback"]
+		var world = get_tree().get_first_node_in_group("world")
+		
+		print("[Fireball Hit] 使用 MoveSet 參數: hitstun=%d, blockstun=%d, damage=%.1f, knockback=%.1f" % [final_hitstun, final_blockstun, final_damage, final_knockback])
+		
+		# 🟢 【關鍵】禁用 target 的 hitbox 碰撞，避免 HitResponseHandler 重複調用 take_hit()
+		if target.has_node("Hitbox/HitShape"):
+			var target_hitbox = target.get_node("Hitbox/HitShape")
+			target_hitbox.disabled = true
+		
+		# 與普通攻擊統一：傳遞所有參數
+		target.take_hit(final_hitstun, final_blockstun, final_damage, false, false, {}, final_knockback)
+		
+		# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（Slow-mo）
+		# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中
+		if world:
+			var slowmo_controller = world.get_node_or_null("SlowMoController")
+			if slowmo_controller:
+				slowmo_controller.request_hit_freeze()
+		var is_blocked = target.is_blocking and target.block_type == "ordinary"
+		if target.has_signal("hit_detected"):
+			target.hit_detected.emit(name, final_blockstun, is_blocked)
+		
+		print("Fireball hit %s, is_blocked: %s, damage: %.1f, owner: %s" %
+			[target.name, is_blocked, final_damage, owner_character_id])
 		
 		# VFX
 		var vfx_position = (global_position + area.global_position) / 2.0
@@ -239,6 +298,26 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 		_stop_trail_immediately()
 		_clear_owner_reference()
 		
+		# 🟢 播放擊中特效（與打中角色時相同）
+		_play_explosion_particles()
+		
+		# 擊中音效
+		if hit_sound_player:
+			var sound = hit_sound_player.duplicate()
+			get_tree().current_scene.add_child(sound)
+			sound.play()
+			sound.finished.connect(func(): sound.queue_free())
+		
+		# 擊中 VFX（在碰撞點顯示）
+		var vfx_position = (global_position + area.global_position) / 2.0
+		var preloader = get_tree().get_first_node_in_group("resource_preloader")
+		if preloader:
+			var vfx_scene = preloader.get_vfx_scene("hit")
+			if vfx_scene:
+				var vfx = vfx_scene.instantiate()
+				vfx.global_position = vfx_position
+				get_tree().current_scene.add_child(vfx)
+		
 		animation_player.play("fireball/ball_impact")
 		
 		if area.get_parent().is_in_group("fireball"):
@@ -267,9 +346,8 @@ func _on_proximitybox_area_entered(area: Area2D) -> void:
 			
 			_clear_owner_reference()
 			
-			# 不在這裡播放爆炸效果，等穿透完成後再播放
-			
-			target.take_hit(blockstun_duration_frames, 0, false)  # 格擋無傷害
+			# 🟢 近距離格擋：只播放音效和信號，不額外調用 take_hit()
+			# Hitbox 已經在之前調用過 take_hit() 了
 			if target.has_signal("block_detected"):
 				target.block_detected.emit(name, "proximity")
 			

@@ -49,6 +49,7 @@ var blockstun_active_frames: int = 0
 # ── 除錯用變數（hit / block 幀數追蹤） ─────────────────────
 var _last_hitstun_frames: int = 0
 var _hitstun_start_logged: bool = false
+var _initial_hitstun_frames: int = 0  # 🟢 【新增】記錄初始 hitstun 值
 var _last_block_timer: float = 0.0
 var _blockstun_start_logged: bool = false
 
@@ -56,6 +57,9 @@ var _blockstun_start_logged: bool = false
 var _is_in_hitstop: bool = false
 var _hitstop_paused_counter: int = 0  # Hit stop 期間暫停的幀數
 var _last_hitstop_state: bool = false
+
+# 🟢 【新增】物理幀追蹤（防止 display_frame_counter 在每個渲染幀都遞增）
+var _last_physics_frame: int = 0
 
 # 常數表
 const TRACKED_ANIMS := [
@@ -151,6 +155,7 @@ func _process(delta: float) -> void:
 	if target_player.has_method("is_in_hitstun"):
 		var cur_frames = target_player.hitstun_frames if "hitstun_frames" in target_player else 0
 		if cur_frames > 0 and not _hitstun_start_logged:
+			_initial_hitstun_frames = cur_frames  # 🟢 【新增】記錄初始值
 			var display_frames: int = int(round(cur_frames / 2.0))
 			var real_seconds: float = cur_frames / float(Engine.physics_ticks_per_second)
 			print("[HITSTUN] %s 進入 hitstun → %d 物理幀 (%d 顯示幀 / %.3f秒)" % [
@@ -158,9 +163,12 @@ func _process(delta: float) -> void:
 			])
 			_hitstun_start_logged = true
 		elif cur_frames <= 0 and _hitstun_start_logged:
-			var display_frames: int = int(round(_last_hitstun_frames / 2.0))
-			print("[HITSTUN] %s hitstun 結束，共 %d 物理幀 (%d 顯示幀)" % [
-				target_player.name, _last_hitstun_frames, display_frames
+			# 🟢 【修正】使用初始值計算總耗時
+			var total_frames = _initial_hitstun_frames
+			var display_frames: int = int(round(total_frames / 2.0))
+			var real_seconds: float = total_frames / float(Engine.physics_ticks_per_second)
+			print("[HITSTUN] %s hitstun 結束，共 %d 物理幀 (%d 顯示幀 / %.3f秒)" % [
+				target_player.name, total_frames, display_frames, real_seconds
 			])
 			_hitstun_start_logged = false
 		_last_hitstun_frames = cur_frames
@@ -221,6 +229,12 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 		current_frame = 0
 		is_tracking = true
 	
+	# 🟢 【新增】當進入 "hit" 動畫時，重置 display_frame_counter
+	if anim_name == "hit" and last_animation != "hit" and timer_driven:
+		display_frame_counter = 0
+		last_animation = "hit"  # 🔴 【關鍵】更新 last_animation，防止每幀都重置
+		print("[FRAMEBAR] %s - 進入 hit 動畫，重置 display_frame_counter 為 0" % target_player.name)
+	
 	_handle_block_hit_chain(flags)
 	
 	var need_new := (anim_name != last_animation or not is_tracking) and \
@@ -251,14 +265,18 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 		frame_data[current_frame] = state
 	
 	if timer_driven or knockfly_chain or block_hit_chain_active:
-		var old_counter = display_frame_counter
-		display_frame_counter += 1
-		
-		# 🟢 【新增】調試信息：重要的幀數遞增（僅在關鍵狀態變化時輸出）
-		if old_counter == 0 or (flags.hit and old_counter % 10 == 0) or (flags.blocking and old_counter % 10 == 0):
-			print("[FRAMEBAR COUNTER] %s - display_frame_counter: %d → %d (anim: %s, state: %d, timer_driven: %s)" % [
-				target_player.name, old_counter, display_frame_counter, anim_name, state, timer_driven
-			])
+		# 🟢 【修正】只在每個物理幀增加一次 display_frame_counter（防止渲染幀率導致快速遞增）
+		var current_physics_frame: int = Engine.get_physics_frames()
+		if current_physics_frame != _last_physics_frame:
+			var old_counter = display_frame_counter
+			display_frame_counter += 1
+			_last_physics_frame = current_physics_frame
+			
+			# 🟢 【新增】調試信息：重要的幀數遞增（僅在關鍵狀態變化時輸出）
+			if old_counter == 0 or (flags.hit and old_counter % 10 == 0) or (flags.blocking and old_counter % 10 == 0):
+				print("[FRAMEBAR COUNTER] %s - display_frame_counter: %d → %d (anim: %s, state: %d, timer_driven: %s)" % [
+					target_player.name, old_counter, display_frame_counter, anim_name, state, timer_driven
+				])
 	
 	value = min(current_frame + 1, total_frames)
 	queue_redraw()

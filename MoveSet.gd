@@ -9,6 +9,8 @@ class MoveData:
 	var character_requirement: String  # "DAV", "DEN", or "*"
 	var damage: float
 	var knockback: float
+	var hitstun: int = 18  # 🟢 新增: 被击中後的參數(邏輯幀)，預設 18
+	var blockstun: int = 10  # 🟢 新增: 被格擋後的參数(邏輯幀)，預設 10
 	var duration: float
 	var move_distance: float
 	var jump_delay: float
@@ -48,12 +50,16 @@ class MoveData:
 		p_deceleration_ratio: float = 0.0,
 		p_knockfly_gravity: float = 0.0,
 		p_knockfly_vertical_speed: float = 0.0,
-		p_knockfly_horizontal_speed: float = 0.0
+		p_knockfly_horizontal_speed: float = 0.0,
+		p_hitstun: int = 18,  # 🟢 新增: 預設 18
+		p_blockstun: int = 10  # 🟢 新增: 預設 10
 	):
 		name = p_name
 		character_requirement = p_char
 		damage = p_damage
 		knockback = p_knockback
+		hitstun = p_hitstun  # 🟢 新增
+		blockstun = p_blockstun  # 🟢 新增
 		duration = p_duration
 		move_distance = p_move_distance
 		jump_delay = p_jump_delay
@@ -134,27 +140,27 @@ func _ready() -> void:
 func _initialize_move_library() -> void:
 	# DAV moves
 	move_library["powerkk"] = MoveData.new(
-		"powerkk", "DAV", 12.0, 600.0, 56.0, 150.0, 0.0, 0.0, false, false, 0.0, "special", false, "three_phase", 0.25, 0.2, 0.55, 0.0, 0.0, 0.0
+		"powerkk", "DAV", 12.0, 600.0, 56.0, 150.0, 0.0, 0.0, false, false, 0.0, "special", false, "three_phase", 0.25, 0.2, 0.55, 0.0, 0.0, 0.0, 39, 23
 	)
 	move_library["super"] = MoveData.new(
-		"super", "DAV", 5.0, 200.0, 156.0, 200.0, 54.0, -210.0, true, false, 200000.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+		"super", "DAV", 5.0, 200.0, 156.0, 200.0, 54.0, -210.0, true, false, 200000.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 18
 	)
 	move_library["dp"] = MoveData.new(
 		"dp", "DAV", 5.0, 320.0, 54.0, 200.0, 4.0, -2000.0, false, false, 6200000.0, "special", true, "none", 0.0, 0.0, 0.0,
-		6200000.0, -2700.0, 20.0  # 🟢 knockfly_horizontal_speed: 100→20 (防止閃飛太遠)
+		6200000.0, -2700.0, 20.0, 39, 23  # 🟢 knockfly_horizontal_speed: 100→20 (防止閃飛太遠)
 	)
 	
 	# DEN moves
 	move_library["spnk"] = MoveData.new(
-		"spnk", "DEN", 12.0, 280.0, 72.0, 250.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+		"spnk", "DEN", 12.0, 280.0, 72.0, 250.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 23
 	)
 	move_library["hdk"] = MoveData.new(
-		"hdk", "DEN", 3.0, 290.0, 66.0, 200.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+		"hdk", "DEN", 3.0, 290.0, 66.0, 200.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 23
 	)
 	
 	# Universal moves
 	move_library["fireball"] = MoveData.new(
-		"fireball", "*", 10.0, 150.0, 18.0, 0.0, 0.0, 0.0, false, true, 0.0, "fireball", true, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+		"fireball", "*", 10.0, 80.0, 18.0, 0.0, 0.0, 0.0, false, true, 0.0, "fireball", true, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 24, 14
 	)
 
 # ============================================================
@@ -504,9 +510,11 @@ func execute_fireball_spawn() -> void:
 	fb.direction = parent.facing_direction
 	fb.owner_character_id = parent.character_id
 	fb.fireball_owner = parent
+	# 🟢 fireball 現在從 _get_fireball_params_from_moveset() 讀取所有參數（單一來源）
 	fb.global_position = parent.global_position + Vector2(fireball_x_offset * parent.facing_direction, fireball_y_offset)
 	get_tree().current_scene.add_child(fb)
 	parent.active_fireball = fb
+	print("[MoveSet.execute_fireball_spawn] Fireball spawned for %s, params from MoveSet" % parent.name)
 
 func _process_jump(delta: float, world: Node, move: MoveData) -> void:
 	current_move_state.jump_timer -= delta

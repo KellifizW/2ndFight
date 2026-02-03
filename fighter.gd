@@ -392,6 +392,7 @@ func take_hit(
 			# Hit stop 未進行或已完成 → 立即設置 hitstun/knockback/blockstun
 			hitstun_frames = hit_frames
 			initial_hitstun = hitstun_seconds
+			print("[DEBUG] hitstun_frames 被設置為: %d (hit_frames=%d, physics_hitstun=%d, 邏輯幀輸入=%d)" % [hitstun_frames, hit_frames, physics_hitstun, hitstun_duration])
 		
 		# hit_timer = hitstun時間，確保knockback完整執行
 		hit_timer = hitstun_seconds
@@ -459,7 +460,7 @@ func take_hit(
 			print("  🎮 Player: %s" % name)
 			print("  📍 Position: (%.2f, %.2f)" % [position.x, position.y])
 			print("  📏 Hit knockback distance: %.1f pixels" % push_distance)
-			print("  ⏱️  Hitstun frames: %d (%.3fs @ 60 FPS)" % [hit_frames, hit_frames / 60.0])
+			print("  ⏱️  Hitstun frames: %d (%.3fs @ %d FPS 物理)" % [hit_frames, hit_frames / float(PHYSICS_FPS), PHYSICS_FPS])
 			print("  ⚡ Hit knockback initial velocity: %.2f units (%.2f px/frame)" % [hit_push_initial_velocity, hit_push_initial_velocity / world.SIMULATION_SCALE])
 			print("  ⏳ Knockback status: %s" % ("Pending (waiting for hitstop)" if waiting_for_hit_stop_end else "Active (started immediately)"))
 			print()
@@ -546,7 +547,9 @@ func _apply_pending_hit_effect() -> void:
 	var skip_push = pending_hit_params.get("skip_push", false)
 	
 	# 啟動 hitstun（blockstun 只在格擋時設置）
+	print("[DEBUG _apply_pending_hit_effect] 執行前: hitstun_frames=%d, 即將設置為 %d" % [hitstun_frames, hit_frames])
 	hitstun_frames = hit_frames
+	print("[DEBUG _apply_pending_hit_effect] 執行後: hitstun_frames=%d" % hitstun_frames)
 	if blockstun > 0:
 		blockstun_frames = blockstun
 		initial_blockstun_frames = blockstun

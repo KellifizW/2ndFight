@@ -164,7 +164,7 @@ func calculate_required_knockback_velocity(target_distance_units: int, total_fra
 		if debug_player_name != "":
 			print("  🎮 Player: %s" % debug_player_name)
 		print("  📏 Target distance: %d units (%.2f pixels)" % [target_distance_units, target_pixels])
-		print("  ⏱️  Hitstun frames: %d (%.3fs @ 60 FPS)" % [total_frames, total_frames / 60.0])
+		print("  ⏱️  Hitstun frames: %d (%.3fs @ 120 FPS 物理)" % [total_frames, total_frames / 120.0])
 		print("  📊 Deceleration Mode: %s" % _get_decel_mode_name())
 		print("  ∑️  Deceleration sum: %.6f" % deceleration_sum)
 		print("  ⚡ Required initial velocity: %.2f units" % required_velocity)
@@ -244,11 +244,10 @@ func _physics_process(delta: float) -> void:
 					print("  📍 Initial Position: (%.2f, %.2f)" % [start_x, player.position.y])
 					print("  📍 Initial Fixed Position: (%d, %d)" % [start_fixed_x, player.fixed_position.y])
 					print("  ⚡ Initial Knockback Velocity: %.2f units (%.2f px/frame)" % [player.hit_push_velocity, player.hit_push_velocity / SIMULATION_SCALE])
-					print("  ⏱️  Total Knockback Frames: %d (%.3fs @ 60 FPS)" % [player.initial_knockback_frames, player.initial_knockback_frames / 60.0])
+					print("  ⏱️  Total Knockback Frames: %d (%.3fs @ 120 FPS 物理)" % [player.initial_knockback_frames, player.initial_knockback_frames / 120.0])
 					print("  📊 Facing Direction: %s (%.1f)" % ["Right" if player.facing_direction > 0 else "Left", player.facing_direction])
 					print("  ⏰ Time: %.3f" % player.knockback_start_time)
 					print()
-			
 			# 計算衰減倍數（二次方衰減曲線）
 			# 使用 initial_knockback_frames（初始值，固定不變），而非 hitstun_frames（會變動）
 			var total_knockback_frames = player.initial_knockback_frames
