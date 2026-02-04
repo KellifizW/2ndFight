@@ -146,7 +146,7 @@ func _initialize_move_library() -> void:
 		"super", "DAV", 5.0, 200.0, 156.0, 200.0, 54.0, -210.0, true, false, 200000.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 18
 	)
 	move_library["dp"] = MoveData.new(
-		"dp", "DAV", 5.0, 100.0, 47.0, 80.0, 4.0, -2000.0, false, false, 7400000.0, "special", true, "none", 0.0, 0.0, 0.0,
+		"dp", "DAV", 5.0, 100.0, 47.0, 80.0, 4.0, -1700.0, false, false, 4900000.0, "special", true, "none", 0.0, 0.0, 0.0,
 		7400000.0, -2800.0, 20.0, 39, 23  # 🟢 jump_speed: -2000→-9000 (升龍拳應有的高度); knockfly_gravity: 確保在被擊中時重力正確
 	)
 	
