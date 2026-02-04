@@ -25,6 +25,14 @@ var gravity_handler: GravityHandler
 var timer_handler: TimerHandler
 var landing_handler: LandingHandler
 
+# ── 著地系統 ────────────────────────────
+var is_landing: bool = false
+var landing_lock_timer: float = 0.0
+var is_airborne: bool = false  # 【新增】統一的空中狀態追蹤
+var _landing_timer_initialized: bool = false  # 【新增】防止same-frame checkpoint執行
+var _landing_checkpoint_executed: bool = false  # 【新增】追蹤checkpoint是否已執行，防止重複執行
+var _landing_forced_frames: int = 0  # 【新增】追蹤著地強制幀數，確保至少2幀
+
 # ── 基本狀態 ──────────────────────────────
 @export var landing_duration: float = 0.2
 @export var layground_duration: float = 0.2
@@ -264,6 +272,9 @@ func _physics_process(delta: float) -> void:
 	was_crouching_last_frame = (is_on_floor() and crouch_pressed and not is_blocking)
 	
 	_handle_timers(delta)
+	
+	# 【除錯】檢查landing_lock_timer是否被TimerHandler設置
+
 	_handle_blocking(input_dir, is_special_moving)
 	_handle_dash(input_dir, scale_factor, is_special_moving)
 	_handle_walk(input_dir, scale_factor, is_special_moving)

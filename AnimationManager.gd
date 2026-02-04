@@ -39,6 +39,24 @@ func compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, ani
 	if "is_wakeup_locked" in movement_node and movement_node.is_wakeup_locked:
 		return "wakeup"
 	
+	# 【著地動畫優先】著地動畫應該優先於其他狀態，確保平滑過渡
+	# 【業界標準】但在特殊招式期間，不播放landing動畫（由extended move animation包含）
+	if "is_landing" in movement_node and movement_node.is_landing and "landing_lock_timer" in movement_node and movement_node.landing_lock_timer > 0:
+		var move_set_for_landing = movement_node.get_node_or_null("MoveSet")
+		var seat = movement_node.seat if "seat" in movement_node else "?"
+		var is_spmove_active = move_set_for_landing and move_set_for_landing.is_spmove
+		var active_move = move_set_for_landing.get_active_move_name() if move_set_for_landing and move_set_for_landing.has_method("get_active_move_name") else "none"
+		
+		if not is_spmove_active:  # 【重要】只在特殊招式結束後播放
+			print("[LANDING_ANIMATION_PLAY] %s | move=%s | lock_timer=%.3f | spmove=%s" % [
+				seat, active_move, movement_node.landing_lock_timer, is_spmove_active
+			])
+			return "landing"
+		else:
+			print("[LANDING_BLOCKED_BY_SPMOVE] %s | move=%s | lock_timer=%.3f" % [
+				seat, active_move, movement_node.landing_lock_timer
+			])
+	
 	var move_set = movement_node.get_node_or_null("MoveSet")
 	
 	if move_set and move_set.is_spmove:
@@ -86,17 +104,25 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var anim_jump_dir: float = movement_node.jump_dir * movement_node.facing_direction
 	var target_state: String = movement_node._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
 	
+	var seat_str = movement_node.seat if "seat" in movement_node else "?"
+	var is_landing = movement_node.is_landing if "is_landing" in movement_node else false
+	var landing_timer = movement_node.landing_lock_timer if "landing_lock_timer" in movement_node else 0.0
+	var move_set = movement_node.get_node_or_null("MoveSet")
+	var is_spmove = move_set.is_spmove if move_set else false
+	
+	# 【詳細除錯】著地狀態相關的打印
+	if is_landing and target_state == "landing":
+		print("[UPDATE_ANIM] %s | target=landing | timer=%.3f | curr_state=%s | traveling..." % [seat_str, landing_timer, curr_state])
+	
 	# 🟢 【只在實際改變時打印】避免冗餘日誌（Start→Walk在啟動時會重複很多次）
 	if curr_state != target_state:
 		# 過濾掉遊戲啟動時的 Start→Walk 重複（只打印特殊招式和重要狀態轉換）
-		var is_special_relevant = target_state in ["dp", "powerkk", "super", "hdk", "spnk", "knockfly", "layground"] or curr_state in ["dp", "powerkk", "super", "hdk", "spnk", "knockfly", "layground"]
+		var is_special_relevant = target_state in ["dp", "powerkk", "super", "hdk", "spnk", "knockfly", "layground", "landing"] or curr_state in ["dp", "powerkk", "super", "hdk", "spnk", "knockfly", "layground", "landing"]
 		if is_special_relevant:
 			# 🟢 去重：只打印新的狀態轉換（不是上一幀已經打過的相同轉換）
 			var transition_key = "%s→%s" % [curr_state, target_state]
 			if last_printed_transition != transition_key:
-				var seat_str = movement_node.seat if "seat" in movement_node else "?"
-				var is_special_moving = movement_node.is_special_moving if "is_special_moving" in movement_node else false
-				print("[STATE_CHANGE] %s: '%s' → '%s' (spmove=%s)" % [seat_str, curr_state, target_state, is_special_moving])
+				print("[STATE_CHANGE] %s: '%s' → '%s' (spmove=%s is_landing=%s timer=%.3f)" % [seat_str, curr_state, target_state, is_spmove, is_landing, landing_timer])
 				last_printed_transition = transition_key
 	
 	var ui_root = movement_node.get_tree().get_first_node_in_group("ui")

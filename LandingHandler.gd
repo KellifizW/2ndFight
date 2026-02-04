@@ -1,69 +1,123 @@
 class_name LandingHandler extends Node
 
-# Handles landing mechanics
+# Handles landing mechanics for both normal jumps and knockfly states
+# 【改進】支援正常著地和被擊飛著地（→layground）
 var movement_node: Node
 
 func _init(movement: Node) -> void:
 	movement_node = movement
 
 func handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
-	# 🟢 【关键修正】检查是否在特殊招式期间，如果是则完全跳过着地检查
+	# ========== 檢查著地條件 ==========
+	# 【改進】條件簡化：使用統一的空中狀態檢查
+	var is_airborne = movement_node.is_jumping or movement_node.is_knockfly or movement_node.is_air_hit_backjump
+	var is_falling = movement_node.fixed_velocity.y >= 0
+	var reached_floor = movement_node.fixed_position.y >= floor_y
+	var jump_delay_passed = movement_node.jump_delay_timer <= 0
+	var not_just_jumped = not movement_node.just_jumped
+	
+	if not (is_airborne and is_falling and reached_floor and jump_delay_passed and not_just_jumped):
+		return
+	
+	var seat = movement_node.seat if "seat" in movement_node else "?"
 	var move_set = movement_node.get_node_or_null("MoveSet")
-	if move_set and move_set.is_spmove:
-		var active_move_name = move_set.get_active_move_name() if move_set.has_method("get_active_move_name") else ""
-		if active_move_name in ["dp", "hdk", "powerkk", "super"]:
-			# DP等特殊招式自带跳跃和着地动画，完全禁止LandingHandler干预
-			return
+	var is_spmove_active = move_set and move_set.is_spmove
+	var active_move = move_set.get_active_move_name() if move_set and move_set.has_method("get_active_move_name") else "none"
 	
-	# 🟢 【新增】如果特殊招式刚结束且角色还在is_jumping状态，强制重置
-	if not move_set or not move_set.is_spmove:
-		if movement_node.is_jumping and movement_node.fixed_position.y >= floor_y and movement_node.fixed_velocity.y >= 0:
-			print("[LANDING_FORCED] %s 特殊招式结束后强制着地 | pos.y=%d | velocity.y=%d" % [
-				movement_node.name, movement_node.fixed_position.y, movement_node.fixed_velocity.y
-			])
-			movement_node.is_jumping = false
-			movement_node.fixed_velocity.y = 0
-			movement_node.fixed_position.y = floor_y
-	
-	if not movement_node.just_jumped and movement_node.fixed_position.y >= floor_y and movement_node.jump_delay_timer <= 0 and movement_node.fixed_velocity.y >= 0 and movement_node.is_jumping:
-		print("[LANDING_TRIGGERED] %s 着地 | pos.y=%d | velocity.y=%d" % [movement_node.name, movement_node.fixed_position.y, movement_node.fixed_velocity.y])
+	# 【業界標準】檢查是否在特殊招式期間
+	if is_spmove_active:
+		# 【重要】在特殊招式期間：
+		# ✅ 重置位置和速度（防止穿過地面）
+		# ❌ 但NOT觸發landing動畫（animation由extended move animation包含）
+		print("[LANDING_DETECTED_DURING_SPMOVE] %s | move=%s | pos_y=%d floor_y=%d | vel_y=%d | is_jumping=%s" % [
+			seat, active_move, movement_node.fixed_position.y, floor_y, movement_node.fixed_velocity.y, movement_node.is_jumping
+		])
+		
 		movement_node.fixed_position.y = floor_y
 		movement_node.fixed_velocity.y = 0
 		movement_node.is_jumping = false
 		movement_node.just_jumped = false
-		movement_node.fixed_velocity.x = 0
-		movement_node.neutral_timer = 0.0
-		movement_node.pending_dash_dir = 0
-		movement_node.last_input_dir = 0
-		movement_node.landing_facing_lock = false
-		
-		if move_set and move_set.is_spmove:
-			# 🟢 【DP自帶著地修正】DP/HDK/POWERKK自帶著地動畫，跳過landing邏輯
-			# 這些招式會獨立播放，不受著地鎖定影響
-			var active_move_name = move_set.get_active_move_name() if move_set.has_method("get_active_move_name") else ""
-			if active_move_name in ["dp", "hdk", "powerkk"]:
-				# 完全跳過著地檢查，讓招式動畫自行播放
-				if "is_landing" in movement_node:
-					movement_node.is_landing = false
-					movement_node.landing_lock_timer = 0.0
-				return
-			else:
-				# 其他特殊招式在著地時立即停止
-				if "is_landing" in movement_node:
-					movement_node.is_landing = false
-					movement_node.landing_lock_timer = 0.0
-		else:
-			if "is_landing" in movement_node and "landing_lock_timer" in movement_node:
-				if not (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed):
-					movement_node.is_landing = true
-					movement_node.landing_lock_timer = movement_node.landing_duration
-		
-		if movement_node.groundsmoke:
-			movement_node.groundsmoke.scale.x = movement_node.facing_direction
-			movement_node.groundsmoke.restart()
-		
-		movement_node._update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+		return  # ← 提早退出，不設置 is_landing = true
 	
+	# ========== 處理正常著地（從普通跳躍或特殊招式結束後著地） ==========
+	if not movement_node.is_knockfly:
+		print("[LANDING_DETECT_NORMAL] %s | move=%s | is_jumping=%s" % [seat, active_move, movement_node.is_jumping])
+		_handle_normal_landing(input_data, floor_y, delta)
+		return
+	
+	# ========== 處理被擊飛後著地（knockfly → layground） ==========
+	# 【注意】實際轉換由 KnockflyHandler 負責，此處只確保不觸發landing動畫
+	if movement_node.is_knockfly:
+		# knockfly狀態由KnockflyHandler管理，此處不做任何操作
+		return
+
+func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
+	"""Handle landing from regular jump or completed DP/special move
+	
+	著地處理流程（新規則）：
+	1. 重置位置和速度
+	2. 清除jump狀態
+	3. 【新增】總是播放至少2幀的landing動畫（強制landing lock）
+	4. 2幀後，檢查輸入：
+	   - 無輸入 → 繼續完整landing動畫（landing_duration）
+	   - 有輸入 → 中斷landing，進入輸入狀態
+	5. 播放著地效果音和粒子
+	6. 更新動畫狀態
+	"""
+	
+	var seat = movement_node.seat if "seat" in movement_node else "?"
+	var move_set = movement_node.get_node_or_null("MoveSet")
+	var active_move = move_set.get_active_move_name() if move_set and move_set.has_method("get_active_move_name") else "none"
+	
+	# 【重要】重置位置到正確的floor_y
+	movement_node.fixed_position.y = floor_y
+	movement_node.fixed_velocity.y = 0
+	movement_node.is_jumping = false
+	movement_node.just_jumped = false
+	
+	# 【著地時停止水平移動】確保著地後不會繼續滑動
+	movement_node.fixed_velocity.x = 0
+	
+	# 重置相關狀態
+	movement_node.neutral_timer = 0.0
+	movement_node.pending_dash_dir = 0
+	movement_node.last_input_dir = 0
+	movement_node.landing_facing_lock = false
+	
+	# 【新規則】總是播放至少2幀的landing動畫（無論輸入狀態）
+	print("[LANDING_TRIGGERED_START] %s | setting is_landing=true and timer=2/60" % seat)
+	movement_node.is_landing = true
+	movement_node.landing_lock_timer = 2.0 / 60.0  # 2 frames at 60 FPS = 0.0333秒
+	movement_node._landing_timer_initialized = false  # 【新增】標記此timer剛設置，下一frame才能檢查
+	movement_node._landing_checkpoint_executed = false  # 【新增】重置checkpoint執行標記
+	movement_node._landing_forced_frames = 0  # 【新增】重置強制幀數計數器
+	
+	print("[LANDING_TRIGGERED_AFTER_SET] %s | timer now=%.6f | is_landing=%s" % [
+		seat, movement_node.landing_lock_timer, movement_node.is_landing
+	])
+	
+	var has_any_input = (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed)
+	print("[LANDING_TRIGGERED] %s | active_move=%s | is_spmove=%s | FORCED 2-FRAME LANDING | has_input=%s" % [
+		seat, active_move, move_set.is_spmove if move_set else "?", has_any_input
+	])
+	
+	# 【視覺效果】著地時播放粒子和sound
+	if movement_node.groundsmoke:
+		movement_node.groundsmoke.scale.x = movement_node.facing_direction
+		movement_node.groundsmoke.restart()
+	
+	# 【重點】保存landing timer，然後更新動畫狀態，再恢復timer
+	var saved_landing_timer = movement_node.landing_lock_timer
+	var saved_is_landing = movement_node.is_landing
+	
+	# 更新動畫狀態以觸發landing動畫
+	movement_node._update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+	
+	# 恢復landing狀態（防止被其他狀態覆蓋）
+	movement_node.landing_lock_timer = saved_landing_timer
+	movement_node.is_landing = saved_is_landing
+	
+	# 【推擠系統】處理著地時的pushbox碰撞
 	var push_manager = movement_node.get_tree().get_first_node_in_group("push_manager")
 	if push_manager:
 		push_manager._physics_process(delta)

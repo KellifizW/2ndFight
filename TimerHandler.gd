@@ -7,6 +7,7 @@ func _init(movement: Node) -> void:
 	movement_node = movement
 
 func handle_timers(delta: float) -> void:
+	
 	if movement_node.neutral_timer > 0:
 		movement_node.neutral_timer = max(0, movement_node.neutral_timer - delta)
 		if movement_node.neutral_timer == 0:
@@ -44,3 +45,47 @@ func handle_timers(delta: float) -> void:
 		if movement_node.air_hit_backjump_timer == 0:
 			movement_node.is_air_hit_backjump = false
 			movement_node.fixed_velocity = Vector2i.ZERO
+	
+	# 【著地動畫計時器】Frame-based landing animation duration
+	# 【新規則】2幀強制landing，之後檢查輸入中斷
+	var _seat = movement_node.seat if "seat" in movement_node else "?"
+	
+	# 【著地動畫計時器】Frame-based landing animation duration
+	# 【新規則】2幀強制landing，之後檢查輸入中斷
+	if "landing_lock_timer" in movement_node and movement_node.landing_lock_timer > 0:
+		# 【計數幀數】每次handle_timers被調用時計數（相當於每frame）
+		movement_node._landing_forced_frames += 1
+		print("[LANDING_FRAME] %s | frame=%d timer=%.6f (before decrement)" % [_seat, movement_node._landing_forced_frames, movement_node.landing_lock_timer])
+		
+		# 【檢查】必須等到至少2幀已過才能執行checkpoint（使用frame count，不使用time threshold）
+		# 【重點】在遞減timer之前執行checkpoint，否則會被跳過
+		if movement_node._landing_forced_frames >= 2 and not movement_node._landing_checkpoint_executed:
+			print("[LANDING_CHECKPOINT_EXECUTE] %s | frame=%d" % [_seat, movement_node._landing_forced_frames])
+			
+			# 強制2幀已結束，檢查是否有輸入
+			var input_data = movement_node.get_input() if movement_node.has_method("get_input") else {}
+			var has_input = input_data.get("input_dir", 0) != 0 or input_data.get("crouch_pressed", false) or input_data.get("jump_pressed", false)
+			print("[LANDING_CHECKPOINT_INPUT] %s | has_input=%s" % [_seat, has_input])
+			
+			# 【重點】標記checkpoint已執行，防止重複執行
+			movement_node._landing_checkpoint_executed = true
+			
+			if has_input:
+				print("[LANDING_INTERRUPT] %s | setting timer=0.001" % _seat)
+				movement_node.landing_lock_timer = 0.001
+				return
+			else:
+				var landing_duration = movement_node.landing_duration if "landing_duration" in movement_node else 0.2
+				print("[LANDING_CONTINUE] %s | extending timer to %.3f" % [_seat, landing_duration])
+				movement_node.landing_lock_timer = landing_duration
+				return
+		
+		# 現在才遞減timer（在checkpoint之後）
+		movement_node.landing_lock_timer = max(0, movement_node.landing_lock_timer - delta)
+		
+		# 正常計時器遞減
+		if movement_node.landing_lock_timer == 0:
+			movement_node.is_landing = false
+			movement_node._landing_timer_initialized = false
+			movement_node._landing_checkpoint_executed = false
+			movement_node._landing_forced_frames = 0

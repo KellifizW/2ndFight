@@ -3,17 +3,17 @@
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_ix25f"]
 [ext_resource type="Resource" uid="uid://cvb6od4v5o7vq" path="res://data/p2_attack_data.tres" id="2_jo7nc"]
 [ext_resource type="SpriteFrames" uid="uid://5q7cfeoprqup" path="res://P2Tres/player2.tres" id="3_4lg2u"]
-[ext_resource type="Texture2D" uid="uid://14kd4leqbf32" path="res://assets/Dennis2.png" id="4_a1vnf"]
-[ext_resource type="Texture2D" uid="uid://dtrspm0lofn8v" path="res://assets/texture/smoke/smoke_01.png" id="5_x0tr5"]
+[ext_resource type="Texture2D" uid="uid://bmg0ytsusin8c" path="res://assets/Dennis2.png" id="4_a1vnf"]
+[ext_resource type="Texture2D" uid="uid://bf08spa3gkec5" path="res://assets/texture/smoke/smoke_01.png" id="5_x0tr5"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://MoveSet.gd" id="6_vym3m"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_wv6ou"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://PlayerController.gd" id="8_808jx"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://InputManager.gd" id="9_mhb1e"]
-[ext_resource type="AudioStream" uid="uid://d3skwgptqbjp7" path="res://audio/heavy_hit_sound.wav" id="10_bi6lw"]
-[ext_resource type="AudioStream" uid="uid://q8jvh4li7qsx" path="res://audio/block_sound.wav" id="11_ysvx1"]
-[ext_resource type="AudioStream" uid="uid://b2ew4e1h4tafa" path="res://audio/hurt_grunt_p2.wav" id="12_ydrny"]
-[ext_resource type="AudioStream" uid="uid://d2psvdgx2304o" path="res://audio/spnk_call.mp3" id="13_m8rlt"]
-[ext_resource type="AudioStream" uid="uid://dnep5kjdqe0v7" path="res://audio/fireball_call_p2.wav" id="14_qpqbf"]
+[ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://audio/heavy_hit_sound.wav" id="10_bi6lw"]
+[ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://audio/block_sound.wav" id="11_ysvx1"]
+[ext_resource type="AudioStream" uid="uid://tvuhpp3xdv6f" path="res://audio/hurt_grunt_p2.wav" id="12_ydrny"]
+[ext_resource type="AudioStream" uid="uid://cll5h0p83t516" path="res://audio/spnk_call.mp3" id="13_m8rlt"]
+[ext_resource type="AudioStream" uid="uid://byrh2qgg16h31" path="res://audio/fireball_call_p2.wav" id="14_qpqbf"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(90, 300)
@@ -3778,8 +3778,8 @@ tracks/9/keys = {
 
 [sub_resource type="Animation" id="Animation_0e34t"]
 resource_name = "davis_jump_v"
-length = 0.5
-step = 0.0333
+length = 0.73333335
+step = 0.016666668
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
@@ -3823,10 +3823,10 @@ tracks/3/path = NodePath("AnimatedSprite2D:frame")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.06666667, 0.13333334, 0.33333334, 0.43333334),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
-"update": 0,
-"values": [0, 1, 2, 3, 4]
+"times": PackedFloat32Array(0, 0.06666667, 0.13333334, 0.18333334, 0.3, 0.56666666, 0.65),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [0, 1, 2, 3, 4, 2, 5]
 }
 
 [sub_resource type="Animation" id="Animation_64yue"]
@@ -3885,6 +3885,7 @@ tracks/3/keys = {
 [sub_resource type="Animation" id="Animation_tj0vx"]
 resource_name = "landing"
 length = 0.2
+step = 0.016666668
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
@@ -3928,10 +3929,10 @@ tracks/3/path = NodePath("AnimatedSprite2D:frame")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.06666667, 0.13333334),
-"transitions": PackedFloat32Array(1, 1, 1),
-"update": 0,
-"values": [3, 2, 1]
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.13333334, 0.15),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
+"update": 1,
+"values": [0, 1, 2, 3, 4]
 }
 
 [sub_resource type="Animation" id="Animation_uns0w"]

@@ -55,12 +55,10 @@ var active_fireball: Node = null
 # ── 狀態旗標 ─────────────────────
 var current_mode: String = "ground_stand"
 var attack_type: String = "none"
-var is_landing: bool = false
 var is_wakeup: bool = false
 var is_wakeup_locked: bool = false
 var is_air_attacking: bool = false
 var is_special_moving: bool = false
-var landing_lock_timer: float = 0.0
 var has_air_attacked: bool = false
 var attack_duration_timer: float = 0.0  # Timer to track attack duration
 var attack_start_frame: int = -1  # 🟢 Frame when attack started (120 FPS physics frame)
@@ -90,6 +88,10 @@ func reset_attack_state() -> void:
 	_update_animation_state(0, input_data.crouch_pressed)
 
 func reset_landing_state() -> void:
+	# 【重點】如果在強制2幀期間，不要重置
+	if _landing_forced_frames < 2:
+		return
+	
 	is_landing = false
 	landing_lock_timer = 0.0
 	landing_facing_lock = false
@@ -99,6 +101,10 @@ func reset_landing_state() -> void:
 	_update_animation_state(0, input_data.crouch_pressed)
 
 func reset_air_state() -> void:
+	# 【重點】如果正在著地期間，不要修改landing狀態
+	if is_landing and landing_lock_timer > 0:
+		return
+	
 	if is_on_floor():
 		is_air_attacking = false
 		has_air_attacked = false
@@ -114,10 +120,17 @@ func reset_air_state() -> void:
 			landing_lock_timer = landing_duration
 
 func reset_special_state() -> void:
+	var move_name = move_set.get_active_move_name() if move_set and move_set.has_method("get_active_move_name") else "UNKNOWN"
+	var seat_str = seat if seat else "?"
+	print("[RESET_SPECIAL] Move '%s' | Seat: %s" % [move_name, seat_str])
+	
 	if move_set and move_set.is_spmove:
 		move_set.stop_special_move()
 	is_facing_locked = false
+	is_special_moving = false  # 🟢 【除錯修正】確保清除 is_special_moving
+	
 	force_update_facing_direction()
+	
 	# 获取当前真实的输入状态，保持蹲状态
 	var input_data = get_input()
 	_update_animation_state(0, input_data.crouch_pressed)
@@ -235,11 +248,12 @@ func _physics_process(delta: float) -> void:
 	if not world: return
 
 	# Handle air attack landing
-	if is_air_attacking and is_on_floor():
+	# 【重點】檢查是否已經由 LandingHandler 處理
+	if is_air_attacking and is_on_floor() and not is_landing:
 		is_air_attacking = false
 		is_attacking = false
-		var input_data = get_input()
-		if not (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed):
+		var air_input_data = get_input()
+		if not (air_input_data.input_dir != 0 or air_input_data.crouch_pressed or air_input_data.jump_pressed):
 			is_landing = true
 			landing_lock_timer = landing_duration
 			animation_state.travel("landing")
@@ -286,7 +300,14 @@ func _physics_process(delta: float) -> void:
 		input_data.st_mk_pressed = false
 		input_data.st_hk_pressed = false
 
-	if move_set and move_set.process_move(delta, input_data, is_valid_ground_state):
+	# 🟢 【DP修正】特殊招式必須無條件呼叫 process_move，否則 timer 倒數無法進行
+	# DP 會跳起來，導致 is_valid_ground_state=false，如果檢查該條件就會跳過 process_move
+	# 結果：timer 永遠不倒數，動畫無法自然完成，導致狀態永遠鎖定
+	if move_set and move_set.is_spmove:
+		# 特殊招式中：無條件呼叫 process_move
+		if move_set.process_move(delta, input_data, true):
+			return
+	elif move_set and move_set.process_move(delta, input_data, is_valid_ground_state):
 		return
 
 	# 檢查取消窗口是否開啟
@@ -318,14 +339,7 @@ func _physics_process(delta: float) -> void:
 		if attack_executor:
 			attack_executor.debug_air_attack_blocked(input_data, self)
 
-	if landing_lock_timer > 0:
-		landing_lock_timer -= delta
-		if is_landing and (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed or
-						   input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed or
-						   input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed or
-						   input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed):
-			is_landing = false
-			landing_lock_timer = 0.0
+	# 【重點】landing_lock_timer 現在由 TimerHandler 管理，不在這裡遞減
 			landing_facing_lock = false
 			has_air_attacked = false
 			update_facing_direction()
@@ -357,14 +371,6 @@ func _physics_process(delta: float) -> void:
 func _physics_process_jump(_delta: float) -> void:
 	var input_data = get_input()
 	if input_data.jump_pressed and is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_hit and not is_knockfly and not is_blocking and not is_layground:
-		# 🟢 【调试】检查是否在special move期间触发
-		var move_set = $MoveSet if has_node("MoveSet") else null
-		if move_set and move_set.is_spmove:
-			print("[JUMP_DEBUG] %s 嘗試在special move期間跳躍（被阻止）| move=%s" % [
-				name, move_set.current_move_state.active_move.name if move_set.current_move_state.active_move else "none"
-			])
-			return  # 不允許在special move期間使用普通跳躍
-		
 		# Consume the buffered jump input
 		if player_controller and player_controller.has_method("consume_button_input"):
 			player_controller.consume_button_input("jump")
@@ -374,9 +380,6 @@ func _physics_process_jump(_delta: float) -> void:
 		landing_facing_lock = true
 		if world:
 			fixed_position.y = world.FLOOR_Y - 1
-			# 🟢 【调试】记录清零速度的操作
-			if fixed_velocity.y != 0:
-				print("[JUMP_DEBUG] %s 清零垂直速度: %d → 0 (普通跳躍啟動)" % [name, fixed_velocity.y])
 			fixed_velocity.y = 0
 			if input_data.input_dir != 0:
 				var jump_speed = jump_horizontal_speed if input_data.input_dir * facing_direction > 0 else jump_horizontal_speed * 0.75
@@ -439,27 +442,44 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 # Override parent's animation finished handler to use player_anim_resets
 func _on_animation_player_finished(anim_name: String) -> void:
 	"""動畫完成回調（Phase 4 優化：使用分類判斷）"""
+	var seat_str = seat if seat else "?"
+	var is_special_move = move_set and move_set.get_active_move_name() in move_set.move_library if move_set else false
+	print("[✓ ANIM_FINISHED] '%s' | Seat: %s | is_spmove=%s | is_attacking=%s" % [anim_name, seat_str, is_special_move, is_attacking])
+	
 	# 地面攻擊重置
 	if anim_name in GROUND_ATTACK_ANIMS:
+		print("  → Ground attack reset")
 		reset_attack_state()
 	# 空中攻擊重置
 	elif anim_name in AIR_ATTACK_ANIMS:
+		print("  → Air attack reset")
 		reset_air_state()
 	# 跳躍重置
 	elif anim_name in JUMP_ANIMS:
+		print("  → Jump reset")
 		_reset_jump_state()
 	# 特殊招式重置
 	elif anim_name in SPECIAL_ANIMS:
+		print("  → Special move reset")
+		# 🟢 【DP自帶著地修正】DP/HDK/POWERKK自帶著地動畫，完成時視為著地完成
+		if move_set and move_set.get_active_move_name() in ["dp", "hdk", "powerkk"]:
+			print("     (self-landing move)")
 		reset_special_state()
 	# 著地重置
 	elif anim_name == "landing":
+		print("  → Landing reset")
 		_reset_landing_anim()
 	else:
 		# 如果不在上述分類中，調用父類方法
+		print("  → Parent handler")
 		super._on_animation_player_finished(anim_name)
 
 func _reset_jump_state() -> void:
 	"""跳躍動畫結束重置"""
+	# 【重點】如果正在著地期間，不要修改landing狀態
+	if is_landing and landing_lock_timer > 0:
+		return
+	
 	if is_on_floor():
 		is_jumping = false
 		var input_data = get_input()
@@ -476,6 +496,10 @@ func _reset_jump_state() -> void:
 
 func _reset_landing_anim() -> void:
 	"""著地動畫結束重置"""
+	# 【重點】如果在強制2幀期間，不要重置
+	if _landing_forced_frames < 2:
+		return
+	
 	is_landing = false
 	landing_lock_timer = 0.0
 	has_air_attacked = false

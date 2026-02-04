@@ -146,7 +146,7 @@ func _initialize_move_library() -> void:
 		"super", "DAV", 5.0, 200.0, 156.0, 200.0, 54.0, -210.0, true, false, 200000.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 18
 	)
 	move_library["dp"] = MoveData.new(
-		"dp", "DAV", 5.0, 100.0, 47.0, 80.0, 4.0, -1700.0, false, false, 4900000.0, "special", true, "none", 0.0, 0.0, 0.0,
+		"dp", "DAV", 5.0, 100.0, 47.0, 40.0, 4.0, -2000.0, false, false, 7400000.0, "special", true, "none", 0.0, 0.0, 0.0,
 		7400000.0, -2800.0, 20.0, 39, 23  # 🟢 jump_speed: -2000→-9000 (升龍拳應有的高度); knockfly_gravity: 確保在被擊中時重力正確
 	)
 	
@@ -202,6 +202,12 @@ func _start_special(move_name: String) -> void:
 	current_move_state.initial_parent_scale_x = parent.scale.x
 	current_move_state.initial_sprite_scale_x = sprite.scale.x
 	
+	var seat = parent.seat if "seat" in parent else "?"
+	if move_data.jump_delay > 0:
+		print("[DP_START_SPECIAL] %s: %s | jump_delay=%.0f frames | jump_timer=%.4f sec | jump_speed=%.0f" % [
+			seat, move_name, move_data.jump_delay, current_move_state.jump_timer, move_data.jump_speed
+		])
+	
 	# Projectile spawning is now handled via AnimationPlayer Call Method (_spawn_fireball)
 	
 	# Update parent
@@ -213,14 +219,8 @@ func _start_special(move_name: String) -> void:
 	if "is_special_moving" in parent:
 		parent.is_special_moving = true
 	
-	# Calculate velocity and position fixes
+	# Calculate velocity
 	var world = get_tree().get_first_node_in_group("world")
-	
-	# 🟢 【修正】對於有跳躍屬性的招式（如 DP），確保角色完全在地面上
-	if world and move_data.jump_speed != 0 and parent.fixed_position.y != world.FLOOR_Y:
-		print("[DP_FIX] %s 修正 Y 位置: %d → %d (確保 DP 跳躍正常)" % [parent.name, parent.fixed_position.y, world.FLOOR_Y])
-		parent.fixed_position.y = world.FLOOR_Y
-		parent.fixed_velocity.y = 0
 	if world and move_data.move_distance > 0:
 		var base_speed = (move_data.move_distance / (move_data.duration / 60.0)) * world.SIMULATION_SCALE * parent.facing_direction
 		current_move_state.initial_speed = base_speed
@@ -244,7 +244,6 @@ func _start_special(move_name: String) -> void:
 	if animation_player and animation_player.has_animation(move_name):
 		var anim = animation_player.get_animation(move_name)
 		current_move_state.timer = anim.length
-		print("[MoveSet._start_special] Animation '%s' found, length: %.3f seconds" % [move_name, anim.length])
 	else:
 		var seat_str = parent.seat if "seat" in parent else "?"
 		print("[MoveSet._start_special] ⚠️  WARNING: Animation '%s' not found! (Seat: %s)" % [move_name, seat_str])
@@ -315,13 +314,6 @@ func start_fireball() -> void:
 	print("[MoveSet] %s: Starting fireball (AI=%s)" % [parent.name, parent.is_ai_controlled])
 	_start_special("fireball")
 
-# === Utility functions ===
-func get_active_move_name() -> String:
-	"""返回当前活跃特殊招式的名称"""
-	if current_move_state.active_move:
-		return current_move_state.active_move.name
-	return ""
-
 # === Freeze logic ===
 func freeze_game(duration: float) -> void:
 	var tween = create_tween().set_ignore_time_scale(true)
@@ -344,7 +336,23 @@ func stop_special_move() -> void:
 	
 	var move_name = current_move_state.active_move.name if current_move_state.active_move else "UNKNOWN"
 	var seat_str = parent.seat if "seat" in parent else "?"
-	print("[STOP_MOVE] '%s' | Seat: %s" % [move_name, seat_str])
+	var call_stack = get_stack()  # 获取调用栈
+	var caller = ""
+	if call_stack.size() > 1:
+		caller = call_stack[1].source  # 显示调用者的源文件
+	
+	# 检查此时parent是否处于knockfly或其他状态
+	var parent_state = ""
+	if "is_knockfly" in parent:
+		parent_state += "knockfly=%s " % parent.is_knockfly
+	if "is_hit" in parent:
+		parent_state += "is_hit=%s " % parent.is_hit
+	if "is_jumping" in parent:
+		parent_state += "jumping=%s " % parent.is_jumping
+	if "fixed_velocity" in parent:
+		parent_state += "vel.y=%d" % parent.fixed_velocity.y
+	
+	print("[STOP_MOVE] 🛑 '%s' | Seat: %s | Caller: %s | Parent state: %s" % [move_name, seat_str, caller, parent_state])
 	
 	is_spmove = false
 	is_special_moving = false
@@ -359,16 +367,38 @@ func stop_special_move() -> void:
 	
 	parent.force_update_facing_direction()
 	
-	# 如果玩家处于 knockfly 状态，不清零速度（保留击飞的垂直/水平速度）
-	if not parent.is_knockfly:
-		parent.fixed_velocity = Vector2i.ZERO
-	
+	# ========== 【關鍵修改】Jump保護邏輯 ==========
+	# 如果特殊招式執行過jump（如DP），檢查是否已經著地
+	var has_jumped = current_move_state.has_jumped if current_move_state else false
+	var seat_for_log = parent.seat if "seat" in parent else "?"
+	var vel_before = parent.fixed_velocity.y if "fixed_velocity" in parent else 0
 	var world = get_tree().get_first_node_in_group("world")
-	if world and parent.is_jumping and parent.fixed_position.y >= world.FLOOR_Y:
-		parent.is_jumping = false
-		parent.fixed_velocity.y = 0
-		parent.fixed_position.y = world.FLOOR_Y
+	var is_on_ground = parent.fixed_position.y >= (world.FLOOR_Y if world else 200000)
 	
+	print("[STOP_MOVE_DEBUG] %s: has_jumped=%s, vel_before=%d, is_on_ground=%s, knockfly=%s" % [
+		seat_for_log, has_jumped, vel_before, is_on_ground, parent.is_knockfly
+	])
+	
+	# 【業界標準】DP動畫包含著地幀（extended animation）
+	# 如果DP已經著地，不要恢復is_jumping
+	# 如果DP還在空中，保留is_jumping讓下一幀著地
+	if has_jumped and not is_on_ground:
+		# 還在空中，保留jumping狀態
+		print("[STOP_MOVE_DEBUG] %s: PRESERVED is_jumping=true (still in air)" % seat_for_log)
+		parent.is_jumping = true
+	elif has_jumped and is_on_ground:
+		# 已經著地，清除jumping狀態以防止多餘著地動畫
+		print("[STOP_MOVE_DEBUG] %s: CLEARED is_jumping (already on ground)" % seat_for_log)
+		parent.is_jumping = false
+	else:
+		# 沒有jump過的特殊招式（如火球），清零速度
+		if not parent.is_knockfly:
+			parent.fixed_velocity = Vector2i.ZERO
+			print("[STOP_MOVE_DEBUG] %s: CLEARED velocity (no jump executed)" % seat_for_log)
+		else:
+			print("[STOP_MOVE_DEBUG] %s: PRESERVED velocity (knockfly active)" % seat_for_log)
+	
+	# 重設move狀態
 	current_move_state.reset()
 
 # ============================================================
@@ -376,16 +406,27 @@ func stop_special_move() -> void:
 # ============================================================
 
 func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) -> bool:
-	if parent.is_hit or parent.is_knockfly:
-		if is_spmove: stop_special_move()
-		return false
-	if not is_valid_state:
-		# Removed verbose logging - this is normal behavior during action commitment
-		return false
-	
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
 		push_warning("World node missing")
+		return false
+	
+	# 🔴 【特殊招式jump保護】即使被擊中也要執行jump邏輯（只針對jump_delay > 0的招式）
+	if is_spmove and current_move_state.active_move and current_move_state.active_move.jump_delay > 0:
+		var move_name = current_move_state.active_move.name
+		var seat = parent.seat if "seat" in parent else "?"
+		print("[DP_PROCESS_JUMP_CALLED] %s: %s | jump_delay=%.2f | jump_timer=%.3f" % [
+			seat, move_name, current_move_state.active_move.jump_delay, current_move_state.jump_timer
+		])
+		_process_jump(delta, world, current_move_state.active_move)
+	
+	# 如果被擊中或被擊飛，停止其他處理
+	if parent.is_hit or parent.is_knockfly:
+		if is_spmove: stop_special_move()
+		return false
+	
+	if not is_valid_state:
+		# Removed verbose logging - this is normal behavior during action commitment
 		return false
 	
 	# Input triggers
@@ -403,8 +444,8 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		_process_projectile_spawn(delta, world)
 	
 	# Handle jump logic
-	if move.jump_delay > 0:
-		_process_jump(delta, world, move)
+	# 🔴 NOTE: Jump logic已在 process_move() 開始時執行（在is_hit檢查之前）
+	# 此處已移除重複調用
 	
 	# 【重要】重力現在由 GravitySystem 統一管理，在 Movement._handle_gravity() 中應用
 	# 此處不再重複應用重力，避免計算重複
@@ -450,23 +491,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 			else:
 				# Safety: should not reach here
 				parent.fixed_velocity.x = 0
-	
-	# 🟢 追蹤垂直速度變化（檢測是否被意外清零）
-	if move.jump_delay > 0 and current_move_state.has_jumped:
-		if parent.fixed_velocity.y >= 0:
-			var seat_str = parent.seat if "seat" in parent else "?"
-			print("[DP_VELOCITY_ALERT] %s: 垂直速度異常！velocity.y=%d (應該<0) | is_jumping=%s | pos.y=%d" % [
-				seat_str, parent.fixed_velocity.y, parent.is_jumping, parent.fixed_position.y
-			])
-	
-	# 🟢 【关键修正】对于有跳跃属性的招式（DP等），着地后立即停止special move
-	if move.jump_delay > 0 and current_move_state.has_jumped:
-		# 检测是否已着地：is_jumping=false 且 在地面上
-		if not parent.is_jumping and parent.fixed_position.y >= world.FLOOR_Y:
-			var seat_str = parent.seat if "seat" in parent else "?"
-			print("[DP_LANDED] %s: DP着地，立即停止special move | timer=%.3f" % [seat_str, current_move_state.timer])
-			stop_special_move()
-			return true
 	
 	# Update position
 	parent.fixed_position.x += int(parent.fixed_velocity.x * delta)
@@ -568,34 +592,27 @@ func execute_fireball_spawn() -> void:
 func _process_jump(delta: float, world: Node, move: MoveData) -> void:
 	current_move_state.jump_timer -= delta
 	
-	var seat_str = parent.seat if "seat" in parent else "?"
+	# Jump 條件：計時到期 + 尚未跳過
+	# 🔴 【特殊招式jump】不檢查is_on_floor()，因為DP可能在前一個jump中或animation中
+	# 只要計時到期且未jump過，就執行jump
+	var timer_ready = current_move_state.jump_timer <= 0
+	var not_jumped_yet = not current_move_state.has_jumped
+	
 	var move_name = move.name if move else "unknown"
+	var seat = parent.seat if "seat" in parent else "?"
 	
-	# 🟢 每幀追蹤跳躍條件（用於調試）
-	if move.jump_delay > 0 and current_move_state.jump_timer > 0:
-		print("[DP_JUMP_WAIT] %s: 等待跳躍 | timer=%.3f | is_jumping=%s | pos.y=%d | has_jumped=%s" % [
-			seat_str, current_move_state.jump_timer, parent.is_jumping, parent.fixed_position.y, current_move_state.has_jumped
-		])
-	
-	# 🟢 修正：使用 >= 而不是 ==，允許輕微的位置偏差（避免格擋後無法跳躍的問題）
-	# 原因：格擋或其他物理交互可能導致 fixed_position.y 略微偏離 FLOOR_Y
-	if current_move_state.jump_timer <= 0 and not parent.is_jumping and parent.fixed_position.y >= world.FLOOR_Y and not current_move_state.has_jumped:
-		var target_velocity_y = int(move.jump_speed * world.SIMULATION_SCALE)
-		print("[DP_JUMP_TRIGGER] %s: 準備跳躍 | 目標 velocity.y=%d | 當前 velocity.y=%d" % [seat_str, target_velocity_y, parent.fixed_velocity.y])
-		
-		parent.fixed_velocity.y = target_velocity_y
-		parent.fixed_position.y = world.FLOOR_Y - 1
+	if timer_ready and not_jumped_yet:
+		# ✅ jump_speed是邏輯值，乘以SIMULATION_SCALE得到固定點速度
+		var scale = world.SIMULATION_SCALE if world else 1000
+		parent.fixed_velocity.y = int(move.jump_speed * scale)
+		parent.fixed_position.y = world.FLOOR_Y - 1 if world else 199999
 		parent.is_jumping = true
 		current_move_state.has_jumped = true
-		
-		print("[DP_JUMP_TRIGGERED] %s: %s | velocity.y=%d | fixed_position.y=%d | is_jumping=%s" % [
-			seat_str, move_name, parent.fixed_velocity.y, parent.fixed_position.y, parent.is_jumping
-		])
-	elif current_move_state.jump_timer <= 0 and not current_move_state.has_jumped:
-		# 跳躍條件未滿足時的調試信息
-		print("[DP_JUMP_BLOCKED] %s: 跳躍條件未滿足 | is_jumping=%s | pos.y=%d (FLOOR=%d) | has_jumped=%s" % [
-			seat_str, parent.is_jumping, parent.fixed_position.y, world.FLOOR_Y, current_move_state.has_jumped
-		])
+		print("[DP_JUMP_TRIGGERED] %s: %s | velocity.y=%d | is_on_floor=%s" % [seat, move_name, parent.fixed_velocity.y, parent.is_on_floor()])
+	elif timer_ready and current_move_state.has_jumped:
+		pass  # Already jumped
+	elif current_move_state.jump_timer > 0 and not current_move_state.has_jumped:
+		pass  # Waiting for jump timer
 
 func _apply_gravity(delta: float, world: Node, gravity: float) -> void:
 	if parent.fixed_position.y < world.FLOOR_Y:
@@ -609,18 +626,12 @@ func _apply_gravity(delta: float, world: Node, gravity: float) -> void:
 # ============================================================
 
 func _on_spmove_animation_finished(anim_name: String) -> void:
-	var seat_str = parent.seat if "seat" in parent else "?"
-	var current_anim_state: String = parent.animation_state.get_current_node() if parent.animation_state else "(unknown)"
-	print("[🎬 ANIM_FINISHED] Animation '%s' finished | AnimTree now in: '%s' | is_spmove=%s | Seat: %s" % [anim_name, current_anim_state, is_spmove, seat_str])
-	
 	if is_spmove_animation_playing and anim_name in move_library:
-		print("  ✓ Special move animation completed: %s" % anim_name)
 		is_spmove_animation_playing = false
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false
 		
 		if current_move_state.timer > 0:
-			print("  ⏱️  Timer still running (%.3f), deferring stop" % current_move_state.timer)
 			return
 		
 		stop_special_move()
@@ -635,6 +646,15 @@ func get_special_damage() -> float:
 	if is_spmove and current_move_state.active_move:
 		return current_move_state.active_move.damage
 	return 0.0
+
+# ============================================================
+# HELPER: Get active move name
+# ============================================================
+
+func get_active_move_name() -> String:
+	if is_spmove and current_move_state.active_move:
+		return current_move_state.active_move.name
+	return ""
 
 # ============================================================
 # HELPER: Check if specific move is active
