@@ -459,6 +459,15 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				seat_str, parent.fixed_velocity.y, parent.is_jumping, parent.fixed_position.y
 			])
 	
+	# 🟢 【关键修正】对于有跳跃属性的招式（DP等），着地后立即停止special move
+	if move.jump_delay > 0 and current_move_state.has_jumped:
+		# 检测是否已着地：is_jumping=false 且 在地面上
+		if not parent.is_jumping and parent.fixed_position.y >= world.FLOOR_Y:
+			var seat_str = parent.seat if "seat" in parent else "?"
+			print("[DP_LANDED] %s: DP着地，立即停止special move | timer=%.3f" % [seat_str, current_move_state.timer])
+			stop_special_move()
+			return true
+	
 	# Update position
 	parent.fixed_position.x += int(parent.fixed_velocity.x * delta)
 	parent.global_position = world.to_scaled_vector2(parent.fixed_position)
