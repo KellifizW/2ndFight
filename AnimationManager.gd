@@ -110,10 +110,6 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	var move_set = movement_node.get_node_or_null("MoveSet")
 	var is_spmove = move_set.is_spmove if move_set else false
 	
-	# 【詳細除錯】著地狀態相關的打印
-	if is_landing and target_state == "landing":
-		print("[UPDATE_ANIM] %s | target=landing | timer=%.3f | curr_state=%s | traveling..." % [seat_str, landing_timer, curr_state])
-	
 	# 🟢 【只在實際改變時打印】避免冗餘日誌（Start→Walk在啟動時會重複很多次）
 	if curr_state != target_state:
 		# 過濾掉遊戲啟動時的 Start→Walk 重複（只打印特殊招式和重要狀態轉換）

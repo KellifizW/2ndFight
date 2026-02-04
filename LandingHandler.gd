@@ -85,21 +85,11 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	movement_node.landing_facing_lock = false
 	
 	# 【新規則】總是播放至少2幀的landing動畫（無論輸入狀態）
-	print("[LANDING_TRIGGERED_START] %s | setting is_landing=true and timer=2/60" % seat)
 	movement_node.is_landing = true
 	movement_node.landing_lock_timer = 2.0 / 60.0  # 2 frames at 60 FPS = 0.0333秒
 	movement_node._landing_timer_initialized = false  # 【新增】標記此timer剛設置，下一frame才能檢查
 	movement_node._landing_checkpoint_executed = false  # 【新增】重置checkpoint執行標記
 	movement_node._landing_forced_frames = 0  # 【新增】重置強制幀數計數器
-	
-	print("[LANDING_TRIGGERED_AFTER_SET] %s | timer now=%.6f | is_landing=%s" % [
-		seat, movement_node.landing_lock_timer, movement_node.is_landing
-	])
-	
-	var has_any_input = (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed)
-	print("[LANDING_TRIGGERED] %s | active_move=%s | is_spmove=%s | FORCED 2-FRAME LANDING | has_input=%s" % [
-		seat, active_move, move_set.is_spmove if move_set else "?", has_any_input
-	])
 	
 	# 【視覺效果】著地時播放粒子和sound
 	if movement_node.groundsmoke:
