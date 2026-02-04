@@ -501,12 +501,39 @@ func _physics_process(delta: float) -> void:
 				if overlap_fixed_y > 0:
 					var world = get_tree().get_first_node_in_group("world")
 					if world:
-						if not parent.is_immune_to_floor_snap and abs(parent.fixed_position.y - world.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE):
+						# 🟢 【关键修正】只在两个角色都在地面时才进行地面吸附
+						# 如果任一角色正在跳跃（is_jumping=true），则跳过速度清零
+						var parent_needs_snap = not parent.is_immune_to_floor_snap and abs(parent.fixed_position.y - world.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE)
+						var other_needs_snap = not other.is_immune_to_floor_snap and abs(other.fixed_position.y - world.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE)
+						
+						# 🟢 【调试】记录速度清零操作
+						if parent_needs_snap and not parent.is_jumping:
+							if parent.fixed_velocity.y != 0:
+								print("[PUSH_SNAP] %s 地面吸附清零速度: velocity.y=%d → 0 | pos.y=%d | FLOOR_Y=%d" % [
+									parent.name, parent.fixed_velocity.y, parent.fixed_position.y, world.FLOOR_Y
+								])
 							parent.fixed_position.y = world.FLOOR_Y
 							parent.fixed_velocity.y = 0
-						if not other.is_immune_to_floor_snap and abs(other.fixed_position.y - world.FLOOR_Y) < round(collision_epsilon * SIMULATION_SCALE):
+						elif parent_needs_snap and parent.is_jumping:
+							# 如果正在跳跃，只修正位置，不清零速度
+							print("[PUSH_SNAP_SKIP] %s 正在跳躍，跳過速度清零 | velocity.y=%d | is_jumping=%s" % [
+								parent.name, parent.fixed_velocity.y, parent.is_jumping
+							])
+							parent.fixed_position.y = world.FLOOR_Y
+						
+						if other_needs_snap and not other.is_jumping:
+							if other.fixed_velocity.y != 0:
+								print("[PUSH_SNAP] %s 地面吸附清零速度: velocity.y=%d → 0 | pos.y=%d | FLOOR_Y=%d" % [
+									other.name, other.fixed_velocity.y, other.fixed_position.y, world.FLOOR_Y
+								])
 							other.fixed_position.y = world.FLOOR_Y
 							other.fixed_velocity.y = 0
+						elif other_needs_snap and other.is_jumping:
+							# 如果正在跳跃，只修正位置，不清零速度
+							print("[PUSH_SNAP_SKIP] %s 正在跳躍，跳過速度清零 | velocity.y=%d | is_jumping=%s" % [
+								other.name, other.fixed_velocity.y, other.is_jumping
+							])
+							other.fixed_position.y = world.FLOOR_Y
 				
 				parent.fixed_position.x = new_self_fixed_x
 				other.fixed_position.x = new_other_fixed_x

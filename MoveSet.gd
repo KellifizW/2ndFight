@@ -213,8 +213,14 @@ func _start_special(move_name: String) -> void:
 	if "is_special_moving" in parent:
 		parent.is_special_moving = true
 	
-	# Calculate velocity
+	# Calculate velocity and position fixes
 	var world = get_tree().get_first_node_in_group("world")
+	
+	# 🟢 【修正】對於有跳躍屬性的招式（如 DP），確保角色完全在地面上
+	if world and move_data.jump_speed != 0 and parent.fixed_position.y != world.FLOOR_Y:
+		print("[DP_FIX] %s 修正 Y 位置: %d → %d (確保 DP 跳躍正常)" % [parent.name, parent.fixed_position.y, world.FLOOR_Y])
+		parent.fixed_position.y = world.FLOOR_Y
+		parent.fixed_velocity.y = 0
 	if world and move_data.move_distance > 0:
 		var base_speed = (move_data.move_distance / (move_data.duration / 60.0)) * world.SIMULATION_SCALE * parent.facing_direction
 		current_move_state.initial_speed = base_speed
@@ -308,6 +314,13 @@ func start_fireball() -> void:
 		return
 	print("[MoveSet] %s: Starting fireball (AI=%s)" % [parent.name, parent.is_ai_controlled])
 	_start_special("fireball")
+
+# === Utility functions ===
+func get_active_move_name() -> String:
+	"""返回当前活跃特殊招式的名称"""
+	if current_move_state.active_move:
+		return current_move_state.active_move.name
+	return ""
 
 # === Freeze logic ===
 func freeze_game(duration: float) -> void:
@@ -438,6 +451,14 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 				# Safety: should not reach here
 				parent.fixed_velocity.x = 0
 	
+	# 🟢 追蹤垂直速度變化（檢測是否被意外清零）
+	if move.jump_delay > 0 and current_move_state.has_jumped:
+		if parent.fixed_velocity.y >= 0:
+			var seat_str = parent.seat if "seat" in parent else "?"
+			print("[DP_VELOCITY_ALERT] %s: 垂直速度異常！velocity.y=%d (應該<0) | is_jumping=%s | pos.y=%d" % [
+				seat_str, parent.fixed_velocity.y, parent.is_jumping, parent.fixed_position.y
+			])
+	
 	# Update position
 	parent.fixed_position.x += int(parent.fixed_velocity.x * delta)
 	parent.global_position = world.to_scaled_vector2(parent.fixed_position)
@@ -538,14 +559,34 @@ func execute_fireball_spawn() -> void:
 func _process_jump(delta: float, world: Node, move: MoveData) -> void:
 	current_move_state.jump_timer -= delta
 	
-	if current_move_state.jump_timer <= 0 and not parent.is_jumping and parent.fixed_position.y == world.FLOOR_Y and not current_move_state.has_jumped:
-		parent.fixed_velocity.y = int(move.jump_speed * world.SIMULATION_SCALE)
+	var seat_str = parent.seat if "seat" in parent else "?"
+	var move_name = move.name if move else "unknown"
+	
+	# 🟢 每幀追蹤跳躍條件（用於調試）
+	if move.jump_delay > 0 and current_move_state.jump_timer > 0:
+		print("[DP_JUMP_WAIT] %s: 等待跳躍 | timer=%.3f | is_jumping=%s | pos.y=%d | has_jumped=%s" % [
+			seat_str, current_move_state.jump_timer, parent.is_jumping, parent.fixed_position.y, current_move_state.has_jumped
+		])
+	
+	# 🟢 修正：使用 >= 而不是 ==，允許輕微的位置偏差（避免格擋後無法跳躍的問題）
+	# 原因：格擋或其他物理交互可能導致 fixed_position.y 略微偏離 FLOOR_Y
+	if current_move_state.jump_timer <= 0 and not parent.is_jumping and parent.fixed_position.y >= world.FLOOR_Y and not current_move_state.has_jumped:
+		var target_velocity_y = int(move.jump_speed * world.SIMULATION_SCALE)
+		print("[DP_JUMP_TRIGGER] %s: 準備跳躍 | 目標 velocity.y=%d | 當前 velocity.y=%d" % [seat_str, target_velocity_y, parent.fixed_velocity.y])
+		
+		parent.fixed_velocity.y = target_velocity_y
 		parent.fixed_position.y = world.FLOOR_Y - 1
 		parent.is_jumping = true
 		current_move_state.has_jumped = true
-		var seat_str = parent.seat if "seat" in parent else "?"
-		var move_name = move.name if move else "unknown"
-		print("[JUMP_TRIGGERED] %s: %s | velocity.y=%d" % [seat_str, move_name, parent.fixed_velocity.y])
+		
+		print("[DP_JUMP_TRIGGERED] %s: %s | velocity.y=%d | fixed_position.y=%d | is_jumping=%s" % [
+			seat_str, move_name, parent.fixed_velocity.y, parent.fixed_position.y, parent.is_jumping
+		])
+	elif current_move_state.jump_timer <= 0 and not current_move_state.has_jumped:
+		# 跳躍條件未滿足時的調試信息
+		print("[DP_JUMP_BLOCKED] %s: 跳躍條件未滿足 | is_jumping=%s | pos.y=%d (FLOOR=%d) | has_jumped=%s" % [
+			seat_str, parent.is_jumping, parent.fixed_position.y, world.FLOOR_Y, current_move_state.has_jumped
+		])
 
 func _apply_gravity(delta: float, world: Node, gravity: float) -> void:
 	if parent.fixed_position.y < world.FLOOR_Y:
@@ -585,15 +626,6 @@ func get_special_damage() -> float:
 	if is_spmove and current_move_state.active_move:
 		return current_move_state.active_move.damage
 	return 0.0
-
-# ============================================================
-# HELPER: Get active move name
-# ============================================================
-
-func get_active_move_name() -> String:
-	if is_spmove and current_move_state.active_move:
-		return current_move_state.active_move.name
-	return ""
 
 # ============================================================
 # HELPER: Check if specific move is active

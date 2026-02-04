@@ -83,6 +83,15 @@ func _physics_process(delta: float) -> void:
 		print("Warning: World node not found in group 'world' for %s" % name)
 		return
 
+	# 🟢 【調試】監控 DP 期間的垂直速度變化
+	var move_set = $MoveSet if has_node("MoveSet") else null
+	if move_set and move_set.is_spmove and move_set.current_move_state.active_move:
+		var move_name = move_set.current_move_state.active_move.name
+		if move_name == "dp" and is_jumping and fixed_velocity.y >= 0:
+			print("[DP_DEBUG] %s DP期間速度異常！velocity.y=%d | is_jumping=%s | pos.y=%d" % [
+				name, fixed_velocity.y, is_jumping, fixed_position.y
+			])
+
 	# 🟢 【修正】檢查是否在 hit stop 期間，如果是則暫停所有幀數遞減
 	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
 	var is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo
@@ -229,8 +238,17 @@ func take_hit(
 		initial_blockstun = physics_blockstun / float(PHYSICS_FPS)  # 轉換回秒數用於其他計算
 		block_timer = physics_blockstun / float(PHYSICS_FPS)
 		print("[BLOCKSTUN START] %s 進入格擋 → %d 物理幀 (%.3f秒)" % [name, blockstun_frames, block_timer])
+		
+		# 🟢 【修正】強制重置垂直速度和位置，確保完全在地面上（避免 DP 跳躍條件失敗）
+		# ⚠️  注意：這只清零防禦方的速度，不應影響攻擊方
+		print("[BLOCKSTUN_VELOCITY] %s 格擋前速度: velocity=(%d, %d)" % [name, fixed_velocity.x, fixed_velocity.y])
 		fixed_velocity.x = 0
 		fixed_velocity.y = 0
+		if fixed_position.y != world.FLOOR_Y:
+			print("[BLOCKSTUN FIX] %s 修正 Y 位置: %d → %d" % [name, fixed_position.y, world.FLOOR_Y])
+			fixed_position.y = world.FLOOR_Y
+		print("[BLOCKSTUN_VELOCITY] %s 格擋後速度: velocity=(%d, %d)" % [name, fixed_velocity.x, fixed_velocity.y])
+		
 		if not skip_push:
 			# ── 【新增】Block Knockback 使用幀計數系統，與 Hit Knockback 對齐 ──
 			# ✅ 關鍵：使用相同的 knockback_distance 參數，確保 block knockback 距離 = hit knockback 距離

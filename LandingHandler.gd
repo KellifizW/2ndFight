@@ -7,7 +7,26 @@ func _init(movement: Node) -> void:
 	movement_node = movement
 
 func handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
+	# 🟢 【关键修正】检查是否在特殊招式期间，如果是则完全跳过着地检查
+	var move_set = movement_node.get_node_or_null("MoveSet")
+	if move_set and move_set.is_spmove:
+		var active_move_name = move_set.get_active_move_name() if move_set.has_method("get_active_move_name") else ""
+		if active_move_name in ["dp", "hdk", "powerkk", "super"]:
+			# DP等特殊招式自带跳跃和着地动画，完全禁止LandingHandler干预
+			return
+	
+	# 🟢 【新增】如果特殊招式刚结束且角色还在is_jumping状态，强制重置
+	if not move_set or not move_set.is_spmove:
+		if movement_node.is_jumping and movement_node.fixed_position.y >= floor_y and movement_node.fixed_velocity.y >= 0:
+			print("[LANDING_FORCED] %s 特殊招式结束后强制着地 | pos.y=%d | velocity.y=%d" % [
+				movement_node.name, movement_node.fixed_position.y, movement_node.fixed_velocity.y
+			])
+			movement_node.is_jumping = false
+			movement_node.fixed_velocity.y = 0
+			movement_node.fixed_position.y = floor_y
+	
 	if not movement_node.just_jumped and movement_node.fixed_position.y >= floor_y and movement_node.jump_delay_timer <= 0 and movement_node.fixed_velocity.y >= 0 and movement_node.is_jumping:
+		print("[LANDING_TRIGGERED] %s 着地 | pos.y=%d | velocity.y=%d" % [movement_node.name, movement_node.fixed_position.y, movement_node.fixed_velocity.y])
 		movement_node.fixed_position.y = floor_y
 		movement_node.fixed_velocity.y = 0
 		movement_node.is_jumping = false
@@ -18,7 +37,6 @@ func handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
 		movement_node.last_input_dir = 0
 		movement_node.landing_facing_lock = false
 		
-		var move_set = movement_node.get_node_or_null("MoveSet")
 		if move_set and move_set.is_spmove:
 			# 🟢 【DP自帶著地修正】DP/HDK/POWERKK自帶著地動畫，跳過landing邏輯
 			# 這些招式會獨立播放，不受著地鎖定影響

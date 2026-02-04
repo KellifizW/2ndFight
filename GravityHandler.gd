@@ -12,11 +12,20 @@ func handle_gravity(delta: float, move_set) -> void:
 	# 【統一重力系統】應用正確的重力計算
 	apply_gravity_unified(delta, move_set)
 	
-	# 地面時清除垂直速度
+	# 🟢 【修正】地面時清除垂直速度 - 但DP等特殊招式期間不清零
 	if not movement_node.is_knockfly and movement_node.jump_delay_timer <= 0 and movement_node.is_on_floor():
 		if not movement_node.just_jumped:
-			movement_node.fixed_velocity.y = 0
-			movement_node.fixed_position.y = movement_node.world.FLOOR_Y if movement_node.world else 200000
+			# 檢查是否在特殊招式的跳躍階段
+			var in_special_jump = false
+			if move_set and move_set.is_spmove and move_set.current_move_state.active_move:
+				var move_name = move_set.current_move_state.active_move.name
+				if move_name in ["dp", "hdk", "powerkk", "super"] and movement_node.is_jumping:
+					in_special_jump = true
+					print("[GRAVITY_SKIP] %s 在%s期間跳過速度清零 | velocity.y=%d" % [movement_node.name, move_name, movement_node.fixed_velocity.y])
+			
+			if not in_special_jump:
+				movement_node.fixed_velocity.y = 0
+				movement_node.fixed_position.y = movement_node.world.FLOOR_Y if movement_node.world else 200000
 
 ## 🟢 【統一重力應用函數】
 ## 根據當前狀態，決定使用的正確重力
