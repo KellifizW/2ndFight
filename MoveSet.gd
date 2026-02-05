@@ -1,5 +1,9 @@
 class_name MoveSet extends Node
 
+# 【Frame-based 計時系統】
+static var PHYSICS_FPS: int = 120  # 動態設置為實際物理 FPS（由 _ready 更新）
+const LOGIC_FPS: int = 60  # 遊戲邏輯基準 FPS（用於動畫時長轉換）
+
 # ============================================================
 # MOVE DATA STRUCTURE - Single source of truth
 # ============================================================
@@ -83,8 +87,8 @@ class MoveData:
 
 class MoveState:
 	var active_move: MoveData
-	var timer: float = 0.0
-	var jump_timer: float = 0.0
+	var timer: int = 0  # Frame-based timer
+	var jump_timer: int = 0  # Frame-based timer
 	var has_jumped: bool = false
 	var initial_facing: float = 0.0
 	var initial_parent_scale_x: float = 0.0
@@ -95,8 +99,8 @@ class MoveState:
 	
 	func reset() -> void:
 		active_move = null
-		timer = 0.0
-		jump_timer = 0.0
+		timer = 0
+		jump_timer = 0
 		has_jumped = false
 
 # ============================================================
@@ -122,6 +126,9 @@ var is_spmove_animation_playing: bool = false
 
 func _ready() -> void:
 	_initialize_move_library()
+	
+	# 【初始化物理 FPS】
+	PHYSICS_FPS = Engine.physics_ticks_per_second
 	
 	if not parent or not hitbox or not animation_player or not sprite:
 		push_warning("MoveSet initialization failed: missing required nodes")
@@ -193,10 +200,13 @@ func _start_special(move_name: String) -> void:
 	is_spmove_animation_playing = true
 	
 	current_move_state.active_move = move_data
-	# 🟢 將邏輯幀轉換為秒數（邏輯幀基於 60 FPS）
-	current_move_state.timer = move_data.duration / 60.0
-	# 🟢 將邏輯幀轉換為秒數
-	current_move_state.jump_timer = move_data.jump_delay / 60.0
+	# 🔴 【關鍵修復】move_data.duration 是那輯幀數（60 FPS），不是秒數
+	# 轉換策略：那輯幀 * 2 = 物理幀數 (120 FPS)
+	var duration_physics_frames = int(round(move_data.duration * 2.0))
+	current_move_state.timer = duration_physics_frames
+	# 🔴 jump_delay 也是那輯幀數，需要乘以 2
+	var jump_delay_physics_frames = int(round(move_data.jump_delay * 2.0))
+	current_move_state.jump_timer = jump_delay_physics_frames
 	current_move_state.has_jumped = false
 	current_move_state.initial_facing = parent.facing_direction
 	current_move_state.initial_parent_scale_x = parent.scale.x
@@ -222,9 +232,11 @@ func _start_special(move_name: String) -> void:
 	# Calculate velocity
 	var world = get_tree().get_first_node_in_group("world")
 	if world and move_data.move_distance > 0:
-		var base_speed = (move_data.move_distance / (move_data.duration / 60.0)) * world.SIMULATION_SCALE * parent.facing_direction
+		# 🔴 【關鍵修復】move_data.duration 是那輯幀數，需轉換為秒數
+		var duration_seconds = move_data.duration / 60.0  # 那輯幀 -> 秒数
+		var base_speed = (move_data.move_distance / duration_seconds) * world.SIMULATION_SCALE * parent.facing_direction
 		current_move_state.initial_speed = base_speed
-		current_move_state.total_duration = move_data.duration / 60.0  # 🟢 轉換為秒數
+		current_move_state.total_duration = float(duration_physics_frames)  # 使用前面已計算的 duration_physics_frames
 		
 		# Set initial velocity based on acceleration curve
 		if move_data.acceleration_curve == "accelerate":
@@ -241,18 +253,26 @@ func _start_special(move_name: String) -> void:
 		current_move_state.total_duration = 0.0
 	
 	# Play animation via AnimationTree state machine (same as normal attacks)
+	var seat_str = parent.seat if "seat" in parent else "?"
 	if animation_player and animation_player.has_animation(move_name):
 		var anim = animation_player.get_animation(move_name)
-		current_move_state.timer = anim.length
+		# ℹ️ 【重要】timer 已在前面設定（基於 move_data.duration），不再覆蓋
+		# 如果需要使用動畫長度，應該在 move_data 中設定 duration 與動畫長度相符
+		print("[MoveSet DEBUG] Animation '%s' loaded | Duration: %.3fs | Timer: %d frames @%d FPS (physics)" % [move_name, anim.length, current_move_state.timer, 120])
+		
+		# 🟢 【詳細除錯】移動參數分析
+		if move_data.move_distance > 0:
+			var d_secs = move_data.duration / 60.0  # 🔴 duration 是邏輯幀數，轉換為秒
+			var spd_sec = move_data.move_distance / d_secs if d_secs > 0 else 0.0
+			var spd_frame = spd_sec / 120.0  # pixel per 120 FPS physics frame
+			print("  [MOVE DEBUG] 移動距離: %.1f px, 時長: %.3f s (%d logical frames), 速度: %.1f px/s (%.3f px/frame @120FPS physics)" % [move_data.move_distance, d_secs, int(move_data.duration), spd_sec, spd_frame])
 	else:
-		var seat_str = parent.seat if "seat" in parent else "?"
 		print("[MoveSet._start_special] ⚠️  WARNING: Animation '%s' not found! (Seat: %s)" % [move_name, seat_str])
 	
 	# Use AnimationTree.travel() (prevents dual playback with AnimationPlayer)
 	# parent is Movement which has animation_state
 	if parent and "animation_state" in parent:
 		var current_anim_state: String = parent.animation_state.get_current_node() if parent.animation_state else "(unknown)"
-		var seat_str = parent.seat if "seat" in parent else "?"
 		print("[MoveSet._start_special] 🎬 Playing '%s' | Current AnimTree state: '%s' | Seat: %s" % [move_name, current_anim_state, seat_str])
 		
 		# 🟢 強制重置：如果已經在同一招式狀態，需要直接通過AnimationPlayer強制重啟
@@ -281,7 +301,6 @@ func _start_special(move_name: String) -> void:
 		sound_player.volume_db = 0.0
 		sound_player.play()
 	
-	var seat_str = parent.seat if "seat" in parent else "?"
 	print("[MoveSet] ✅ Started %s! Char: %s, Duration: %.3f, Seat: %s" % [move_name, character_id, current_move_state.timer, seat_str])
 
 # ============================================================
@@ -454,8 +473,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	
 	# Update velocity based on acceleration curve
 	if move.acceleration_curve != "none" and current_move_state.total_duration > 0:
-		var elapsed_time = current_move_state.total_duration - current_move_state.timer
-		var elapsed_ratio = elapsed_time / current_move_state.total_duration
+		# 🔴 【關鍵修復】elapsed_ratio 現在正確地基於幀數計算（不混亂秒數和幀數）
+		var elapsed_frames = current_move_state.total_duration - current_move_state.timer
+		var elapsed_ratio = elapsed_frames / current_move_state.total_duration
 		
 		if move.acceleration_curve == "accelerate":
 			# Quadratic acceleration: speed increases from 0 to max
@@ -496,8 +516,8 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	parent.fixed_position.x += int(parent.fixed_velocity.x * delta)
 	parent.global_position = world.to_scaled_vector2(parent.fixed_position)
 	
-	# Update timer
-	current_move_state.timer -= delta
+	# Update timer (FRAME-BASED)
+	current_move_state.timer -= 1
 	
 	# Check if move is finished
 	if current_move_state.timer <= 0:
@@ -559,7 +579,7 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 	
 	return false
 
-func _process_projectile_spawn(delta: float, _world: Node) -> void:
+func _process_projectile_spawn(_delta: float, _world: Node) -> void:
 	# Projectile spawning is now handled via AnimationPlayer Call Method
 	# This function is deprecated and can be removed after animation setup
 	pass
@@ -589,8 +609,8 @@ func execute_fireball_spawn() -> void:
 	parent.active_fireball = fb
 	print("[MoveSet.execute_fireball_spawn] Fireball spawned for %s, params from MoveSet" % parent.name)
 
-func _process_jump(delta: float, world: Node, move: MoveData) -> void:
-	current_move_state.jump_timer -= delta
+func _process_jump(_delta: float, world: Node, move: MoveData) -> void:
+	current_move_state.jump_timer -= 1  # Frame-based decrement
 	
 	# Jump 條件：計時到期 + 尚未跳過
 	# 🔴 【特殊招式jump】不檢查is_on_floor()，因為DP可能在前一個jump中或animation中

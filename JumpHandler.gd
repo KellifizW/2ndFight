@@ -12,7 +12,10 @@ func handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor_
 		movement_node.jump_dir = input_dir
 		movement_node.is_jumping = true
 		movement_node.landing_facing_lock = true
-		movement_node.jump_delay_timer = movement_node.jump_delay_duration
+		# 🔴 【關鍵修復】轉換秒數duration為幀數 基於 PHYSICS_FPS(120)
+		# jump_delay_timer 在 _physics_process 每幀遞減，所以應×120（120 FPS 物理幀）而非×60
+		movement_node.jump_delay_timer = int(round(movement_node.jump_delay_duration * 120))
+		print("[JUMP DEBUG] Jump started | jump_delay_duration: %.3fs -> jump_delay_timer: %d frames @120 FPS" % [movement_node.jump_delay_duration, movement_node.jump_delay_timer])
 		movement_node.fixed_position.y = floor_y - 1
 		movement_node.fixed_velocity.y = 0
 		

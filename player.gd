@@ -60,9 +60,9 @@ var is_wakeup_locked: bool = false
 var is_air_attacking: bool = false
 var is_special_moving: bool = false
 var has_air_attacked: bool = false
-var attack_duration_timer: float = 0.0  # Timer to track attack duration
+var attack_duration_timer: int = 0  # Frame-based timer for attack duration
 var attack_start_frame: int = -1  # 🟢 Frame when attack started (120 FPS physics frame)
-var wakeup_timer: float = 0.0  # Timer to track wakeup duration
+var wakeup_timer: int = 0  # Frame-based timer for wakeup duration
 var is_facing_locked: bool = false
 
 var special_input_data: Dictionary = {
@@ -76,7 +76,7 @@ var special_input_data: Dictionary = {
 func reset_attack_state() -> void:
 	is_attacking = false
 	attack_type = "none"
-	attack_duration_timer = 0.0
+	attack_duration_timer = 0
 	attack_start_frame = -1  # 🟢 重置攻擊開始幀
 	if cancel_window_handler:
 		cancel_window_handler.reset()
@@ -89,35 +89,37 @@ func reset_attack_state() -> void:
 
 func reset_landing_state() -> void:
 	# 【重點】如果在強制2幀期間，不要重置
-	if _landing_forced_frames < 2:
+	if self._landing_forced_frames < 2:
 		return
 	
-	is_landing = false
-	landing_lock_timer = 0.0
-	landing_facing_lock = false
-	update_facing_direction()
+	self.is_landing = false
+	self.landing_lock_timer = 0
+	self.landing_facing_lock = false
+	self.update_facing_direction()
 	# 获取当前真实的输入状态，保持蹲状态
 	var input_data = get_input()
 	_update_animation_state(0, input_data.crouch_pressed)
 
 func reset_air_state() -> void:
 	# 【重點】如果正在著地期間，不要修改landing狀態
-	if is_landing and landing_lock_timer > 0:
+	if self.is_landing and self.landing_lock_timer > 0:
 		return
 	
-	if is_on_floor():
-		is_air_attacking = false
-		has_air_attacked = false
+	if self.is_on_floor():
+		self.is_air_attacking = false
+		self.has_air_attacked = false
 		var input_data = get_input()
 		if (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed
 			or input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed
 			or input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed
 			or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed):
-			is_landing = false
-			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+			self.is_landing = false
+			self._update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 		else:
-			is_landing = true
-			landing_lock_timer = landing_duration
+			self.is_landing = true
+			# 轉換 landing_duration（秒）為幀數 @120 FPS (PHYSICS_FPS)
+			self.landing_lock_timer = int(round(self.landing_duration * 120)) if "landing_duration" in self else 24
+			print("[AIR LANDING DEBUG] is_landing set | duration: %.3fs -> timer: %d frames @120 FPS" % [self.landing_duration, self.landing_lock_timer])
 
 func reset_special_state() -> void:
 	var move_name = move_set.get_active_move_name() if move_set and move_set.has_method("get_active_move_name") else "UNKNOWN"
@@ -232,7 +234,7 @@ func take_hit(
 	knockback_distance: float = -1.0
 ) -> void:
 	# Clear attack timer when getting hit
-	attack_duration_timer = 0.0
+	attack_duration_timer = 0
 	# Call parent implementation
 	super.take_hit(hitstun_duration, blockstun_duration, damage, skip_push, force_knockfly, knockfly_params, knockback_distance)
 
@@ -255,11 +257,13 @@ func _physics_process(delta: float) -> void:
 		var air_input_data = get_input()
 		if not (air_input_data.input_dir != 0 or air_input_data.crouch_pressed or air_input_data.jump_pressed):
 			is_landing = true
-			landing_lock_timer = landing_duration
+			# 轉換 landing_duration（秒）為幀數 @120 FPS (PHYSICS_FPS)
+			landing_lock_timer = int(round(landing_duration * 120)) if "landing_duration" in self else 24
+			print("[ON FLOOR LANDING DEBUG] Landing triggered | duration: %.3fs -> timer: %d frames @120 FPS" % [landing_duration, landing_lock_timer])
 			animation_state.travel("landing")
 		else:
 			is_landing = false
-			landing_lock_timer = 0.0
+			landing_lock_timer = 0
 			has_air_attacked = false
 
 	# 取消窗口由動畫 call method 控制（_open_cancel_window / _close_cancel_window）
@@ -349,22 +353,22 @@ func _physics_process(delta: float) -> void:
 			has_air_attacked = false
 			landing_facing_lock = false
 
-	# Countdown wakeup timer
+	# Countdown wakeup timer (FRAME-BASED)
 	if wakeup_timer > 0:
-		wakeup_timer -= delta
+		wakeup_timer -= 1
 		if wakeup_timer <= 0 and is_wakeup_locked:
 			is_wakeup = false
 			is_wakeup_locked = false
 			is_landing = false
-			attack_duration_timer = 0.0
+			attack_duration_timer = 0
 			update_facing_direction()
 	
 	if not (landing_lock_timer > 0):
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 	
-	# Countdown attack duration timer (only when actually attacking)
+	# Countdown attack duration timer (FRAME-BASED, only when actually attacking)
 	if is_attacking and attack_duration_timer > 0:
-		attack_duration_timer -= delta
+		attack_duration_timer -= 1
 		if attack_duration_timer <= 0:
 			reset_attack_state()
 
@@ -432,11 +436,13 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 		is_wakeup = true
 		is_wakeup_locked = true
 		fixed_velocity = Vector2i.ZERO
-		# Set wakeup timer based on animation length
+		# Set wakeup timer based on animation length (converted to frame count @60FPS - LOGIC_FPS)
 		if animation_player and animation_player.has_animation("wakeup"):
-			wakeup_timer = animation_player.get_animation("wakeup").length
+			var wakeup_duration = animation_player.get_animation("wakeup").length
+			wakeup_timer = int(round(wakeup_duration * 60))
+			print("[WAKEUP DEBUG] wakeup_duration: %.3fs -> wakeup_timer: %d frames @60 FPS" % [wakeup_duration, wakeup_timer])
 		else:
-			wakeup_timer = 0.5
+			wakeup_timer = 30  # 0.5 seconds = 30 frames @60FPS
 		animation_state.travel("wakeup")
 
 # Override parent's animation finished handler to use player_anim_resets
@@ -492,7 +498,8 @@ func _reset_jump_state() -> void:
 			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 		else:
 			is_landing = true
-			landing_lock_timer = landing_duration
+			landing_lock_timer = int(round(landing_duration * 120)) if "landing_duration" in self else int(24)
+			print("[AIR LANDING DEBUG] is_landing set | duration: %.3fs -> timer: %d frames @120 FPS" % [landing_duration, landing_lock_timer])
 
 func _reset_landing_anim() -> void:
 	"""著地動畫結束重置"""
@@ -501,7 +508,7 @@ func _reset_landing_anim() -> void:
 		return
 	
 	is_landing = false
-	landing_lock_timer = 0.0
+	landing_lock_timer = 0
 	has_air_attacked = false
 	var input_data = get_input()
 	_update_animation_state(0, input_data.crouch_pressed)
@@ -600,14 +607,17 @@ func _execute_attack(attack_name: String) -> void:
 	else:
 		attack_start_frame = -1
 	
-	# Get animation duration and set timer
+	# Get animation duration and set timer (convert to frames @120 FPS PHYSICS - multiply by 2 since 120/60=2)
 	if animation_player and animation_player.has_animation(attack_name):
 		var anim_length = animation_player.get_animation(attack_name).length
-		attack_duration_timer = anim_length
-		print("[EXECUTE_ATTACK] Set attack_duration_timer=", anim_length, " for ", attack_name)
+		# 🔴 【關鍵修復】attack_duration_timer 應按 120 FPS 物理幀計算
+		# 邏輯：動畫時長（秒）× 60 FPS（邏輯幀）× 2（物理幀轉換係數）= 對應的物理幀數
+		attack_duration_timer = int(round(anim_length * 60 * 2))
+		print("[EXECUTE_ATTACK] Set attack_duration_timer=%d frames for %s (duration: %.3fs @60 FPS logic = %d @120 FPS physics)" % [int(round(anim_length * 60)), attack_name, anim_length, attack_duration_timer])
 	else:
-		attack_duration_timer = 0.5  # Default 0.5 seconds if animation not found
-		print("[EXECUTE_ATTACK] Animation not found, using default timer=0.5")
+		# Default: 0.5 seconds @ 60 FPS = 30 frames → × 2 = 60 frames @ 120 FPS
+		attack_duration_timer = 60
+		print("[EXECUTE_ATTACK] Animation not found, using default timer=60 frames (@120 FPS physics)")
 	
 	print("[EXECUTE_ATTACK] Set is_attacking=true, attack_type=", attack_name)
 	

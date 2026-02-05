@@ -27,7 +27,7 @@ var landing_handler: LandingHandler
 
 # ── 著地系統 ────────────────────────────
 var is_landing: bool = false
-var landing_lock_timer: float = 0.0
+var landing_lock_timer: int = 0  # Frame-based timer
 var is_airborne: bool = false  # 【新增】統一的空中狀態追蹤
 var _landing_timer_initialized: bool = false  # 【新增】防止same-frame checkpoint執行
 var _landing_checkpoint_executed: bool = false  # 【新增】追蹤checkpoint是否已執行，防止重複執行
@@ -37,7 +37,7 @@ var _landing_forced_frames: int = 0  # 【新增】追蹤著地強制幀數，�
 @export var landing_duration: float = 0.2
 @export var layground_duration: float = 0.2
 var is_layground: bool = false
-var layground_timer: float = 0.0
+var layground_timer: int = 0  # Frame-based timer
 var is_knockfly_animation_finished: bool = false
 
 # ── 蹲姿 ──────────────────────────────────
@@ -50,7 +50,7 @@ var was_hit_while_crouching: bool = false  # 記錄被擊中時是否處於蹲�
 var jump_vertical_speed: float = -2500.0
 var jump_horizontal_speed: float = 470.0
 var jump_dir: float = 0.0
-var jump_delay_timer: float = 0.0
+var jump_delay_timer: int = 0  # Frame-based timer
 var just_jumped: bool = false
 var is_jumping: bool = false
 @export var jump_delay_duration: float = 0.067
@@ -62,12 +62,12 @@ var dash_speed: float = 2100.0
 var backdash_speed: float = 1000.0
 var dash_time: float = 0.35
 var backdash_time: float = 0.35
-var dash_timer: float = 0.0
+var dash_timer: int = 0  # Frame-based timer
 var dash_direction: float = 0.0
 var double_tap_timer: float = 0.3
 var last_input_dir: int = 0
 var pending_dash_dir: int = 0
-var neutral_timer: float = 0.0
+var neutral_timer: int = 0  # Frame-based timer
 # Dash deceleration variables
 var dash_initial_speed: float = 0.0
 var dash_total_time: float = 0.0
@@ -93,11 +93,11 @@ var knockfly_velocity_x: float = 0.0
 var knockfly_accumulated_distance: float = 0.0
 var knockfly_max_distance: float = 150.0
 var is_knockfly: bool = false
-var knockfly_timer: float = 0.0
+var knockfly_timer: int = 0  # Frame-based timer
 
 # ── 空中受擊 ──────────────────────────────
 var is_air_hit_backjump: bool = false
-var air_hit_backjump_timer: float = 0.0
+var air_hit_backjump_timer: int = 0  # Frame-based timer
 @export var air_hit_backjump_speed: float = 400.0
 @export var air_hit_backjump_duration: float = 0.2
 @export var air_hit_backjump_up_speed: float = -800.0
@@ -186,7 +186,9 @@ func _reset_knockfly() -> void:
 		fixed_velocity = Vector2i.ZERO
 		is_knockfly = false
 		is_layground = true
-		layground_timer = layground_duration
+		# 轉換 layground_duration（秒）為幀數（@120 FPS 物理幀）
+		# layground_timer 在 _physics_process 每幀遞減，所以應×120 而非×60
+		layground_timer = int(round(layground_duration * 120.0)) if "layground_duration" in self else 24
 		is_knockfly_animation_finished = false
 		_update_animation_state(0, false)
 	else:
@@ -200,9 +202,9 @@ func _reset_attack() -> void:
 	if has_node("Hitbox/HitShape"):
 		$Hitbox/HitShape.disabled = true
 
-func _apply_air_friction(friction_coeff: float, delta: float) -> void:
-	# Delegated to KnockflyHandler
-	knockfly_handler.apply_air_friction(friction_coeff, delta)
+func _apply_air_friction(friction_coeff: float, _delta: float) -> void:
+	# Delegated to KnockflyHandler 【已改為 frame-based】
+	knockfly_handler.apply_air_friction(friction_coeff)
 
 func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
@@ -245,8 +247,8 @@ func _ready() -> void:
 	prev_position = global_position
 	fixed_position = Vector2i(int(global_position.x * (world.SIMULATION_SCALE if world else 1000)), world.FLOOR_Y if world else 200000)
 	update_facing_direction()
-	knockfly_timer = 0.0
-	layground_timer = 0.0
+	knockfly_timer = 0
+	layground_timer = 0
 	is_knockfly_animation_finished = false
 
 func _physics_process(delta: float) -> void:
@@ -271,10 +273,17 @@ func _physics_process(delta: float) -> void:
 			is_crouch_transition_played = false
 	was_crouching_last_frame = (is_on_floor() and crouch_pressed and not is_blocking)
 	
-	_handle_timers(delta)
+	_handle_timers()
 	
-	# 【除錯】檢查landing_lock_timer是否被TimerHandler設置
-
+	# 【遊戲速度監視】每 120 物理幀輸出一次時間檢查點
+	if get_physics_process_delta_time() > 0:
+		var frame_time = get_physics_process_delta_time()
+		if Engine.get_physics_frames() % 120 == 0 and name == "Player_A":
+			var expected_time = Time.get_ticks_msec() / 1000.0
+			print("[GAME SPEED] @%.2f秒 | Δt=%.5f(%.1f FPS) | Expected: 1/120" % [
+				expected_time, frame_time, 1.0 / max(frame_time, 0.0001)
+			])
+	
 	_handle_blocking(input_dir, is_special_moving)
 	_handle_dash(input_dir, scale_factor, is_special_moving)
 	_handle_walk(input_dir, scale_factor, is_special_moving)
@@ -312,8 +321,8 @@ func _physics_process(delta: float) -> void:
 	
 	post_physics_process(delta)
 
-func _handle_timers(delta: float) -> void:
-	timer_handler.handle_timers(delta)
+func _handle_timers() -> void:
+	timer_handler.handle_timers()
 
 func _handle_blocking(input_dir: int, is_special_moving: bool) -> void:
 	blocking_handler.handle_blocking(input_dir, is_special_moving)

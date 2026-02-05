@@ -66,6 +66,7 @@ class Collider:
 
 func get_depth(a: Collider, b: Collider) -> Vector2i:
 	var length = a.center - b.center
+	@warning_ignore("integer_division")
 	var depth = (a.size + b.size) / 2
 	depth.x -= abs(length.x)
 	depth.y -= abs(length.y)
@@ -262,7 +263,7 @@ func _physics_process(delta: float) -> void:
 			
 			# 🔴 重要：knockback_frames 的遞減現在在 Fighter._physics_process 中處理
 			# 這裡只負責計算並應用速度，不負責遞減幀數
-			var old_frames = player.knockback_frames
+			var _old_frames = player.knockback_frames
 			
 			# Knockback結束檢查
 			if player.knockback_frames <= 0:
@@ -272,12 +273,12 @@ func _physics_process(delta: float) -> void:
 				
 				# knockback_frames 和 hitstun_frames 現在完全同步（都在 Fighter._physics_process 中遞減）
 				# 所以實際執行的幀數應該等於初始值
-				var actual_duration_by_frames = expected_duration
+				var _actual_duration_by_frames = expected_duration
 				
 				# 牆上時鐘計時（用於參考，但可能因 time_scale 而不同）
-				var actual_duration_by_clock = 0.0
+				var _actual_duration_by_clock = 0.0
 				if player.knockback_start_time > 0:
-					actual_duration_by_clock = (Time.get_ticks_msec() / 1000.0) - player.knockback_start_time
+					_actual_duration_by_clock = (Time.get_ticks_msec() / 1000.0) - player.knockback_start_time
 				
 				# 計算總移動距離
 				var final_x = player.position.x

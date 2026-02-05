@@ -65,9 +65,9 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	6. 更新動畫狀態
 	"""
 	
-	var seat = movement_node.seat if "seat" in movement_node else "?"
+	var _seat = movement_node.seat if "seat" in movement_node else "?"
 	var move_set = movement_node.get_node_or_null("MoveSet")
-	var active_move = move_set.get_active_move_name() if move_set and move_set.has_method("get_active_move_name") else "none"
+	var _active_move = move_set.get_active_move_name() if move_set and move_set.has_method("get_active_move_name") else "none"
 	
 	# 【重要】重置位置到正確的floor_y
 	movement_node.fixed_position.y = floor_y
@@ -86,7 +86,8 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	
 	# 【新規則】總是播放至少2幀的landing動畫（無論輸入狀態）
 	movement_node.is_landing = true
-	movement_node.landing_lock_timer = 2.0 / 60.0  # 2 frames at 60 FPS = 0.0333秒
+	# 🔴 【修正】2 邏輯幀 @ 60 FPS = 4 物理幀 @ 120 FPS
+	movement_node.landing_lock_timer = 4  # 2 frames at 60 FPS = 4 frames at 120 FPS physics
 	movement_node._landing_timer_initialized = false  # 【新增】標記此timer剛設置，下一frame才能檢查
 	movement_node._landing_checkpoint_executed = false  # 【新增】重置checkpoint執行標記
 	movement_node._landing_forced_frames = 0  # 【新增】重置強制幀數計數器

@@ -2,7 +2,7 @@ class_name Fighter extends Movement
 
 signal block_detected(target: String, block_type: String)
 
-static var PHYSICS_FPS: int = 60
+static var PHYSICS_FPS: int = 120
 const DISPLAY_FPS: int = 60
 const LOGIC_FPS: int = 60  # 邏輯幀率（遊戲設計基礎）
 
@@ -314,7 +314,7 @@ func take_hit(
 	
 	# ── 清除跳躍延遲（避免與受擊狀態衝突）──
 	if not is_on_floor():
-		jump_delay_timer = 0.0
+		jump_delay_timer = 0
 	
 	if should_knockfly:
 		# ── Knockfly 專用處理 ──
@@ -327,11 +327,15 @@ func take_hit(
 		params.merge(knockfly_params, true)
 		
 		is_knockfly = true
-		knockfly_timer = max(params.duration, min_hitstun_duration)
+		# 🔴 【關鍵修復】knockfly_timer 在 PushManager 中以 delta（秒數）遞減
+		# 所以應該直接使用秒數，而不是轉換為幀數
+		var knockfly_duration_frames: int = max(int(round(params.duration * LOGIC_FPS)), int(round(min_hitstun_duration * LOGIC_FPS)))
+		knockfly_timer = params.duration  # ✅ 使用秒數，不是幀數
+		print("[KNOCKFLY DEBUG] Started | params.duration: %.3fs -> knockfly_timer: %.3fs" % [params.duration, knockfly_timer])
 		# 🟢 【關鍵修復】同時設置 knockfly_duration，確保 PushManager 的速度計算正確
-		knockfly_duration = knockfly_timer  # duration 必須與 timer 一致
+		knockfly_duration = params.duration  # ✅ knockfly_duration 也用秒數
 		is_immune_to_floor_snap = true
-		floor_snap_immunity_timer = floor_snap_immunity_duration
+		floor_snap_immunity_timer = int(round(floor_snap_immunity_duration * LOGIC_FPS * 2))  # 這個是幀數
 		
 		knockfly_gravity = params.gravity
 		knockfly_vertical_speed = params.vertical_speed
@@ -421,15 +425,19 @@ func take_hit(
 		if not is_on_floor():
 			# 空中普通攻擊：強制使用後跳邏輯，垂直速度為正常跳躍的 0.7 倍
 			is_air_hit_backjump = true
-			air_hit_backjump_timer = air_hit_backjump_duration
-			is_jumping = true  # 確保 GravityHandler 正常應用重力
+			# 🔴 【關鍵修復】轉換秒數duration為幀數 基於 PHYSICS_FPS(120)
+			# air_hit_backjump_timer 在 _physics_process 每幀遞減，應×120 而非×60
+			air_hit_backjump_timer = int(round(air_hit_backjump_duration * LOGIC_FPS * 2))
+			is_jumping = true  # 確保 GravityHandler 正常懂用重力
 			just_jumped = true  # 防止 GravityHandler 重置速度為 0
 			fixed_velocity.x = int(-air_hit_backjump_speed * world.SIMULATION_SCALE * facing_mult)
-			# 使用正常跳躍速度的 0.7 倍作為垂直速度（jump_vertical_speed 約為 -2300）
+			# 使用正常跳躍速度的 0.7 倍作為垂直速度(jump_vertical_speed 約為 -2300)
 			var normal_jump_speed = jump_vertical_speed if "jump_vertical_speed" in self else -2300.0
 			fixed_velocity.y = int(normal_jump_speed * 0.7 * world.SIMULATION_SCALE)
 			is_immune_to_floor_snap = true
-			floor_snap_immunity_timer = floor_snap_immunity_duration
+			# 🔴 【關鍵修復】轉換秒數duration為幀數 基於 PHYSICS_FPS(120)
+			floor_snap_immunity_timer = int(round(floor_snap_immunity_duration * LOGIC_FPS * 2))
+			print("[AIR HIT DEBUG] air_hit_backjump_timer: %.3fs -> %d frames, floor_snap_immunity_timer: %.3fs -> %d frames @120 FPS physics" % [air_hit_backjump_duration, air_hit_backjump_timer, floor_snap_immunity_duration, floor_snap_immunity_timer])
 			fixed_position.y -= 2
 			print("[AIR HIT] %s 空中受擊 → 後跳速度 x=%d, y=%d (0.7x 正常跳躍)" % [name, fixed_velocity.x, fixed_velocity.y])
 		else:
@@ -490,7 +498,10 @@ func take_knockfly() -> void:
 		if is_spmove:
 			move_set.stop_special_move()
 		is_knockfly = true
-		knockfly_timer = max(default_knockfly_duration, min_hitstun_duration)
+		# 🔴 【關鍵修復】轉換秒數duration為幀整 基於 LOGIC_FPS(60)
+		var knockfly_duration_frames: int = max(int(round(default_knockfly_duration * LOGIC_FPS)), int(round(min_hitstun_duration * LOGIC_FPS)))
+		knockfly_timer = knockfly_duration_frames
+		print("[KNOCKFLY TAKE DEBUG] default_knockfly_duration: %.3fs -> %d frames @60 FPS" % [default_knockfly_duration, knockfly_timer])
 		_update_animation_state(0, is_crouching)
 
 func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:

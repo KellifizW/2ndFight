@@ -175,11 +175,11 @@ func _process(delta: float) -> void:
 			_hitstun_start_logged = true
 		elif cur_frames <= 0 and _hitstun_start_logged:
 			# 🟢 【修正】使用初始值計算總耗時
-			var total_frames = _initial_hitstun_frames
-			var display_frames: int = int(round(total_frames / 2.0))
-			var real_seconds: float = total_frames / float(Engine.physics_ticks_per_second)
+			var hitstun_total_frames = _initial_hitstun_frames
+			var display_frames: int = int(round(hitstun_total_frames / 2.0))
+			var real_seconds: float = hitstun_total_frames / float(Engine.physics_ticks_per_second)
 			print("[HITSTUN] %s hitstun 結束，共 %d 物理幀 (%d 顯示幀 / %.3f秒)" % [
-				target_player.name, total_frames, display_frames, real_seconds
+				target_player.name, hitstun_total_frames, display_frames, real_seconds
 			])
 			_hitstun_start_logged = false
 		_last_hitstun_frames = cur_frames
@@ -319,7 +319,7 @@ func _ensure_size(min_size: int) -> void:
 
 func _calc_frame(anim_name: String, pos: float, timer_driven: bool, knockfly_chain: bool) -> int:
 	if timer_driven or knockfly_chain or block_hit_chain_active:
-		return display_frame_counter / 2
+		return int(display_frame_counter / 2.0)
 	if is_jump_attack_active:
 		return min(jump_to_attack_offset + int(pos * DISPLAY_FPS), total_frames - 1)
 	if anim_name in JUMP_ANIMS:
@@ -506,7 +506,6 @@ func update_frame_count_label(anim_name: String) -> void:
 		if fireball_call_method_triggered and fireball_startup_frame_count > 0:
 			# Call method 已觸發，計算 startup/active/recovery
 			var startup_frames = fireball_startup_frame_count
-			var active_start = fireball_startup_frame_count
 			var total_animated = frame_data.size()
 			var active_frames = total_animated - startup_frames
 			var recovery_frames = 0  # 由於 active 很短，recovery 就是剩下的

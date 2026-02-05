@@ -1,6 +1,7 @@
 # AttackMovementHandler.gd
 # 職責: 處理攻擊時的角色移動（forward moving, lunges）
 # 遷移自 Player.gd 的攻擊移動系統
+# 【已改為 frame-based】所有計時器現在使用幀計數
 
 class_name AttackMovementHandler extends Node
 
@@ -9,8 +10,10 @@ var world: Node = null
 
 # 移動狀態
 var active_movement: AttackMovement = null
-var movement_timer: float = 0.0
+var movement_timer: int = 0  # Frame-based timer
 var is_movement_active: bool = false
+var movement_duration_frames: int = 0  # 總移動幀數（轉換自 duration 秒）
+var movement_start_delay_frames: int = 0  # 起始延遲幀數（轉換自 start_delay 秒）
 
 func _ready() -> void:
 	parent_player = get_parent() as Player
@@ -50,31 +53,37 @@ func start_movement(attack_name: String, attack_table: Dictionary) -> void:
 		return
 	
 	active_movement = movement_resource
-	movement_timer = 0.0
+	movement_timer = 0
 	is_movement_active = true
 	
-	print("[AttackMovementHandler] ✓ 啟動 %s 移動：distance=%.1f, duration=%.2f, curve=%d, enabled=%s" % [
+	# 🔴 【關鍵修復】轉換為幀數：執行於 120 FPS 物理上下文，所以應乘以 120 而非 60
+	movement_duration_frames = int(round(active_movement.duration * 120.0))
+	movement_start_delay_frames = int(round(active_movement.start_delay * 120.0))
+	
+	print("[AttackMovementHandler] ✓ 啟動 %s 移動：distance=%.1f, duration=%.2f (%d frames), curve=%d, enabled=%s" % [
 		attack_name,
 		active_movement.distance,
 		active_movement.duration,
+		movement_duration_frames,
 		active_movement.curve_type,
 		active_movement.enabled
 	])
 
-func process_movement(delta: float) -> void:
+func process_movement(_delta: float) -> void:
 	"""每幀更新攻擊移動（在 _physics_process 中調用）"""
+	# 【注意】delta 參數保留以保持向後相容，但不在此函數中使用
 	if not is_movement_active or active_movement == null or not parent_player or not world:
 		return
 	
-	# 等待起始延遲
-	if movement_timer < active_movement.start_delay:
-		movement_timer += delta
+	# 等待起始延遲（現在使用幀計數）
+	if movement_timer < movement_start_delay_frames:
+		movement_timer += 1
 		return
 	
-	var effective_time = movement_timer - active_movement.start_delay
+	var effective_frames = movement_timer - movement_start_delay_frames
 	
 	# 檢查是否超過持續時間
-	if effective_time >= active_movement.duration:
+	if effective_frames >= movement_duration_frames:
 		is_movement_active = false
 		print("[AttackMovementHandler] ✓ 移動完成")
 		return
@@ -86,7 +95,9 @@ func process_movement(delta: float) -> void:
 	if active_movement.reverse_direction:
 		move_direction *= -1.0
 	
-	# 獲取當前速度倍率（基於曲線）
+	# 獲取當前速度倍率（基於曲線，轉換為秒數進行計算）
+	# 🔴 【關鍵修復】effective_frames 是物理幀數（120 FPS），應除以 120 而非 60
+	var effective_time = float(effective_frames) / 120.0  # Convert physics frames to seconds
 	var speed_multiplier = active_movement.get_speed_multiplier(effective_time)
 	
 	# 計算基礎速度（距離 / 持續時間）
@@ -99,20 +110,21 @@ func process_movement(delta: float) -> void:
 	parent_player.fixed_velocity.x = int(current_speed * world.SIMULATION_SCALE)
 	
 	# 調試輸出（每 10 幀輸出一次）
-	if int(movement_timer * 60) % 10 == 0:
-		print("[AttackMovementHandler] time=%.2f, speed_mult=%.2f, velocity=%d" % [
-			effective_time,
+	if movement_timer % 10 == 0:
+		print("[AttackMovementHandler] frame=%d, effective_frames=%d, speed_mult=%.2f, velocity=%d" % [
+			movement_timer,
+			effective_frames,
 			speed_multiplier,
 			parent_player.fixed_velocity.x
 		])
 	
-	movement_timer += delta
+	movement_timer += 1
 
 func stop_movement() -> void:
 	"""停止當前移動"""
 	is_movement_active = false
 	active_movement = null
-	movement_timer = 0.0
+	movement_timer = 0
 
 func is_active() -> bool:
 	"""檢查移動是否正在執行"""
