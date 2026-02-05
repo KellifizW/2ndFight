@@ -57,13 +57,19 @@ func handle_timers(delta: float) -> void:
 		# 【重點】在遞減timer之前執行checkpoint，否則會被跳過
 		if movement_node._landing_forced_frames >= 2 and not movement_node._landing_checkpoint_executed:
 			# 強制2幀已結束，檢查是否有輸入
-			# 【關鍵】著地2幀強制鎖定期間，忽略 jump_pressed，只檢查其他輸入
+			# 【關鍵】著地2幀強制鎖定期間，檢查任何輸入（包括跳躍）
 			var input_data = movement_node.get_input() if movement_node.has_method("get_input") else {}
-			var has_input = input_data.get("input_dir", 0) != 0 or input_data.get("crouch_pressed", false)
-			# 注意：不檢查 jump_pressed，因為著地時跳躍應被延遲到著地完成後
+			var has_input = input_data.get("input_dir", 0) != 0 or input_data.get("crouch_pressed", false) or input_data.get("jump_pressed", false)
+			# 【改進】現在包括 jump_pressed 檢查，這樣連續跳躍時著地動畫會被立即中斷
 			
 			# 【重點】標記checkpoint已執行，防止重複執行
 			movement_node._landing_checkpoint_executed = true
+			
+			var seat = movement_node.get_meta("player_seat") if movement_node.has_meta("player_seat") else "unknown"
+			var timer_desc = "0.001s (interrupted)" if has_input else "0.2s (full animation)"
+			print("[LANDING_CHECKPOINT] %s: input_detected=%s, landing_timer will be: %s" % [
+				seat, has_input, timer_desc
+			])
 			
 			# 【面向更新】在2幀強制鎖定完成時立即更新面向
 			# 【關鍵】臨時禁用 is_landing 標記和 landing_facing_lock，使得 FacingHandler 能夠執行
@@ -77,7 +83,11 @@ func handle_timers(delta: float) -> void:
 			movement_node.landing_facing_lock = saved_landing_facing_lock
 			
 			if has_input:
+				# 【關鍵】設置極小的timer值，但不立即設為0
+				# 這樣下一幀才會將 is_landing=false，JumpHandler 才會在下一幀處理跳躍延遲
 				movement_node.landing_lock_timer = 0.001
+				# 【新增】標記著地被輸入中斷，下一幀設置 is_landing=false
+				movement_node._landing_interrupted_by_input = true
 				return
 			else:
 				var landing_duration = movement_node.landing_duration if "landing_duration" in movement_node else 0.2
@@ -91,6 +101,10 @@ func handle_timers(delta: float) -> void:
 		if movement_node.landing_lock_timer == 0:
 			print("[%s] ✓ Landing COMPLETE, is_landing=false" % [_seat])
 			movement_node.is_landing = false
+			movement_node.is_jumping = false  # 【關鍵】著地完成時清除 is_jumping，完全解除著地狀態
 			movement_node._landing_timer_initialized = false
 			movement_node._landing_checkpoint_executed = false
 			movement_node._landing_forced_frames = 0
+			# 【新增】清除中斷標記
+			if "landing_interrupted_by_input" in movement_node:
+				movement_node._landing_interrupted_by_input = false

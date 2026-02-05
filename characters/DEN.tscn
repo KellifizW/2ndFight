@@ -299,6 +299,18 @@ tracks/22/keys = {
 "update": 1,
 "values": [false]
 }
+tracks/23/type = "value"
+tracks/23/imported = false
+tracks/23/enabled = true
+tracks/23/path = NodePath("AnimatedSprite2D:rotation")
+tracks/23/interp = 1
+tracks/23/loop_wrap = true
+tracks/23/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [0.0]
+}
 
 [sub_resource type="Animation" id="Animation_meopb"]
 resource_name = "davis_backdash"
@@ -2756,7 +2768,7 @@ tracks/3/keys = {
 }
 
 [sub_resource type="Animation" id="Animation_md12c"]
-length = 0.5
+length = 0.71666664
 step = 0.0167
 tracks/0/type = "value"
 tracks/0/imported = false
@@ -2777,10 +2789,10 @@ tracks/1/path = NodePath("AnimatedSprite2D:frame")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
-"times": PackedFloat32Array(0, 0.06666667, 0.15, 0.21666667, 0.26666668, 0.3, 0.35, 0.4, 0.46666667),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.06666667, 0.11666667, 0.16666667, 0.25, 0.33333334, 0.43333334, 0.68333334),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [0, 1, 2, 3, 4, 5, 6, 7, 0]
+"values": [0, 1, 2, 3, 3, 3, 5, 6]
 }
 tracks/2/type = "value"
 tracks/2/imported = false
@@ -2789,10 +2801,22 @@ tracks/2/path = NodePath("AnimatedSprite2D:animation")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0, 0.46666667),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [&"jump_F", &"landing"]
+"values": [&"jump_F"]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("AnimatedSprite2D:rotation")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.16666667, 0.25, 0.33333334),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 1,
+"values": [0.0, 1.5707963267948966, 3.141592653589793, 0.0]
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_uqwy3"]
@@ -3826,7 +3850,7 @@ tracks/3/keys = {
 "times": PackedFloat32Array(0, 0.01666667, 0.05, 0.1, 0.15, 0.2, 0.26666668, 0.33333334, 0.41666666),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [0, 1, 2, 3, 4, 5, 6, 7, 8]
+"values": [0, 1, 2, 3, 5, 4, 6, 7, 8]
 }
 
 [sub_resource type="Animation" id="Animation_64yue"]
@@ -3929,7 +3953,7 @@ tracks/3/path = NodePath("AnimatedSprite2D:frame")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.13333334, 0.15),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.11666667, 0.15),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1),
 "update": 1,
 "values": [0, 1, 2, 3, 4]
@@ -5769,7 +5793,7 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 61
+frame = 63
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)

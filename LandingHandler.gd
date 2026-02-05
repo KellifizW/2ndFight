@@ -16,10 +16,16 @@ func handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
 	var jump_delay_passed = movement_node.jump_delay_timer <= 0
 	var not_just_jumped = not movement_node.just_jumped
 	
+	# 【除錯】檢查是否重複著地
+	var seat = movement_node.seat if "seat" in movement_node else "?"
+	if movement_node.is_landing:
+		print("[LANDING_ALREADY_ACTIVE] %s: is_landing=true, skipping duplicate landing (airborne=%s falling=%s reached_floor=%s jump_delay=%s just_jumped=%s)" % [
+			seat, is_airborne, is_falling, reached_floor, jump_delay_passed, not movement_node.just_jumped
+		])
+	
 	if not (is_airborne and is_falling and reached_floor and jump_delay_passed and not_just_jumped):
 		return
 	
-	var seat = movement_node.seat if "seat" in movement_node else "?"
 	var move_set = movement_node.get_node_or_null("MoveSet")
 	var is_spmove_active = move_set and move_set.is_spmove
 	var active_move = move_set.get_active_move_name() if move_set and move_set.has_method("get_active_move_name") else "none"
@@ -73,7 +79,7 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	movement_node.fixed_position.y = floor_y
 	movement_node.fixed_velocity.y = 0
 	movement_node.is_jumping = false
-	movement_node.just_jumped = false
+	movement_node.just_jumped = false  # 【關鍵】立即清除 just_jumped，防止新跳躍在著地期間覆蓋狀態
 	
 	# 【著地時停止水平移動】確保著地後不會繼續滑動
 	movement_node.fixed_velocity.x = 0
@@ -83,6 +89,7 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	movement_node.pending_dash_dir = 0
 	movement_node.last_input_dir = 0
 	movement_node.landing_facing_lock = false
+	movement_node.jump_delay_timer = 0  # 【關鍵】清除跳躍延遲，準備下一次跳躍
 	
 	# 【新規則】總是播放至少2幀的landing動畫（無論輸入狀態）
 	movement_node.is_landing = true
@@ -90,6 +97,8 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	movement_node._landing_timer_initialized = false  # 【新增】標記此timer剛設置，下一frame才能檢查
 	movement_node._landing_checkpoint_executed = false  # 【新增】重置checkpoint執行標記
 	movement_node._landing_forced_frames = 0  # 【新增】重置強制幀數計數器
+	
+	print("[LANDING_START] %s: is_landing=true, timer=2f, checkpoint_reset" % [seat])
 	
 	# 【視覺效果】著地時播放粒子和sound
 	if movement_node.groundsmoke:

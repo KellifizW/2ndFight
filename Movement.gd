@@ -32,6 +32,7 @@ var is_airborne: bool = false  # 【新增】統一的空中狀態追蹤
 var _landing_timer_initialized: bool = false  # 【新增】防止same-frame checkpoint執行
 var _landing_checkpoint_executed: bool = false  # 【新增】追蹤checkpoint是否已執行，防止重複執行
 var _landing_forced_frames: int = 0  # 【新增】追蹤著地強制幀數，確保至少2幀
+var _landing_interrupted_by_input: bool = false  # 【新增】標記著地是否被輸入中斷，延遲一幀才解除著地狀態
 
 # ── 基本狀態 ──────────────────────────────
 @export var landing_duration: float = 0.2
@@ -53,7 +54,7 @@ var jump_dir: float = 0.0
 var jump_delay_timer: int = 0  # Frame-based timer
 var just_jumped: bool = false
 var is_jumping: bool = false
-@export var jump_delay_duration: float = 0.067
+@export var jump_delay_duration: float = 0.1
 
 # ── 衝刺 ──────────────────────────────────
 var is_dashing: bool = false

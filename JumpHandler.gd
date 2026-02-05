@@ -7,13 +7,18 @@ func _init(movement: Node) -> void:
 	movement_node = movement
 
 func handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor_y: int, is_special_moving: bool) -> void:
+	# 【重要】著地期間禁止新跳躍：is_landing 狀態未完成時，不允許開始新跳躍
+	var is_landing = movement_node.is_landing if "is_landing" in movement_node else false
+	if is_landing:
+		return  # ← 著地中，忽略跳躍輸入
+	
 	if jump_pressed and movement_node.is_on_floor() and not movement_node.is_crouching and not movement_node.is_dashing and not movement_node.is_backdashing and not movement_node.is_attacking and not is_special_moving and not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.is_layground) and movement_node.jump_delay_timer <= 0:
 		
 		movement_node.jump_dir = input_dir
 		movement_node.is_jumping = true
 		movement_node.landing_facing_lock = true
-		# 🔴 【關鍵修復】轉換秒數duration為幀數 基於 PHYSICS_FPS(120)
-		# jump_delay_timer 在 _physics_process 每幀遞減，所以應×120（120 FPS 物理幀）而非×60
+		# 【跳躍延遲】設置延遲計時器，使垂直速度延遲應用
+		# jump_delay_duration 預設 0.067s = ~6 幀 @90FPS 或 ~8 幀 @120 FPS
 		movement_node.jump_delay_timer = int(round(movement_node.jump_delay_duration * 120))
 		print("[JUMP DEBUG] Jump started | jump_delay_duration: %.3fs -> jump_delay_timer: %d frames @120 FPS" % [movement_node.jump_delay_duration, movement_node.jump_delay_timer])
 		movement_node.fixed_position.y = floor_y - 1
