@@ -1,6 +1,6 @@
 extends Node2D
 
-const TICKS_PER_SECOND: int = 60
+const TICKS_PER_SECOND: int = 120
 const SIMULATION_SCALE: int = 1000
 const WALL_LIMIT: int = 1280000
 const STARTING_POSITION: int = 10000

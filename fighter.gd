@@ -3,8 +3,7 @@ class_name Fighter extends Movement
 signal block_detected(target: String, block_type: String)
 
 static var PHYSICS_FPS: int = 120
-const DISPLAY_FPS: int = 60
-const LOGIC_FPS: int = 60  # 邏輯幀率（遊戲設計基礎）
+const LOGIC_FPS: int = 60  # 邏輯/顯示幀率（遊戲設計基礎）
 
 func _enter_tree() -> void:
 	PHYSICS_FPS = Engine.physics_ticks_per_second   # 這裡才真正賦值
@@ -39,7 +38,6 @@ var corner_push_velocity: float = 0.0  # Corner push 初始速度
 
 # ── Knockback 位置追踪（用於計算實際移動距離）──
 var knockback_start_x: float = 0.0  # 🟢 【新增】Knockback 開始時的 X 位置（用於計算移動距離）
-const FPS: int = 60
 
 # 🟢 待執行的 hit 參數（等待 hit stop 完成後才實際啟動）
 var pending_hit_params: Dictionary = {}  # 存儲 take_hit 的所有參數

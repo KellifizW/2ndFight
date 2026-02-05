@@ -2,10 +2,10 @@
 class_name AttackData extends Resource
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 🟢 幀數優先格式（Inspector 直接輸入幀數 @60FPS）
-# 例: st_lp_hitstun_frames = 30 → 30 幀 = 0.5 秒
+# 🟢 幀數優先格式（Inspector 直接輸入幀數 @60FPS 邏輯幀）
+# 例: st_lp_hitstun_frames = 30 → 30 邏輯幀 = 0.5 秒
 # ═══════════════════════════════════════════════════════════════════════════
-const PHYSICS_FPS: int = 60  # 遊戲物理幀率
+const LOGIC_FPS: int = 60  # 邏輯/顯示幀率（資源中的幀數基準）
 
 # ── st_lp ──
 @export var st_lp_damage: float = 3.0
@@ -131,8 +131,8 @@ const PHYSICS_FPS: int = 60  # 遊戲物理幀率
 # 🟢 便利函數：自動轉換幀數 → 秒數（用於舊代碼兼容）
 # ═══════════════════════════════════════════════════════════════════════════
 func frames_to_seconds(frames: int) -> float:
-	"""將幀數轉換為秒數 @60FPS"""
-	return float(frames) / float(PHYSICS_FPS)
+	"""將邏輯幀數轉換為秒數 @60FPS"""
+	return float(frames) / float(LOGIC_FPS)
 
 # Dictionary accessors for code compatibility
 var st_lp: Dictionary:
