@@ -159,7 +159,7 @@ func _get_hit_parameters() -> Dictionary:
 				"gravity": active_move.knockfly_gravity,  # MoveData 類屬性
 				"vertical_speed": active_move.knockfly_vertical_speed,
 				"horizontal_speed": active_move.knockfly_horizontal_speed,
-				"duration": params.hitstun
+				"duration": params.hitstun / 60.0  # 🟢 轉換幀數→秒數 (39 frames / 60 = 0.65s)
 			}
 	
 	return params

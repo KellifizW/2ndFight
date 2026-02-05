@@ -93,7 +93,7 @@ var knockfly_velocity_x: float = 0.0
 var knockfly_accumulated_distance: float = 0.0
 var knockfly_max_distance: float = 150.0
 var is_knockfly: bool = false
-var knockfly_timer: int = 0  # Frame-based timer
+var knockfly_timer: float = 0.0  # 秒數，由 PushManager 以 delta 遞減
 
 # ── 空中受擊 ──────────────────────────────
 var is_air_hit_backjump: bool = false
@@ -301,7 +301,8 @@ func _physics_process(delta: float) -> void:
 		just_jumped = false
 	
 	if floor_snap_immunity_timer > 0:
-		floor_snap_immunity_timer -= delta
+		# 🔴 【關鍵修復】floor_snap_immunity_timer 是幀數，需轉换為幀數逅減 跟頭（不是 delta）
+		floor_snap_immunity_timer -= 1
 		if floor_snap_immunity_timer <= 0:
 			is_immune_to_floor_snap = false
 	

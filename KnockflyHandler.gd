@@ -36,11 +36,11 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 		return
 
 	if movement_node.is_knockfly:
-		# 【重要】knockfly_timer 現在由 TimerHandler 管理
-		movement_node.knockfly_timer = max(0, movement_node.knockfly_timer - 1)
+		# 【重要】knockfly_timer 由 PushManager._physics_process() 管理（delta 遞減）
+		# 不在此處遞減以避免重複遞減
 		# 【重要】重力現在由 GravityHandler 統一管理，在 Movement._handle_gravity() 中應用
 		# 此處不再重複應用重力，避免計算重複
-		# 只負責時間遞減和狀態轉換
+		# 只負責狀態轉換
 		apply_air_friction(movement_node.air_friction)
 
 		# Only transition to layground if on floor
@@ -54,6 +54,7 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 			# layground_frames 在 _physics_process 每幀遞減，所以應×120 而非×60
 			var layground_frames = int(round(movement_node.layground_duration * 120.0)) if "layground_duration" in movement_node else 24
 			movement_node.layground_timer = layground_frames
+			print("[LAYGROUND INIT] duration: %.3fs → timer: %d frames" % [movement_node.layground_duration, layground_frames])
 			movement_node.is_knockfly_animation_finished = false
 			movement_node._update_animation_state(0, false)
 			return
@@ -68,7 +69,9 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 		# 【重要】layground_timer 現在由 TimerHandler 管理（或下方自行管理）
 		movement_node.layground_timer = max(0, movement_node.layground_timer - 1)
 		movement_node.fixed_velocity = Vector2i.ZERO
+		print("[LAYGROUND TICK] timer: %d → %d" % [movement_node.layground_timer + 1, movement_node.layground_timer])
 		if movement_node.layground_timer <= 0:
+			print("[LAYGROUND END] timer reached 0, calling reset")
 			reset_layground_with_health_check()
 
 func apply_air_friction(friction_coeff: float) -> void:
@@ -82,6 +85,8 @@ func apply_air_friction(friction_coeff: float) -> void:
 
 func reset_layground_with_health_check() -> void:
 	var player_healthbar = movement_node.healthbar
+	
+	print("[RESET_LAYGROUND] movement_node: %s, has_is_wakeup: %s" % [movement_node.name, "is_wakeup" in movement_node])
 	
 	if player_healthbar and player_healthbar.current_health <= 0:
 		# Only print debug message once when health reaches zero
@@ -103,9 +108,28 @@ func reset_layground_with_health_check() -> void:
 	movement_node.knockfly_timer = 0  # 🟢 確保 timer 清除
 	movement_node.is_knockfly_animation_finished = false
 	
-	if "is_wakeup" in movement_node.get_parent() and "is_wakeup_locked" in movement_node.get_parent():
-		movement_node.get_parent().is_wakeup = true
-		movement_node.get_parent().is_wakeup_locked = true
+	if "is_wakeup" in movement_node and "is_wakeup_locked" in movement_node:
+		movement_node.is_wakeup = true
+		movement_node.is_wakeup_locked = true
+		
+		# 【關鍵】Initialize wakeup_timer based on animation duration (120 FPS physics frames)
+		if "animation_player" in movement_node and movement_node.animation_player and movement_node.animation_player.has_animation("wakeup"):
+			var wakeup_duration = movement_node.animation_player.get_animation("wakeup").length
+			movement_node.wakeup_timer = int(round(wakeup_duration * 120.0))
+			print("[WAKEUP TIMER] wakeup_duration: %.3fs -> wakeup_timer: %d frames @120 FPS physics" % [wakeup_duration, movement_node.wakeup_timer])
+		else:
+			# Fallback: 1.0 second = 120 frames @120 FPS physics
+			movement_node.wakeup_timer = 120
+			print("[WAKEUP TIMER] Using fallback: wakeup_timer = 120 frames")
+		
+		print("[WAKEUP TRIGGERED] is_wakeup: %s, is_wakeup_locked: %s, wakeup_timer: %d" % [movement_node.is_wakeup, movement_node.is_wakeup_locked, movement_node.wakeup_timer])
 		movement_node.animation_state.travel("wakeup")
+		print("[WAKEUP ANIM] animation_state.travel('wakeup') called")
+	else:
+		print("[WAKEUP FAILED] movement_node: %s, has_is_wakeup: %s, has_is_wakeup_locked: %s" % [
+			movement_node.name,
+			"is_wakeup" in movement_node,
+			"is_wakeup_locked" in movement_node
+		])
 	
 	movement_node._update_animation_state(0, false)

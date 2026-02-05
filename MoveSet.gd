@@ -154,7 +154,7 @@ func _initialize_move_library() -> void:
 	)
 	move_library["dp"] = MoveData.new(
 		"dp", "DAV", 5.0, 100.0, 47.0, 40.0, 4.0, -2000.0, false, false, 7400000.0, "special", true, "none", 0.0, 0.0, 0.0,
-		7400000.0, -2800.0, 20.0, 39, 23  # 🟢 jump_speed: -2000→-9000 (升龍拳應有的高度); knockfly_gravity: 確保在被擊中時重力正確
+		9000000.0, -3000.0, 20.0, 39, 23  # 🟢 jump_speed: -2000→-9000 (升龍拳應有的高度); knockfly_gravity: 確保在被擊中時重力正確
 	)
 	
 	# DEN moves

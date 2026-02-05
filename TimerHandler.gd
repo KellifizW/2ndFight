@@ -72,8 +72,8 @@ func handle_timers() -> void:
 				movement_node.landing_lock_timer = 0
 				return
 			else:
-				# 轉換 landing_duration（秒）為幀數（@60FPS）
-				var landing_duration_frames = int(round(movement_node.landing_duration * 60.0)) if "landing_duration" in movement_node else 12
+				# 🔴 【關鍵修復】landing_duration 是秒數，轉換為 ×120 幀數（120 FPS 物理上下文）
+				var landing_duration_frames = int(round(movement_node.landing_duration * 120.0)) if "landing_duration" in movement_node else 24
 				movement_node.landing_lock_timer = landing_duration_frames
 				return
 		

@@ -327,9 +327,7 @@ func take_hit(
 		params.merge(knockfly_params, true)
 		
 		is_knockfly = true
-		# 🔴 【關鍵修復】knockfly_timer 在 PushManager 中以 delta（秒數）遞減
-		# 所以應該直接使用秒數，而不是轉換為幀數
-		var knockfly_duration_frames: int = max(int(round(params.duration * LOGIC_FPS)), int(round(min_hitstun_duration * LOGIC_FPS)))
+		# � 【統一修復】knockfly_timer 使用秒數，由 PushManager 以 delta 遞減
 		knockfly_timer = params.duration  # ✅ 使用秒數，不是幀數
 		print("[KNOCKFLY DEBUG] Started | params.duration: %.3fs -> knockfly_timer: %.3fs" % [params.duration, knockfly_timer])
 		# 🟢 【關鍵修復】同時設置 knockfly_duration，確保 PushManager 的速度計算正確
@@ -498,10 +496,10 @@ func take_knockfly() -> void:
 		if is_spmove:
 			move_set.stop_special_move()
 		is_knockfly = true
-		# 🔴 【關鍵修復】轉換秒數duration為幀整 基於 LOGIC_FPS(60)
-		var knockfly_duration_frames: int = max(int(round(default_knockfly_duration * LOGIC_FPS)), int(round(min_hitstun_duration * LOGIC_FPS)))
-		knockfly_timer = knockfly_duration_frames
-		print("[KNOCKFLY TAKE DEBUG] default_knockfly_duration: %.3fs -> %d frames @60 FPS" % [default_knockfly_duration, knockfly_timer])
+		# � 【統一修復】knockfly_timer 使用秒數，由 PushManager 以 delta 遞減
+		knockfly_timer = max(default_knockfly_duration, min_hitstun_duration)
+		knockfly_duration = knockfly_timer  # 同步 knockfly_duration
+		print("[KNOCKFLY TAKE DEBUG] default_knockfly_duration: %.3fs -> knockfly_timer: %.3fs (seconds)" % [default_knockfly_duration, knockfly_timer])
 		_update_animation_state(0, is_crouching)
 
 func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:

@@ -439,10 +439,11 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 		# Set wakeup timer based on animation length (converted to frame count @60FPS - LOGIC_FPS)
 		if animation_player and animation_player.has_animation("wakeup"):
 			var wakeup_duration = animation_player.get_animation("wakeup").length
-			wakeup_timer = int(round(wakeup_duration * 60))
-			print("[WAKEUP DEBUG] wakeup_duration: %.3fs -> wakeup_timer: %d frames @60 FPS" % [wakeup_duration, wakeup_timer])
+			# 🔴 【關鍵修復】wakeup_timer 需轉換爲 ×120 幀數（120 FPS 物理中逅減）
+			wakeup_timer = int(round(wakeup_duration * 120))
+			print("[WAKEUP DEBUG] wakeup_duration: %.3fs -> wakeup_timer: %d frames @120 FPS physics" % [wakeup_duration, wakeup_timer])
 		else:
-			wakeup_timer = 30  # 0.5 seconds = 30 frames @60FPS
+			wakeup_timer = 60  # 1.0 second = 60 frames @60FPS logic = 120 frames @120 FPS physics
 		animation_state.travel("wakeup")
 
 # Override parent's animation finished handler to use player_anim_resets
