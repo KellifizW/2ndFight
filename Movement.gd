@@ -27,7 +27,7 @@ var landing_handler: LandingHandler
 
 # ── 著地系統 ────────────────────────────
 var is_landing: bool = false
-var landing_lock_timer: int = 0  # Frame-based timer
+var landing_lock_timer: float = 0.0  # Timer in seconds (managed by TimerHandler)
 var is_airborne: bool = false  # 【新增】統一的空中狀態追蹤
 var _landing_timer_initialized: bool = false  # 【新增】防止same-frame checkpoint執行
 var _landing_checkpoint_executed: bool = false  # 【新增】追蹤checkpoint是否已執行，防止重複執行
@@ -273,7 +273,7 @@ func _physics_process(delta: float) -> void:
 			is_crouch_transition_played = false
 	was_crouching_last_frame = (is_on_floor() and crouch_pressed and not is_blocking)
 	
-	_handle_timers()
+	_handle_timers(delta)
 	
 	# 【遊戲速度監視】每 120 物理幀輸出一次時間檢查點
 	if get_physics_process_delta_time() > 0:
@@ -322,8 +322,8 @@ func _physics_process(delta: float) -> void:
 	
 	post_physics_process(delta)
 
-func _handle_timers() -> void:
-	timer_handler.handle_timers()
+func _handle_timers(delta: float) -> void:
+	timer_handler.handle_timers(delta)
 
 func _handle_blocking(input_dir: int, is_special_moving: bool) -> void:
 	blocking_handler.handle_blocking(input_dir, is_special_moving)

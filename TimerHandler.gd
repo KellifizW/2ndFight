@@ -1,26 +1,25 @@
 class_name TimerHandler extends Node
 
-# Handles all timer management (FRAME-BASED)
-# All timers decrement by 1 per frame (called once per _physics_process)
+# Handles all timer management
 var movement_node: Node
 
 func _init(movement: Node) -> void:
 	movement_node = movement
 
-func handle_timers() -> void:
-	# 【所有計時器現在為幀計數】每次多減1幀（相當於60FPS時減1/60秒）
+func handle_timers(delta: float) -> void:
+	var _seat = movement_node.seat if "seat" in movement_node else "?"
 	
 	if movement_node.neutral_timer > 0:
-		movement_node.neutral_timer -= 1
+		movement_node.neutral_timer = max(0, movement_node.neutral_timer - delta)
 		if movement_node.neutral_timer == 0:
 			movement_node.pending_dash_dir = 0
 	
 	if movement_node.dash_timer > 0:
-		movement_node.dash_timer -= 1
+		movement_node.dash_timer = max(0, movement_node.dash_timer - delta)
 		
 		# Apply deceleration curve (quadratic decay)
 		if movement_node.dash_timer > 0 and movement_node.dash_total_time > 0:
-			var remaining_ratio: float = movement_node.dash_timer / float(movement_node.dash_total_time)
+			var remaining_ratio: float = movement_node.dash_timer / movement_node.dash_total_time
 			var speed_multiplier: float = remaining_ratio * remaining_ratio  # Quadratic decay
 			movement_node.fixed_velocity.x = int(movement_node.dash_initial_speed * speed_multiplier)
 		
@@ -28,29 +27,25 @@ func handle_timers() -> void:
 			movement_node.is_dashing = false
 			movement_node.is_backdashing = false
 			movement_node.fixed_velocity.x = 0
-			movement_node.neutral_timer = 0
+			movement_node.neutral_timer = 0.0
 			movement_node.pending_dash_dir = 0
 			movement_node.last_input_dir = 0
 			movement_node.landing_facing_lock = false
 			movement_node.dash_initial_speed = 0.0
-			movement_node.dash_total_time = 0
+			movement_node.dash_total_time = 0.0
 	
 	if movement_node.jump_delay_timer > 0:
-		movement_node.jump_delay_timer -= 1
+		movement_node.jump_delay_timer = max(0, movement_node.jump_delay_timer - delta)
 		if movement_node.jump_delay_timer == 0:
 			movement_node.fixed_velocity.y = int(movement_node.jump_vertical_speed * (movement_node.world.SIMULATION_SCALE if movement_node.world else 1000))
 			movement_node.just_jumped = true
 			movement_node.fixed_position.y = (movement_node.world.FLOOR_Y if movement_node.world else 200000) - 1
 	
 	if movement_node.air_hit_backjump_timer > 0:
-		movement_node.air_hit_backjump_timer -= 1
+		movement_node.air_hit_backjump_timer = max(0, movement_node.air_hit_backjump_timer - delta)
 		if movement_node.air_hit_backjump_timer == 0:
 			movement_node.is_air_hit_backjump = false
 			movement_node.fixed_velocity = Vector2i.ZERO
-	
-	# 【著地動畫計時器】Frame-based landing animation duration
-	# 【新規則】2幀強制landing，之後檢查輸入中斷
-	var _seat = movement_node.seat if "seat" in movement_node else "?"
 	
 	# 【著地動畫計時器】Frame-based landing animation duration
 	# 【新規則】2幀強制landing，之後檢查輸入中斷
@@ -62,26 +57,39 @@ func handle_timers() -> void:
 		# 【重點】在遞減timer之前執行checkpoint，否則會被跳過
 		if movement_node._landing_forced_frames >= 2 and not movement_node._landing_checkpoint_executed:
 			# 強制2幀已結束，檢查是否有輸入
+			# 【關鍵】著地2幀強制鎖定期間，忽略 jump_pressed，只檢查其他輸入
 			var input_data = movement_node.get_input() if movement_node.has_method("get_input") else {}
-			var has_input = input_data.get("input_dir", 0) != 0 or input_data.get("crouch_pressed", false) or input_data.get("jump_pressed", false)
+			var has_input = input_data.get("input_dir", 0) != 0 or input_data.get("crouch_pressed", false)
+			# 注意：不檢查 jump_pressed，因為著地時跳躍應被延遲到著地完成後
 			
 			# 【重點】標記checkpoint已執行，防止重複執行
 			movement_node._landing_checkpoint_executed = true
 			
+			# 【面向更新】在2幀強制鎖定完成時立即更新面向
+			# 【關鍵】臨時禁用 is_landing 標記和 landing_facing_lock，使得 FacingHandler 能夠執行
+			var saved_is_landing = movement_node.is_landing
+			var saved_landing_facing_lock = movement_node.landing_facing_lock
+			movement_node.is_landing = false
+			movement_node.landing_facing_lock = false
+			if movement_node.has_method("update_facing_direction"):
+				movement_node.update_facing_direction()
+			movement_node.is_landing = saved_is_landing
+			movement_node.landing_facing_lock = saved_landing_facing_lock
+			
 			if has_input:
-				movement_node.landing_lock_timer = 0
+				movement_node.landing_lock_timer = 0.001
 				return
 			else:
-				# 🔴 【關鍵修復】landing_duration 是秒數，轉換為 ×120 幀數（120 FPS 物理上下文）
-				var landing_duration_frames = int(round(movement_node.landing_duration * 120.0)) if "landing_duration" in movement_node else 24
-				movement_node.landing_lock_timer = landing_duration_frames
+				var landing_duration = movement_node.landing_duration if "landing_duration" in movement_node else 0.2
+				movement_node.landing_lock_timer = landing_duration
 				return
 		
 		# 現在才遞減timer（在checkpoint之後）
-		movement_node.landing_lock_timer -= 1
+		movement_node.landing_lock_timer = max(0, movement_node.landing_lock_timer - delta)
 		
 		# 正常計時器遞減
 		if movement_node.landing_lock_timer == 0:
+			print("[%s] ✓ Landing COMPLETE, is_landing=false" % [_seat])
 			movement_node.is_landing = false
 			movement_node._landing_timer_initialized = false
 			movement_node._landing_checkpoint_executed = false

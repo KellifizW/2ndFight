@@ -7,6 +7,9 @@ func _init(movement: Node) -> void:
 	movement_node = movement
 
 func set_facing(new_facing: float) -> void:
+	if movement_node.facing_direction != new_facing:
+		var seat = movement_node.get_meta("player_seat") if movement_node.has_meta("player_seat") else "unknown"
+		print("[FACING_CHANGE] %s: %.1f → %.1f" % [seat, movement_node.facing_direction, new_facing])
 	movement_node.facing_direction = new_facing
 	movement_node.scale.x = sign(new_facing)
 	movement_node.scale.y = 1
@@ -17,6 +20,7 @@ func set_facing(new_facing: float) -> void:
 
 func update_facing_direction() -> void:
 	var is_landing_state = ("is_landing" in movement_node and movement_node.is_landing and "landing_lock_timer" in movement_node and movement_node.landing_lock_timer > 0)
+	
 	if movement_node.is_attacking or movement_node.landing_facing_lock or is_landing_state or movement_node.is_layground:
 		return
 	
@@ -34,7 +38,7 @@ func update_facing_direction() -> void:
 	var self_left = movement_node.global_position.x - movement_node.colbox_half_width
 	var self_right = movement_node.global_position.x + movement_node.colbox_half_width
 	var other_left = other_player.global_position.x - other_player.colbox_half_width
-	var other_right = other_player.global_position.x - other_player.colbox_half_width
+	var other_right = other_player.global_position.x + other_player.colbox_half_width
 	var epsilon = 1.0
 	
 	if self_left > other_right + epsilon:

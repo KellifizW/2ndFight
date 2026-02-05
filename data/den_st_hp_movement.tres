@@ -1,10 +1,10 @@
-[gd_resource type="Resource" script_class="AttackMovement" load_steps=2 format=3 uid="uid://0kevkaj8da10"]
+[gd_resource type="Resource" script_class="AttackMovement" format=3 uid="uid://0kevkaj8da10"]
 
 [ext_resource type="Script" uid="uid://do60xtl0h0rgp" path="res://data/AttackMovement.gd" id="1_6fpkg"]
 
 [resource]
 script = ExtResource("1_6fpkg")
 enabled = true
-distance = 140.0
+distance = 50.0
 duration = 0.5
 curve_type = 5

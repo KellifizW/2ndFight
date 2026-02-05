@@ -263,7 +263,6 @@ func _physics_process(delta: float) -> void:
 			animation_state.travel("landing")
 		else:
 			is_landing = false
-			landing_lock_timer = 0
 			has_air_attacked = false
 
 	# 取消窗口由動畫 call method 控制（_open_cancel_window / _close_cancel_window）
@@ -509,7 +508,7 @@ func _reset_landing_anim() -> void:
 		return
 	
 	is_landing = false
-	landing_lock_timer = 0
+	# 【重點】landing_lock_timer 由 TimerHandler 統一管理，不在這裡重置
 	has_air_attacked = false
 	var input_data = get_input()
 	_update_animation_state(0, input_data.crouch_pressed)
