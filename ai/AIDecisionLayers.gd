@@ -329,7 +329,22 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		mp_poke.reason = "Mid range: quick poke"
 		decisions.append(mp_poke)
 		
-		# Priority 4: cr_mk low poke (INCREASED PRIORITY)
+		# Priority 4: Light attacks (faster startup, lower damage)
+		var st_lp = Decision.new()
+		st_lp.layer = DecisionLayer.TACTICAL
+		st_lp.action = "st_lp"
+		st_lp.priority = PRIORITY_NORMAL_MID + randf_range(-3.0, 1.0)  # 67 + (-3 to 1) = 64-68
+		st_lp.reason = "Mid range: quick light punch"
+		decisions.append(st_lp)
+		
+		var st_lk = Decision.new()
+		st_lk.layer = DecisionLayer.TACTICAL
+		st_lk.action = "st_lk"
+		st_lk.priority = PRIORITY_NORMAL_LOW + randf_range(-3.0, 1.0)  # 67 + (-3 to 1) = 64-68
+		st_lk.reason = "Mid range: light kick"
+		decisions.append(st_lk)
+		
+		# Priority 5: cr_mk low poke (INCREASED PRIORITY)
 		var crouch_poke = Decision.new()
 		crouch_poke.layer = DecisionLayer.TACTICAL
 		crouch_poke.action = "cr_mk"
@@ -337,7 +352,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		crouch_poke.reason = "Mid range: low poke"
 		decisions.append(crouch_poke)
 		
-		# Priority 5: cr_mp close low attack (INCREASED PRIORITY)
+		# Priority 6: cr_mp close low attack (INCREASED PRIORITY)
 		if distance < 150:
 			var cr_mp_poke = Decision.new()
 			cr_mp_poke.layer = DecisionLayer.TACTICAL
@@ -345,8 +360,53 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			cr_mp_poke.priority = PRIORITY_CROUCH + randf_range(-2.0, 2.0) + 3.0  # 67 + rand + 3 = 68-72
 			cr_mp_poke.reason = "Mid range: cr_mp"
 			decisions.append(cr_mp_poke)
+			
+			# Light crouch attacks
+			var cr_lp = Decision.new()
+			cr_lp.layer = DecisionLayer.TACTICAL
+			cr_lp.action = "cr_lp"
+			cr_lp.priority = PRIORITY_CROUCH + randf_range(-4.0, 0.0)  # 67 + (-4 to 0) = 63-67
+			cr_lp.reason = "Mid range: cr_lp"
+			decisions.append(cr_lp)
+			
+			var cr_lk = Decision.new()
+			cr_lk.layer = DecisionLayer.TACTICAL
+			cr_lk.action = "cr_lk"
+			cr_lk.priority = PRIORITY_CROUCH + randf_range(-4.0, 0.0)  # 67 + (-4 to 0) = 63-67
+			cr_lk.reason = "Mid range: cr_lk"
+			decisions.append(cr_lk)
 		
-		# Priority 6: Jump attack (occasional)
+		# Priority 7: Heavy attacks (slower startup, higher damage, occasional)
+		if distance < 200:
+			var st_hp = Decision.new()
+			st_hp.layer = DecisionLayer.TACTICAL
+			st_hp.action = "st_hp"
+			st_hp.priority = PRIORITY_NORMAL_HIGH + randf_range(-5.0, -1.0)  # 67 + (-5 to -1) = 62-66
+			st_hp.reason = "Mid range: heavy punch"
+			decisions.append(st_hp)
+			
+			var st_hk = Decision.new()
+			st_hk.layer = DecisionLayer.TACTICAL
+			st_hk.action = "st_hk"
+			st_hk.priority = PRIORITY_NORMAL_HIGH + randf_range(-6.0, -2.0)  # 67 + (-6 to -2) = 61-65
+			st_hk.reason = "Mid range: heavy kick"
+			decisions.append(st_hk)
+			
+			var cr_hp = Decision.new()
+			cr_hp.layer = DecisionLayer.TACTICAL
+			cr_hp.action = "cr_hp"
+			cr_hp.priority = PRIORITY_CROUCH + randf_range(-5.0, -1.0)  # 67 + (-5 to -1) = 62-66
+			cr_hp.reason = "Mid range: cr_hp"
+			decisions.append(cr_hp)
+			
+			var cr_hk = Decision.new()
+			cr_hk.layer = DecisionLayer.TACTICAL
+			cr_hk.action = "cr_hk"
+			cr_hk.priority = PRIORITY_CROUCH + randf_range(-6.0, -2.0)  # 67 + (-6 to -2) = 61-65
+			cr_hk.reason = "Mid range: cr_hk"
+			decisions.append(cr_hk)
+		
+		# Priority 8: Jump attack (occasional)
 		if distance > 120 and distance < 200:
 			var jump_atk = Decision.new()
 			jump_atk.layer = DecisionLayer.TACTICAL
@@ -355,7 +415,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			jump_atk.reason = "Mid range: jump attack"
 			decisions.append(jump_atk)
 		
-		# Priority 7: Continue approaching
+		# Priority 9: Continue approaching
 		var approach = Decision.new()
 		approach.layer = DecisionLayer.TACTICAL
 		approach.action = "dash_forward"
@@ -363,7 +423,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		approach.reason = "Mid range: close gap"
 		decisions.append(approach)
 		
-		# Priority 8: Walk forward
+		# Priority 10: Walk forward
 		var walk = Decision.new()
 		walk.layer = DecisionLayer.TACTICAL
 		walk.action = "walk_forward"
@@ -371,7 +431,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		walk.reason = "Mid range: walk approach"
 		decisions.append(walk)
 		
-		# Priority 8: Defensive block (LOWEST priority - only when cautious)
+		# Priority 11: Defensive block (LOWEST priority - only when cautious)
 		var block = Decision.new()
 		block.layer = DecisionLayer.TACTICAL
 		block.action = "stand_block"
@@ -426,7 +486,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			hdk.reason = "Close range: hdk"
 			decisions.append(hdk)
 		
-		# Priority 3: Variety of close range normals with randomization
+		# Priority 3: Medium-range normals (st_mp, st_mk, cr_mp)
 		var close_rand = randf_range(-3.0, 3.0)
 		
 		# st_mp (fast close attack)
@@ -460,6 +520,64 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		cr_mk.priority = PRIORITY_NORMAL_LOW + randf_range(-3.0, 3.0)
 		cr_mk.reason = "Close range: cr_mk"
 		decisions.append(cr_mk)
+		
+		# Priority 4: Light attacks (faster startup, good for combos)
+		var st_lp = Decision.new()
+		st_lp.layer = DecisionLayer.TACTICAL
+		st_lp.action = "st_lp"
+		st_lp.priority = PRIORITY_NORMAL_MID + randf_range(-5.0, -1.0)  # 67 + (-5 to -1) = 62-66
+		st_lp.reason = "Close range: quick light punch"
+		decisions.append(st_lp)
+		
+		var st_lk = Decision.new()
+		st_lk.layer = DecisionLayer.TACTICAL
+		st_lk.action = "st_lk"
+		st_lk.priority = PRIORITY_NORMAL_LOW + randf_range(-5.0, -1.0)  # 67 + (-5 to -1) = 62-66
+		st_lk.reason = "Close range: light kick"
+		decisions.append(st_lk)
+		
+		var cr_lp = Decision.new()
+		cr_lp.layer = DecisionLayer.TACTICAL
+		cr_lp.action = "cr_lp"
+		cr_lp.priority = PRIORITY_CROUCH + randf_range(-5.0, -1.0)  # 67 + (-5 to -1) = 62-66
+		cr_lp.reason = "Close range: cr_lp"
+		decisions.append(cr_lp)
+		
+		var cr_lk = Decision.new()
+		cr_lk.layer = DecisionLayer.TACTICAL
+		cr_lk.action = "cr_lk"
+		cr_lk.priority = PRIORITY_CROUCH + randf_range(-5.0, -1.0)  # 67 + (-5 to -1) = 62-66
+		cr_lk.reason = "Close range: cr_lk"
+		decisions.append(cr_lk)
+		
+		# Priority 5: Heavy attacks (slower startup, higher damage)
+		var st_hp = Decision.new()
+		st_hp.layer = DecisionLayer.TACTICAL
+		st_hp.action = "st_hp"
+		st_hp.priority = PRIORITY_NORMAL_HIGH + randf_range(-7.0, -2.0)  # 67 + (-7 to -2) = 60-65
+		st_hp.reason = "Close range: heavy punch"
+		decisions.append(st_hp)
+		
+		var st_hk = Decision.new()
+		st_hk.layer = DecisionLayer.TACTICAL
+		st_hk.action = "st_hk"
+		st_hk.priority = PRIORITY_NORMAL_HIGH + randf_range(-8.0, -3.0)  # 67 + (-8 to -3) = 59-64
+		st_hk.reason = "Close range: heavy kick"
+		decisions.append(st_hk)
+		
+		var cr_hp = Decision.new()
+		cr_hp.layer = DecisionLayer.TACTICAL
+		cr_hp.action = "cr_hp"
+		cr_hp.priority = PRIORITY_CROUCH + randf_range(-7.0, -2.0)  # 67 + (-7 to -2) = 60-65
+		cr_hp.reason = "Close range: cr_hp"
+		decisions.append(cr_hp)
+		
+		var cr_hk = Decision.new()
+		cr_hk.layer = DecisionLayer.TACTICAL
+		cr_hk.action = "cr_hk"
+		cr_hk.priority = PRIORITY_CROUCH + randf_range(-8.0, -3.0)  # 67 + (-8 to -3) = 59-64
+		cr_hk.reason = "Close range: cr_hk"
+		decisions.append(cr_hk)
 		
 		# Priority 6: Jump escape (when cornered or pressured)
 		if distance < 60:
