@@ -22,7 +22,7 @@ enum MovementCurve {
 # === 進階屬性 ===
 @export var start_delay: float = 0.0                  # 開始移動前的延遲（秒）
 @export var acceleration_ratio: float = 0.5           # 加速階段佔總時間的比例（0.0-1.0）
-@export var peak_speed_multiplier: float = 1.5        # 峰值速度倍數（用於爆發型）
+@export var peak_speed_multiplier: float = 1.41       # 🔴 【調整】峰值速度倍數（1.41 = 24/17，使 BURST 曲線面積 = 1.0）
 @export var custom_curve: Curve = null                # 自定義速度曲線（0.0-1.0）
 
 # === 方向控制 ===
