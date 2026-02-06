@@ -249,15 +249,6 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 		last_animation = "hit"  # 🔴 【關鍵】更新 last_animation，防止每幀都重置
 		print("[FRAMEBAR] %s - 進入 hit 動畫，重置 display_frame_counter 為 0" % target_player.name)
 	
-	# 🟢 【新增除錯】DP動畫開始時的日誌
-	if anim_name == "dp" and last_animation != "dp":
-		print("[FRAMEBAR DP] %s - DP動畫開始追蹤 | hitbox_shape: %s | disabled: %s | shape: %s" % [
-			target_player.name,
-			"存在" if hitbox_shape else "NULL",
-			hitbox_shape.disabled if hitbox_shape else "N/A",
-			"有" if (hitbox_shape and hitbox_shape.shape) else "NULL"
-		])
-	
 	_handle_block_hit_chain(flags)
 	
 	var need_new := (anim_name != last_animation or not is_tracking) and \
@@ -287,7 +278,7 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 	current_frame = _calc_frame(anim_name, pos, timer_driven, knockfly_chain)
 	_ensure_size(current_frame + 1)
 	
-	var state := _get_state(anim_name, flags, on_floor)
+	var state := _get_state(anim_name, flags, on_floor, pos)
 	if state != -1:
 		frame_data[current_frame] = state
 	
@@ -344,7 +335,7 @@ func _calc_frame(anim_name: String, pos: float, timer_driven: bool, knockfly_cha
 		return int(jump_frame_count / 2.0)  # 按60FPS轉換幀
 	return min(int(pos * DISPLAY_FPS), total_frames - 1)
 
-func _get_state(anim_name: String, flags: Dictionary, on_floor: bool) -> int:
+func _get_state(anim_name: String, flags: Dictionary, on_floor: bool, pos: float) -> int:
 	if anim_name in ["block", "cr_block"] and blockstun_active_frames > 0:
 		return 4
 	if flags.blocking: return 4
@@ -366,36 +357,19 @@ func _get_state(anim_name: String, flags: Dictionary, on_floor: bool) -> int:
 			# Active 階段（call method 後）- 使用紅色（1）
 			return 1
 	
-	# 如果曾經是 fireball 但現在不追蹤，不要修改其狀態（保持顯示）
-	if anim_name != "fireball" and not fireball_tracking_active and frame_data.size() > 0:
-		# 不是當前動畫，且 fireball 已完結，返回 -1 表示不更新
-		return -1
-	
+	# 🟢 【修正】DP 只依據 hitshape disabled 軌道來判定 S/A/R
+	if anim_name == "dp":
+		var track_state := _get_attack_state_from_hitbox_track(anim_name, pos)
+		if track_state != -1:
+			return track_state
+
 	if anim_name in ATTACK_ANIMS:
-		# 🟢 【新增除錯】DP特殊日誌追蹤hitshape狀態
-		if anim_name == "dp":
-			if current_frame < 5 or current_frame % 10 == 0:  # 前5幀全輸出，之後每10幀輸出一次
-				var hitshape_disabled = "unknown"
-				if hitbox_shape:
-					hitshape_disabled = str(hitbox_shape.disabled)
-				else:
-					hitshape_disabled = "N/A"
-				
-				print("[FRAMEBAR DP STATE] frame:%d hitbox:%s disable:%s was_active:%s → return:%s" % [
-					current_frame,
-					"存在" if hitbox_shape else "NULL",
-					hitshape_disabled,
-					was_active,
-					"0(S)" if (not hitbox_shape or hitbox_shape.disabled) else "2(R)" if was_active else "1(A)"
-				])
-		
-		# 🟢 【修正】只檢查hitbox_shape是否存在且enabled，不檢查shape屬性（因為shape可能為null）
+		# 🟢 【修正】只檢查 hitbox_shape 是否存在且 enabled，不檢查 shape 屬性
 		if not hitbox_shape or hitbox_shape.disabled:
 			return 0 if not was_active else 2
 		else:
 			if not was_active:
 				was_active = true
-				print("[FRAMEBAR DP ACTIVE] frame:%d was_active設置為true" % current_frame)
 				for i in range(frame_data.size()):
 					if frame_data[i] == -1:
 						frame_data[i] = 0
@@ -408,6 +382,41 @@ func _get_state(anim_name: String, flags: Dictionary, on_floor: bool) -> int:
 	if anim_name == "layground": return 9
 	if anim_name == "wakeup": return 10
 	return -1
+
+func _get_attack_state_from_hitbox_track(anim_name: String, pos: float) -> int:
+	if not animation_player:
+		return -1
+	var eval_pos = _get_anim_position(anim_name, pos)
+	var anim = animation_player.get_animation(anim_name)
+	if not anim:
+		return -1
+	var track_path := NodePath("Hitbox/HitShape:disabled")
+	var track_idx = anim.find_track(track_path, Animation.TYPE_VALUE)
+	if track_idx == -1:
+		return -1
+	var key_count = anim.track_get_key_count(track_idx)
+	if key_count == 0:
+		return -1
+	var last_value = null
+	var had_active = false
+	for i in range(key_count):
+		var key_time = anim.track_get_key_time(track_idx, i)
+		if key_time > eval_pos:
+			break
+		var key_value = anim.track_get_key_value(track_idx, i)
+		last_value = key_value
+		if key_value == false:
+			had_active = true
+	if last_value == null:
+		return -1
+	if last_value == false:
+		return 1  # Active
+	return 2 if had_active else 0
+
+func _get_anim_position(anim_name: String, fallback_pos: float) -> float:
+	if animation_player and animation_player.current_animation == anim_name:
+		return animation_player.current_animation_position
+	return fallback_pos
 
 func _handle_block_hit_chain(flags: Dictionary) -> void:
 	var type := 4 if flags.blocking else (6 if flags.hit else -1)
@@ -568,7 +577,7 @@ func _on_animation_finished(anim_name: String) -> void:
 	
 	if anim_name in ATTACK_ANIMS:
 		was_active = false
-		is_tracking = false
+		# 保持顯示，直到下一個新狀態開始
 	
 	if anim_name == "wakeup" and knockfly_chain_active:
 		knockfly_chain_completed = true
