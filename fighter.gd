@@ -152,14 +152,6 @@ func _physics_process(delta: float) -> void:
 	# ── super 先執行（舊的 block_timer 仍然會被減，但我們不再依賴它控制狀態）──
 	super._physics_process(delta)
 
-	# ── 【空中摩擦】保持舊版行為──
-	if (is_knockfly or is_hit) and not is_on_floor():
-		var friction_amount = int(default_air_friction * world.SIMULATION_SCALE * delta)
-		if fixed_velocity.x > 0:
-			fixed_velocity.x = max(0, fixed_velocity.x - friction_amount)
-		elif fixed_velocity.x < 0:
-			fixed_velocity.x = min(0, fixed_velocity.x + friction_amount)
-
 	# ── 【攻擊輸入檢查】保持舊版──
 	var input_data = get_input()
 	var is_valid_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping

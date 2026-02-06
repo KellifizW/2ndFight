@@ -11,6 +11,10 @@ func _init(movement: Node) -> void:
 func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 	# 【注意】delta 參數保留以保持向後相容，但不在此函數中使用
 	# 所有計時器現在在 TimerHandler 或此處以幀計數方式遞減
+	# KO safety net: if HP is 0 and we're on the floor, ensure layground is entered
+	if _should_force_ko_layground():
+		_enter_layground("ko_force")
+		return
 	
 	if movement_node.is_air_hit_backjump:
 		# 【重要】air_hit_backjump_timer 現在由 TimerHandler 管理
@@ -45,18 +49,7 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 
 		# Only transition to layground if on floor
 		if movement_node.is_on_floor():
-			movement_node.fixed_velocity = Vector2i.ZERO
-			movement_node.is_knockfly = false
-			movement_node.knockfly_velocity_x = 0.0  # 🟢 重置 knockfly_velocity_x，確保下次跳躍不會繼承
-			movement_node.knockfly_timer = 0  # 🟢 完全清除 timer
-			movement_node.is_layground = true
-			# 轉換 layground_duration（秒）為幀數（@120 FPS 物理幀）
-			# layground_frames 在 _physics_process 每幀遞減，所以應×120 而非×60
-			var layground_frames = int(round(movement_node.layground_duration * 120.0)) if "layground_duration" in movement_node else 24
-			movement_node.layground_timer = layground_frames
-			print("[LAYGROUND INIT] duration: %.3fs → timer: %d frames" % [movement_node.layground_duration, layground_frames])
-			movement_node.is_knockfly_animation_finished = false
-			movement_node._update_animation_state(0, false)
+			_enter_layground("knockfly_landed")
 			return
 
 		# If timer ends but still in air, only mark animation complete
@@ -82,6 +75,26 @@ func apply_air_friction(friction_coeff: float) -> void:
 		movement_node.fixed_velocity.x = max(0, movement_node.fixed_velocity.x - friction_amount)
 	elif movement_node.fixed_velocity.x < 0:
 		movement_node.fixed_velocity.x = min(0, movement_node.fixed_velocity.x + friction_amount)
+
+func _should_force_ko_layground() -> bool:
+	var player_healthbar = movement_node.healthbar
+	if not player_healthbar:
+		return false
+	return player_healthbar.current_health <= 0 and movement_node.is_on_floor() and not movement_node.is_layground
+	
+func _enter_layground(reason: String = "unknown") -> void:
+	print("[LAYGROUND ENTER] %s | reason=%s" % [movement_node.name, reason])
+	movement_node.fixed_velocity = Vector2i.ZERO
+	movement_node.knockfly_velocity_x = 0.0  # 🟢 重置 knockfly_velocity_x，確保下次跳躍不會繼承
+	movement_node.knockfly_timer = 0  # 🟢 完全清除 timer
+	movement_node.is_layground = true
+	# 轉換 layground_duration（秒）為幀數（@120 FPS 物理幀）
+	# layground_frames 在 _physics_process 每幀遞減，所以應×120 而非×60
+	var layground_frames = int(round(movement_node.layground_duration * 120.0)) if "layground_duration" in movement_node else 24
+	movement_node.layground_timer = layground_frames
+	print("[LAYGROUND INIT] duration: %.3fs → timer: %d frames" % [movement_node.layground_duration, layground_frames])
+	movement_node.is_knockfly_animation_finished = false
+	movement_node._update_animation_state(0, false)
 
 func reset_layground_with_health_check() -> void:
 	var player_healthbar = movement_node.healthbar

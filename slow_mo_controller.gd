@@ -22,6 +22,7 @@ var slowmo_active: bool = false
 var hit_slowmo_time: float = 0.1333    # 擊中慢動作的持續時間（秒，真實時間）
 var hit_slowmo_exit_time: float = 0  # 擊中慢動作的退出過渡時間（秒，真實時間）
 var is_hit_slowmo: bool = false     # 標記是否處於擊中慢動作狀態
+var pending_slowmo_request: bool = false  # 延遲在 hit stop 結束後啟動 slowmo
 
 # Tween 用於平滑過渡
 var tween: Tween
@@ -42,6 +43,10 @@ func _process(_delta):
 
 # 請求切換慢動作狀態（手動切換）
 func request_slowmo_change():
+	if is_hit_slowmo:
+		pending_slowmo_request = true
+		print("Debug: Slowmo request deferred until hit stop ends")
+		return
 	if slowmo_active:
 		exit_slowmo_animation()
 	else:
@@ -144,6 +149,10 @@ func _on_hit_slowmo_finished():
 	print("Debug: Hit slowmo finished, is_hit_slowmo=%s, time_scale=%s" % [is_hit_slowmo, Engine.time_scale])
 	# 🟢 發送信號通知所有 Fighter，hit stop 已完成，可以開始 hitstun/knockback/blockstun
 	emit_signal("hit_slowmo_finished")
+	if pending_slowmo_request:
+		pending_slowmo_request = false
+		print("Debug: Starting deferred slowmo after hit stop")
+		enter_slowmo_animation()
 # 手動切換慢動作開關（用於測試或手動控制）
 func toggle_slowmo():
 	request_slowmo_change()
