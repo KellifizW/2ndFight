@@ -78,27 +78,15 @@ func _apply_move_restrictions() -> void:
 	# 應用 Player A 的限制
 	var player_a = players[0]
 	var ai_behavior_a = player_a.get_node_or_null("AIBehavior")
-	if ai_behavior_a:
-		ai_behavior_a.enable_move_restrictions = enable_restrictions_a
-		ai_behavior_a.restricted_moves = restricted_moves_a
-		# 使用 set() 方法避免類型檢查問題
-		if ai_behavior_a.decision_layers:
-			var decision_layers = ai_behavior_a.decision_layers
-			decision_layers.set("restricted_moves", restricted_moves_a if enable_restrictions_a else [])
-		
+	if ai_behavior_a and ai_behavior_a.has_method("set_move_restrictions"):
+		ai_behavior_a.set_move_restrictions(restricted_moves_a, enable_restrictions_a)
 		if enable_restrictions_a and restricted_moves_a.size() > 0:
 			print("[CPU Controller] Player A move restrictions applied: %s" % str(restricted_moves_a))
 	
 	# 應用 Player B 的限制
 	var player_b = players[1]
 	var ai_behavior_b = player_b.get_node_or_null("AIBehavior")
-	if ai_behavior_b:
-		ai_behavior_b.enable_move_restrictions = enable_restrictions_b
-		ai_behavior_b.restricted_moves = restricted_moves_b
-		# 使用 set() 方法避免類型檢查問題
-		if ai_behavior_b.decision_layers:
-			var decision_layers = ai_behavior_b.decision_layers
-			decision_layers.set("restricted_moves", restricted_moves_b if enable_restrictions_b else [])
-		
+	if ai_behavior_b and ai_behavior_b.has_method("set_move_restrictions"):
+		ai_behavior_b.set_move_restrictions(restricted_moves_b, enable_restrictions_b)
 		if enable_restrictions_b and restricted_moves_b.size() > 0:
 			print("[CPU Controller] Player B move restrictions applied: %s" % str(restricted_moves_b))

@@ -64,8 +64,14 @@ func start_hitstop_event(attacker: Node, defender: Node, attack_name: String) ->
 	if attacker.has_node("AnimationPlayer"):
 		var anim_player = attacker.get_node("AnimationPlayer")
 		current_event.attacker_anim_time = anim_player.current_animation_position
-		var anim_length = anim_player.get_animation(anim_player.current_animation).length
-		current_event.attacker_anim_length = anim_length
+		if anim_player.current_animation != "" and anim_player.has_animation(anim_player.current_animation):
+			var anim = anim_player.get_animation(anim_player.current_animation)
+			if anim:
+				current_event.attacker_anim_length = anim.length
+			else:
+				current_event.attacker_anim_length = 0.0
+		else:
+			current_event.attacker_anim_length = 0.0
 	
 	# 防守者 hitstun 狀態
 	if "hitstun_frames" in defender:

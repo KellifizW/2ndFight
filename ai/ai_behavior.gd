@@ -174,7 +174,29 @@ func _process(delta: float) -> void:
 func set_ai_enabled(enabled: bool) -> void:
 	ai_enabled = enabled
 	if debug_mode:
-		print("[AI] AI %s for %s" % ["enabled" if enabled else "disabled", parent.name if parent else "unknown"])
+		var parent_name = parent.name if parent else "unknown"
+		print("[AI] AI %s for %s" % ["enabled" if enabled else "disabled", parent_name])
+
+func set_move_restrictions(restricted: Array[String], enable: bool) -> void:
+	"""
+	設定招式限制並將其傳遞給決策層
+	由 CPUController 呼叫
+	"""
+	restricted_moves = restricted
+	enable_move_restrictions = enable
+	
+	# 將限制傳遞給決策層
+	if decision_layers:
+		decision_layers.restricted_moves = restricted
+	
+	if debug_mode or enable:
+		var restriction_str = "None" if restricted.is_empty() else str(restricted)
+		var parent_name = parent.name if parent else "unknown"
+		print("[AI.set_move_restrictions] %s - Restricted moves: %s (enabled: %s)" % [
+			parent_name,
+			restriction_str,
+			enable
+		])
 
 func find_opponent() -> void:
 	"""尋找對手玩家"""
@@ -298,6 +320,14 @@ func get_ai_input() -> Dictionary:
 		if first_move:
 			return _commit_action(first_move, 0.4)
 	
+	# ============================================================
+	# FINAL SAFETY CHECK: Ensure no restricted moves slip through
+	# ============================================================
+	if enable_move_restrictions and decision.action in restricted_moves:
+		if debug_mode or Engine.get_physics_frames() % 60 == 0:
+			print("[AI] WARNING: Final check caught restricted move '%s', reverting to walk_forward" % decision.action)
+		decision.action = "walk_forward"
+	
 	# Commit to the decided action
 	var duration = _get_action_duration(decision.action)
 	return _commit_action(decision.action, duration)
@@ -403,8 +433,14 @@ func _action_to_input(action: String) -> Dictionary:
 				return _neutral_input()
 			input.spm3_pressed = true
 		"dp":
+			if enable_move_restrictions and "dp" in restricted_moves:
+				if debug_mode:
+					print("[AI._action_to_input] WARNING: DP action reached input conversion despite being restricted!")
+				return _neutral_input()
 			input.dp_pressed = true
 		"super":
+			if enable_move_restrictions and "super" in restricted_moves:
+				return _neutral_input()
 			input.super_pressed = true
 		"dash_forward":
 			input.dash_pressed = true

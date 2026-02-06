@@ -146,7 +146,6 @@ func calculate_required_knockback_velocity(target_distance_units: int, total_fra
 	
 	# 反推初始速度
 	if deceleration_sum <= 0:
-		print("[KNOCKBACK VELOCITY WARNING] deceleration_sum 為 0，無法計算初始速度")
 		return 0.0
 	
 	# 🟢 【關鍵修復】考慮 delta 時間步長（Movement.gd 中 fixed_position += velocity * delta）
@@ -155,36 +154,6 @@ func calculate_required_knockback_velocity(target_distance_units: int, total_fra
 	var physics_fps = Engine.physics_ticks_per_second  # 120 FPS
 	var delta_factor = float(physics_fps)  # 補償 delta = 1/120
 	var required_velocity = float(target_distance_units) * delta_factor / deceleration_sum
-	
-	# 🟢 詳細調試輸出（使用調試開關控制）
-	if debug_knockback_velocity_calc:
-		var target_pixels = float(target_distance_units) / SIMULATION_SCALE
-		print("\n╔════════════════════════════════════════════════════════════════╗")
-		print("║ KNOCKBACK VELOCITY CALCULATION (反推初始速度)              ║")
-		print("╚════════════════════════════════════════════════════════════════╝")
-		if debug_player_name != "":
-			print("  🎮 Player: %s" % debug_player_name)
-		print("  📏 Target distance: %d units (%.2f pixels)" % [target_distance_units, target_pixels])
-		print("  ⏱️  Hitstun frames: %d (%.3fs @ 120 FPS 物理)" % [total_frames, total_frames / 120.0])
-		print("  📊 Deceleration Mode: %s" % _get_decel_mode_name())
-		print("  ∑️  Deceleration sum: %.6f" % deceleration_sum)
-		print("  ⚡ Required initial velocity: %.2f units" % required_velocity)
-		print("  ⚡ Required initial velocity: %.2f px/frame" % [required_velocity / SIMULATION_SCALE])
-		
-		# 調試：顯示前 5 幀和最後 5 幀的衰減倍數
-		if total_frames > 10:
-			print("\n  📈 Frame decay pattern (first 5 & last 5):")
-			for i in range(min(5, total_frames)):
-				print("    Frame %d (%.1f%%): %.6f" % [i+1, (i+1)*100.0/total_frames, frame_multipliers[i]])
-			print("    ...")
-			for i in range(max(0, total_frames-5), total_frames):
-				print("    Frame %d (%.1f%%): %.6f" % [i+1, (i+1)*100.0/total_frames, frame_multipliers[i]])
-		elif total_frames <= 10:
-			print("\n  📈 Frame decay pattern:")
-			for i in range(total_frames):
-				print("    Frame %d (%.1f%%): %.6f" % [i+1, (i+1)*100.0/total_frames, frame_multipliers[i]])
-		
-		print()
 	
 	return required_velocity
 
@@ -234,27 +203,11 @@ func _physics_process(delta: float) -> void:
 				# 🟢 【重要】保存 knockback 開始時的位置，用於計算實際移動距離
 				player.knockback_start_x = player.position.x
 				
-				# 🟢 記錄 knockback 開始時的詳細信息（使用調試開關控制）
-				if debug_knockback_execution:
-					var start_x = player.position.x
-					var start_fixed_x = player.fixed_position.x
-					print("\n╔════════════════════════════════════════════════════════════════╗")
-					print("║ KNOCKBACK EXECUTION START                                    ║")
-					print("╚════════════════════════════════════════════════════════════════╝")
-					print("  🎮 Player: %s" % player.name)
-					print("  📍 Initial Position: (%.2f, %.2f)" % [start_x, player.position.y])
-					print("  📍 Initial Fixed Position: (%d, %d)" % [start_fixed_x, player.fixed_position.y])
-					print("  ⚡ Initial Knockback Velocity: %.2f units (%.2f px/frame)" % [player.hit_push_velocity, player.hit_push_velocity / SIMULATION_SCALE])
-					print("  ⏱️  Total Knockback Frames: %d (%.3fs @ 120 FPS 物理)" % [player.initial_knockback_frames, player.initial_knockback_frames / 120.0])
-					print("  📊 Facing Direction: %s (%.1f)" % ["Right" if player.facing_direction > 0 else "Left", player.facing_direction])
-					print("  ⏰ Time: %.3f" % player.knockback_start_time)
-					print()
-			# 計算衰減倍數（二次方衰減曲線）
+		# 計算衰減倍數（二次方衰減曲線）
 			# 使用 initial_knockback_frames（初始值，固定不變），而非 hitstun_frames（會變動）
 			var total_knockback_frames = player.initial_knockback_frames
 			if total_knockback_frames <= 0:
 				total_knockback_frames = 1  # 避免除以 0
-				print("[KNOCKBACK WARNING] %s - initial_knockback_frames 是 0！使用 1 避免除以 0" % player.name)
 			
 			var remaining_ratio: float = player.knockback_frames / float(total_knockback_frames)
 			# 🟢 使用新的多模式減速曲線計算函數
@@ -267,31 +220,6 @@ func _physics_process(delta: float) -> void:
 			
 			# Knockback結束檢查
 			if player.knockback_frames <= 0:
-				var expected_frames = player.initial_knockback_frames  # ✅ 使用初始值
-				var physics_fps = Engine.physics_ticks_per_second  # ✅ 使用動態 FPS
-				var expected_duration = expected_frames / float(physics_fps)
-				
-				# knockback_frames 和 hitstun_frames 現在完全同步（都在 Fighter._physics_process 中遞減）
-				# 所以實際執行的幀數應該等於初始值
-				var _actual_duration_by_frames = expected_duration
-				
-				# 牆上時鐘計時（用於參考，但可能因 time_scale 而不同）
-				var _actual_duration_by_clock = 0.0
-				if player.knockback_start_time > 0:
-					_actual_duration_by_clock = (Time.get_ticks_msec() / 1000.0) - player.knockback_start_time
-				
-				# 計算總移動距離
-				var final_x = player.position.x
-				var total_moved_distance = abs(final_x - player.knockback_start_x)
-				
-				# 🟢 簡化的 knockback 結束報告（只在完成時顯示統計）
-				if debug_knockback_execution:
-					print("\n[KNOCKBACK SUMMARY] %s" % player.name)
-					print("  ⏱️  Duration: %.3fs (%d frames @%d FPS)" % [expected_duration, expected_frames, physics_fps])
-					print("  📍 Final Position: (%.2f, %.2f)" % [final_x, player.position.y])
-					print("  📏 Total Distance: %.2f pixels" % total_moved_distance)
-					print()
-				
 				player.knockback_frames = 0
 				player.hit_push_velocity = 0.0
 				player.hit_push_initial_velocity = 0.0
@@ -313,8 +241,6 @@ func _physics_process(delta: float) -> void:
 			
 			# Block Knockback 結束檢查
 			if player.block_knockback_frames <= 0:
-				if debug_knockback_execution:
-					print("[BLOCK KNOCKBACK SUMMARY] %s - completed" % player.name)
 				player.block_knockback_frames = 0
 				player.block_push_initial_velocity = 0.0
 				player.fixed_velocity.x = 0

@@ -198,15 +198,6 @@ func take_hit(
 	var physics_hitstun = logic_frames_to_physics_frames(hitstun_duration)
 	var physics_blockstun = logic_frames_to_physics_frames(blockstun_duration)
 	
-	print("═══════════════════════════════════════════════════════════")
-	print("[TAKE_HIT] %s 接收擊中 @ 時間: %.3f" % [name, Time.get_ticks_msec() / 1000.0])
-	print("  - 輸入 hitstun: %d 邏輯幀 (60FPS 基準)" % hitstun_duration)
-	print("    → 轉換為: %d 物理幀 (%d FPS 實際)" % [physics_hitstun, PHYSICS_FPS])
-	print("    → 實際時間: %.3f秒" % (physics_hitstun / float(PHYSICS_FPS)))
-	print("  - 輸入 blockstun: %d 邏輯幀" % blockstun_duration)
-	print("    → 轉換為: %d 物理幀" % physics_blockstun)
-	print("  - damage: %.1f" % damage)
-	
 	# 記錄被擊中時是否處於蹲姿（用於選擇正確的受擊動畫）
 	was_hit_while_crouching = is_crouching
 	
@@ -235,17 +226,13 @@ func take_hit(
 		initial_blockstun_frames = physics_blockstun
 		initial_blockstun = physics_blockstun / float(PHYSICS_FPS)  # 轉換回秒數用於其他計算
 		block_timer = physics_blockstun / float(PHYSICS_FPS)
-		print("[BLOCKSTUN START] %s 進入格擋 → %d 物理幀 (%.3f秒)" % [name, blockstun_frames, block_timer])
 		
 		# 🟢 【修正】強制重置垂直速度和位置，確保完全在地面上（避免 DP 跳躍條件失敗）
 		# ⚠️  注意：這只清零防禦方的速度，不應影響攻擊方
-		print("[BLOCKSTUN_VELOCITY] %s 格擋前速度: velocity=(%d, %d)" % [name, fixed_velocity.x, fixed_velocity.y])
 		fixed_velocity.x = 0
 		fixed_velocity.y = 0
 		if fixed_position.y != world.FLOOR_Y:
-			print("[BLOCKSTUN FIX] %s 修正 Y 位置: %d → %d" % [name, fixed_position.y, world.FLOOR_Y])
 			fixed_position.y = world.FLOOR_Y
-		print("[BLOCKSTUN_VELOCITY] %s 格擋後速度: velocity=(%d, %d)" % [name, fixed_velocity.x, fixed_velocity.y])
 		
 		if not skip_push:
 			# ── 【新增】Block Knockback 使用幀計數系統，與 Hit Knockback 對齐 ──
@@ -264,7 +251,6 @@ func take_hit(
 			else:
 				# 後備方案：使用舊的係數
 				block_push_initial_velocity = push_distance * world.SIMULATION_SCALE * 4.0
-				print("[BLOCK KNOCKBACK WARNING] PushManager 未找到，使用後備係數")
 			
 			block_knockback_frames = physics_blockstun  # Block knockback 持續時間 = blockstun 時間
 			initial_block_knockback_frames = physics_blockstun  # 保存初始幀數用於衰減計算
@@ -272,20 +258,9 @@ func take_hit(
 			# @deprecated 保留舊變數以維持向後兼容
 			block_push_timer = initial_blockstun
 			block_push_velocity = 2.0 * push_distance * world.SIMULATION_SCALE / initial_blockstun
-			
-			# 🟢 詳細的 block knockback 初始化記錄
-			print("\n╔════════════════════════════════════════════════════════════════╗")
-			print("║ BLOCK KNOCKBACK INITIALIZATION                               ║")
-			print("╚════════════════════════════════════════════════════════════════╝")
-			print("  🎮 Player: %s" % name)
-			print("  📍 Position: (%.2f, %.2f)" % [position.x, position.y])
-			print("  📏 Block knockback distance: %.1f pixels" % push_distance)
-			print("  ⏱️  Blockstun frames: %d (%.3fs @ 60 FPS)" % [physics_blockstun, physics_blockstun / 60.0])
-			print("  ⚡ Block knockback initial velocity: %.2f units" % block_push_initial_velocity)
-			print()
+		
 		block_detected.emit(name, block_type)
 		_update_animation_state(0, input_data.crouch_pressed)
-		print("Debug: Block detected, no damage applied for %s" % name)
 		return
 	
 	# ── 離開格擋狀態 ──
@@ -444,12 +419,6 @@ func take_hit(
 			var push_distance = knockback_distance if knockback_distance > 0 else hit_push_distance
 			# knockback 使用固定幀數系統，持續時間 = hitstun 時間（物理幀）
 			
-			# 🔴 DEBUG: 檢查 take_hit() 是否被多次調用
-			if knockback_frames > 0 or initial_knockback_frames > 0:
-				print("[KNOCKBACK INTERRUPTION] %s - take_hit() 在 knockback 執行中被調用！ 當前 knockback_frames: %d, initial: %d" % [
-					name, knockback_frames, initial_knockback_frames
-				])
-			
 			knockback_start_time = 0.0  # 重置時間戳，讓 PushManager 重新記錄
 			
 			# 🟢 使用反推函數計算所需的初始速度，確保實際距離 = push_distance
@@ -472,20 +441,8 @@ func take_hit(
 				knockback_frames = hit_frames  # 立即設置為 hitstun 幀數
 				initial_knockback_frames = hit_frames  # ✅ 保存初始幀數
 				hit_push_velocity = hit_push_initial_velocity
-				print("[KNOCKBACK RESET] %s - take_hit() 重置 knockback！新的 knockback_frames: %d" % [name, knockback_frames])
 				# 不在這裡設置 knockback_start_time，讓 PushManager 首次執行時記錄
-			
-			# 🟢 詳細的普通受擊 knockback 初始化記錄
-			print("\n╔════════════════════════════════════════════════════════════════╗")
-			print("║ HIT KNOCKBACK INITIALIZATION (普通受擊推擊)                 ║")
-			print("╚════════════════════════════════════════════════════════════════╝")
-			print("  🎮 Player: %s" % name)
-			print("  📍 Position: (%.2f, %.2f)" % [position.x, position.y])
-			print("  📏 Hit knockback distance: %.1f pixels" % push_distance)
-			print("  ⏱️  Hitstun frames: %d (%.3fs @ %d FPS 物理)" % [hit_frames, hit_frames / float(PHYSICS_FPS), PHYSICS_FPS])
-			print("  ⚡ Hit knockback initial velocity: %.2f units (%.2f px/frame)" % [hit_push_initial_velocity, hit_push_initial_velocity / world.SIMULATION_SCALE])
-			print("  ⏳ Knockback status: %s" % ("Pending (waiting for hitstop)" if waiting_for_hit_stop_end else "Active (started immediately)"))
-			print()
+
 func take_knockfly() -> void:
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove
