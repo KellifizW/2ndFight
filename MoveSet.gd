@@ -153,8 +153,8 @@ func _initialize_move_library() -> void:
 		"super", "DAV", 5.0, 200.0, 156.0, 200.0, 54.0, -210.0, true, false, 200000.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 18
 	)
 	move_library["dp"] = MoveData.new(
-		"dp", "DAV", 5.0, 100.0, 47.0, 40.0, 4.0, -2000.0, false, false, 7400000.0, "special", true, "none", 0.0, 0.0, 0.0,
-		9000000.0, -3000.0, 20.0, 39, 23  # 🟢 jump_speed: -2000→-9000 (升龍拳應有的高度); knockfly_gravity: 確保在被擊中時重力正確
+		"dp", "DAV", 5.0, 100.0, 47.0, 40.0, 4.0, -2100.0, false, false, 7200000.0, "special", true, "none", 0.0, 0.0, 0.0,
+		10000000.0, -3200.0, 20.0, 39, 23  # 🟢 jump_speed: -2000→-9000 (升龍拳應有的高度); knockfly_gravity: 確保在被擊中時重力正確
 	)
 	
 	# DEN moves
@@ -167,7 +167,7 @@ func _initialize_move_library() -> void:
 	
 	# Universal moves
 	move_library["fireball"] = MoveData.new(
-		"fireball", "*", 10.0, 80.0, 18.0, 0.0, 0.0, 0.0, false, true, 0.0, "fireball", true, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 24, 14
+		"fireball", "*", 10.0, 80.0, 48.0, 0.0, 0.0, 0.0, false, true, 0.0, "fireball", true, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 24, 14
 	)
 
 # ============================================================
@@ -194,15 +194,22 @@ func _start_special(move_name: String) -> void:
 		print("[MoveSet] %s cannot use %s: already attacking or in special move" % [parent.name, move_name])
 		return
 	
+	# Align duration to animation length when available (per-character)
+	var duration_logic_frames = int(round(move_data.duration))
+	var duration_physics_frames = int(round(move_data.duration * 2.0))
+	if animation_player and animation_player.has_animation(move_name):
+		var anim = animation_player.get_animation(move_name)
+		duration_logic_frames = int(round(anim.length * LOGIC_FPS))
+		duration_physics_frames = int(round(anim.length * PHYSICS_FPS))
+		move_data.duration = float(duration_logic_frames)
+
 	# Set up move state
 	is_spmove = true
 	is_special_moving = true
 	is_spmove_animation_playing = true
 	
 	current_move_state.active_move = move_data
-	# 🔴 【關鍵修復】move_data.duration 是那輯幀數（60 FPS），不是秒數
-	# 轉換策略：那輯幀 * 2 = 物理幀數 (120 FPS)
-	var duration_physics_frames = int(round(move_data.duration * 2.0))
+	# move_data.duration 是邏輯幀數（60 FPS），需轉為物理幀數 (120 FPS)
 	current_move_state.timer = duration_physics_frames
 	# 🔴 jump_delay 也是那輯幀數，需要乘以 2
 	var jump_delay_physics_frames = int(round(move_data.jump_delay * 2.0))
@@ -256,8 +263,7 @@ func _start_special(move_name: String) -> void:
 	var seat_str = parent.seat if "seat" in parent else "?"
 	if animation_player and animation_player.has_animation(move_name):
 		var anim = animation_player.get_animation(move_name)
-		# ℹ️ 【重要】timer 已在前面設定（基於 move_data.duration），不再覆蓋
-		# 如果需要使用動畫長度，應該在 move_data 中設定 duration 與動畫長度相符
+		# Timer 已在前面對齊動畫長度
 		print("[MoveSet DEBUG] Animation '%s' loaded | Duration: %.3fs | Timer: %d frames @%d FPS (physics)" % [move_name, anim.length, current_move_state.timer, 120])
 		
 		# 🟢 【詳細除錯】移動參數分析
@@ -432,11 +438,6 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	
 	# 🔴 【特殊招式jump保護】即使被擊中也要執行jump邏輯（只針對jump_delay > 0的招式）
 	if is_spmove and current_move_state.active_move and current_move_state.active_move.jump_delay > 0:
-		var move_name = current_move_state.active_move.name
-		var seat = parent.seat if "seat" in parent else "?"
-		print("[DP_PROCESS_JUMP_CALLED] %s: %s | jump_delay=%.2f | jump_timer=%.3f" % [
-			seat, move_name, current_move_state.active_move.jump_delay, current_move_state.jump_timer
-		])
 		_process_jump(delta, world, current_move_state.active_move)
 	
 	# 如果被擊中或被擊飛，停止其他處理

@@ -82,14 +82,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# 🟢 【調試】監控 DP 期間的垂直速度變化
-	var move_set = $MoveSet if has_node("MoveSet") else null
-	if move_set and move_set.is_spmove and move_set.current_move_state.active_move:
-		var move_name = move_set.current_move_state.active_move.name
-		if move_name == "dp" and is_jumping and fixed_velocity.y >= 0:
-			print("[DP_DEBUG] %s DP期間速度異常！velocity.y=%d | is_jumping=%s | pos.y=%d" % [
-				name, fixed_velocity.y, is_jumping, fixed_position.y
-			])
-
+	# （已移除 DP debug 列印）
 	# 🟢 【修正】檢查是否在 hit stop 期間，如果是則暫停所有幀數遞減
 	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
 	var is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo

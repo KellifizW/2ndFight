@@ -59,12 +59,17 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 			return
 
 	if movement_node.is_layground:
-		# 【重要】layground_timer 現在由 TimerHandler 管理（或下方自行管理）
+		# 【重要】layground 期間維持位置和速度為零
 		movement_node.layground_timer = max(0, movement_node.layground_timer - 1)
-		movement_node.fixed_velocity = Vector2i.ZERO
-		print("[LAYGROUND TICK] timer: %d → %d" % [movement_node.layground_timer + 1, movement_node.layground_timer])
+		movement_node.fixed_velocity = Vector2i.ZERO  # 🟢 每幀強制清除速度
+		
+		# 🟢 【防護】防止位置穿過地面
+		var floor_y: int = movement_node.world.FLOOR_Y if movement_node.world else 570000
+		if movement_node.fixed_position.y > floor_y:
+			movement_node.fixed_position.y = floor_y
+			print("[LAYGROUND SNAP] Position snapped to floor: y=%d" % floor_y)
+		
 		if movement_node.layground_timer <= 0:
-			print("[LAYGROUND END] timer reached 0, calling reset")
 			reset_layground_with_health_check()
 
 func apply_air_friction(friction_coeff: float) -> void:
@@ -87,19 +92,24 @@ func _enter_layground(reason: String = "unknown") -> void:
 	movement_node.fixed_velocity = Vector2i.ZERO
 	movement_node.knockfly_velocity_x = 0.0  # 🟢 重置 knockfly_velocity_x，確保下次跳躍不會繼承
 	movement_node.knockfly_timer = 0  # 🟢 完全清除 timer
+	movement_node.is_knockfly = false  # 🟢 【關鍵修復】清除 is_knockfly，停止重力累積
+	movement_node.is_knockfly_animation_finished = false  # 🟢 先清除 flag，再進入 layground
+	
+	# 🟢 【關鍵修復】重置位置到地面，防止位置穿過地面
+	var floor_y: int = movement_node.world.FLOOR_Y if movement_node.world else 570000
+	movement_node.fixed_position.y = floor_y
+	print("[LAYGROUND POSITION_RESET] fixed_position.y set to floor_y: %d" % floor_y)
+	
 	movement_node.is_layground = true
 	# 轉換 layground_duration（秒）為幀數（@120 FPS 物理幀）
 	# layground_frames 在 _physics_process 每幀遞減，所以應×120 而非×60
 	var layground_frames = int(round(movement_node.layground_duration * 120.0)) if "layground_duration" in movement_node else 24
 	movement_node.layground_timer = layground_frames
 	print("[LAYGROUND INIT] duration: %.3fs → timer: %d frames" % [movement_node.layground_duration, layground_frames])
-	movement_node.is_knockfly_animation_finished = false
 	movement_node._update_animation_state(0, false)
 
 func reset_layground_with_health_check() -> void:
 	var player_healthbar = movement_node.healthbar
-	
-	print("[RESET_LAYGROUND] movement_node: %s, has_is_wakeup: %s" % [movement_node.name, "is_wakeup" in movement_node])
 	
 	if player_healthbar and player_healthbar.current_health <= 0:
 		# Only print debug message once when health reaches zero

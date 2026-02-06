@@ -33,6 +33,10 @@ func apply_gravity_unified(delta: float, move_set: Node = null) -> void:
 	if not movement_node.world:
 		return
 	
+	# 🟢 【防護】Layground 期間不應用重力
+	if "is_layground" in movement_node and movement_node.is_layground:
+		return
+	
 	# ── Step 1: 檢查是否需要應用重力 ──
 	var should_apply_gravity = false
 	var gravity_to_apply: int = 0

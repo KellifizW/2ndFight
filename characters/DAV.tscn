@@ -2516,10 +2516,10 @@ tracks/2/path = NodePath("Hitbox/HitShape:shape:size")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0.083333336, 0.25),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0.083333336, 0.15, 0.25),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
-"values": [Vector2(90, 220), Vector2(70, 270)]
+"values": [Vector2(90, 150), Vector2(90, 220), Vector2(70, 270)]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
@@ -2528,10 +2528,10 @@ tracks/3/path = NodePath("Hitbox/HitShape:position")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0.083333336, 0.25),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0.083333336, 0.15, 0.25),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
-"values": [Vector2(60, -100), Vector2(35, -150)]
+"values": [Vector2(60, -70), Vector2(60, -140), Vector2(35, -150)]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -2600,7 +2600,7 @@ tracks/9/path = NodePath("AnimatedSprite2D:frame")
 tracks/9/interp = 1
 tracks/9/loop_wrap = true
 tracks/9/keys = {
-"times": PackedFloat32Array(0, 0.083333336, 0.13333334, 0.23333333, 0.33333334, 0.43333334, 0.51666665, 0.56666666, 0.6, 0.71666664),
+"times": PackedFloat32Array(0, 0.083333336, 0.15, 0.23333333, 0.33333334, 0.43333334, 0.51666665, 0.56666666, 0.6, 0.71666664),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [0, 1, 2, 3, 4, 5, 6, 7, 0, 1]
