@@ -64,6 +64,7 @@ var attack_duration_timer: int = 0  # Frame-based timer for attack duration
 var attack_start_frame: int = -1  # 🟢 Frame when attack started (120 FPS physics frame)
 var wakeup_timer: int = 0  # Frame-based timer for wakeup duration
 var is_facing_locked: bool = false
+var _was_in_hitstop: bool = false
 
 var special_input_data: Dictionary = {
 	"spm1_pressed": false,
@@ -365,8 +366,18 @@ func _physics_process(delta: float) -> void:
 	if not (landing_lock_timer > 0):
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 	
+	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
+	var is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo
+	if is_in_hitstop and not _was_in_hitstop:
+		var anim_name = animation_player.current_animation if animation_player else ""
+		var anim_pos = animation_player.current_animation_position if animation_player else 0.0
+		print("[HITSTOP PAUSE] Seat=%s attack=%s timer=%d anim=%s pos=%.3f" % [seat, attack_type, attack_duration_timer, anim_name, anim_pos])
+	elif not is_in_hitstop and _was_in_hitstop:
+		print("[HITSTOP RESUME] Seat=%s attack=%s timer=%d" % [seat, attack_type, attack_duration_timer])
+	_was_in_hitstop = is_in_hitstop
+	
 	# Countdown attack duration timer (FRAME-BASED, only when actually attacking)
-	if is_attacking and attack_duration_timer > 0:
+	if is_attacking and attack_duration_timer > 0 and not is_in_hitstop:
 		attack_duration_timer -= 1
 		if attack_duration_timer <= 0:
 			reset_attack_state()
