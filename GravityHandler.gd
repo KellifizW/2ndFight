@@ -18,7 +18,7 @@ func handle_gravity(delta: float, move_set) -> void:
 			# 檢查是否在特殊招式的跳躍階段
 			var in_special_jump = false
 			if move_set and move_set.is_spmove and move_set.current_move_state.active_move:
-				var move_name = move_set.current_move_state.active_move.name
+				var move_name = move_set.current_move_state.active_move.move_id
 				if move_name in ["dp", "hdk", "powerkk", "super"] and movement_node.is_jumping:
 					in_special_jump = true
 					print("[GRAVITY_SKIP] %s 在%s期間跳過速度清零 | velocity.y=%d" % [movement_node.name, move_name, movement_node.fixed_velocity.y])

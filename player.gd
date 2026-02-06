@@ -460,7 +460,7 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 func _on_animation_player_finished(anim_name: String) -> void:
 	"""動畫完成回調（Phase 4 優化：使用分類判斷）"""
 	var seat_str = seat if seat else "?"
-	var is_special_move = move_set and move_set.get_active_move_name() in move_set.move_library if move_set else false
+	var is_special_move = move_set and move_set.has_move_id(move_set.get_active_move_name()) if move_set else false
 	print("[✓ ANIM_FINISHED] '%s' | Seat: %s | is_spmove=%s | is_attacking=%s" % [anim_name, seat_str, is_special_move, is_attacking])
 	
 	# 地面攻擊重置

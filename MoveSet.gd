@@ -1,92 +1,31 @@
 class_name MoveSet extends Node
 
+const SpecialMoveData = preload("res://data/SpecialMoveData.gd")
+
 # 【Frame-based 計時系統】
 static var PHYSICS_FPS: int = 120  # 動態設置為實際物理 FPS（由 _ready 更新）
 const LOGIC_FPS: int = 60  # 遊戲邏輯基準 FPS（用於動畫時長轉換）
 
 # ============================================================
-# MOVE DATA STRUCTURE - Single source of truth
+# SPECIAL MOVE DATA (Resource-driven)
 # ============================================================
 
-class MoveData:
-	var name: String
-	var character_requirement: String  # "DAV", "DEN", or "*"
-	var damage: float
-	var knockback: float
-	var hitstun: int = 18  # 🟢 新增: 被击中後的參數(邏輯幀)，預設 18
-	var blockstun: int = 10  # 🟢 新增: 被格擋後的參数(邏輯幀)，預設 10
-	var duration: float
-	var move_distance: float
-	var jump_delay: float
-	var jump_speed: float
-	var is_freeze: bool
-	var is_projectile: bool
-	var gravity: float = 0.0
-	var sound_type: String  # "special" or "fireball"
-	var penetrable: bool = false  # For pushbox penetration
-	var acceleration_curve: String = "none"  # "none", "decelerate", "accelerate", "three_phase"
-	# Three-phase movement parameters (for three_phase curve)
-	var stationary_ratio: float = 0.0  # 不動階段的時間比例 (0.0-1.0)
-	var acceleration_ratio: float = 0.0  # 加速階段的時間比例 (0.0-1.0)
-	var deceleration_ratio: float = 0.0  # 減速階段的時間比例 (0.0-1.0)
-	# Knockfly-specific parameters (for DP and similar moves)
-	var knockfly_gravity: float = 0.0
-	var knockfly_vertical_speed: float = 0.0
-	var knockfly_horizontal_speed: float = 0.0
-	
-	func _init(
-		p_name: String,
-		p_char: String,
-		p_damage: float,
-		p_knockback: float,
-		p_duration: float,
-		p_move_distance: float,
-		p_jump_delay: float = 0.0,
-		p_jump_speed: float = 0.0,
-		p_is_freeze: bool = false,
-		p_is_projectile: bool = false,
-		p_gravity: float = 0.0,
-		p_sound: String = "special",
-		p_penetrable: bool = false,
-		p_acceleration_curve: String = "none",
-		p_stationary_ratio: float = 0.0,
-		p_acceleration_ratio: float = 0.0,
-		p_deceleration_ratio: float = 0.0,
-		p_knockfly_gravity: float = 0.0,
-		p_knockfly_vertical_speed: float = 0.0,
-		p_knockfly_horizontal_speed: float = 0.0,
-		p_hitstun: int = 18,  # 🟢 新增: 預設 18
-		p_blockstun: int = 10  # 🟢 新增: 預設 10
-	):
-		name = p_name
-		character_requirement = p_char
-		damage = p_damage
-		knockback = p_knockback
-		hitstun = p_hitstun  # 🟢 新增
-		blockstun = p_blockstun  # 🟢 新增
-		duration = p_duration
-		move_distance = p_move_distance
-		jump_delay = p_jump_delay
-		jump_speed = p_jump_speed
-		is_freeze = p_is_freeze
-		is_projectile = p_is_projectile
-		gravity = p_gravity
-		sound_type = p_sound
-		penetrable = p_penetrable
-		acceleration_curve = p_acceleration_curve
-		stationary_ratio = p_stationary_ratio
-		acceleration_ratio = p_acceleration_ratio
-		deceleration_ratio = p_deceleration_ratio
-		knockfly_gravity = p_knockfly_gravity
-		knockfly_vertical_speed = p_knockfly_vertical_speed
-		knockfly_horizontal_speed = p_knockfly_horizontal_speed
+const SPECIAL_MOVE_RESOURCES: Array[String] = [
+	"res://data/specials/dav_powerkk.tres",
+	"res://data/specials/dav_super.tres",
+	"res://data/specials/dav_dp.tres",
+	"res://data/specials/den_spnk.tres",
+	"res://data/specials/den_hdk.tres",
+	"res://data/specials/dav_fireball.tres",
+	"res://data/specials/den_fireball.tres"
+]
 
 # ============================================================
 # RUNTIME STATE - Only track active move states
 # ============================================================
 
 class MoveState:
-	var active_move: MoveData
+	var active_move
 	var timer: int = 0  # Frame-based timer
 	var jump_timer: int = 0  # Frame-based timer
 	var has_jumped: bool = false
@@ -106,9 +45,10 @@ class MoveState:
 		projectile_spawned = false
 
 # ============================================================
-# MOVE DEFINITIONS
+# MOVE DEFINITIONS (Resource-driven)
 # ============================================================
 
+# move_library: { move_id: Array[SpecialMoveData] }
 var move_library: Dictionary = {}
 var current_move_state: MoveState = MoveState.new()
 
@@ -147,49 +87,55 @@ func _ready() -> void:
 	if fireball_player: fireball_player.volume_db = 0.0
 
 func _initialize_move_library() -> void:
-	# DAV moves
-	move_library["powerkk"] = MoveData.new(
-		"powerkk", "DAV", 12.0, 600.0, 56.0, 150.0, 0.0, 0.0, false, false, 0.0, "special", false, "three_phase", 0.25, 0.2, 0.55, 0.0, 0.0, 0.0, 39, 23
-	)
-	move_library["super"] = MoveData.new(
-		"super", "DAV", 5.0, 200.0, 156.0, 200.0, 54.0, -210.0, true, false, 200000.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 18
-	)
-	move_library["dp"] = MoveData.new(
-		"dp", "DAV", 5.0, 100.0, 47.0, 40.0, 4.0, -2100.0, false, false, 7200000.0, "special", true, "none", 0.0, 0.0, 0.0,
-		10000000.0, -3200.0, 20.0, 39, 23  # 🟢 jump_speed: -2000→-9000 (升龍拳應有的高度); knockfly_gravity: 確保在被擊中時重力正確
-	)
-	
-	# DEN moves
-	move_library["spnk"] = MoveData.new(
-		"spnk", "DEN", 12.0, 280.0, 72.0, 250.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 23
-	)
-	move_library["hdk"] = MoveData.new(
-		"hdk", "DEN", 3.0, 290.0, 66.0, 200.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 23
-	)
-	
-	# Universal moves
-	move_library["fireball"] = MoveData.new(
-		"fireball", "*", 10.0, 80.0, 48.0, 0.0, 0.0, 0.0, false, true, 0.0, "fireball", true, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 24, 14
-	)
+	move_library.clear()
+	for path in SPECIAL_MOVE_RESOURCES:
+		var resource = load(path)
+		if resource == null:
+			push_warning("MoveSet: Failed to load special resource: %s" % path)
+			continue
+		if not resource is SpecialMoveData:
+			push_warning("MoveSet: Resource is not SpecialMoveData: %s" % path)
+			continue
+		var move_id = resource.move_id
+		if move_id == "":
+			push_warning("MoveSet: SpecialMoveData missing move_id: %s" % path)
+			continue
+		if not move_library.has(move_id):
+			move_library[move_id] = []
+		move_library[move_id].append(resource)
+
+func has_move_id(move_id: String) -> bool:
+	return move_library.has(move_id)
+
+func has_move_for_character(move_id: String, character_id: String) -> bool:
+	return get_move_data_for_character(move_id, character_id) != null
+
+func get_move_data_for_character(move_id: String, character_id: String):
+	if not move_library.has(move_id):
+		return null
+	var candidates: Array = move_library[move_id]
+	var fallback = null
+	for entry in candidates:
+		if entry.character_requirement == character_id:
+			return entry
+		if entry.character_requirement == "*":
+			fallback = entry
+	return fallback
 
 # ============================================================
 # START SPECIAL MOVE (Generic, handles ALL moves)
 # ============================================================
 
 func _start_special(move_name: String) -> void:
-	if move_name not in move_library:
+	var character_id = parent.character_id if "character_id" in parent else "UNKNOWN"
+	var source_move = get_move_data_for_character(move_name, character_id)
+	if source_move == null:
 		push_error("Move '%s' not found in move library" % move_name)
 		return
 	
 	print("[MoveSet._start_special] Starting move: %s (player: %s)" % [move_name, parent.name])
 	
-	var move_data: MoveData = move_library[move_name]
-	var character_id = parent.character_id if "character_id" in parent else "UNKNOWN"
-	
-	# Character requirement check
-	if move_data.character_requirement != "*" and character_id != move_data.character_requirement:
-		print("[MoveSet] %s tried to use %s but character doesn't match (requires %s)" % [parent.name, move_name, move_data.character_requirement])
-		return
+	var move_data = source_move.duplicate(true)
 	
 	# State check
 	if parent.is_attacking or is_spmove:
@@ -197,13 +143,13 @@ func _start_special(move_name: String) -> void:
 		return
 	
 	# Align duration to animation length when available (per-character)
-	var duration_logic_frames = int(round(move_data.duration))
-	var duration_physics_frames = int(round(move_data.duration * 2.0))
+	var duration_logic_frames = int(round(move_data.duration_frames))
+	var duration_physics_frames = int(round(move_data.duration_frames * 2.0))
 	if animation_player and animation_player.has_animation(move_name):
 		var anim = animation_player.get_animation(move_name)
 		duration_logic_frames = int(round(anim.length * LOGIC_FPS))
 		duration_physics_frames = int(round(anim.length * PHYSICS_FPS))
-		move_data.duration = float(duration_logic_frames)
+		move_data.duration_frames = duration_logic_frames
 
 	# Set up move state
 	is_spmove = true
@@ -215,7 +161,7 @@ func _start_special(move_name: String) -> void:
 	# move_data.duration 是邏輯幀數（60 FPS），需轉為物理幀數 (120 FPS)
 	current_move_state.timer = duration_physics_frames
 	# 🔴 jump_delay 也是那輯幀數，需要乘以 2
-	var jump_delay_physics_frames = int(round(move_data.jump_delay * 2.0))
+	var jump_delay_physics_frames = int(round(move_data.jump_delay_frames * 2.0))
 	current_move_state.jump_timer = jump_delay_physics_frames
 	current_move_state.has_jumped = false
 	current_move_state.initial_facing = parent.facing_direction
@@ -223,9 +169,9 @@ func _start_special(move_name: String) -> void:
 	current_move_state.initial_sprite_scale_x = sprite.scale.x
 	
 	var seat = parent.seat if "seat" in parent else "?"
-	if move_data.jump_delay > 0:
+	if move_data.jump_delay_frames > 0:
 		print("[DP_START_SPECIAL] %s: %s | jump_delay=%.0f frames | jump_timer=%.4f sec | jump_speed=%.0f" % [
-			seat, move_name, move_data.jump_delay, current_move_state.jump_timer, move_data.jump_speed
+			seat, move_name, move_data.jump_delay_frames, current_move_state.jump_timer, move_data.jump_speed
 		])
 	
 	# Projectile spawning is now handled via AnimationPlayer Call Method (_spawn_fireball)
@@ -243,7 +189,7 @@ func _start_special(move_name: String) -> void:
 	var world = get_tree().get_first_node_in_group("world")
 	if world and move_data.move_distance > 0:
 		# 🔴 【關鍵修復】move_data.duration 是那輯幀數，需轉換為秒數
-		var duration_seconds = move_data.duration / 60.0  # 那輯幀 -> 秒数
+		var duration_seconds = move_data.duration_frames / 60.0  # 那輯幀 -> 秒数
 		var base_speed = (move_data.move_distance / duration_seconds) * world.SIMULATION_SCALE * parent.facing_direction
 		current_move_state.initial_speed = base_speed
 		current_move_state.total_duration = float(duration_physics_frames)  # 使用前面已計算的 duration_physics_frames
@@ -271,10 +217,10 @@ func _start_special(move_name: String) -> void:
 		
 		# 🟢 【詳細除錯】移動參數分析
 		if move_data.move_distance > 0:
-			var d_secs = move_data.duration / 60.0  # 🔴 duration 是邏輯幀數，轉換為秒
+			var d_secs = move_data.duration_frames / 60.0  # 🔴 duration 是邏輯幀數，轉換為秒
 			var spd_sec = move_data.move_distance / d_secs if d_secs > 0 else 0.0
 			var spd_frame = spd_sec / 120.0  # pixel per 120 FPS physics frame
-			print("  [MOVE DEBUG] 移動距離: %.1f px, 時長: %.3f s (%d logical frames), 速度: %.1f px/s (%.3f px/frame @120FPS physics)" % [move_data.move_distance, d_secs, int(move_data.duration), spd_sec, spd_frame])
+			print("  [MOVE DEBUG] 移動距離: %.1f px, 時長: %.3f s (%d logical frames), 速度: %.1f px/s (%.3f px/frame @120FPS physics)" % [move_data.move_distance, d_secs, int(move_data.duration_frames), spd_sec, spd_frame])
 	else:
 		print("[MoveSet._start_special] ⚠️  WARNING: Animation '%s' not found! (Seat: %s)" % [move_name, seat_str])
 	
@@ -362,7 +308,7 @@ func stop_special_move() -> void:
 	if not is_spmove:
 		return
 	
-	var move_name = current_move_state.active_move.name if current_move_state.active_move else "UNKNOWN"
+	var move_name = current_move_state.active_move.move_id if current_move_state.active_move else "UNKNOWN"
 	var seat_str = parent.seat if "seat" in parent else "?"
 	var call_stack = get_stack()  # 获取调用栈
 	var caller = ""
@@ -440,7 +386,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		return false
 	
 	# 🔴 【特殊招式jump保護】即使被擊中也要執行jump邏輯（只針對jump_delay > 0的招式）
-	if is_spmove and current_move_state.active_move and current_move_state.active_move.jump_delay > 0:
+	if is_spmove and current_move_state.active_move and current_move_state.active_move.jump_delay_frames > 0:
 		_process_jump(delta, world, current_move_state.active_move)
 	
 	# 如果被擊中或被擊飛，停止其他處理
@@ -589,7 +535,7 @@ func _process_projectile_spawn(_delta: float, _world: Node) -> void:
 	pass
 
 func execute_fireball_spawn() -> void:
-	if not is_spmove or current_move_state.active_move == null or current_move_state.active_move.name != "fireball":
+	if not is_spmove or current_move_state.active_move == null or current_move_state.active_move.move_id != "fireball":
 		return
 	if current_move_state.projectile_spawned:
 		return
@@ -616,7 +562,7 @@ func execute_fireball_spawn() -> void:
 	parent.active_fireball = fb
 	print("[MoveSet.execute_fireball_spawn] Fireball spawned for %s, params from MoveSet" % parent.name)
 
-func _process_jump(_delta: float, world: Node, move: MoveData) -> void:
+func _process_jump(_delta: float, world: Node, move) -> void:
 	current_move_state.jump_timer -= 1  # Frame-based decrement
 	
 	# Jump 條件：計時到期 + 尚未跳過
@@ -625,7 +571,7 @@ func _process_jump(_delta: float, world: Node, move: MoveData) -> void:
 	var timer_ready = current_move_state.jump_timer <= 0
 	var not_jumped_yet = not current_move_state.has_jumped
 	
-	var move_name = move.name if move else "unknown"
+	var move_name = move.move_id if move else "unknown"
 	var seat = parent.seat if "seat" in parent else "?"
 	
 	if timer_ready and not_jumped_yet:
@@ -653,7 +599,7 @@ func _apply_gravity(delta: float, world: Node, gravity: float) -> void:
 # ============================================================
 
 func _on_spmove_animation_finished(anim_name: String) -> void:
-	if is_spmove_animation_playing and anim_name in move_library:
+	if is_spmove_animation_playing and has_move_id(anim_name):
 		is_spmove_animation_playing = false
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false
@@ -680,7 +626,7 @@ func get_special_damage() -> float:
 
 func get_active_move_name() -> String:
 	if is_spmove and current_move_state.active_move:
-		return current_move_state.active_move.name
+		return current_move_state.active_move.move_id
 	return ""
 
 # ============================================================
@@ -688,4 +634,4 @@ func get_active_move_name() -> String:
 # ============================================================
 
 func is_move_active(move_name: String) -> bool:
-	return is_spmove and current_move_state.active_move and current_move_state.active_move.name == move_name
+	return is_spmove and current_move_state.active_move and current_move_state.active_move.move_id == move_name

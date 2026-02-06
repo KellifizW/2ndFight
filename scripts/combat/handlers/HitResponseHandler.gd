@@ -132,34 +132,27 @@ func _get_hit_parameters() -> Dictionary:
 		var active_move = move_set.current_move_state.active_move
 		params.damage = active_move.damage
 		params.knockback = active_move.knockback
-		params.penetrable = active_move.penetrable  # MoveData 是類，直接訪問屬性
+		params.penetrable = active_move.penetrable
+		params.hitstun = active_move.hitstun_frames
+		params.blockstun = active_move.blockstun_frames
 		
 		# ── 特殊招式的特殊參數 ──
-		var move_name = active_move.name
-		if move_name == "powerkk":
-			params.hitstun = 39      # 39 幀 = 0.65 秒
-			params.blockstun = 23    # 23 幀 = 0.383 秒
-		elif move_name == "spnk":
-			params.hitstun = 27      # 27 幀 = 0.45 秒
-			params.blockstun = 23    # 23 幀 = 0.383 秒
+		var move_name = active_move.move_id
+		if move_name == "spnk":
 			# spnk 的傷害會根據動畫時間調整
 			var animation_player = parent_player.animation_player if "animation_player" in parent_player else null
 			if animation_player:
 				var pos = animation_player.current_animation_position
 				if pos < 0.2667:
 					params.damage = 6.0
-		elif move_name == "super":
-			params.hitstun = 27     # 27 幀 = 0.45 秒
-			params.blockstun = 18   # 18 幀 = 0.30 秒
-		elif move_name == "dp":
-			params.hitstun = 39     # 39 幀 = 0.65 秒
-			params.blockstun = 23   # 23 幀 = 0.383 秒
+		
+		if active_move.knockfly_gravity != 0.0 or active_move.knockfly_vertical_speed != 0.0 or active_move.knockfly_horizontal_speed != 0.0:
 			params.force_knockfly = true
 			params.knockfly_params = {
-				"gravity": active_move.knockfly_gravity,  # MoveData 類屬性
+				"gravity": active_move.knockfly_gravity,
 				"vertical_speed": active_move.knockfly_vertical_speed,
 				"horizontal_speed": active_move.knockfly_horizontal_speed,
-				"duration": params.hitstun / 60.0  # 🟢 轉換幀數→秒數 (39 frames / 60 = 0.65s)
+				"duration": params.hitstun / 60.0
 			}
 	
 	return params

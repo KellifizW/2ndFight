@@ -26,84 +26,15 @@ const MAX_TOTAL_FRAMES: int = 120  # 總匹配時間限制，約 2 秒
 var detected_special_this_frame: String = ""
 var last_detection_frame: int = 0
 
-const FIREBALL_SEQUENCE: Array[Dictionary] = [
-	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
+const SPECIAL_INPUT_RESOURCES: Array[String] = [
+	"res://data/specials/inputs/fireball_input.tres",
+	"res://data/specials/inputs/powerkk_input.tres",
+	"res://data/specials/inputs/spnk_input.tres",
+	"res://data/specials/inputs/dp_input.tres",
+	"res://data/specials/inputs/hdk_input.tres"
 ]
 
-const FIREBALL_SEQUENCE2: Array[Dictionary] = [
-	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
-]
-
-const POWERKK_SEQUENCE: Array[Dictionary] = [
-	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.DOWN_BACK, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.BACK, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
-]
-
-const SPNK_SEQUENCE: Array[Dictionary] = [
-	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.DOWN_BACK, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.BACK, "buttons": ButtonInputs.ST_MK, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
-]
-
-const DP_SEQUENCE1: Array[Dictionary] = [
-	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
-]
-
-const DP_SEQUENCE2: Array[Dictionary] = [
-	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.DOWN_BACK, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
-]
-
-const DP_SEQUENCE3: Array[Dictionary] = [
-	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.ST_MP, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
-]
-
-const HDK_SEQUENCE: Array[Dictionary] = [
-	{"directional": DirectionalInputs.DOWN, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.DOWN_FORWARD, "buttons": ButtonInputs.NONE, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.PRESS},
-	{"directional": DirectionalInputs.FORWARD, "buttons": ButtonInputs.ST_MK, "dir_mode": ButtonMode.HOLD, "but_mode": ButtonMode.HOLD}
-]
-
-var fireball_motion: Dictionary = {
-	"ValidInputs": [FIREBALL_SEQUENCE, FIREBALL_SEQUENCE2],
-	"InputBuffer": INPUT_BUFFER,
-	"AbsoluteDirection": false
-}
-
-var powerkk_motion: Dictionary = {
-	"ValidInputs": [POWERKK_SEQUENCE],
-	"InputBuffer": INPUT_BUFFER,
-	"AbsoluteDirection": false
-}
-
-var spnk_motion: Dictionary = {
-	"ValidInputs": [SPNK_SEQUENCE],
-	"InputBuffer": INPUT_BUFFER,
-	"AbsoluteDirection": false
-}
-
-var dp_motion: Dictionary = {
-	"ValidInputs": [DP_SEQUENCE1, DP_SEQUENCE2, DP_SEQUENCE3],
-	"InputBuffer": INPUT_BUFFER,
-	"AbsoluteDirection": false
-}
-
-var hdk_motion: Dictionary = {
-	"ValidInputs": [HDK_SEQUENCE],
-	"InputBuffer": INPUT_BUFFER,
-	"AbsoluteDirection": false
-}
+var special_input_registry: Dictionary = {}
 
 var input_history: Array[InputRegistry] = []
 var current_history: int = 0
@@ -128,6 +59,7 @@ class InputRegistry:
 		# Don't reset charges - they carry over
 
 func _ready():
+	_load_special_input_sequences()
 	input_history.resize(INPUT_HISTORY_SIZE)
 	for i in INPUT_HISTORY_SIZE:
 		input_history[i] = InputRegistry.new()
@@ -311,25 +243,58 @@ func _update_charge_buffers() -> void:
 		curr.b_charge += 1
 	else:
 		curr.b_charge = 0
+
+func _load_special_input_sequences() -> void:
+	special_input_registry.clear()
+	for path in SPECIAL_INPUT_RESOURCES:
+		var resource = load(path)
+		if resource == null:
+			push_warning("InputManager: Failed to load input sequence: %s" % path)
+			continue
+		if not resource is SpecialInputSequence:
+			push_warning("InputManager: Resource is not SpecialInputSequence: %s" % path)
+			continue
+		var sequence_id = resource.sequence_id
+		if sequence_id == "":
+			push_warning("InputManager: Input sequence missing sequence_id: %s" % path)
+			continue
+		special_input_registry[sequence_id] = _build_motion_from_sequence(resource)
+
+func _build_motion_from_sequence(sequence: SpecialInputSequence) -> Dictionary:
+	return {
+		"ValidInputs": sequence.valid_inputs,
+		"InputBuffer": sequence.input_buffer,
+		"AbsoluteDirection": sequence.absolute_direction,
+		"MaxTotalFrames": sequence.max_total_frames
+	}
+
+func _get_motion_for(move_id: String) -> Dictionary:
+	return special_input_registry.get(move_id, {})
 		
 func check_fireball_input() -> bool:
-	return check_motion(fireball_motion)
+	return check_motion(_get_motion_for("fireball"))
 
 func check_powerkk_input() -> bool:
-	return check_motion(powerkk_motion)
+	return check_motion(_get_motion_for("powerkk"))
 
 func check_spnk_input() -> bool:
-	return check_motion(spnk_motion)
+	return check_motion(_get_motion_for("spnk"))
 
 func check_hdk_input() -> bool:
-	return check_motion(hdk_motion)
+	return check_motion(_get_motion_for("hdk"))
 
 func check_dp_input() -> bool:
-	return check_motion(dp_motion)
+	return check_motion(_get_motion_for("dp"))
 
 func check_motion(motion: Dictionary) -> bool:
+	if motion.is_empty():
+		return false
+	var input_buffer = motion.get("InputBuffer", INPUT_BUFFER)
+	var max_total_frames = motion.get("MaxTotalFrames", MAX_TOTAL_FRAMES)
+	var absolute_direction = motion.get("AbsoluteDirection", false)
+	var valid_inputs = motion.get("ValidInputs", [])
 	var found = false
-	for seq in motion.ValidInputs:
+	for seq in valid_inputs:
 		var last_buttons = input_history[current_history].raw_input & 0xFF
 		var target_button = seq.back().buttons
 		if last_buttons != target_button:
@@ -345,17 +310,17 @@ func check_motion(motion: Dictionary) -> bool:
 			var step_matched = false
 			var step_frames = 0
 			
-			while hist_pos >= 0 and not step_matched and step_frames < INPUT_BUFFER:
+			while hist_pos >= 0 and not step_matched and step_frames < input_buffer:
 				var hist = input_history[hist_pos]
 				step_frames += hist.duration
 				total_frames += hist.duration
 				
-				if total_frames > MAX_TOTAL_FRAMES:
+				if total_frames > max_total_frames:
 					matched = false
 					break
 				
-				if check_input(hist_pos, step.directional, step.buttons if "buttons" in step else 0, step.dir_mode, step.but_mode if "but_mode" in step else ButtonMode.PRESS):
-					if hist.duration <= INPUT_BUFFER:
+				if check_input(hist_pos, step.directional, step.buttons if "buttons" in step else 0, step.dir_mode, step.but_mode if "but_mode" in step else ButtonMode.PRESS, absolute_direction):
+					if hist.duration <= input_buffer:
 						step_matched = true
 						seq_idx -= 1
 				
@@ -388,6 +353,11 @@ func detect_special_move() -> String:
 	
 	var parent = get_parent()
 	var character_id = parent.character_id if parent and "character_id" in parent else "UNKNOWN"
+	var move_set = parent.move_set if parent and "move_set" in parent else null
+	var can_use_special = func(move_id: String) -> bool:
+		if move_set and move_set.has_method("has_move_for_character"):
+			return move_set.has_move_for_character(move_id, character_id)
+		return false
 	
 	# Check in priority order
 	# Note: Only check moves available to this character
@@ -395,28 +365,28 @@ func detect_special_move() -> String:
 	# Super (DAV only for now)
 	# TODO: Add super detection if needed
 	
-	# DP (DAV only)
-	if character_id == "DAV" and check_dp_input():
+	# DP
+	if can_use_special.call("dp") and check_dp_input():
 		detected_special_this_frame = "dp"
 		return "dp"
 	
-	# PowerKK (DAV only)
-	if character_id == "DAV" and check_powerkk_input():
+	# PowerKK
+	if can_use_special.call("powerkk") and check_powerkk_input():
 		detected_special_this_frame = "powerkk"
 		return "powerkk"
 	
-	# SPNK (DEN only)
-	if character_id == "DEN" and check_spnk_input():
+	# SPNK
+	if can_use_special.call("spnk") and check_spnk_input():
 		detected_special_this_frame = "spnk"
 		return "spnk"
 	
-	# HDK (DEN only)
-	if character_id == "DEN" and check_hdk_input():
+	# HDK
+	if can_use_special.call("hdk") and check_hdk_input():
 		detected_special_this_frame = "hdk"
 		return "hdk"
 	
-	# Fireball (universal)
-	if check_fireball_input():
+	# Fireball
+	if can_use_special.call("fireball") and check_fireball_input():
 		detected_special_this_frame = "fireball"
 		return "fireball"
 	
@@ -425,7 +395,7 @@ func detect_special_move() -> String:
 
 # check_motion is already defined above (line 276), so we continue with check_input
 
-func check_input(index: int, directional: int, buttons: int, dir_mode: int, but_mode: int) -> bool:
+func check_input(index: int, directional: int, buttons: int, dir_mode: int, but_mode: int, absolute_direction: bool = false) -> bool:
 	"""
 	檢查指定歷史索引的輸入是否匹配招式步驟
 	注意：directional 參數是相對方向（FORWARD=前，BACK=後）
@@ -438,7 +408,7 @@ func check_input(index: int, directional: int, buttons: int, dir_mode: int, but_
 	var relative_dir = get_relative_direction(absolute_dir)
 	
 	# 檢查方向是否匹配
-	var dir_match = (directional == relative_dir)
+	var dir_match = (directional == absolute_dir) if absolute_direction else (directional == relative_dir)
 	
 	# 檢查按鈕是否匹配
 	var but_match = (buttons == ButtonInputs.NONE) or ((input_buttons & buttons) != 0)

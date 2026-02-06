@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="SpecialInputSequence" format=3]
+
+[ext_resource type="Script" path="res://data/SpecialInputSequence.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+sequence_id = "hdk"
+input_buffer = 10
+max_total_frames = 120
+absolute_direction = false
+valid_inputs = [[{
+"directional": 1,
+"buttons": 0,
+"dir_mode": 1,
+"but_mode": 0
+}, {
+"directional": 2,
+"buttons": 0,
+"dir_mode": 1,
+"but_mode": 0
+}, {
+"directional": 3,
+"buttons": 16,
+"dir_mode": 1,
+"but_mode": 1
+}]]

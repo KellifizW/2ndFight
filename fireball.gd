@@ -9,6 +9,7 @@ var penetration_traveled: float = 0.0  # 已穿透的距離
 var hit_target: Node = null  # 記錄擊中的目標
 var owner_character_id: String = "DAV"  # 現在使用 character_id 而不是舊的 p1/p2
 var fireball_owner: Node = null           # 發射者的 Player 實例（避免打到自己）
+var special_move_id: String = "fireball"
 
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer
@@ -27,13 +28,7 @@ var fireball_owner: Node = null           # 發射者的 Player 實例（避免�
 func _ready() -> void:
 	add_to_group("fireball")
 	
-	# 根據角色設定參數（DAV 與 DEN 不同）
-	if owner_character_id == "DAV":
-		speed = 800.0
-	elif owner_character_id == "DEN":
-		speed = 600.0
-	else:
-		push_warning("未知的 fireball owner_character_id: %s，使用預設速度" % owner_character_id)
+	_apply_data_from_moveset()
 	
 	if sprite == null:
 		push_error("Error: Sprite2D node not found in Fireball!")
@@ -124,9 +119,21 @@ func _load_knockback_from_moveset() -> void:
 	if not move_set:
 		return
 	
-	if move_set.move_library and "fireball" in move_set.move_library:
-		var fireball_move = move_set.move_library["fireball"]
+	var fireball_move = move_set.get_move_data_for_character(special_move_id, owner_character_id) if move_set.has_method("get_move_data_for_character") else null
+	if fireball_move:
 		print("[Fireball] 初始化完成，owner: %s, MoveSet 已準備" % owner_character_id)
+
+func _apply_data_from_moveset() -> void:
+	if not fireball_owner:
+		return
+	var move_set = fireball_owner.move_set if "move_set" in fireball_owner else null
+	if not move_set or not move_set.has_method("get_move_data_for_character"):
+		return
+	var fireball_move = move_set.get_move_data_for_character(special_move_id, owner_character_id)
+	if fireball_move and fireball_move.projectile_speed > 0.0:
+		speed = fireball_move.projectile_speed
+	else:
+		push_warning("Fireball speed missing for character: %s, using default %.1f" % [owner_character_id, speed])
 
 func _get_fireball_params_from_moveset() -> Dictionary:
 	"""
@@ -149,32 +156,16 @@ func _get_fireball_params_from_moveset() -> Dictionary:
 		print("[Fireball] WARNING: move_set is null, using default params")
 		return params
 	
-	if not move_set.move_library:
-		print("[Fireball] WARNING: move_library is null, using default params")
+	if not move_set.has_method("get_move_data_for_character"):
+		print("[Fireball] WARNING: move_set missing getter, using default params")
 		return params
 	
-	if "fireball" in move_set.move_library:
-		var fireball_move = move_set.move_library["fireball"]
-		print("[Fireball] fireball_move acquired, checking properties...")
-		print("[Fireball] Has 'damage': %s" % ("damage" in fireball_move))
-		print("[Fireball] Has 'hitstun': %s" % ("hitstun" in fireball_move))
-		print("[Fireball] Has 'blockstun': %s" % ("blockstun" in fireball_move))
-		print("[Fireball] Has 'knockback': %s" % ("knockback" in fireball_move))
-		
+	var fireball_move = move_set.get_move_data_for_character(special_move_id, owner_character_id)
+	if fireball_move:
 		params["damage"] = fireball_move.damage
 		params["knockback"] = fireball_move.knockback
-		
-		# 🟢 檢查後再訪問，避免崩潰
-		if "hitstun" in fireball_move:
-			params["hitstun"] = fireball_move.hitstun
-		else:
-			print("[Fireball] WARNING: hitstun not found in fireball_move, using default %d" % params["hitstun"])
-		
-		if "blockstun" in fireball_move:
-			params["blockstun"] = fireball_move.blockstun
-		else:
-			print("[Fireball] WARNING: blockstun not found in fireball_move, using default %d" % params["blockstun"])
-		
+		params["hitstun"] = fireball_move.hitstun_frames
+		params["blockstun"] = fireball_move.blockstun_frames
 		print("[Fireball] 從 MoveSet 讀取參數: damage=%.1f, hitstun=%d, blockstun=%d, knockback=%.1f" % [params["damage"], params["hitstun"], params["blockstun"], params["knockback"]])
 	
 	return params
