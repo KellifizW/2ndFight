@@ -90,6 +90,7 @@ class MoveState:
 	var timer: int = 0  # Frame-based timer
 	var jump_timer: int = 0  # Frame-based timer
 	var has_jumped: bool = false
+	var projectile_spawned: bool = false
 	var initial_facing: float = 0.0
 	var initial_parent_scale_x: float = 0.0
 	var initial_sprite_scale_x: float = 0.0
@@ -102,6 +103,7 @@ class MoveState:
 		timer = 0
 		jump_timer = 0
 		has_jumped = false
+		projectile_spawned = false
 
 # ============================================================
 # MOVE DEFINITIONS
@@ -209,6 +211,7 @@ func _start_special(move_name: String) -> void:
 	is_spmove_animation_playing = true
 	
 	current_move_state.active_move = move_data
+	current_move_state.projectile_spawned = false
 	# move_data.duration 是邏輯幀數（60 FPS），需轉為物理幀數 (120 FPS)
 	current_move_state.timer = duration_physics_frames
 	# 🔴 jump_delay 也是那輯幀數，需要乘以 2
@@ -588,6 +591,9 @@ func _process_projectile_spawn(_delta: float, _world: Node) -> void:
 func execute_fireball_spawn() -> void:
 	if not is_spmove or current_move_state.active_move == null or current_move_state.active_move.name != "fireball":
 		return
+	if current_move_state.projectile_spawned:
+		return
+	current_move_state.projectile_spawned = true
 	
 	# 使用預載和預熱的資源（零卡頓）
 	var preloader = get_tree().get_first_node_in_group("resource_preloader")
