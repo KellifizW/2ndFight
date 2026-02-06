@@ -66,6 +66,8 @@ var fireball_tracking_active: bool = false           # 是否正在追蹤 fireba
 var fireball_call_method_triggered: bool = false    # Call method 是否已觸發
 var fireball_startup_frame_count: int = 0           # Startup 的幀計數（call method 觸發時的 frame index）
 
+var last_physics_frame_for_jump: int = 0  # 用來追蹤jump的物理幀
+
 # 常數表
 const TRACKED_ANIMS := [
 	# Standing attacks
@@ -247,6 +249,15 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 		last_animation = "hit"  # 🔴 【關鍵】更新 last_animation，防止每幀都重置
 		print("[FRAMEBAR] %s - 進入 hit 動畫，重置 display_frame_counter 為 0" % target_player.name)
 	
+	# 🟢 【新增除錯】DP動畫開始時的日誌
+	if anim_name == "dp" and last_animation != "dp":
+		print("[FRAMEBAR DP] %s - DP動畫開始追蹤 | hitbox_shape: %s | disabled: %s | shape: %s" % [
+			target_player.name,
+			"存在" if hitbox_shape else "NULL",
+			hitbox_shape.disabled if hitbox_shape else "N/A",
+			"有" if (hitbox_shape and hitbox_shape.shape) else "NULL"
+		])
+	
 	_handle_block_hit_chain(flags)
 	
 	var need_new := (anim_name != last_animation or not is_tracking) and \
@@ -262,7 +273,11 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 			jump_to_attack_offset = frame_data.size()
 	
 	if is_airborne:
-		jump_frame_count += 1
+		# 🟢 【修改】只在物理幀更新時增加 jump_frame_count（而非每個渲染幀）
+		var current_physics_frame: int = Engine.get_physics_frames()
+		if current_physics_frame != last_physics_frame_for_jump:
+			jump_frame_count += 1
+			last_physics_frame_for_jump = current_physics_frame
 	
 	if anim_name in ["block", "cr_block"]:
 		blockstun_active_frames += 1
@@ -309,9 +324,11 @@ func _update_airborne(anim_name: String, on_floor: bool) -> void:
 	if anim_name in JUMP_ANIMS and not is_airborne:
 		is_airborne = true
 		jump_frame_count = 0
+		last_physics_frame_for_jump = Engine.get_physics_frames()
 	if is_airborne and (on_floor or anim_name == "landing"):
 		is_airborne = false
-		is_tracking = false
+		# 🟢 【修改】著陸時不清空 is_tracking，讓跳躍顯示保持
+		# is_tracking = false
 
 func _ensure_size(min_size: int) -> void:
 	if frame_data.size() < min_size:
@@ -322,8 +339,9 @@ func _calc_frame(anim_name: String, pos: float, timer_driven: bool, knockfly_cha
 		return int(display_frame_counter / 2.0)
 	if is_jump_attack_active:
 		return min(jump_to_attack_offset + int(pos * DISPLAY_FPS), total_frames - 1)
+	# 🟢 【修改】跳躍使用 jump_frame_count（已按物理幀計算）
 	if anim_name in JUMP_ANIMS:
-		return jump_frame_count
+		return int(jump_frame_count / 2.0)  # 按60FPS轉換幀
 	return min(int(pos * DISPLAY_FPS), total_frames - 1)
 
 func _get_state(anim_name: String, flags: Dictionary, on_floor: bool) -> int:
@@ -354,11 +372,30 @@ func _get_state(anim_name: String, flags: Dictionary, on_floor: bool) -> int:
 		return -1
 	
 	if anim_name in ATTACK_ANIMS:
-		if not hitbox_shape or hitbox_shape.disabled or hitbox_shape.shape == null:
+		# 🟢 【新增除錯】DP特殊日誌追蹤hitshape狀態
+		if anim_name == "dp":
+			if current_frame < 5 or current_frame % 10 == 0:  # 前5幀全輸出，之後每10幀輸出一次
+				var hitshape_disabled = "unknown"
+				if hitbox_shape:
+					hitshape_disabled = str(hitbox_shape.disabled)
+				else:
+					hitshape_disabled = "N/A"
+				
+				print("[FRAMEBAR DP STATE] frame:%d hitbox:%s disable:%s was_active:%s → return:%s" % [
+					current_frame,
+					"存在" if hitbox_shape else "NULL",
+					hitshape_disabled,
+					was_active,
+					"0(S)" if (not hitbox_shape or hitbox_shape.disabled) else "2(R)" if was_active else "1(A)"
+				])
+		
+		# 🟢 【修正】只檢查hitbox_shape是否存在且enabled，不檢查shape屬性（因為shape可能為null）
+		if not hitbox_shape or hitbox_shape.disabled:
 			return 0 if not was_active else 2
 		else:
 			if not was_active:
 				was_active = true
+				print("[FRAMEBAR DP ACTIVE] frame:%d was_active設置為true" % current_frame)
 				for i in range(frame_data.size()):
 					if frame_data[i] == -1:
 						frame_data[i] = 0
@@ -370,7 +407,6 @@ func _get_state(anim_name: String, flags: Dictionary, on_floor: bool) -> int:
 	if anim_name == "knockfly": return 7
 	if anim_name == "layground": return 9
 	if anim_name == "wakeup": return 10
-	if anim_name == "dp" and not on_floor: return 2
 	return -1
 
 func _handle_block_hit_chain(flags: Dictionary) -> void:
@@ -398,6 +434,8 @@ func _start_new_block_hit_chain(type: int) -> void:
 
 func _start_new_animation(anim_name: String) -> void:
 	was_active = false
+	# 🟢 【修改】只有在明確不同的動畫(非延續狀態)時才清空舊資料
+	# 這樣可以讓完成的狀態顯示保持，直到下一個新狀態開始
 	if reset_delay_timer > 0 and anim_name != last_finished_animation:
 		var elapsed := 0.05 - reset_delay_timer
 		var add: int = max(1, int(elapsed * 60))
@@ -408,7 +446,11 @@ func _start_new_animation(anim_name: String) -> void:
 			frame_data[current_frame] = 8
 		reset_delay_timer = 0.0
 	else:
-		history_frame_data.clear()
+		# 🟢 【修改】保存前一個狀態到歷史，而不是直接清空
+		if frame_data.size() > 0:
+			history_frame_data.clear()
+			history_frame_data.append_array(frame_data)
+		
 		frame_data.clear()
 		current_frame = 0
 		reset_delay_timer = 0.0
@@ -417,8 +459,7 @@ func _start_new_animation(anim_name: String) -> void:
 		if not is_airborne:
 			jump_frame_count = 0
 	
-	# 🟢 【修改】開始新動畫時，清空舊資料並開始追蹤
-	# 當進入新的被追蹤動畫時，清空舊進度條資料
+	# 🟢 【修改】開始新動畫時重置追蹤狀態
 	if anim_name == "fireball":
 		fireball_tracking_active = true
 		fireball_call_method_triggered = false
@@ -427,7 +468,6 @@ func _start_new_animation(anim_name: String) -> void:
 	else:
 		# 當離開 fireball 動畫時，停止追蹤但保持顯示
 		if fireball_tracking_active and anim_name != last_animation:
-			# 只在動畫改變時重置（不是每次都重置）
 			print("[FRAMEBAR] %s - 結束 fireball 追蹤 (Startup:%d)，進度條將保持顯示" % [
 				target_player.name, fireball_startup_frame_count
 			])
