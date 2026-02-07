@@ -9,7 +9,7 @@ const LOGIC_FPS: int = 60  # 邏輯/顯示幀率（資源中的幀數基準）
 
 # ── st_lp ──
 @export var st_lp_damage: float = 3.0
-@export var st_lp_hitstun_frames: int = 13      # 13 幀 = 0.217 秒
+@export var st_lp_hitstun_frames: int = 14      # 14 幀 = 0.233 秒
 @export var st_lp_blockstun_frames: int = 12    # 12 幀 = 0.20 秒
 @export var st_lp_knockback: float = 60.0
 @export var st_lp_movement: AttackMovement = null

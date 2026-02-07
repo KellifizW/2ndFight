@@ -68,6 +68,12 @@ var fireball_startup_frame_count: int = 0           # Startup 的幀計數（cal
 
 var last_physics_frame_for_jump: int = 0  # 用來追蹤jump的物理幀
 
+# 🟢 【新增】攻擊動畫完成追蹤（防止多餘幀遞增）
+var animation_finished_locking: bool = false  # 防止動畫完成後再遞增幀數
+
+# 🟢 【新增】Hit/Block/Knockfly 預期幀數追蹤（防止 display_frame_counter 溢出）
+var expected_stun_frames: int = 0  # 預期的受擊/格擋幀數（邏輯幀）
+
 # 🟢 【新增】攻擊動畫幀數追蹤（用於限制 display_frame_counter）
 var current_attack_anim_name: String = ""           # 當前攻擊動畫名稱
 var current_attack_expected_frames: int = 0         # 當前攻擊動畫的預期幀數（@60FPS）
@@ -247,11 +253,21 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 		current_frame = 0
 		is_tracking = true
 	
-	# 🟢 【新增】當進入 "hit" 動畫時，重置 display_frame_counter
+	# 🟢 【新增】當進入 "hit" 動畫時，重置 display_frame_counter 並記錄預期幀數
 	if anim_name == "hit" and last_animation != "hit" and timer_driven:
 		display_frame_counter = 0
 		last_animation = "hit"  # 🔴 【關鍵】更新 last_animation，防止每幀都重置
-		print("[FRAMEBAR] %s - 進入 hit 動畫，重置 display_frame_counter 為 0" % target_player.name)
+		
+		# 🟢 【新增】記錄預期的 hitstun 幀數（邏輯幀）用於防護
+		if "hitstun_frames" in target_player:
+			var hitstun_physics_frames = target_player.hitstun_frames
+			expected_stun_frames = int(hitstun_physics_frames / 2.0)  # 轉換為邏輯幀
+			print("[FRAMEBAR] %s - 進入 hit 動畫，重置 display_frame_counter，預期 hitstun: %d 邏輯幀 (%d 物理幀)" % [
+				target_player.name, expected_stun_frames, hitstun_physics_frames
+			])
+		else:
+			expected_stun_frames = 0
+			print("[FRAMEBAR] %s - 進入 hit 動畫，重置 display_frame_counter 為 0" % target_player.name)
 	
 	_handle_block_hit_chain(flags)
 	
@@ -288,20 +304,32 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 	
 	if timer_driven or knockfly_chain or block_hit_chain_active:
 		# 🟢 【修正】只在每個物理幀增加一次 display_frame_counter（防止渲染幀率導致快速遞增）
+		# 🟢 【新增】檢查動畫是否已完成，完成後停止遞增（防止多餘幀）
 		var current_physics_frame: int = Engine.get_physics_frames()
-		if current_physics_frame != _last_physics_frame:
-			var old_counter = display_frame_counter
-			display_frame_counter += 1
-			_last_physics_frame = current_physics_frame
+		if current_physics_frame != _last_physics_frame and not animation_finished_locking:
+			var old_counter = display_frame_counter  # 🟢 【修改】提前聲明 old_counter
 			
-			# 🟢 【防護】如果是攻擊動畫，確保不超過預期的幀數 × 2（120FPS）
-			if current_attack_anim_name in ATTACK_ANIMS and current_attack_expected_frames > 0:
-				var max_display_frames = current_attack_expected_frames * 2  # 轉換為 120FPS
-				if display_frame_counter > max_display_frames:
-					display_frame_counter = max_display_frames
-					print("[FRAMEBAR OVERFLOW CHECK] %s - display_frame_counter capped at %d (expected: %dF @60FPS = %d @120FPS)" % [
-						target_player.name, display_frame_counter, current_attack_expected_frames, max_display_frames
+			# 🟢 【防護】檢查是否已達到預期的幀數上限
+			var should_increment = true
+			
+			# 如果是 hit 動畫且有預期幀數，檢查是否已達到上限
+			if anim_name == "hit" and expected_stun_frames > 0:
+				var max_display_frames = expected_stun_frames * 2  # expected_stun_frames @60FPS = × 2 @120FPS
+				if display_frame_counter >= max_display_frames:
+					should_increment = false
+					print("[FRAMEBAR HIT STOP] %s - hitstun complete, stopping counter at %d (expected: %dF @60FPS = %d @120FPS)" % [
+						target_player.name, display_frame_counter, expected_stun_frames, max_display_frames
 					])
+			
+			# 如果是攻擊動畫且有預期幀數，檢查是否已達到上限
+			elif current_attack_anim_name in ATTACK_ANIMS and current_attack_expected_frames > 0:
+				var max_display_frames = current_attack_expected_frames * 2
+				if display_frame_counter >= max_display_frames:
+					should_increment = false
+			
+			if should_increment:
+				display_frame_counter += 1
+				_last_physics_frame = current_physics_frame
 			
 			# 🟢 【新增】調試信息：重要的幀數遞增（僅在關鍵狀態變化時輸出）
 			if old_counter == 0 or (flags.hit and old_counter % 10 == 0) or (flags.blocking and old_counter % 10 == 0):
@@ -482,6 +510,8 @@ func _start_new_animation(anim_name: String) -> void:
 		white_frames_added = 0
 		buffer_start_frame = 0
 		display_frame_counter = 0  # 🟢 【新增】重置display_frame_counter
+		animation_finished_locking = false  # 🟢 【新增】解鎖，允許新動畫遞增幀數
+		expected_stun_frames = 0  # 🟢 【新增】重置預期幀數
 		if not is_airborne:
 			jump_frame_count = 0
 		
@@ -580,6 +610,10 @@ func update_frame_count_label(anim_name: String) -> void:
 	var text := "%s: " % anim_name
 	if knockfly_chain_completed:
 		text += "K:%dF L:%dF W:%dF Total:%dF" % [counts.K, counts.L, counts.W, knockfly_total_frames]
+	# 🟢 【新增】Hit 動畫特殊顯示 - 限制顯示幀數
+	elif anim_name == "hit" and expected_stun_frames > 0:
+		var display_frames = min(frame_data.size(), expected_stun_frames)
+		text += "H:%dF (hitstun: %dF)" % [display_frames, expected_stun_frames]
 	# 🟢 【新增】Fireball 特殊顯示 - 展示 S(startup) A(active) R(recovery)
 	elif anim_name == "fireball":
 		if fireball_call_method_triggered and fireball_startup_frame_count > 0:
@@ -613,6 +647,8 @@ func _on_animation_finished(anim_name: String) -> void:
 	
 	if anim_name in ATTACK_ANIMS:
 		was_active = false
+		# 🟢 【新增】加鎖防止動畫完成後記錄多餘的幀
+		animation_finished_locking = true
 		# 保持顯示，直到下一個新狀態開始
 		print("[FRAMEBAR ATTACK FINISH] %s - animation '%s' finished | display_frame_counter=%d (@120FPS) → %dF (@60FPS) | frame_data.size()=%d" % [
 			target_player.name, anim_name, display_frame_counter, int(display_frame_counter / 2.0), frame_data.size()
