@@ -9,7 +9,6 @@
 
 [resource]
 script = ExtResource("1_e6rab")
-st_lp_hitstun_frames = 15
 st_mp_movement = ExtResource("6_h3se8")
 st_hp_knockback = 120.0
 st_hp_movement = ExtResource("2_ybc3s")
