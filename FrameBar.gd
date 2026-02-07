@@ -68,6 +68,10 @@ var fireball_startup_frame_count: int = 0           # Startup 的幀計數（cal
 
 var last_physics_frame_for_jump: int = 0  # 用來追蹤jump的物理幀
 
+# 🟢 【新增】攻擊動畫幀數追蹤（用於限制 display_frame_counter）
+var current_attack_anim_name: String = ""           # 當前攻擊動畫名稱
+var current_attack_expected_frames: int = 0         # 當前攻擊動畫的預期幀數（@60FPS）
+
 # 常數表
 const TRACKED_ANIMS := [
 	# Standing attacks
@@ -290,6 +294,15 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 			display_frame_counter += 1
 			_last_physics_frame = current_physics_frame
 			
+			# 🟢 【防護】如果是攻擊動畫，確保不超過預期的幀數 × 2（120FPS）
+			if current_attack_anim_name in ATTACK_ANIMS and current_attack_expected_frames > 0:
+				var max_display_frames = current_attack_expected_frames * 2  # 轉換為 120FPS
+				if display_frame_counter > max_display_frames:
+					display_frame_counter = max_display_frames
+					print("[FRAMEBAR OVERFLOW CHECK] %s - display_frame_counter capped at %d (expected: %dF @60FPS = %d @120FPS)" % [
+						target_player.name, display_frame_counter, current_attack_expected_frames, max_display_frames
+					])
+			
 			# 🟢 【新增】調試信息：重要的幀數遞增（僅在關鍵狀態變化時輸出）
 			if old_counter == 0 or (flags.hit and old_counter % 10 == 0) or (flags.blocking and old_counter % 10 == 0):
 				print("[FRAMEBAR COUNTER] %s - display_frame_counter: %d → %d (anim: %s, state: %d, timer_driven: %s)" % [
@@ -456,6 +469,9 @@ func _start_new_animation(anim_name: String) -> void:
 		reset_delay_timer = 0.0
 	else:
 		# 🟢 【修改】保存前一個狀態到歷史，而不是直接清空
+		if frame_data.size() > 0 and anim_name in ATTACK_ANIMS:
+			print("[FRAMEBAR NEW ANIM] %s - saving old '%s' to history | frame_data.size()=%d" % [target_player.name, last_animation, frame_data.size()])
+		
 		if frame_data.size() > 0:
 			history_frame_data.clear()
 			history_frame_data.append_array(frame_data)
@@ -465,8 +481,22 @@ func _start_new_animation(anim_name: String) -> void:
 		reset_delay_timer = 0.0
 		white_frames_added = 0
 		buffer_start_frame = 0
+		display_frame_counter = 0  # 🟢 【新增】重置display_frame_counter
 		if not is_airborne:
 			jump_frame_count = 0
+		
+		# 🟢 【新增】如果開始新攻擊動畫，記錄預期幀數
+		if anim_name in ATTACK_ANIMS and "animation_player" in target_player:
+			current_attack_anim_name = anim_name
+			if target_player.animation_player.has_animation(anim_name):
+				var anim_length = target_player.animation_player.get_animation(anim_name).length
+				current_attack_expected_frames = int(round(anim_length * 60))
+				print("[FRAMEBAR NEW ANIM START] %s - starting '%s' animation | expected: %dF | display_frame_counter reset to 0" % [target_player.name, anim_name, current_attack_expected_frames])
+			else:
+				current_attack_expected_frames = 0
+		else:
+			current_attack_anim_name = ""
+			current_attack_expected_frames = 0
 	
 	# 🟢 【修改】開始新動畫時重置追蹤狀態
 	if anim_name == "fireball":
@@ -564,7 +594,13 @@ func update_frame_count_label(anim_name: String) -> void:
 			# Call method 尚未觸發
 			text += "S:0 A:%d R:0 (等待 call method...)" % frame_data.size()
 	elif anim_name in ATTACK_ANIMS:
-		text += "S:%d A:%d R:%d Total:%dF" % [counts.S, counts.A, counts.R, frame_data.size()]
+		# 🟢 【修復】對於攻擊動畫，限制顯示幀數不超過期望值
+		# frame_data.size() 可能因為 pos 乘以 DISPLAY_FPS 而偏大
+		# 但實際應顯示的是根據動畫實際長度計算的値
+		var display_frames = frame_data.size()
+		if current_attack_expected_frames > 0:
+			display_frames = min(frame_data.size(), current_attack_expected_frames)
+		text += "S:%d A:%d R:%d Total:%dF" % [counts.S, counts.A, counts.R, display_frames]
 	else:
 		text += "%dF" % frame_data.size()
 	frame_count_label.text = text
@@ -578,6 +614,13 @@ func _on_animation_finished(anim_name: String) -> void:
 	if anim_name in ATTACK_ANIMS:
 		was_active = false
 		# 保持顯示，直到下一個新狀態開始
+		print("[FRAMEBAR ATTACK FINISH] %s - animation '%s' finished | display_frame_counter=%d (@120FPS) → %dF (@60FPS) | frame_data.size()=%d" % [
+			target_player.name, anim_name, display_frame_counter, int(display_frame_counter / 2.0), frame_data.size()
+		])
+		if "attack_duration_timer" in target_player:
+			print("[FRAMEBAR ATTACK FINISH DETAIL] attack_duration_timer: %d | Expected: %d" % [
+				target_player.attack_duration_timer, display_frame_counter
+			])
 	
 	if anim_name == "wakeup" and knockfly_chain_active:
 		knockfly_chain_completed = true

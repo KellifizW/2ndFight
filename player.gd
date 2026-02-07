@@ -463,6 +463,11 @@ func _on_animation_player_finished(anim_name: String) -> void:
 	var is_special_move = move_set and move_set.has_move_id(move_set.get_active_move_name()) if move_set else false
 	print("[✓ ANIM_FINISHED] '%s' | Seat: %s | is_spmove=%s | is_attacking=%s" % [anim_name, seat_str, is_special_move, is_attacking])
 	
+	# 🟢 【FIX】攻擊動畫完成時，立即停止計時器以防止額外幀計數
+	if (anim_name in GROUND_ATTACK_ANIMS or anim_name in AIR_ATTACK_ANIMS) and is_attacking and attack_duration_timer > 0:
+		print("[ATTACK ANIM FINISH] Stopping attack_duration_timer early | remaining: %d frames → 0" % attack_duration_timer)
+		attack_duration_timer = 0  # 🟢 立即停止，防止 display_frame_counter 超過
+	
 	# 地面攻擊重置
 	if anim_name in GROUND_ATTACK_ANIMS:
 		print("  → Ground attack reset")
@@ -623,8 +628,12 @@ func _execute_attack(attack_name: String) -> void:
 		var anim_length = animation_player.get_animation(attack_name).length
 		# 🔴 【關鍵修復】attack_duration_timer 應按 120 FPS 物理幀計算
 		# 邏輯：動畫時長（秒）× 60 FPS（邏輯幀）× 2（物理幀轉換係數）= 對應的物理幀數
+		var logic_frames_60 = int(round(anim_length * 60))
 		attack_duration_timer = int(round(anim_length * 60 * 2))
-		print("[EXECUTE_ATTACK] Set attack_duration_timer=%d frames for %s (duration: %.3fs @60 FPS logic = %d @120 FPS physics)" % [int(round(anim_length * 60)), attack_name, anim_length, attack_duration_timer])
+		print("[EXECUTE_ATTACK] Set attack_duration_timer=%d frames for %s (duration: %.3fs @60 FPS logic = %d @120 FPS physics)" % [logic_frames_60, attack_name, anim_length, attack_duration_timer])
+		print("[EXECUTE_ATTACK] Frame math: %.3fs × 60 FPS = %.1fF @60FPS | × 120 FPS = %.1fF @120FPS | rounded: %dF @60FPS / %dF @120FPS" % [
+			anim_length, anim_length * 60, anim_length * 120, logic_frames_60, attack_duration_timer
+		])
 	else:
 		# Default: 0.5 seconds @ 60 FPS = 30 frames → × 2 = 60 frames @ 120 FPS
 		attack_duration_timer = 60
