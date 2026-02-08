@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_vhfda"]
 [ext_resource type="Resource" uid="uid://dsdxakjhgv04k" path="res://data/p1_attack_data.tres" id="2_rnech"]
+[ext_resource type="Script" uid="uid://c4qqdmb1sci8y" path="res://data/ThrowData.gd" id="3_0wmxw"]
 [ext_resource type="SpriteFrames" uid="uid://dgdawo56n6mld" path="res://P2Tres/player1.tres" id="3_jd35s"]
 [ext_resource type="Texture2D" uid="uid://b6poq4uxqguy5" path="res://assets/Davis2.png" id="4_0wmxw"]
 [ext_resource type="Texture2D" uid="uid://bf08spa3gkec5" path="res://assets/texture/smoke/smoke_01.png" id="5_7kano"]
@@ -15,6 +16,10 @@
 [ext_resource type="AudioStream" uid="uid://dubdc7fif3sdx" path="res://audio/hurt_grunt_p1b.mp3" id="12_vhfda"]
 [ext_resource type="AudioStream" uid="uid://b1h32xlp7um3u" path="res://audio/powerkk_call.mp3" id="13_2tjih"]
 [ext_resource type="AudioStream" uid="uid://bhgx3a8oi1nxg" path="res://audio/fireball_call_p1.wav" id="14_smpwk"]
+
+[sub_resource type="Resource" id="Resource_7kano"]
+script = ExtResource("3_0wmxw")
+metadata/_custom_type_script = "uid://c4qqdmb1sci8y"
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(90, 270)
@@ -6309,6 +6314,7 @@ alpha_curve = SubResource("CurveTexture_vhfda")
 collision_mask = 0
 script = ExtResource("1_vhfda")
 attack_data = ExtResource("2_rnech")
+throw_data = SubResource("Resource_7kano")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1649500777]
 scale = Vector2(0.48, 0.48)
@@ -6367,9 +6373,7 @@ debug_color = Color(0.62352943, 0.53333336, 0, 0.09803922)
 [node name="ThrowBox" type="Area2D" parent="." unique_id=2118661949]
 
 [node name="ThrowHit" type="CollisionShape2D" parent="ThrowBox" unique_id=382300240]
-position = Vector2(80, 0)
 shape = SubResource("RectangleShape2D_vhfda")
-disabled = true
 debug_color = Color(1, 0.45490196, 0.8509804, 0.05490196)
 
 [node name="ThrowHurt" type="CollisionShape2D" parent="ThrowBox" unique_id=2013794485]

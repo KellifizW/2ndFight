@@ -164,9 +164,8 @@ func get_throw_data() -> Dictionary:
 	"""返回當前 throw 攻擊的數據"""
 	if throw_data:
 		return throw_data.get_throw_data()
-	elif attack_data:
-		# 【備用】如果沒有 throw_data，回退到 attack_data
-		return attack_data.throw
+	# 如果沒有 throw_data 分配，返回空字典
+	# （每個角色應該在場景中分配 throw_data 資源）
 	return {}
 
 func _ready() -> void:
@@ -798,6 +797,8 @@ func _on_thrown(thrower: Node) -> void:
 		# 設置 knockfly 計時器和相關參數
 		hitstun_frames = throw_hitstun_frames  # 直接使用，無需轉換（已是物理幀）
 		knockfly_timer = throw_hitstun_frames / 120.0  # 轉回秒數供 delta-based 系統使用
+		knockfly_duration = knockfly_timer  # 【關鍵修復】設置 knockfly_duration，供 PushManager 計算速度衰減
+		knockfly_velocity_x = float(total_horizontal_speed * world.SIMULATION_SCALE * thrower_facing)  # 【關鍵修復】設置 knockfly_velocity_x，供 PushManager 使用
 		knockfly_gravity = throw_gravity  # 從資源中使用重力
 		
 		# 防止著地偵測誤觸發（12 幀 = 0.1秒）
@@ -808,6 +809,9 @@ func _on_thrown(thrower: Node) -> void:
 			horizontal_velocity, throw_horizontal_speed, int(throw_vertical_speed * world.SIMULATION_SCALE), knockfly_gravity
 		])
 		print("[THROWN] Applied %.1f damage, hitstun: %d physics frames (%.2f sec)" % [current_damage, throw_hitstun_frames, throw_hitstun_frames / 120.0])
+		print("[THROWN] PushManager config: knockfly_velocity_x=%.1f, knockfly_duration=%.3f, knockfly_timer=%.3f" % [
+			knockfly_velocity_x, knockfly_duration, knockfly_timer
+		])
 		print("[THROWN] Final state: fixed_velocity=(%d, %d), knockfly_timer=%.3f, is_on_floor=%s, position.y=%d" % [
 			fixed_velocity.x, fixed_velocity.y, knockfly_timer, is_on_floor(), fixed_position.y
 		])
