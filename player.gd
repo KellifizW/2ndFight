@@ -42,6 +42,7 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @onready var cancel_window_handler: CancelWindowHandler = null
 @onready var attack_executor: AttackExecutor = null
 @onready var hit_response_handler: HitResponseHandler = null
+@onready var throw_handler: ThrowHandler = null  # 【新增】摔投處理器
 
 # 新增：由 world.gd 動態生成時設定，決定這個角色是左邊還是右邊玩家
 var seat: String = "player_a"  # "player_a" 或 "player_b"
@@ -168,6 +169,27 @@ func get_throw_data() -> Dictionary:
 	# （每個角色應該在場景中分配 throw_data 資源）
 	return {}
 
+# 【新增】AnimationPlayer Call Method - 在摔投動畫特定幀調用
+func throw_release() -> void:
+	"""
+	Call this method from AnimationPlayer at the desired throw release frame.
+	Example: Add a Call Method track in throw_seq animation at frame 30
+	 - Method: throw_release()
+	 - No arguments
+	
+	This executes the throw's release phase, launching the opponent.
+	"""
+	if not throw_handler:
+		print("[THROW_RELEASE] ERROR: throw_handler not initialized!")
+		return
+	
+	if throw_handler.current_phase != ThrowHandler.ThrowPhase.HOLD:
+		print("[THROW_RELEASE] WARNING: Not in HOLD phase, cannot release (current: %s)" % throw_handler.current_phase)
+		return
+	
+	print("[THROW_RELEASE] Releasing opponent from throw at animation event")
+	throw_handler.release_opponent()
+
 func _ready() -> void:
 	super._ready()
 	world = get_tree().get_first_node_in_group("world")
@@ -275,6 +297,11 @@ func _physics_process(delta: float) -> void:
 	
 	super._physics_process(delta)
 	if not world: return
+	
+	# 【新增】ThrowHandler 處理（每幀更新摔投邏輯）
+	if throw_handler:
+		var input_data = get_input()
+		throw_handler.handle_throw(delta, input_data)
 	
 	# 【新增】檢查摔投碰撞（throw_enter 期間檢查是否擊中對手）
 	if attack_type == "throw_enter":
@@ -502,12 +529,12 @@ func _on_animation_player_finished(anim_name: String) -> void:
 
 	if anim_name == "throw_enter":
 		# 【修改】throw_enter 完成後
-		if throw_hit_detected:
-			# 已經成功碰撞，會轉換到 throw_seq，不做任何處理
+		if throw_hit_detected and attack_type == "throw_seq":
+			# 已經成功碰撞並進入 throw_seq，不做任何處理
 			print("[ANIM FINISHED] throw_enter ended (hit detected, transitioning to throw_seq)")
 		else:
-			# 沒有碰撞成功，重置攻擊狀態
-			print("[ANIM FINISHED] throw_enter ended (no hit, resetting)")
+			# 沒有碰撞成功或互相冲突，重置攻擊狀態
+			print("[ANIM FINISHED] throw_enter ended (no hit or mutual collision, resetting)")
 			reset_attack_state()
 		return
 	
@@ -584,7 +611,7 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 
 # 【新增】摔投碰撞檢測
 func _check_throw_hit() -> void:
-	"""在 throw_enter 動畫期間檢查摔投碰撞"""
+	"""在 throw_enter 動畫期間檢查摔投碰撞（委派給 ThrowHandler）"""
 	# 只在 throw_enter 期間檢查
 	if attack_type != "throw_enter":
 		return
@@ -594,72 +621,47 @@ func _check_throw_hit() -> void:
 		print("[THROW CHECK] Already hit detected, skipping")
 		return
 	
-	# 【修正】使用 animation_state 而不是 animation_player
-	var current_anim = animation_state.get_current_node() if animation_state else ""
-	print("[THROW CHECK] %s throw_enter check | anim: %s | attack_type: %s" % [name, current_anim, attack_type])
-	
-	if current_anim != "throw_enter":
-		print("[THROW CHECK]   ✗ Not in throw_enter animation (current: %s)" % current_anim)
-		return
-	
-	# 檢查 ThrowBox 是否與任何敵人的 ThrowBox 重疊
-	if not has_node("ThrowBox"):
-		print("[THROW CHECK]   ✗ ThrowBox node not found!")
-		return
-	
-	var overlapping_areas = $ThrowBox.get_overlapping_areas()
-	print("[THROW CHECK]   ✓ Found %d overlapping areas" % overlapping_areas.size())
-	
-	if overlapping_areas.size() == 0:
-		print("[THROW CHECK]   ! No overlapping areas detected")
-		return
-	
-	for area in overlapping_areas:
-		print("[THROW CHECK]     - Area: %s (parent: %s, is_in_group(players): %s)" % [area.name, area.get_parent().name if area.get_parent() else "None", area.get_parent().is_in_group("players") if area.get_parent() else false])
-		
-		# 【關鍵】尋找對手的 ThrowBox
-		if area.name != "ThrowBox":
-			print("[THROW CHECK]       ✗ Not a ThrowBox")
-			continue
-		
-		var potential_target = area.get_parent()
-		if not potential_target or not potential_target.is_in_group("players"):
-			print("[THROW CHECK]       ✗ Parent not in 'players' group")
-			continue
-		
-		if potential_target == self:
-			print("[THROW CHECK]       ✗ Self-collision")
-			continue
-		
-		# 驗證對手的 ThrowBox 有 ThrowHurt
-		if not area.has_node("ThrowHurt"):
-			print("[THROW CHECK]       ✗ Target ThrowBox has no ThrowHurt")
-			continue
-		
-		var target = potential_target
-		print("[THROW HIT] %s 摔投命中 %s！進入 throw_seq" % [name, target.name])
-		
-		# 【關鍵】標記已經觸發，防止重複
-		throw_hit_detected = true
-		
-		# 摔投者進入 throw_seq（需要更新 attack_duration_timer）
-		if animation_state:
-			attack_type = "throw_seq"
+	# 委派給 ThrowHandler 檢查碰撞
+	if throw_handler:
+		var opponent = throw_handler.check_grab_collision()
+		if opponent:
+			# 【新增】檢查對手是否也在執行摔投
+			var opponent_in_throw = "attack_type" in opponent and opponent.attack_type in ["throw_enter", "throw_seq"]
 			
-			# 【新增】計算 throw_seq 的時長並更新 timer
-			if animation_player and animation_player.has_animation("throw_seq"):
-				var throw_seq_length = animation_player.get_animation("throw_seq").length
-				attack_duration_timer = int(round(throw_seq_length * 120))  # 直接轉換為 @120 FPS
-				print("[THROW_SEQ] Updated timer for throw_seq: %.3fs → %d frames @120 FPS" % [throw_seq_length, attack_duration_timer])
+			if opponent_in_throw:
+				# 【新增】互相摔投衝突：雙方都向後推開，不進入 throw_seq
+				print("[THROW CHECK] Mutual throw collision! %s and %s both throwing" % [name, opponent.name])
+				throw_hit_detected = true  # 標記已經檢查過
+				
+				# 調用 ThrowHandler 處理互相衝突
+				throw_handler.handle_mutual_throw_collision(opponent)
+				
+				# 對手也標記已檢查（防止重複檢測）
+				if opponent.has_node("ThrowHandler"):
+					opponent.throw_hit_detected = true
+				
+				return  # 不進入 throw_seq，保持 throw_enter
 			
-			animation_state.travel("throw_seq")
-		
-		# 被摔投者進入被摔投狀態
-		if target.has_method("_on_thrown"):
-			target._on_thrown(self)
-		
-		# 【關鍵】只執行一次，然後離開
-		return
+			# 【正常情況】對手未執行摔投，正常進行摔投sequence
+			print("[THROW HIT] %s 摔投命中 %s！進入 throw_seq" % [name, opponent.name])
+			
+			# 【關鍵】標記已經觸發，防止重複
+			throw_hit_detected = true
+			
+			# 鎖定對手（ThrowHandler 接管控制）
+			throw_handler.lock_opponent(opponent)
+			
+			# 摔投者進入 throw_seq（需要更新 attack_duration_timer）
+			if animation_state:
+				attack_type = "throw_seq"
+				
+				# 【新增】計算 throw_seq 的時長並更新 timer
+				if animation_player and animation_player.has_animation("throw_seq"):
+					var throw_seq_length = animation_player.get_animation("throw_seq").length
+					attack_duration_timer = int(round(throw_seq_length * 120))  # 直接轉換為 @120 FPS
+					print("[THROW_SEQ] Updated timer for throw_seq: %.3fs → %d frames @120 FPS" % [throw_seq_length, attack_duration_timer])
+				
+				animation_state.travel("throw_seq")
 
 func _on_hit_detected(_target: String, _stun_duration: float, _is_blocked: bool, _was_in_stun: bool) -> void:
 	# 擊中確認取消（Hit-Confirm Cancel）：只有在擊中對手時才真正開啟取消窗口
@@ -723,12 +725,22 @@ func force_update_facing_direction() -> void:
 			facing_direction = 1.0
 			scale.x = 1
 		update_hitbox_position()
-
-# 【新增】被摔投角色處理
+# 【已棄用】被摔投角色處理 (Deprecated - 使用 ThrowHandler 代替)
+## @deprecated 此方法保留向後兼容，實際邏輯已遷移至 ThrowHandler.lock_opponent()
 func _on_thrown(thrower: Node) -> void:
-	"""角色被摔投時的處理"""
+	"""角色被摔投時的處理（已遷移至 ThrowHandler）"""
+	# 新系統：由 ThrowHandler 直接呼叫 lock_opponent()
+	# 此方法保留以防有其他地方直接呼叫
+	if thrower.has_node("ThrowHandler"):
+		var thrower_throw_handler = thrower.get_node("ThrowHandler")
+		thrower_throw_handler.lock_opponent(self)
+		print("[DEPRECATED] _on_thrown called, redirecting to ThrowHandler.lock_opponent()")
+		return
+	
+	# 降級方案：如果找不到 ThrowHandler，使用舊邏輯
+	print("[WARNING] ThrowHandler not found on thrower, using legacy throw logic")
 	var seat = seat if "seat" in self else "?"
-	print("[THROWN_START] %s was thrown by %s (seat=%s)" % [name, thrower.name, seat])
+	print("[THROWN_START] %s was thrown by %s (seat=%s) [LEGACY]" % [name, thrower.name, seat])
 	
 	# 進入被摔投狀態
 	is_attacking = false
@@ -942,4 +954,11 @@ func _initialize_handlers() -> void:
 	add_child(hit_handler)
 	hit_response_handler = hit_handler
 	
-	print("[Player] Handlers 初始化完成 (Phase 1-4) | Seat: ", seat)
+	# Phase 5: ThrowHandler (【新增】)
+	var throw_handler_instance = ThrowHandler.new()
+	throw_handler_instance.name = "ThrowHandler"
+	throw_handler_instance.set_player(self)
+	add_child(throw_handler_instance)
+	throw_handler = throw_handler_instance
+	
+	print("[Player] Handlers 初始化完成 (Phase 1-5) | Seat: ", seat)

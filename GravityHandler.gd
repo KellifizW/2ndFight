@@ -10,6 +10,10 @@ func _init(movement: Node) -> void:
 
 func handle_gravity(delta: float, move_set) -> void:
 	# 【統一重力系統】應用正確的重力計算
+	# 【新增】被摔投時跳過重力（由 ThrowHandler 控制）
+	if "is_being_thrown" in movement_node and movement_node.is_being_thrown:
+		return
+	
 	apply_gravity_unified(delta, move_set)
 	
 	# 🟢 【修正】地面時清除垂直速度 - 但DP等特殊招式期間不清零

@@ -8,13 +8,13 @@ func _init(movement: Node) -> void:
 	movement_node = movement
 
 func handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
-	# 【關鍵保護】剛被摔投或在 knockfly 狀態，完全跳過 WalkHandler
-	var is_just_thrown = "just_thrown" in movement_node and movement_node.just_thrown
+	# 【關鍵保護】被摔投時完全跳過 WalkHandler（位置由 ThrowHandler 控制）
+	var is_being_thrown = "is_being_thrown" in movement_node and movement_node.is_being_thrown
 	var seat = movement_node.seat if "seat" in movement_node else "?"
 	
-	if is_just_thrown or movement_node.is_knockfly:
-		print("[WALK_HANDLER] %s: Skipping walk (is_just_thrown=%s is_knockfly=%s vel_x=%d)" % [
-			seat, is_just_thrown, movement_node.is_knockfly, movement_node.fixed_velocity.x
+	if is_being_thrown or movement_node.is_knockfly:
+		print("[WALK_HANDLER] %s: Skipping walk (is_being_thrown=%s is_knockfly=%s vel_x=%d)" % [
+			seat, is_being_thrown, movement_node.is_knockfly, movement_node.fixed_velocity.x
 		])
 		return
 	

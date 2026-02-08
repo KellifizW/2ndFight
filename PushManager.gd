@@ -327,8 +327,17 @@ func _physics_process(delta: float) -> void:
 			# Check if the active move is penetrable
 			is_penetrable = move_set.is_spmove and move_set.current_move_state.active_move and move_set.current_move_state.active_move.penetrable
 		parent.is_being_pushed = false
-		if is_penetrable or parent.skip_pushbox:
+		
+		# 🟢 【THROW SYSTEM FIX】Skip pushbox during throw
+		var parent_in_throw = false
+		if "is_being_thrown" in parent and parent.is_being_thrown:
+			parent_in_throw = true  # Victim: being thrown
+		if "attack_type" in parent and (parent.attack_type == "throw_enter" or parent.attack_type == "throw_seq"):
+			parent_in_throw = true  # Attacker: executing throw
+		
+		if is_penetrable or parent.skip_pushbox or parent_in_throw:
 			continue
+		
 		for j in range(i + 1, players.size()):
 			var other = players[j]
 			var other_move_set = other.get_node_or_null("MoveSet")
@@ -336,7 +345,15 @@ func _physics_process(delta: float) -> void:
 			if other_move_set:
 				# Check if the active move is penetrable
 				other_is_penetrable = other_move_set.is_spmove and other_move_set.current_move_state.active_move and other_move_set.current_move_state.active_move.penetrable
-			if other_is_penetrable or other.skip_pushbox:
+			
+			# 🟢 【THROW SYSTEM FIX】Skip pushbox during throw
+			var other_in_throw = false
+			if "is_being_thrown" in other and other.is_being_thrown:
+				other_in_throw = true  # Victim: being thrown
+			if "attack_type" in other and (other.attack_type == "throw_enter" or other.attack_type == "throw_seq"):
+				other_in_throw = true  # Attacker: executing throw
+			
+			if other_is_penetrable or other.skip_pushbox or other_in_throw:
 				continue
 
 			var fixed_position_a = Vector2i(round(parent.global_position.x * SIMULATION_SCALE), round(parent.global_position.y * SIMULATION_SCALE))

@@ -81,13 +81,13 @@ var back_speed: float = 240.0
 @export_group("Knockfly Physics")
 @export var default_knockfly_gravity: float = 1900000.0
 @export var default_knockfly_vertical_speed: float = -400.0
-@export var default_knockfly_horizontal_speed: float = 6000.0
+@export var default_knockfly_horizontal_speed: float = 600.0
 @export var default_air_friction: float = 200.0
 @export var default_knockfly_duration: float = 0.4
 
 var knockfly_gravity: float = 1700000.0
 var knockfly_vertical_speed: float = -400.0
-var knockfly_horizontal_speed: float = 6000.0
+var knockfly_horizontal_speed: float = 600.0
 var air_friction: float = 200.0
 var knockfly_duration: float = 0.4
 var knockfly_velocity_x: float = 0.0
@@ -115,6 +115,10 @@ var is_crouch_blocking: bool = false
 var is_proximity_blocking: bool = false
 var is_opponent_proximity: bool = false
 var block_type: String = "none"
+
+# ── 摔投系統 ──────────────────────────────
+var is_being_thrown: bool = false      # 被摔投時鎖定狀態（位置被 ThrowHandler 控制）
+var throw_invincibility: bool = false  # 摔投無敵時間（防止連續被摔）
 
 # ── 推擠系統 ──────────────────────────────
 @export_group("Push Parameters")
@@ -303,7 +307,19 @@ func _physics_process(delta: float) -> void:
 		fixed_velocity.x = saved_vx_for_knockfly
 		print("[MOVEMENT RESTORE VX] Restored knockfly vel_x=%d" % saved_vx_for_knockfly)
 	
-	fixed_position += Vector2i(roundi(fixed_velocity.x * delta), roundi(fixed_velocity.y * delta))
+	# 【關鍵】摔投期間禁用所有速度應用，防止角色繼續移動
+	# 檢查兩種情況：
+	# 1. 被摔投者：is_being_thrown = true
+	# 2. 攻擊者成功進入 throw_seq：attack_type == "throw_seq"
+	var is_throw_locked: bool = false
+	if "is_being_thrown" in self and self.is_being_thrown:
+		is_throw_locked = true
+	# 【重要】只在 throw_seq 時鎖定，throw_enter 允許移動（用於互相摔投衝突時的後退）
+	if "attack_type" in self and self.attack_type == "throw_seq":
+		is_throw_locked = true
+	
+	if not is_throw_locked:
+		fixed_position += Vector2i(roundi(fixed_velocity.x * delta), roundi(fixed_velocity.y * delta))
 	
 	_handle_landing(input_data, floor_y, delta)
 	

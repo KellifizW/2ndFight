@@ -80,6 +80,10 @@ func process_movement(_delta: float) -> void:
 	if not is_movement_active or active_movement == null or not parent_player or not world:
 		return
 	
+	# 【關鍵】摔投期間禁用攻擊移動
+	if "is_being_thrown" in parent_player and parent_player.is_being_thrown:
+		return
+	
 	# 等待起始延遲（現在使用幀計數）
 	if movement_timer < movement_start_delay_frames:
 		movement_timer += 1
