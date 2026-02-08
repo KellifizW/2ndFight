@@ -29,18 +29,31 @@ func _physics_process(_delta: float) -> void:
 	var suffix = "_p2" if player_seat == "player_b" else ""
 	
 	# Record all button presses
-	if Input.is_action_just_pressed("st_lp" + suffix):
-		input_buffer.record_input("st_lp")
-	if Input.is_action_just_pressed("st_mp" + suffix):
-		input_buffer.record_input("st_mp")
-	if Input.is_action_just_pressed("st_hp" + suffix):
-		input_buffer.record_input("st_hp")
-	if Input.is_action_just_pressed("st_lk" + suffix):
-		input_buffer.record_input("st_lk")
-	if Input.is_action_just_pressed("st_mk" + suffix):
-		input_buffer.record_input("st_mk")
-	if Input.is_action_just_pressed("st_hk" + suffix):
-		input_buffer.record_input("st_hk")
+	var st_lp_just = Input.is_action_just_pressed("st_lp" + suffix)
+	var st_mp_just = Input.is_action_just_pressed("st_mp" + suffix)
+	var st_hp_just = Input.is_action_just_pressed("st_hp" + suffix)
+	var st_lk_just = Input.is_action_just_pressed("st_lk" + suffix)
+	var st_mk_just = Input.is_action_just_pressed("st_mk" + suffix)
+	var st_hk_just = Input.is_action_just_pressed("st_hk" + suffix)
+	
+	# 【重要】同時按下 st_lp + st_lk 時，只記錄 throw，不記錄單獨的按鈕
+	if st_lp_just and st_lk_just:
+		input_buffer.record_input("throw")
+		print("[INPUT] Throw detected: st_lp + st_lk pressed simultaneously")
+	else:
+		# 僅在沒有同時按下時才記錄單獨的按鈕
+		if st_lp_just:
+			input_buffer.record_input("st_lp")
+		if st_mp_just:
+			input_buffer.record_input("st_mp")
+		if st_hp_just:
+			input_buffer.record_input("st_hp")
+		if st_lk_just:
+			input_buffer.record_input("st_lk")
+		if st_mk_just:
+			input_buffer.record_input("st_mk")
+		if st_hk_just:
+			input_buffer.record_input("st_hk")
 	if Input.is_action_just_pressed("jump" + suffix):
 		input_buffer.record_input("jump")
 	if Input.is_action_just_pressed("spmove1" + suffix):
@@ -128,6 +141,7 @@ func get_input_data() -> Dictionary:
 	var st_lk_pressed = input_buffer.is_input_buffered("st_lk")
 	var st_mk_pressed = input_buffer.is_input_buffered("st_mk")
 	var st_hk_pressed = input_buffer.is_input_buffered("st_hk")
+	var throw_pressed = input_buffer.is_input_buffered("throw")
 	var spm1_pressed  = input_buffer.is_input_buffered("spmove1")
 	var spm2_pressed  = input_buffer.is_input_buffered("spmove2")
 	var spm3_pressed  = input_buffer.is_input_buffered("spmove3")
@@ -157,6 +171,7 @@ func get_input_data() -> Dictionary:
 	if dp_buffered:
 		dp_pressed = true
 		st_mp_pressed = false
+	
 	
 	# === 舊版輸入序列檢測（作為備用，但不應該再需要了）===
 	# 已經被 InputManager.detect_special_move() 和 buffer 系統取代
@@ -195,6 +210,7 @@ func get_input_data() -> Dictionary:
 	
 	# 攻擊優先級（已移除 player_id 判斷，改用 character_id）
 	var attack_type = (
+		"throw"    if throw_pressed else  # 【摔投優先級最高】
 		"super"    if super_pressed else
 		"powerkk"  if spm1_pressed and character_id == "DAV" else
 		"dp"       if dp_pressed and character_id == "DAV" else
@@ -222,6 +238,7 @@ func get_input_data() -> Dictionary:
 		"st_lk_pressed": st_lk_pressed,
 		"st_mk_pressed": st_mk_pressed,
 		"st_hk_pressed": st_hk_pressed,
+		"throw_pressed": throw_pressed,
 		"attack_type": attack_type,
 		"spm1_pressed": spm1_pressed,
 		"spm2_pressed": spm2_pressed,

@@ -163,7 +163,7 @@ var landing_facing_lock: bool = false
 var animation_conditions: Array = [
 	"Walk", "cr_down", "cr_idle", "Dash", "Backdash",
 	"st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk",
-	"cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk",
+	"cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk", "throw_enter", "throw_seq",
 	"Jump_F", "Jump_B", "Jump_V",
 	"hit", "knockfly", "block", "cr_block",
 	"powerkk", "spnk", "fireball",

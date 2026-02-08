@@ -21,6 +21,9 @@ size = Vector2(90, 300)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_bhnal"]
 size = Vector2(135, 310)
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ix25f"]
+size = Vector2(100, 300)
+
 [sub_resource type="Animation" id="Animation_3ch2m"]
 length = 0.001
 tracks/0/type = "value"
@@ -310,6 +313,90 @@ tracks/23/keys = {
 "transitions": PackedFloat32Array(1),
 "update": 0,
 "values": [0.0]
+}
+tracks/24/type = "value"
+tracks/24/imported = false
+tracks/24/enabled = true
+tracks/24/path = NodePath("ThrowBox/ThrowHit:shape")
+tracks/24/interp = 1
+tracks/24/loop_wrap = true
+tracks/24/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [SubResource("RectangleShape2D_ix25f")]
+}
+tracks/25/type = "value"
+tracks/25/imported = false
+tracks/25/enabled = true
+tracks/25/path = NodePath("ThrowBox/ThrowHit:shape:size")
+tracks/25/interp = 1
+tracks/25/loop_wrap = true
+tracks/25/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(100, 300)]
+}
+tracks/26/type = "value"
+tracks/26/imported = false
+tracks/26/enabled = true
+tracks/26/path = NodePath("ThrowBox/ThrowHit:position")
+tracks/26/interp = 1
+tracks/26/loop_wrap = true
+tracks/26/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(80, 0)]
+}
+tracks/27/type = "value"
+tracks/27/imported = false
+tracks/27/enabled = true
+tracks/27/path = NodePath("ThrowBox/ThrowHit:disabled")
+tracks/27/interp = 1
+tracks/27/loop_wrap = true
+tracks/27/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [true]
+}
+tracks/28/type = "value"
+tracks/28/imported = false
+tracks/28/enabled = true
+tracks/28/path = NodePath("ThrowBox/ThrowHurt:shape")
+tracks/28/interp = 1
+tracks/28/loop_wrap = true
+tracks/28/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [SubResource("RectangleShape2D_ix25f")]
+}
+tracks/29/type = "value"
+tracks/29/imported = false
+tracks/29/enabled = true
+tracks/29/path = NodePath("ThrowBox/ThrowHurt:shape:size")
+tracks/29/interp = 1
+tracks/29/loop_wrap = true
+tracks/29/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(100, 300)]
+}
+tracks/30/type = "value"
+tracks/30/imported = false
+tracks/30/enabled = true
+tracks/30/path = NodePath("ThrowBox/ThrowHurt:position")
+tracks/30/interp = 1
+tracks/30/loop_wrap = true
+tracks/30/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0, 0)]
 }
 
 [sub_resource type="Animation" id="Animation_meopb"]
@@ -3039,6 +3126,7 @@ tracks/15/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_gwt7q"]
+size = Vector2(40, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_fqpan"]
 size = Vector2(40, 20)
@@ -4255,7 +4343,7 @@ tracks/12/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tm1hu"]
-size = Vector2(150, 50)
+size = Vector2(40, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tj0vx"]
 size = Vector2(180, 50)
@@ -4271,7 +4359,7 @@ tracks/0/path = NodePath("Hitbox/HitShape:shape")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0.2),
+"times": PackedFloat32Array(0.23333333),
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [SubResource("RectangleShape2D_tm1hu")]
@@ -4283,7 +4371,7 @@ tracks/1/path = NodePath("Hitbox/HitShape:shape:size")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
-"times": PackedFloat32Array(0.2),
+"times": PackedFloat32Array(0.23333333),
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [Vector2(200, 70)]
@@ -4295,7 +4383,7 @@ tracks/2/path = NodePath("Hitbox/HitShape:position")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0.2),
+"times": PackedFloat32Array(0.23333333),
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [Vector2(100, -60)]
@@ -4379,7 +4467,7 @@ tracks/9/path = NodePath("Hitbox/HitShape:disabled")
 tracks/9/interp = 1
 tracks/9/loop_wrap = true
 tracks/9/keys = {
-"times": PackedFloat32Array(0, 0.2, 0.26666668),
+"times": PackedFloat32Array(0, 0.23333333, 0.3),
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
 "values": [true, false, true]
@@ -4391,10 +4479,10 @@ tracks/10/path = NodePath("AnimatedSprite2D:offset")
 tracks/10/interp = 1
 tracks/10/loop_wrap = true
 tracks/10/keys = {
-"times": PackedFloat32Array(0, 0.083333336, 0.15, 0.46666667),
-"transitions": PackedFloat32Array(1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.083333336, 0.16666667, 0.23333335, 0.53333336),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
 "update": 1,
-"values": [Vector2(0, 0), Vector2(50, 0), Vector2(90, 0), Vector2(60, 0)]
+"values": [Vector2(0, -20), Vector2(50, -20), Vector2(80, -20), Vector2(90, -20), Vector2(0, -20)]
 }
 tracks/11/type = "value"
 tracks/11/imported = false
@@ -4403,10 +4491,10 @@ tracks/11/path = NodePath("AnimatedSprite2D:frame")
 tracks/11/interp = 1
 tracks/11/loop_wrap = true
 tracks/11/keys = {
-"times": PackedFloat32Array(0, 0.083333336, 0.15, 0.2, 0.26666668, 0.31666666, 0.38333333, 0.46666667),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.083333336, 0.16666667, 0.23333335, 0.28333333, 0.35000002, 0.4, 0.46666667, 0.53333336),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [0, 1, 2, 3, 4, 5, 6, 7]
+"values": [7, 0, 1, 2, 3, 4, 5, 6, 7]
 }
 tracks/12/type = "value"
 tracks/12/imported = false
@@ -4460,6 +4548,18 @@ tracks/15/keys = {
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [false, true]
+}
+tracks/16/type = "value"
+tracks/16/imported = false
+tracks/16/enabled = true
+tracks/16/path = NodePath("AnimatedSprite2D:scale")
+tracks/16/interp = 1
+tracks/16/loop_wrap = true
+tracks/16/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0.52, 0.52)]
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_2dedv"]
@@ -5430,6 +5530,184 @@ tracks/15/keys = {
 "values": [false, true]
 }
 
+[sub_resource type="Animation" id="Animation_m8rlt"]
+resource_name = "throw"
+length = 0.41750166
+step = 0.0167
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("AnimatedSprite2D:offset")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.05, 0.1, 0.8333333),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 1,
+"values": [Vector2(0, 0), Vector2(110, 0), Vector2(90, 0), Vector2(60, 0)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("AnimatedSprite2D:frame")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.05, 0.1, 0.15, 0.21666667, 0.8333333),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [0, 0, 1, 2, 2, 7]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("AnimatedSprite2D:animation")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.05, 0.21666668),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 1,
+"values": [&"throw_enter", &"throw", &"throw_enter"]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("ThrowBox/ThrowHit:shape")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [SubResource("RectangleShape2D_ix25f")]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("ThrowBox/ThrowHit:shape:size")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(100, 300)]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("ThrowBox/ThrowHit:position")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(80, 0)]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("ThrowBox/ThrowHit:disabled")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0, 0.05, 0.1),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 1,
+"values": [true, false, true]
+}
+
+[sub_resource type="Animation" id="Animation_qpqbf"]
+resource_name = "throw_seq"
+length = 1.0020016
+step = 0.0167
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Hitbox/HitShape:shape")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.18333334),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [SubResource("RectangleShape2D_tm1hu")]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Hitbox/HitShape:shape:size")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0.18333334),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(200, 70)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Hitbox/HitShape:position")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0.18333334),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(100, -60)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Hitbox/HitShape:disabled")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.18333334, 0.25, 0.6333333, 0.6666667),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
+"update": 1,
+"values": [true, false, true, false, true]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("AnimatedSprite2D:offset")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0, 0.083333336, 0.15, 0.6),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 1,
+"values": [Vector2(100, 0), Vector2(110, 0), Vector2(90, 0), Vector2(60, 0)]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("AnimatedSprite2D:frame")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0, 0.083333336, 0.16666667, 0.36666667, 0.5, 0.6, 0.7166667, 0.8333334, 0.93333334),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [2, 3, 4, 5, 6, 3, 4, 5, 6]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("AnimatedSprite2D:animation")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0, 0.6),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [&"throw", &"st_hk"]
+}
+
 [sub_resource type="Animation" id="Animation_g4e5n"]
 resource_name = "wakeup"
 length = 0.5
@@ -5537,6 +5815,8 @@ _data = {
 &"st_lp": SubResource("Animation_x0tr5"),
 &"st_mk": SubResource("Animation_4lg2u"),
 &"st_mp": SubResource("Animation_bhnal"),
+&"throw_enter": SubResource("Animation_m8rlt"),
+&"throw_seq": SubResource("Animation_qpqbf"),
 &"wakeup": SubResource("Animation_g4e5n")
 }
 
@@ -5663,6 +5943,12 @@ animation = &"st_mk"
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_61wwb"]
 animation = &"st_mp"
 
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_qpqbf"]
+animation = &"throw_enter"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_c623c"]
+animation = &"throw_seq"
+
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_ph7k6"]
 animation = &"wakeup"
 
@@ -5753,6 +6039,10 @@ states/st_mk/node = SubResource("AnimationNodeAnimation_a1vnf")
 states/st_mk/position = Vector2(655, 36)
 states/st_mp/node = SubResource("AnimationNodeAnimation_61wwb")
 states/st_mp/position = Vector2(785, 164)
+states/throw_enter/node = SubResource("AnimationNodeAnimation_qpqbf")
+states/throw_enter/position = Vector2(196, 314)
+states/throw_seq/node = SubResource("AnimationNodeAnimation_c623c")
+states/throw_seq/position = Vector2(327, 360)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-52, 185)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "cr_down", SubResource("AnimationNodeStateMachineTransition_8yeum"), "cr_down", "cr_idle", SubResource("AnimationNodeStateMachineTransition_2sjhs"), "Walk", "hdk", SubResource("AnimationNodeStateMachineTransition_ix25f")]
@@ -5805,7 +6095,6 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 1
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
@@ -5834,7 +6123,6 @@ debug_color = Color(0.0509804, 0.635294, 0.415686, 0.509804)
 collision_mask = 195
 
 [node name="HurtShape" type="CollisionShape2D" parent="Hurtbox" unique_id=26003821]
-position = Vector2(10, 40)
 shape = SubResource("RectangleShape2D_bhnal")
 debug_color = Color(0, 0.5686275, 0.8509804, 0.078431375)
 
@@ -5849,6 +6137,18 @@ collision_mask = 0
 [node name="ProxShape" type="CollisionShape2D" parent="Proximitybox" unique_id=1802268886]
 position = Vector2(20, 5)
 debug_color = Color(0.607617, 0.540146, 0, 0.42)
+
+[node name="ThrowBox" type="Area2D" parent="." unique_id=2013572420]
+
+[node name="ThrowHit" type="CollisionShape2D" parent="ThrowBox" unique_id=924198557]
+position = Vector2(80, 0)
+shape = SubResource("RectangleShape2D_ix25f")
+disabled = true
+debug_color = Color(1, 0.45490196, 0.8509804, 0.11764706)
+
+[node name="ThrowHurt" type="CollisionShape2D" parent="ThrowBox" unique_id=590200473]
+shape = SubResource("RectangleShape2D_ix25f")
+debug_color = Color(0.56078434, 0.45490196, 0.8509804, 0.05490196)
 
 [node name="groundsmoke" type="GPUParticles2D" parent="." unique_id=1762682731]
 position = Vector2(0, 150)

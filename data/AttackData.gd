@@ -49,6 +49,13 @@ const LOGIC_FPS: int = 60  # 邏輯/顯示幀率（資源中的幀數基準）
 @export var st_hk_knockback: float = 110.0
 @export var st_hk_movement: AttackMovement = null
 
+# ── throw ──
+@export var throw_damage: float = 8.0
+@export var throw_hitstun_frames: int = 36      # 36 幀 = 0.60 秒
+@export var throw_blockstun_frames: int = 18    # 18 幀 = 0.30 秒
+@export var throw_knockback: float = 120.0
+@export var throw_movement: AttackMovement = null
+
 # ── cr_lp ──
 @export var cr_lp_damage: float = 2.0
 @export var cr_lp_hitstun_frames: int = 15      # 15 幀 = 0.25 秒
@@ -147,6 +154,8 @@ var st_mk: Dictionary:
 	get: return { "damage": st_mk_damage, "hitstun": st_mk_hitstun_frames, "blockstun": st_mk_blockstun_frames, "knockback": st_mk_knockback, "movement": st_mk_movement }
 var st_hk: Dictionary:
 	get: return { "damage": st_hk_damage, "hitstun": st_hk_hitstun_frames, "blockstun": st_hk_blockstun_frames, "knockback": st_hk_knockback, "movement": st_hk_movement }
+var throw: Dictionary:
+	get: return { "damage": throw_damage, "hitstun": throw_hitstun_frames, "blockstun": throw_blockstun_frames, "knockback": throw_knockback, "movement": throw_movement }
 var cr_lp: Dictionary:
 	get: return { "damage": cr_lp_damage, "hitstun": cr_lp_hitstun_frames, "blockstun": cr_lp_blockstun_frames, "knockback": cr_lp_knockback, "movement": cr_lp_movement }
 var cr_mp: Dictionary:

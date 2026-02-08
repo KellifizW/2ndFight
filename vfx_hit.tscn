@@ -1,13 +1,13 @@
 [gd_scene format=3 uid="uid://ch1ju50maflfw"]
 
-[ext_resource type="Texture2D" uid="uid://bmjae6pnph2g8" path="res://assets/T_VFX_simple_ss.png" id="1_42wi3"]
+[ext_resource type="Texture2D" uid="uid://bmho01pc4e7ci" path="res://assets/T_VFX_simple_ss.png" id="1_42wi3"]
 [ext_resource type="Script" uid="uid://dowb57vy1aew4" path="res://vfx_impact.gd" id="1_i4h24"]
-[ext_resource type="Texture2D" uid="uid://47hjn72dc7ig" path="res://assets/ring_s.png" id="2_42wi3"]
-[ext_resource type="Material" path="res://vfx/vfx_hit_newfix.tres" id="4_h8u72"]
-[ext_resource type="Texture2D" uid="uid://bpl48hd1uf5x3" path="res://assets/texture/15a.png" id="4_ogjf0"]
-[ext_resource type="Texture2D" uid="uid://dou7pshvabu48" path="res://assets/texture/20.png" id="5_6yyi1"]
+[ext_resource type="Texture2D" uid="uid://dppydau5m4p5a" path="res://assets/ring_s.png" id="2_42wi3"]
+[ext_resource type="Material" uid="uid://bwx4raplubq6x" path="res://vfx/vfx_hit_newfix.tres" id="4_h8u72"]
+[ext_resource type="Texture2D" uid="uid://jelryjr7r4gd" path="res://assets/texture/15a.png" id="4_ogjf0"]
+[ext_resource type="Texture2D" uid="uid://2j5ndkh8ro5e" path="res://assets/texture/20.png" id="5_6yyi1"]
 [ext_resource type="Material" uid="uid://cxaqfmv8pkne7" path="res://vfx/vfx_hit_spitF.tres" id="5_any2n"]
-[ext_resource type="Texture2D" uid="uid://d1k0e88ma3g1q" path="res://assets/Flare00.PNG" id="6_4dmgk"]
+[ext_resource type="Texture2D" uid="uid://gxsiyutug1b4" path="res://assets/Flare00.PNG" id="6_4dmgk"]
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_6yyi1"]
 blend_mode = 1
@@ -53,7 +53,7 @@ blend_mode = 1
 light_mode = 1
 
 [sub_resource type="Curve" id="Curve_42wi3"]
-_data = [Vector2(0, 0.47187495), 0.0, -0.47187495, 0, 1, Vector2(1, 0), -0.47187495, 0.0, 1, 0]
+_data = [Vector2(1e-05, 1), 0.0, 0.0, 0, 0, Vector2(0.6212121, 0), 0.0, 1.4, 0, 0]
 point_count = 2
 
 [sub_resource type="CurveTexture" id="CurveTexture_i4h24"]
@@ -70,10 +70,10 @@ curve = SubResource("Curve_6yyi1")
 resource_local_to_scene = true
 particle_flag_disable_z = true
 gravity = Vector3(0, 0, 0)
-scale_min = 2.0
-scale_max = 2.0
+scale_min = 3.0
+scale_max = 3.0
 scale_curve = SubResource("CurveTexture_4dmgk")
-color = Color(2.848, 3.008, 0.833, 0.584)
+color = Color(6.055928, 5.1932936, 3.2763274, 0.58431375)
 alpha_curve = SubResource("CurveTexture_i4h24")
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_4dmgk"]
@@ -169,19 +169,23 @@ process_material = ExtResource("5_any2n")
 emitting = false
 amount = 1
 texture = ExtResource("2_42wi3")
-lifetime = 0.16
+lifetime = 0.5
 one_shot = true
-fixed_fps = 60
+speed_scale = 4.0
+explosiveness = 1.0
+fixed_fps = 120
 process_material = SubResource("ParticleProcessMaterial_qjvhm")
 
 [node name="smokring" type="GPUParticles2D" parent="." unique_id=970332964]
 material = SubResource("CanvasItemMaterial_4dmgk")
 emitting = false
-amount = 1
+amount = 5
 texture = ExtResource("5_6yyi1")
-lifetime = 0.13
+lifetime = 0.5
 one_shot = true
-fixed_fps = 60
+speed_scale = 4.0
+explosiveness = 1.0
+fixed_fps = 120
 process_material = SubResource("ParticleProcessMaterial_11ogm")
 
 [node name="Flash" type="GPUParticles2D" parent="." unique_id=636069098]

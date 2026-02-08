@@ -2138,6 +2138,16 @@ animations = [{
 "name": &"st_lp",
 "speed": 25.0
 }, {
+"frames": [],
+"loop": true,
+"name": &"throw_enter",
+"speed": 5.0
+}, {
+"frames": [],
+"loop": true,
+"name": &"throw_seq",
+"speed": 5.0
+}, {
 "frames": [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_a3oih")

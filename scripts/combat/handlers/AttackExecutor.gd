@@ -52,6 +52,11 @@ func try_execute_ground_attack(input_data: Dictionary, is_crouching: bool) -> bo
 	Returns:
 		bool: 如果執行了攻擊返回 true，否則返回 false
 	"""
+	if input_data.get("throw_pressed", false) and not is_crouching:
+		_consume_throw_inputs()
+		_execute_attack("throw_enter")
+		return true
+
 	# 遍歷優先級列表，檢查哪個按鈕被按下
 	for button in BUTTON_PRIORITY:
 		var input_key = button + "_pressed"
@@ -115,6 +120,12 @@ func _consume_button_input(button: String) -> void:
 	"""消耗 buffer 中的按鈕輸入"""
 	if player_controller and player_controller.has_method("consume_button_input"):
 		player_controller.consume_button_input(button)
+
+func _consume_throw_inputs() -> void:
+	"""消耗 throw 相關的按鈕輸入"""
+	# 【關鍵】消費 "throw" 輸入本身，而不是 st_lp / st_lk
+	# 因為 PlayerController 當同時按下 st_lp + st_lk 時，只記錄 "throw"
+	_consume_button_input("throw")
 
 func _execute_attack(attack_name: String) -> void:
 	"""執行攻擊（委託給 Player）"""

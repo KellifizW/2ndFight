@@ -115,3 +115,13 @@ func get_active_buffers() -> Array[String]:
 		if is_input_buffered(action_name):
 			active.append(action_name)
 	return active
+
+func were_inputs_pressed_same_frame(action_a: String, action_b: String) -> bool:
+	"""Check if two inputs were pressed on the same frame and are unconsumed."""
+	if not is_input_buffered(action_a) or not is_input_buffered(action_b):
+		return false
+	var entry_a: BufferEntry = buffered_inputs[action_a]
+	var entry_b: BufferEntry = buffered_inputs[action_b]
+	if entry_a.consumed or entry_b.consumed:
+		return false
+	return entry_a.timestamp == entry_b.timestamp

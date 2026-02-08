@@ -28,4 +28,4 @@ gravity = Vector3(0, -20, 0)
 scale_min = 0.099999994
 scale_max = 0.29999998
 scale_curve = SubResource("CurveXYZTexture_6yqp0")
-color = Color(7.8425736, 3.2875552, 1.7252303, 1)
+color = Color(2.454227, 1.1764123, 0.55149555, 1)
