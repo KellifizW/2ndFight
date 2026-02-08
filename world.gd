@@ -311,52 +311,27 @@ func _calculate_hit_advantage() -> void:
 			print("  - hitstun_frames (備用): %d 物理幀" % fallback_hitstun)
 			print("  - 目標恢復幀: %d 物理幀" % target_recover_frame)
 	
-	# 🟢 【第2步】計算攻擊者恢復時間（基於記錄的攻擊開始幀）
+	# 🟢 【第2步】計算攻擊者恢復時間（使用攻擊開始幀 + 完整時長）
 	if attacker_recover_frame == -1 and is_instance_valid(attacker):
-		# 🟢 【關鍵改進】使用攻擊開始幀 + 攻擊時長（避免浮點誤差）
-		# 這比使用 attack_duration_timer 更精確，因為 timer 遞減時有浮點精度問題
+		# 🟢 【修復】使用攻擊開始幀 + 完整動畫時長（而非「當前幀 + 剩餘timer」）
+		# 根本原因：hit stop 期間會凍結 FrameCounter，導致「當前幀 + timer」計算出錯
+		# 正確做法：攻擊的持續時間是確定的，不會因 hit stop 而改變
 		
-		if "attack_type" in attacker and attack_start_frame != -1 and attack_duration_frames > 0:
-			# ✅ 最精確方式：使用記錄的開始幀 + 攻擊時長
+		if "attack_start_frame" in attacker and attack_start_frame != -1 and attack_duration_frames > 0:
+			# ✅ 最精確方式：attack_start_frame + 完整動畫時長（不受 hit stop 影響）
 			attacker_recover_frame = attack_start_frame + attack_duration_frames
-			print("[ADVANTAGE CALC] Attacker 恢復時間計算（使用記錄的攻擊開始幀）：")
+			print("[ADVANTAGE CALC] Attacker 恢復時間計算（基於動畫時長）：")
 			print("  - 攻擊開始幀: %d 物理幀" % attack_start_frame)
-			print("  - 攻擊時長: %d 物理幀" % attack_duration_frames)
+			print("  - 攻擊完整時長: %d 物理幀" % attack_duration_frames)
 			print("  - 攻擊恢復幀: %d 物理幀 (%d + %d)" % [attacker_recover_frame, attack_start_frame, attack_duration_frames])
-		elif "attack_duration_timer" in attacker:
-			# 備用方案：使用計時器
-			var timer_remaining = attacker.attack_duration_timer
-			if timer_remaining <= 0.0:
-				# 攻擊已結束，記錄當前幀
-				attacker_recover_frame = frame_counter.get_current_frame()
-				print("[ADVANTAGE CALC] Attacker 恢復時間計算（計時器已結束）：")
-				print("  - attack_duration_timer: %.6f 秒 (已結束)" % timer_remaining)
-				print("  - 攻擊恢復幀: %d 物理幀" % attacker_recover_frame)
-			else:
-				# 攻擊仍在進行，預估恢復幀
-				var remaining_frames = int(round(timer_remaining * frame_counter.PHYSICS_FPS))
-				attacker_recover_frame = frame_counter.get_current_frame() + remaining_frames
-				print("[ADVANTAGE CALC] Attacker 恢復時間計算（計時器預估）：")
-				print("  - attack_duration_timer: %.6f 秒 (仍在進行)" % timer_remaining)
-				print("  - 剩餘物理幀: %d" % remaining_frames)
-				print("  - 預期攻擊恢復幀: %d 物理幀 (當前 %d + 剩餘 %d)" % [
-					attacker_recover_frame, frame_counter.get_current_frame(), remaining_frames
-				])
+		elif "is_attacking" in attacker and not attacker.is_attacking:
+			# 備用：攻擊已結束，記錄當前幀
+			attacker_recover_frame = frame_counter.get_current_frame()
+			print("[ADVANTAGE CALC] Attacker 恢復時間計算（攻擊已結束）：")
+			print("  - 攻擊恢復幀: %d 物理幀" % attacker_recover_frame)
 		else:
-			# 備用：檢查動畫
-			var is_still_attacking = false
-			var animation_state = attacker.animation_state
-			if animation_state:
-				var current_anim = animation_state.get_current_node()
-				if current_anim and (current_anim.contains("st_") or current_anim.contains("cr_") or 
-					current_anim.contains("jump_") or current_anim == "powerkk" or current_anim == "spnk" or
-					current_anim.contains("fireball") or current_anim.contains("dp")):
-					is_still_attacking = true
-			
-			if not is_still_attacking:
-				attacker_recover_frame = frame_counter.get_current_frame()
-				print("[ADVANTAGE CALC] Attacker 恢復時間計算（動畫已結束）：")
-				print("  - 攻擊恢復幀: %d 物理幀" % attacker_recover_frame)
+			# 備用：未知狀態
+			print("[ADVANTAGE CALC] ⚠ Attacker：無法確定恢復幀（缺少攻擊數據）")
 	
 	# 🟢 【第3步】計算優勢（都確認恢復時）
 	if attacker_recover_frame != -1 and target_recover_frame != -1 and not advantage_calculated:
@@ -364,7 +339,9 @@ func _calculate_hit_advantage() -> void:
 		var physics_advantage_frames = target_recover_frame - attacker_recover_frame
 		
 		# 邏輯幀計算（轉換為 60 FPS）
-		var logic_advantage_frames = int(round(float(physics_advantage_frames) / frame_counter.FPS_RATIO))
+		# 🟢 【修復】使用 int() 舍入（向下）而非 round()
+		# 理由：當 advantage = 4.5 邏輯幀時，應取 4（還需等待直到第5幀）
+		var logic_advantage_frames = int(float(physics_advantage_frames) / frame_counter.FPS_RATIO)
 		
 		# 秒數計算（基於邏輯幀）
 		var advantage_seconds = frame_counter.logic_frames_to_seconds(logic_advantage_frames)
@@ -375,7 +352,7 @@ func _calculate_hit_advantage() -> void:
 		print("  - Attacker 恢復幀: %d 物理幀 (%.1f 邏輯幀)" % [attacker_recover_frame, float(attacker_recover_frame) / frame_counter.FPS_RATIO])
 		print("  - Target 恢復幀: %d 物理幀 (%.1f 邏輯幀)" % [target_recover_frame, float(target_recover_frame) / frame_counter.FPS_RATIO])
 		print("  - 物理幀差異: %d (120 FPS)" % physics_advantage_frames)
-		print("  - 邏輯幀差異: %d (60 FPS) [%d / 2.0 = %.2f → 舍入為 %d]" % [
+		print("  - 邏輯幀差異: %d (60 FPS) [%d / 2.0 = %.2f → 向下舍入為 %d]" % [
 			logic_advantage_frames, physics_advantage_frames, float(physics_advantage_frames) / 2.0, logic_advantage_frames
 		])
 		print("  - 秒數優勢: %.6f 秒 (%d / 60.0)" % [advantage_seconds, logic_advantage_frames])
@@ -660,6 +637,10 @@ func reset_players() -> void:
 	attacker_recover_frame = -1
 	target_recover_frame = -1
 	advantage_calculated = false
+	attack_start_frame = -1
+	attack_duration_frames = 0
+	hit_frame = -1
+	hitstun_frames = 0
 	block_attacker = null
 	blocker = null
 	block_attack_recover_frame = -1
@@ -708,49 +689,47 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		attacker = player_a if target == player_b.name else player_b
 		target_player = player_b if target == player_b.name else player_a
 		
-		# 🟢 【改進】直接使用 target_player 的 hitstun_frames（避免信號傳遞的轉換誤差）
+		# 🟢 【改進】實時追蹤 advantage，記錄當前被擊時的相關信息
 		if attacker and target_player and frame_counter:
+			# 🟢 【修復】記錄攻擊開始幀（來自 player.gd）
+			if "attack_start_frame" in attacker:
+				attack_start_frame = attacker.attack_start_frame
+			else:
+				attack_start_frame = -1
+			
 			# 記錄當前被擊時的幀數（120 FPS 物理幀）
 			hit_frame = frame_counter.get_current_frame()
 			
-			# 🟢 【關鍵】直接取得被擊者的 hitstun_frames（已是物理幀，無誤差）
+			# 🟢 【關鍵】直接取得被擊者的 hitstun_frames（已是物理幀，來自 take_hit()）
 			if "hitstun_frames" in target_player:
 				hitstun_frames = target_player.hitstun_frames  # ✅ 物理幀，直接使用
-				print("[HIT DETECTED DEBUG] hitstun_frames = %d (物理幀，來自 Fighter.gd)" % hitstun_frames)
+				print("[HIT DETECTION] 被擊者 %s 進入 %d 物理幀 hitstun (%.1f 邏輯幀)" % [
+					target_player.name, hitstun_frames, hitstun_frames / frame_counter.FPS_RATIO
+				])
 			else:
 				# 備用：轉換信號的 stun_duration（邏輯幀）→ 物理幀
 				hitstun_frames = int(stun_duration * frame_counter.FPS_RATIO)
-				print("[HIT DETECTED DEBUG] hitstun_frames = %d (從 stun_duration 轉換，%.1f 邏輯幀 × %.1f)" % [hitstun_frames, stun_duration, frame_counter.FPS_RATIO])
+				print("[HIT DETECTION] 備用計算 - hitstun_frames = %d 物理幀 (%.1f 邏輯幀 × 2.0)" % [
+					hitstun_frames, stun_duration
+				])
 			
-			# 🟢 【新增】取得攻擊時長和開始幀（從動畫，轉換為物理幀）
+			# 🟢 【修復】記錄攻擊的完整持續時間（物理幀）
+			# 用於在 _calculate_hit_advantage() 中準確計算恢復時間
+			attack_duration_frames = 0
 			if "animation_player" in attacker and "attack_type" in attacker:
 				var anim_player = attacker.animation_player
 				var attack_type = attacker.attack_type
 				if anim_player and anim_player.has_animation(attack_type):
 					var anim_length = anim_player.get_animation(attack_type).length
 					attack_duration_frames = int(round(anim_length * frame_counter.PHYSICS_FPS))
-					print("[HIT DETECTED DEBUG] attack_duration_frames = %d (從動畫 %.3f 秒轉換，%s)" % [
-						attack_duration_frames, anim_length, attack_type
+					print("[HIT DETECTION] 攻擊時長: %.3f 秒 = %d 邏輯幀 = %d 物理幀 (%s)" % [
+						anim_length, int(round(anim_length * 60)), attack_duration_frames, attack_type
 					])
-				else:
-					# 備用：從計時器推算
-					attack_duration_frames = int(round(attacker.attack_duration_timer * frame_counter.PHYSICS_FPS))
-					print("[HIT DETECTED DEBUG] attack_duration_frames = %d (從 timer 推算，%.3f 秒)" % [
-						attack_duration_frames, attacker.attack_duration_timer
-					])
-			else:
-				# 備用：使用計時器
-				if "attack_duration_timer" in attacker:
-					attack_duration_frames = int(round(attacker.attack_duration_timer * frame_counter.PHYSICS_FPS))
-					print("[HIT DETECTED DEBUG] attack_duration_frames = %d (從 timer %.3f 秒轉換)" % [attack_duration_frames, attacker.attack_duration_timer])
 			
-			# 🟢 【新增】直接使用 attacker 記錄的 attack_start_frame（由 player.gd 設定）
-			if "attack_start_frame" in attacker:
-				attack_start_frame = attacker.attack_start_frame
-				print("[HIT DETECTED DEBUG] attack_start_frame = %d (來自 player.gd 記錄)" % attack_start_frame)
-			
-			
-			print("[HIT DETECTED DEBUG] hit_frame = %d 物理幀 / %.1f 邏輯幀" % [hit_frame, hit_frame / frame_counter.FPS_RATIO])
+			print("[HIT DETECTION] 被擊幀數: %d 物理幀 (%.1f 邏輯幀) | 攻擊開始幀: %d | 攻擊時長: %d 物理幀" % [
+				hit_frame, hit_frame / frame_counter.FPS_RATIO,
+				attack_start_frame, attack_duration_frames
+			])
 		
 		attacker_recover_frame = -1
 		target_recover_frame = -1
