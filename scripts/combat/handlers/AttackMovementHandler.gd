@@ -27,6 +27,11 @@ func _ready() -> void:
 
 func start_movement(attack_name: String, attack_table: Dictionary) -> void:
 	"""啟動攻擊移動（由攻擊執行時呼叫）"""
+	# 【修正】throw 不在 ATTACK_TABLE 中，特殊處理（throw 通常沒有自定義移動）
+	if attack_name == "throw_enter" or attack_name == "throw_seq":
+		print("[AttackMovementHandler] %s 是摔投攻擊，跳過自定義移動" % attack_name)
+		return
+	
 	if not attack_name in attack_table:
 		print("[AttackMovementHandler] %s 不在 ATTACK_TABLE 中" % attack_name)
 		return

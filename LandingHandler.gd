@@ -82,6 +82,9 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	movement_node.just_jumped = false  # 【關鍵】立即清除 just_jumped，防止新跳躍在著地期間覆蓋狀態
 	
 	# 【著地時停止水平移動】確保著地後不會繼續滑動
+	var pre_clear_vel_x = movement_node.fixed_velocity.x
+	if pre_clear_vel_x != 0:
+		print("[LANDING HANDLER] %s: About to clear vel_x=%d, is_knockfly=%s" % [seat, pre_clear_vel_x, movement_node.is_knockfly])
 	movement_node.fixed_velocity.x = 0
 	
 	# 重置相關狀態

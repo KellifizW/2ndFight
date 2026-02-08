@@ -45,15 +45,36 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 		# 【重要】重力現在由 GravityHandler 統一管理，在 Movement._handle_gravity() 中應用
 		# 此處不再重複應用重力，避免計算重複
 		# 只負責狀態轉換
-		apply_air_friction(movement_node.air_friction)
+		
+		# 【關鍵修復】跳過被摔投角色第一幀的摩擦力，防止初速被清除
+		if "just_thrown" in movement_node and movement_node.just_thrown:
+			print("[KNOCKFLY_FRICTION_SKIP] %s: Skipping friction on just_thrown frame" % (
+				movement_node.seat if "seat" in movement_node else "?"
+			))
+			movement_node.just_thrown = false  # 清除標記，下一幀恢復正常摩擦力
+		else:
+			apply_air_friction(movement_node.air_friction)
 
-		# Only transition to layground if on floor
-		if movement_node.is_on_floor():
+		# 【調試】打印每幀的 knockfly 狀態
+		var on_floor = movement_node.is_on_floor()
+		var vel_y = movement_node.fixed_velocity.y
+		var vel_x = movement_node.fixed_velocity.x
+		var timer = movement_node.knockfly_timer
+		var seat = movement_node.seat if "seat" in movement_node else "?"
+		print("[KNOCKFLY_CHECK] %s | timer=%.3f | vel_x=%d vel_y=%d | on_floor=%s | timer<=0=%s" % [
+			seat, timer, vel_x, vel_y, on_floor, timer <= 0
+		])
+
+		# 【修正】只有向下移動時才進入 layground，向上移動時保持 knockfly 狀態
+		# 这防止刚被摔投时立即进入 layground 的问题
+		if on_floor and vel_y >= 0:
+			print("[KNOCKFLY→LAYGROUND] %s triggered: on_floor=%s vel_y=%d >= 0" % [seat, on_floor, vel_y])
 			_enter_layground("knockfly_landed")
 			return
 
 		# If timer ends but still in air, only mark animation complete
-		if movement_node.knockfly_timer <= 0 and not movement_node.is_on_floor():
+		if timer <= 0 and not on_floor:
+			print("[KNOCKFLY_ANIM_FINISH] %s | timer expired, still in air" % seat)
 			movement_node.is_knockfly_animation_finished = true
 			movement_node.fixed_velocity.x = 0
 			return
@@ -76,10 +97,19 @@ func apply_air_friction(friction_coeff: float) -> void:
 	# 【改為 frame-based】每幀應用摩擦力程度
 	# 摩擦力計算：friction_amount = friction_coeff（單位：pixels/frame）
 	var friction_amount = int(friction_coeff)  # 簡化：直接以 friction_coeff 作為每幀減速量
+	var seat = movement_node.seat if "seat" in movement_node else "?"
+	var pre_friction_vel_x = movement_node.fixed_velocity.x
+	
 	if movement_node.fixed_velocity.x > 0:
 		movement_node.fixed_velocity.x = max(0, movement_node.fixed_velocity.x - friction_amount)
 	elif movement_node.fixed_velocity.x < 0:
 		movement_node.fixed_velocity.x = min(0, movement_node.fixed_velocity.x + friction_amount)
+	
+	# 詳細日誌：記錄摩擦力應用
+	if pre_friction_vel_x != movement_node.fixed_velocity.x:
+		print("[AIR_FRICTION] %s: vel_x changed from %d to %d (friction_amount=%d)" % [
+			seat, pre_friction_vel_x, movement_node.fixed_velocity.x, friction_amount
+		])
 
 func _should_force_ko_layground() -> bool:
 	var player_healthbar = movement_node.healthbar

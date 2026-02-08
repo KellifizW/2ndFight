@@ -276,6 +276,12 @@ func _physics_process(delta: float) -> void:
 	
 	_handle_timers(delta)
 	
+	# 【最終保護】保存knockfly的水平速度，防止被不當清除
+	var saved_vx_for_knockfly: int = -2147483648  # 哨兵值
+	if is_knockfly and ("just_thrown" in self and self.just_thrown):
+		saved_vx_for_knockfly = fixed_velocity.x
+		print("[MOVEMENT SAVE VX] Saved knockfly vel_x=%d" % saved_vx_for_knockfly)
+	
 	# 【遊戲速度監視】每 120 物理幀輸出一次時間檢查點
 	if get_physics_process_delta_time() > 0:
 		var frame_time = get_physics_process_delta_time()
@@ -291,6 +297,11 @@ func _physics_process(delta: float) -> void:
 	_handle_jump(jump_pressed, input_dir, scale_factor, floor_y, is_special_moving)
 	_handle_knockfly_layground(delta, floor_y)
 	_handle_gravity(delta, move_set)
+	
+	# 【最終保護】恢復knockfly的水平速度
+	if saved_vx_for_knockfly != -2147483648 and fixed_velocity.x == 0:
+		fixed_velocity.x = saved_vx_for_knockfly
+		print("[MOVEMENT RESTORE VX] Restored knockfly vel_x=%d" % saved_vx_for_knockfly)
 	
 	fixed_position += Vector2i(roundi(fixed_velocity.x * delta), roundi(fixed_velocity.y * delta))
 	

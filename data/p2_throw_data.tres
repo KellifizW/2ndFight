@@ -1,0 +1,14 @@
+[gd_resource type="ThrowData" format=3]
+
+resource_name = "p2_throw_data"
+
+[resource]
+throw_damage = 8.0
+throw_hitstun_frames = 36
+throw_blockstun_frames = 18
+throw_knockback_horizontal = 140.0
+throw_launch_vertical_speed = -2400.0
+throw_launch_horizontal_speed = 0.0
+throw_gravity = 1900000.0
+throw_enter_duration = 30
+throw_seq_duration = 60

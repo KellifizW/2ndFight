@@ -8,6 +8,16 @@ func _init(movement: Node) -> void:
 	movement_node = movement
 
 func handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
+	# 【關鍵保護】剛被摔投或在 knockfly 狀態，完全跳過 WalkHandler
+	var is_just_thrown = "just_thrown" in movement_node and movement_node.just_thrown
+	var seat = movement_node.seat if "seat" in movement_node else "?"
+	
+	if is_just_thrown or movement_node.is_knockfly:
+		print("[WALK_HANDLER] %s: Skipping walk (is_just_thrown=%s is_knockfly=%s vel_x=%d)" % [
+			seat, is_just_thrown, movement_node.is_knockfly, movement_node.fixed_velocity.x
+		])
+		return
+	
 	# 🟢 【修復】在條件中也要檢查 knockback 和 corner push 狀態
 	var is_in_knockback = "knockback_frames" in movement_node and movement_node.knockback_frames > 0
 	var is_in_corner_push = "corner_push_frames" in movement_node and movement_node.corner_push_frames > 0

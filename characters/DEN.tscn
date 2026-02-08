@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_ix25f"]
 [ext_resource type="Resource" uid="uid://cvb6od4v5o7vq" path="res://data/p2_attack_data.tres" id="2_jo7nc"]
 [ext_resource type="SpriteFrames" uid="uid://5q7cfeoprqup" path="res://P2Tres/player2.tres" id="3_4lg2u"]
+[ext_resource type="Script" uid="uid://c4qqdmb1sci8y" path="res://data/ThrowData.gd" id="3_jo7nc"]
 [ext_resource type="Texture2D" uid="uid://bmg0ytsusin8c" path="res://assets/Dennis2.png" id="4_a1vnf"]
 [ext_resource type="Texture2D" uid="uid://bf08spa3gkec5" path="res://assets/texture/smoke/smoke_01.png" id="5_x0tr5"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://MoveSet.gd" id="6_vym3m"]
@@ -14,6 +15,10 @@
 [ext_resource type="AudioStream" uid="uid://tvuhpp3xdv6f" path="res://audio/hurt_grunt_p2.wav" id="12_ydrny"]
 [ext_resource type="AudioStream" uid="uid://cll5h0p83t516" path="res://audio/spnk_call.mp3" id="13_m8rlt"]
 [ext_resource type="AudioStream" uid="uid://byrh2qgg16h31" path="res://audio/fireball_call_p2.wav" id="14_qpqbf"]
+
+[sub_resource type="Resource" id="Resource_4lg2u"]
+script = ExtResource("3_jo7nc")
+throw_launch_horizontal_speed = 1500.0
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(90, 300)
@@ -5532,7 +5537,7 @@ tracks/15/keys = {
 
 [sub_resource type="Animation" id="Animation_m8rlt"]
 resource_name = "throw"
-length = 0.41750166
+length = 0.50100166
 step = 0.0167
 tracks/0/type = "value"
 tracks/0/imported = false
@@ -5541,10 +5546,10 @@ tracks/0/path = NodePath("AnimatedSprite2D:offset")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.05, 0.1, 0.8333333),
+"times": PackedFloat32Array(0, 0.05, 0.1, 0.16666667),
 "transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": [Vector2(0, 0), Vector2(110, 0), Vector2(90, 0), Vector2(60, 0)]
+"values": [Vector2(0, 0), Vector2(110, 0), Vector2(90, 0), Vector2(0, 0)]
 }
 tracks/1/type = "value"
 tracks/1/imported = false
@@ -5553,10 +5558,10 @@ tracks/1/path = NodePath("AnimatedSprite2D:frame")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
-"times": PackedFloat32Array(0, 0.05, 0.1, 0.15, 0.21666667, 0.8333333),
+"times": PackedFloat32Array(0, 0.01666667, 0.06666667, 0.11666667, 0.16666667, 0.25),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [0, 0, 1, 2, 2, 7]
+"values": [0, 0, 1, 2, 1, 2]
 }
 tracks/2/type = "value"
 tracks/2/imported = false
@@ -5565,10 +5570,10 @@ tracks/2/path = NodePath("AnimatedSprite2D:animation")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0, 0.05, 0.21666668),
-"transitions": PackedFloat32Array(1, 1, 1),
+"times": PackedFloat32Array(0, 0.05, 0.11666667, 0.16666667),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": [&"throw_enter", &"throw", &"throw_enter"]
+"values": [&"throw_enter", &"throw", &"throw", &"throw_enter"]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
@@ -5613,7 +5618,7 @@ tracks/6/path = NodePath("ThrowBox/ThrowHit:disabled")
 tracks/6/interp = 1
 tracks/6/loop_wrap = true
 tracks/6/keys = {
-"times": PackedFloat32Array(0, 0.05, 0.1),
+"times": PackedFloat32Array(0, 0.06666667, 0.11666667),
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
 "values": [true, false, true]
@@ -5666,10 +5671,10 @@ tracks/3/path = NodePath("Hitbox/HitShape:disabled")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.18333334, 0.25, 0.6333333, 0.6666667),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.25, 0.6666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
-"values": [true, false, true, false, true]
+"values": [true, true, true]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -6082,6 +6087,7 @@ collision_layer = 2
 collision_mask = 0
 script = ExtResource("1_ix25f")
 attack_data = ExtResource("2_jo7nc")
+throw_data = SubResource("Resource_4lg2u")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=237781411]
 scale = Vector2(0.5, 0.5)
@@ -6095,6 +6101,7 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
+frame = 2
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
