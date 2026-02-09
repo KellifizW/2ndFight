@@ -13,6 +13,7 @@ var input_buffer: InputBuffer = null
 var last_input_dir: int = 0
 var double_tap_timer: float = 0.0
 const DOUBLE_TAP_TIME: float = 0.3  # 雙擊時間窗口（秒），與 Movement 原設定一致
+const THROW_LENIENCE_FRAMES: int = 16  # 16 frames at 120 FPS (8 frames at 60 FPS)
 
 func _ready() -> void:
 	# Initialize input buffer
@@ -36,10 +37,20 @@ func _physics_process(_delta: float) -> void:
 	var st_mk_just = Input.is_action_just_pressed("st_mk" + suffix)
 	var st_hk_just = Input.is_action_just_pressed("st_hk" + suffix)
 	
-	# 【重要】同時按下 st_lp + st_lk 時，只記錄 throw，不記錄單獨的按鈕
+	var throw_detected: bool = false
+	# 【重要】st_lp + st_lk 允許在指定幀窗口內視為摔投
 	if st_lp_just and st_lk_just:
+		throw_detected = true
+	elif st_lp_just and input_buffer.is_input_buffered_within("st_lk", THROW_LENIENCE_FRAMES):
+		throw_detected = true
+	elif st_lk_just and input_buffer.is_input_buffered_within("st_lp", THROW_LENIENCE_FRAMES):
+		throw_detected = true
+
+	if throw_detected:
+		input_buffer.clear_input("st_lp")
+		input_buffer.clear_input("st_lk")
 		input_buffer.record_input("throw")
-		print("[INPUT] Throw detected: st_lp + st_lk pressed simultaneously")
+		print("[INPUT] Throw detected: st_lp + st_lk within lenience window")
 	else:
 		# 僅在沒有同時按下時才記錄單獨的按鈕
 		if st_lp_just:

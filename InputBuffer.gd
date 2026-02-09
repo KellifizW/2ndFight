@@ -49,6 +49,18 @@ func is_input_buffered(action_name: String) -> bool:
 	var age = current_frame - entry.timestamp
 	return age <= BUFFER_FRAMES
 
+func is_input_buffered_within(action_name: String, window_frames: int) -> bool:
+	"""Check if an input is buffered and within a custom window (in frames)."""
+	if window_frames <= 0:
+		return is_input_buffered(action_name)
+	if not buffered_inputs.has(action_name):
+		return false
+	var entry: BufferEntry = buffered_inputs[action_name]
+	if entry.consumed:
+		return false
+	var age = current_frame - entry.timestamp
+	return age <= window_frames
+
 func consume_input(action_name: String) -> bool:
 	"""Try to consume a buffered input. Returns true if successful."""
 	if not is_input_buffered(action_name):
