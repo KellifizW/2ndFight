@@ -300,6 +300,21 @@ func release_opponent() -> void:
 	grabbed_opponent.hitstun_frames = hitstun_physics
 	grabbed_opponent.is_knockfly = true
 	
+	# 初始化 knockfly 計時與水平速度，避免下一幀被清零
+	var physics_fps = Engine.physics_ticks_per_second
+	var knockfly_seconds = float(hitstun_physics) / float(physics_fps)
+	if "default_knockfly_duration" in grabbed_opponent:
+		knockfly_seconds = max(knockfly_seconds, float(grabbed_opponent.default_knockfly_duration))
+	if "knockfly_timer" in grabbed_opponent:
+		grabbed_opponent.knockfly_timer = knockfly_seconds
+	if "knockfly_duration" in grabbed_opponent:
+		grabbed_opponent.knockfly_duration = knockfly_seconds
+	if "knockfly_velocity_x" in grabbed_opponent:
+		grabbed_opponent.knockfly_velocity_x = grabbed_opponent.fixed_velocity.x
+	if "knockfly_accumulated_distance" in grabbed_opponent:
+		grabbed_opponent.knockfly_accumulated_distance = 0.0
+	grabbed_opponent.just_thrown = true
+	
 	# 播放 knockfly 動畫
 	if grabbed_opponent.animation_state:
 		grabbed_opponent.animation_state.travel("knockfly")
