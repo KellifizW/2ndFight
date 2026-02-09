@@ -53,6 +53,9 @@ func try_execute_ground_attack(input_data: Dictionary, is_crouching: bool) -> bo
 		bool: 如果執行了攻擊返回 true，否則返回 false
 	"""
 	if input_data.get("throw_pressed", false) and not is_crouching:
+		if parent_player and parent_player.is_attacking and parent_player.attack_type in ["st_lp", "st_lk"]:
+			print("[THROW OVERRIDE] Cancelling %s to execute throw" % parent_player.attack_type)
+			parent_player.stop_attack()
 		_consume_throw_inputs()
 		_execute_attack("throw_enter")
 		return true

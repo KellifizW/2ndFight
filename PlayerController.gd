@@ -13,7 +13,11 @@ var input_buffer: InputBuffer = null
 var last_input_dir: int = 0
 var double_tap_timer: float = 0.0
 const DOUBLE_TAP_TIME: float = 0.3  # 雙擊時間窗口（秒），與 Movement 原設定一致
-const THROW_LENIENCE_FRAMES: int = 16  # 16 frames at 120 FPS (8 frames at 60 FPS)
+const THROW_LENIENCE_FRAMES: int = 6  # 6 frames at 120 FPS (~50ms) - 標準競技級容許窗口
+const DEBUG_THROW_INPUT: bool = false  # 設為 false 可關閉除錯輸出
+
+var last_st_lp_frame: int = -9999
+var last_st_lk_frame: int = -9999
 
 func _ready() -> void:
 	# Initialize input buffer
@@ -36,21 +40,45 @@ func _physics_process(_delta: float) -> void:
 	var st_lk_just = Input.is_action_just_pressed("st_lk" + suffix)
 	var st_mk_just = Input.is_action_just_pressed("st_mk" + suffix)
 	var st_hk_just = Input.is_action_just_pressed("st_hk" + suffix)
+
+	if DEBUG_THROW_INPUT and input_buffer:
+		var frame_tag = input_buffer.current_frame
+		if st_lp_just:
+			print("[THROW INPUT] st_lp just pressed | frame=%d | seat=%s" % [frame_tag, player_seat])
+		if st_lk_just:
+			print("[THROW INPUT] st_lk just pressed | frame=%d | seat=%s" % [frame_tag, player_seat])
+	
+	if st_lp_just and input_buffer:
+		last_st_lp_frame = input_buffer.current_frame
+	if st_lk_just and input_buffer:
+		last_st_lk_frame = input_buffer.current_frame
+	
+	if DEBUG_THROW_INPUT and input_buffer and (st_lp_just or st_lk_just):
+		var other_action = "st_lk" if st_lp_just else "st_lp"
+		var info = input_buffer.get_input_debug_info(other_action)
+		var frame_delta = abs(last_st_lp_frame - last_st_lk_frame)
+		print("[THROW INPUT] counterpart=%s exists=%s consumed=%s age=%d ts=%d delta=%d window=%d" % [
+			other_action,
+			info["exists"],
+			info["consumed"],
+			info["age"],
+			info["timestamp"],
+			frame_delta,
+			THROW_LENIENCE_FRAMES
+		])
 	
 	var throw_detected: bool = false
-	# 【重要】st_lp + st_lk 允許在指定幀窗口內視為摔投
-	if st_lp_just and st_lk_just:
-		throw_detected = true
-	elif st_lp_just and input_buffer.is_input_buffered_within("st_lk", THROW_LENIENCE_FRAMES):
-		throw_detected = true
-	elif st_lk_just and input_buffer.is_input_buffered_within("st_lp", THROW_LENIENCE_FRAMES):
+	# 【重要】st_lp + st_lk 允許在指定幀窗口內視為摔投（不依賴 buffer 是否被消耗）
+	var throw_candidate = st_lp_just or st_lk_just
+	var frame_delta = abs(last_st_lp_frame - last_st_lk_frame)
+	if throw_candidate and last_st_lp_frame > -9990 and last_st_lk_frame > -9990 and frame_delta <= THROW_LENIENCE_FRAMES:
 		throw_detected = true
 
 	if throw_detected:
 		input_buffer.clear_input("st_lp")
 		input_buffer.clear_input("st_lk")
 		input_buffer.record_input("throw")
-		print("[INPUT] Throw detected: st_lp + st_lk within lenience window")
+		print("[INPUT] Throw detected: st_lp + st_lk within lenience window | st_lp_frame=%d st_lk_frame=%d delta=%d" % [last_st_lp_frame, last_st_lk_frame, frame_delta])
 	else:
 		# 僅在沒有同時按下時才記錄單獨的按鈕
 		if st_lp_just:

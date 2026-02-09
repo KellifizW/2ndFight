@@ -102,6 +102,24 @@ func _expire_old_inputs() -> void:
 # UTILITY FUNCTIONS
 # ============================================================
 
+func get_input_debug_info(action_name: String) -> Dictionary:
+	"""Return debug info for a buffered input."""
+	if not buffered_inputs.has(action_name):
+		return {
+			"exists": false,
+			"consumed": false,
+			"age": -1,
+			"timestamp": -1
+		}
+	var entry: BufferEntry = buffered_inputs[action_name]
+	var age = current_frame - entry.timestamp
+	return {
+		"exists": true,
+		"consumed": entry.consumed,
+		"age": age,
+		"timestamp": entry.timestamp
+	}
+
 func get_buffer_age(action_name: String) -> int:
 	"""Get how many frames ago an input was pressed (-1 if not buffered)"""
 	if not buffered_inputs.has(action_name):
