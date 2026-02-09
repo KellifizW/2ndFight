@@ -7,10 +7,14 @@ static var PHYSICS_FPS: int = 120  # 動態設置為實際物理 FPS（由 _read
 const LOGIC_FPS: int = 60  # 遊戲邏輯基準 FPS（用於動畫時長轉換）
 
 # ============================================================
-# SPECIAL MOVE DATA (Resource-driven)
+# SPECIAL MOVE DATA (Resource-driven) - Now Exportable!
 # ============================================================
 
-const SPECIAL_MOVE_RESOURCES: Array[String] = [
+# ✨ 新：在 Inspector 中直観地管理特殊招式资源（像 AttackData 一样）
+@export var special_moves_data: Array[SpecialMoveData] = []
+
+# 【旧版本缓冲】保留硬编码路径作为后备
+const LEGACY_SPECIAL_MOVE_RESOURCES: Array[String] = [
 	"res://data/specials/dav_powerkk.tres",
 	"res://data/specials/dav_super.tres",
 	"res://data/specials/dav_dp.tres",
@@ -88,21 +92,35 @@ func _ready() -> void:
 
 func _initialize_move_library() -> void:
 	move_library.clear()
-	for path in SPECIAL_MOVE_RESOURCES:
-		var resource = load(path)
+	
+	# 【优先】使用 export 导入的资源 (Inspector 中手动设置)
+	var resources_to_load: Array = special_moves_data.duplicate()
+	
+	# 【后备】如果 export 未设置，使用旧版本硬编码路径
+	if resources_to_load.is_empty():
+		print("[MoveSet] 检测到 special_moves_data 为空，自动加载旧版本资源...")
+		for path in LEGACY_SPECIAL_MOVE_RESOURCES:
+			var resource = load(path)
+			if resource != null:
+				resources_to_load.append(resource)
+	
+	# 构建 move_library
+	for resource in resources_to_load:
 		if resource == null:
-			push_warning("MoveSet: Failed to load special resource: %s" % path)
+			push_warning("MoveSet: Null resource in special_moves_data")
 			continue
 		if not resource is SpecialMoveData:
-			push_warning("MoveSet: Resource is not SpecialMoveData: %s" % path)
+			push_warning("MoveSet: Resource is not SpecialMoveData: %s" % resource)
 			continue
 		var move_id = resource.move_id
 		if move_id == "":
-			push_warning("MoveSet: SpecialMoveData missing move_id: %s" % path)
+			push_warning("MoveSet: SpecialMoveData missing move_id")
 			continue
 		if not move_library.has(move_id):
 			move_library[move_id] = []
 		move_library[move_id].append(resource)
+	
+	print("[MoveSet] Library initialized with %d move types: %s" % [move_library.size(), move_library.keys()])
 
 func has_move_id(move_id: String) -> bool:
 	return move_library.has(move_id)
