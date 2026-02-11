@@ -194,6 +194,16 @@ func lock_opponent(opponent: Node) -> void:
 		opponent.is_being_thrown = true
 	opponent.is_attacking = false
 	opponent.is_blocking = false
+	if "is_crouch_blocking" in opponent:
+		opponent.is_crouch_blocking = false
+	if "is_proximity_blocking" in opponent:
+		opponent.is_proximity_blocking = false
+	if "block_type" in opponent:
+		opponent.block_type = "none"
+	if "blockstun_frames" in opponent:
+		opponent.blockstun_frames = 0
+	if "block_knockback_frames" in opponent:
+		opponent.block_knockback_frames = 0
 	
 	# 清空對手輸入緩衝
 	if opponent.has_node("PlayerController") and opponent.get_node("PlayerController").has_method("clear_input_buffer"):

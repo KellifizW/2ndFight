@@ -8,7 +8,6 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @export var cancel_window_duration: float = 0.3
 @export var skip_pushbox: bool = false
 @export var attack_data: AttackData
-@export var throw_data: ThrowData             # 【新增】摔投數據資源
 
 @onready var ATTACK_TABLE: Dictionary = {
 	"st_lp": attack_data.st_lp,
@@ -42,7 +41,6 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @onready var cancel_window_handler: CancelWindowHandler = null
 @onready var attack_executor: AttackExecutor = null
 @onready var hit_response_handler: HitResponseHandler = null
-@onready var throw_handler: ThrowHandler = null  # 【新增】摔投處理器
 
 # 新增：由 world.gd 動態生成時設定，決定這個角色是左邊還是右邊玩家
 var seat: String = "player_a"  # "player_a" 或 "player_b"
@@ -66,8 +64,6 @@ var attack_duration_timer: int = 0  # Frame-based timer for attack duration
 var attack_start_frame: int = -1  # 🟢 Frame when attack started (120 FPS physics frame)
 var wakeup_timer: int = 0  # Frame-based timer for wakeup duration
 var is_facing_locked: bool = false
-var throw_hit_detected: bool = false  # 【新增】防止 throw 重複觸發
-var just_thrown: bool = false  # 【新增】標記剛被摔投，下一幀跳過摩擦力
 var _was_in_hitstop: bool = false
 
 var special_input_data: Dictionary = {
@@ -83,7 +79,6 @@ func reset_attack_state() -> void:
 	attack_type = "none"
 	attack_duration_timer = 0
 	attack_start_frame = -1  # 🟢 重置攻擊開始幀
-	throw_hit_detected = false  # 【新增】重置 throw hit 旗標
 	if cancel_window_handler:
 		cancel_window_handler.reset()
 	if attack_movement_handler:
@@ -155,58 +150,16 @@ func _spawn_fireball() -> void:
 
 # ── 動畫重置分類（Phase 4 優化）──
 const GROUND_ATTACK_ANIMS = ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk",
-							  "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk", "throw_seq"]
+							  "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk"]
 const AIR_ATTACK_ANIMS = ["jump_lp", "jump_mp", "jump_hp", "jump_lk", "jump_mk", "jump_hk"]
 const JUMP_ANIMS = ["jump_v", "Jump_V", "Jump_F", "Jump_B"]
 const SPECIAL_ANIMS = ["fireball", "powerkk", "spnk", "dp", "hdk"]
-
-# 【新增】返回 throw 數據供被摔投者使用
-func get_throw_data() -> Dictionary:
-	"""返回當前 throw 攻擊的數據"""
-	if throw_data:
-		return throw_data.get_throw_data()
-	# 如果沒有 throw_data 分配，返回空字典
-	# （每個角色應該在場景中分配 throw_data 資源）
-	return {}
-
-# 【新增】AnimationPlayer Call Method - 在摔投動畫特定幀調用
-func throw_release() -> void:
-	"""
-	Call this method from AnimationPlayer at the desired throw release frame.
-	Example: Add a Call Method track in throw_seq animation at frame 30
-	 - Method: throw_release()
-	 - No arguments
-	
-	This executes the throw's release phase, launching the opponent.
-	"""
-	if not throw_handler:
-		print("[THROW_RELEASE] ERROR: throw_handler not initialized!")
-		return
-	
-	if throw_handler.current_phase != ThrowHandler.ThrowPhase.HOLD:
-		print("[THROW_RELEASE] WARNING: Not in HOLD phase, cannot release (current: %s)" % throw_handler.current_phase)
-		return
-	
-	print("[THROW_RELEASE] Releasing opponent from throw at animation event")
-	throw_handler.release_opponent()
 
 func _ready() -> void:
 	super._ready()
 	world = get_tree().get_first_node_in_group("world")
 	if has_node("Hitbox"):
 		$Hitbox.area_entered.connect(_on_hitbox_area_entered)
-	# 【新增】連接 ThrowBox 碰撞信號
-	if has_node("ThrowBox"):
-		# 【關鍵】確保 ThrowBox 能夠檢測碰撞
-		$ThrowBox.monitoring = true
-		$ThrowBox.monitorable = true
-		print("[THROW INIT] %s ThrowBox connected successfully" % name)
-		if $ThrowBox.has_node("ThrowHit"):
-			print("[THROW INIT]   - ThrowHit exists, enabled=%s" % $ThrowBox/ThrowHit.disabled)
-		if $ThrowBox.has_node("ThrowHurt"):
-			print("[THROW INIT]   - ThrowHurt exists, enabled=%s" % $ThrowBox/ThrowHurt.disabled)
-	else:
-		print("[THROW INIT] %s ThrowBox NOT FOUND!" % name)
 	if animation_tree:
 		animation_tree.animation_finished.connect(_on_animation_tree_finished)
 		animation_tree.active = true
@@ -252,7 +205,6 @@ var default_input: Dictionary = {
 	"st_lk_pressed": false,
 	"st_mk_pressed":  false,
 	"st_hk_pressed": false,
-	"throw_pressed": false,
 	"spm1_pressed": false,
 	"spm2_pressed": false,
 	"dp_pressed": false,
@@ -261,6 +213,8 @@ var default_input: Dictionary = {
 
 func get_input() -> Dictionary:
 	if is_knockfly or is_wakeup or is_hit or is_layground:
+		return default_input.duplicate()
+	if is_attacking and attack_type in ["throw_enter", "throw_seq"]:
 		return default_input.duplicate()
 	if is_ai_controlled:
 		var ai = $AIBehavior if has_node("AIBehavior") else null
@@ -297,17 +251,6 @@ func _physics_process(delta: float) -> void:
 	
 	super._physics_process(delta)
 	if not world: return
-	
-	# 【新增】ThrowHandler 處理（每幀更新摔投邏輯）
-	if throw_handler:
-		var input_data = get_input()
-		throw_handler.handle_throw(delta, input_data)
-	
-	# 【新增】檢查摔投碰撞（throw_enter 期間檢查是否擊中對手）
-	if attack_type == "throw_enter":
-		var current_anim = animation_state.get_current_node() if animation_state else "?"
-		print("[THROW_PROCESS] %s in throw_enter, calling _check_throw_hit() | animation: %s | throw_hit_detected: %s" % [name, current_anim, throw_hit_detected])
-	_check_throw_hit()
 
 	# Handle air attack landing
 	# 【重點】檢查是否已經由 LandingHandler 處理
@@ -355,7 +298,7 @@ func _physics_process(delta: float) -> void:
 			stop_attack()
 
 	# 在取消判定之後才清空按鈕輸入，避免影響特殊招檢測
-	if is_attacking and animation_state.get_current_node() in ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk", "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk", "throw_enter", "throw_seq"]:
+	if is_attacking and animation_state.get_current_node() in ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk", "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk"]:
 		input_data.st_lp_pressed = false
 		input_data.st_mp_pressed = false
 		input_data.st_hp_pressed = false
@@ -384,7 +327,7 @@ func _physics_process(delta: float) -> void:
 		input_data.st_hk_pressed = false
 
 	# ── 地面攻擊執行（使用 AttackExecutor Handler）──
-	if (input_data.throw_pressed or input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed or input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed) and is_valid_ground_state:
+	if (input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed or input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed) and is_valid_ground_state:
 		force_update_facing_direction()
 		if attack_executor and attack_executor.try_execute_ground_attack(input_data, is_crouching):
 			# 攻擊已執行，只有在沒有攻擊移動激活時才清零速度
@@ -522,22 +465,6 @@ func _on_animation_player_finished(anim_name: String) -> void:
 	var is_special_move = move_set and move_set.has_move_id(move_set.get_active_move_name()) if move_set else false
 	print("[✓ ANIM_FINISHED] '%s' | Seat: %s | is_spmove=%s | is_attacking=%s" % [anim_name, seat_str, is_special_move, is_attacking])
 	
-	# 🟢 【FIX】攻擊動畫完成時，立即停止計時器以防止額外幀計數
-	if (anim_name in GROUND_ATTACK_ANIMS or anim_name in AIR_ATTACK_ANIMS) and is_attacking and attack_duration_timer > 0:
-		print("[ATTACK ANIM FINISH] Stopping attack_duration_timer early | remaining: %d frames → 0" % attack_duration_timer)
-		attack_duration_timer = 0  # 🟢 立即停止，防止 display_frame_counter 超過
-
-	if anim_name == "throw_enter":
-		# 【修改】throw_enter 完成後
-		if throw_hit_detected and attack_type == "throw_seq":
-			# 已經成功碰撞並進入 throw_seq，不做任何處理
-			print("[ANIM FINISHED] throw_enter ended (hit detected, transitioning to throw_seq)")
-		else:
-			# 沒有碰撞成功或互相冲突，重置攻擊狀態
-			print("[ANIM FINISHED] throw_enter ended (no hit or mutual collision, resetting)")
-			reset_attack_state()
-		return
-	
 	# 地面攻擊重置
 	if anim_name in GROUND_ATTACK_ANIMS:
 		print("  → Ground attack reset")
@@ -557,14 +484,14 @@ func _on_animation_player_finished(anim_name: String) -> void:
 		if move_set and move_set.get_active_move_name() in ["dp", "hdk", "powerkk"]:
 			print("     (self-landing move)")
 		reset_special_state()
+	# 摔投重置
+	elif anim_name in ["throw_enter", "throw_seq"]:
+		print("  → Throw reset")
+		reset_attack_state()
 	# 著地重置
 	elif anim_name == "landing":
 		print("  → Landing reset")
 		_reset_landing_anim()
-	# 【新增】throw_seq 完成時重置
-	elif anim_name == "throw_seq":
-		print("  → Throw sequence completed")
-		reset_attack_state()
 	else:
 		# 如果不在上述分類中，調用父類方法
 		print("  → Parent handler")
@@ -608,60 +535,6 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 	"""Hitbox 碰撞處理（委派給 HitResponseHandler）"""
 	if hit_response_handler:
 		hit_response_handler.handle_hitbox_collision(area)
-
-# 【新增】摔投碰撞檢測
-func _check_throw_hit() -> void:
-	"""在 throw_enter 動畫期間檢查摔投碰撞（委派給 ThrowHandler）"""
-	# 只在 throw_enter 期間檢查
-	if attack_type != "throw_enter":
-		return
-	
-	# 【關鍵】防止重複觸發
-	if throw_hit_detected:
-		print("[THROW CHECK] Already hit detected, skipping")
-		return
-	
-	# 委派給 ThrowHandler 檢查碰撞
-	if throw_handler:
-		var opponent = throw_handler.check_grab_collision()
-		if opponent:
-			# 【新增】檢查對手是否也在執行摔投
-			var opponent_in_throw = "attack_type" in opponent and opponent.attack_type in ["throw_enter", "throw_seq"]
-			
-			if opponent_in_throw:
-				# 【新增】互相摔投衝突：雙方都向後推開，不進入 throw_seq
-				print("[THROW CHECK] Mutual throw collision! %s and %s both throwing" % [name, opponent.name])
-				throw_hit_detected = true  # 標記已經檢查過
-				
-				# 調用 ThrowHandler 處理互相衝突
-				throw_handler.handle_mutual_throw_collision(opponent)
-				
-				# 對手也標記已檢查（防止重複檢測）
-				if opponent.has_node("ThrowHandler"):
-					opponent.throw_hit_detected = true
-				
-				return  # 不進入 throw_seq，保持 throw_enter
-			
-			# 【正常情況】對手未執行摔投，正常進行摔投sequence
-			print("[THROW HIT] %s 摔投命中 %s！進入 throw_seq" % [name, opponent.name])
-			
-			# 【關鍵】標記已經觸發，防止重複
-			throw_hit_detected = true
-			
-			# 鎖定對手（ThrowHandler 接管控制）
-			throw_handler.lock_opponent(opponent)
-			
-			# 摔投者進入 throw_seq（需要更新 attack_duration_timer）
-			if animation_state:
-				attack_type = "throw_seq"
-				
-				# 【新增】計算 throw_seq 的時長並更新 timer
-				if animation_player and animation_player.has_animation("throw_seq"):
-					var throw_seq_length = animation_player.get_animation("throw_seq").length
-					attack_duration_timer = int(round(throw_seq_length * 120))  # 直接轉換為 @120 FPS
-					print("[THROW_SEQ] Updated timer for throw_seq: %.3fs → %d frames @120 FPS" % [throw_seq_length, attack_duration_timer])
-				
-				animation_state.travel("throw_seq")
 
 func _on_hit_detected(_target: String, _stun_duration: float, _is_blocked: bool, _was_in_stun: bool) -> void:
 	# 擊中確認取消（Hit-Confirm Cancel）：只有在擊中對手時才真正開啟取消窗口
@@ -725,129 +598,6 @@ func force_update_facing_direction() -> void:
 			facing_direction = 1.0
 			scale.x = 1
 		update_hitbox_position()
-# 【已棄用】被摔投角色處理 (Deprecated - 使用 ThrowHandler 代替)
-## @deprecated 此方法保留向後兼容，實際邏輯已遷移至 ThrowHandler.lock_opponent()
-func _on_thrown(thrower: Node) -> void:
-	"""角色被摔投時的處理（已遷移至 ThrowHandler）"""
-	# 新系統：由 ThrowHandler 直接呼叫 lock_opponent()
-	# 此方法保留以防有其他地方直接呼叫
-	if thrower.has_node("ThrowHandler"):
-		var thrower_throw_handler = thrower.get_node("ThrowHandler")
-		thrower_throw_handler.lock_opponent(self)
-		print("[DEPRECATED] _on_thrown called, redirecting to ThrowHandler.lock_opponent()")
-		return
-	
-	# 降級方案：如果找不到 ThrowHandler，使用舊邏輯
-	print("[WARNING] ThrowHandler not found on thrower, using legacy throw logic")
-	var seat = seat if "seat" in self else "?"
-	print("[THROWN_START] %s was thrown by %s (seat=%s) [LEGACY]" % [name, thrower.name, seat])
-	
-	# 進入被摔投狀態
-	is_attacking = false
-	is_blocking = false
-	is_knockfly = true
-	just_thrown = true  # 【關鍵】標記剛被摔投，下一幀跳過摩擦力應用
-	print("[THROWN] Set is_knockfly=true, just_thrown=true (seat=%s)" % seat)
-	
-	# 初始化 knockfly 參數
-	var throw_data_dict: Dictionary = {}
-	var throw_damage: float = 8.0
-	var throw_hitstun_frames: int = 36
-	var throw_knockback: float = 120.0
-	var throw_horizontal_speed: float = 0.0  # 【新增】追加水平速度
-	var throw_vertical_speed: float = -2200.0
-	var throw_gravity: float = 1900000.0
-	
-	# 【关键】從摔投者獲取 throw 數據
-	if thrower.has_method("get_throw_data"):
-		throw_data_dict = thrower.get_throw_data()
-		print("[THROWN] throw_data from thrower: %s" % throw_data_dict)
-	else:
-		print("[THROWN] Thrower has no get_throw_data method")
-	
-	if throw_data_dict and throw_data_dict is Dictionary:
-		throw_damage = throw_data_dict.get("damage", 8.0)
-		throw_hitstun_frames = throw_data_dict.get("hitstun", 36)
-		throw_knockback = throw_data_dict.get("knockback", 120.0)
-		throw_horizontal_speed = throw_data_dict.get("launch_horizontal_speed", 0.0)  # 【新增】讀取追加速度
-		throw_vertical_speed = throw_data_dict.get("launch_vertical_speed", -2200.0)
-		throw_gravity = throw_data_dict.get("gravity", 1900000.0)
-		print("[THROWN] throw_data applied: damage=%.1f, hitstun=%d, knockback=%.1f, horiz_speed=%.1f, vert_speed=%.1f, gravity=%.0f" % [
-			throw_damage, throw_hitstun_frames, throw_knockback, throw_horizontal_speed, throw_vertical_speed, throw_gravity
-		])
-	else:
-		print("[THROWN] No throw_data found, using defaults")
-		hitstun_frames = throw_hitstun_frames
-	
-	current_damage = throw_damage
-	
-	# 應用傷害（直接減少 healthbar.current_health）
-	if healthbar:
-		healthbar.current_health -= current_damage
-		print("[THROWN] Applied %.1f damage, current_health: %.1f" % [current_damage, healthbar.current_health])
-	
-	# 【关键】應用速度（水平和垂直）- 使用資源中的數據
-	if world:
-		# 水平速度：knockback + launch_horizontal_speed，方向與摔投者相同（推向對手方向）
-		var thrower_facing = thrower.facing_direction if "facing_direction" in thrower else 1.0
-		# 【修正】同時應用 knockback 和 launch_horizontal_speed
-		var total_horizontal_speed = throw_knockback + throw_horizontal_speed
-		var horizontal_velocity = int(total_horizontal_speed * world.SIMULATION_SCALE * thrower_facing)
-		fixed_velocity.x = horizontal_velocity
-		
-		print("[THROWN] Horizontal calculation: knockback=%.1f + launch_speed=%.1f = total=%.1f | facing=%.1f | final_velocity.x=%d" % [
-			throw_knockback, throw_horizontal_speed, total_horizontal_speed, thrower_facing, fixed_velocity.x
-		])
-		
-		# 垂直速度：從資源中讀取，單位 = 像素/幀（未乘以 SIMULATION_SCALE）
-		fixed_velocity.y = int(throw_vertical_speed * world.SIMULATION_SCALE)
-		
-		# 【關鍵修復】將被摔者從地面上移開，確保不會觸發 is_landing 邏輯
-		# 此時被摔者應該向上運動，位置也應該立即從地面上升
-		fixed_position.y = world.FLOOR_Y - 10000  # 抬起 10 個固定點單位（約 10 像素）
-		
-		# 設置 knockfly 計時器和相關參數
-		hitstun_frames = throw_hitstun_frames  # 直接使用，無需轉換（已是物理幀）
-		knockfly_timer = throw_hitstun_frames / 120.0  # 轉回秒數供 delta-based 系統使用
-		knockfly_duration = knockfly_timer  # 【關鍵修復】設置 knockfly_duration，供 PushManager 計算速度衰減
-		knockfly_velocity_x = float(total_horizontal_speed * world.SIMULATION_SCALE * thrower_facing)  # 【關鍵修復】設置 knockfly_velocity_x，供 PushManager 使用
-		knockfly_gravity = throw_gravity  # 從資源中使用重力
-		
-		# 防止著地偵測誤觸發（12 幀 = 0.1秒）
-		is_immune_to_floor_snap = true
-		floor_snap_immunity_timer = int(floor_snap_immunity_duration * 120)  # 轉換為物理幀數
-		
-		print("[THROWN] Applied velocities: knockback_x=%d, horizontal_speed=%.1f, vertical_y=%d, gravity=%.0f" % [
-			horizontal_velocity, throw_horizontal_speed, int(throw_vertical_speed * world.SIMULATION_SCALE), knockfly_gravity
-		])
-		print("[THROWN] Applied %.1f damage, hitstun: %d physics frames (%.2f sec)" % [current_damage, throw_hitstun_frames, throw_hitstun_frames / 120.0])
-		print("[THROWN] PushManager config: knockfly_velocity_x=%.1f, knockfly_duration=%.3f, knockfly_timer=%.3f" % [
-			knockfly_velocity_x, knockfly_duration, knockfly_timer
-		])
-		print("[THROWN] Final state: fixed_velocity=(%d, %d), knockfly_timer=%.3f, is_on_floor=%s, position.y=%d" % [
-			fixed_velocity.x, fixed_velocity.y, knockfly_timer, is_on_floor(), fixed_position.y
-		])
-	else:
-		print("[THROWN] World not found, cannot apply velocities")
-	
-	# 播放被摔投動畫（進入 knockfly）
-	if animation_state:
-		animation_state.travel("knockfly")
-	
-	# 【關鍵修復】立即應用一次位置更新，因為 Movement._physics_process() 的位置更新已經發生
-	# 這確保了摔投當幀的移動能被立即應用
-	var delta = get_physics_process_delta_time()
-	if delta > 0:
-		var old_pos = fixed_position
-		fixed_position += Vector2i(roundi(fixed_velocity.x * delta), roundi(fixed_velocity.y * delta))
-		print("[THROWN] Applied immediate position update: delta=%.5f, velocity=(%d, %d)" % [
-			delta, fixed_velocity.x, fixed_velocity.y
-		])
-		print("[THROWN]   Position change: (%d, %d) → (%d, %d)" % [old_pos.x, old_pos.y, fixed_position.x, fixed_position.y])
-	
-	# 清除輸入緩衝（防止摔投期間輸入）
-	if player_controller:
-		player_controller.clear_buffer()
 
 # _process 已移除 - 陰影同步由 ShadowSyncHandler 處理
 
@@ -858,27 +608,17 @@ func _on_thrown(thrower: Node) -> void:
 func _execute_attack(attack_name: String) -> void:
 	"""統一的攻擊執行函式，處理傷害設置、狀態變更和移動啟動"""
 	print("[EXECUTE_ATTACK] attack_name: ", attack_name, " | Seat: ", seat)
-	
-	# 【修正】throw 不再存在於 ATTACK_TABLE，特殊處理
-	if attack_name == "throw_enter" or attack_name == "throw_seq":
-		if throw_data:
-			current_damage = throw_data.throw_damage
-		else:
-			print("[EXECUTE_ATTACK] throw_data not loaded, using default damage")
-			current_damage = 8.0
-	elif not attack_name in ATTACK_TABLE:
+	var is_throw_attack = attack_name in ["throw_enter", "throw_seq"]
+	if not is_throw_attack and not attack_name in ATTACK_TABLE:
 		print("[EXECUTE_ATTACK] NOT in ATTACK_TABLE")
 		return
-	else:
-		current_damage = ATTACK_TABLE[attack_name].damage
 	
+	if not is_throw_attack:
+		current_damage = ATTACK_TABLE[attack_name].damage
+	else:
+		current_damage = 0.0
 	is_attacking = true
 	attack_type = attack_name
-	
-	# 【新增】如果是 throw_enter，重置 throw hit 偵測旗標
-	if attack_name == "throw_enter":
-		throw_hit_detected = false
-		print("[EXECUTE_ATTACK] throw_enter 開始，重置 throw_hit_detected")
 	
 	# 🟢 【新增】記錄攻擊開始幀（用於精確計算優勢）
 	var frame_counter = get_tree().root.get_node_or_null("World/FrameCounter")
@@ -891,17 +631,10 @@ func _execute_attack(attack_name: String) -> void:
 	# Get animation duration and set timer (convert to frames @120 FPS PHYSICS - multiply by 2 since 120/60=2)
 	if animation_player and animation_player.has_animation(attack_name):
 		var anim_length = animation_player.get_animation(attack_name).length
-		# 【修正】throw_enter 不應該加上 throw_seq 的時長
-		# throw_seq 是碰撞成功後才執行的動畫，不屬於 throw_enter 的持續時間
-		var total_length = anim_length
 		# 🔴 【關鍵修復】attack_duration_timer 應按 120 FPS 物理幀計算
 		# 邏輯：動畫時長（秒）× 60 FPS（邏輯幀）× 2（物理幀轉換係數）= 對應的物理幀數
-		var logic_frames_60 = int(round(total_length * 60))
-		attack_duration_timer = int(round(total_length * 60 * 2))
-		print("[EXECUTE_ATTACK] Set attack_duration_timer=%d frames for %s (duration: %.3fs @60 FPS logic = %d @120 FPS physics)" % [logic_frames_60, attack_name, total_length, attack_duration_timer])
-		print("[EXECUTE_ATTACK] Frame math: %.3fs × 60 FPS = %.1fF @60FPS | × 120 FPS = %.1fF @120FPS | rounded: %dF @60FPS / %dF @120FPS" % [
-			total_length, total_length * 60, total_length * 120, logic_frames_60, attack_duration_timer
-		])
+		attack_duration_timer = int(round(anim_length * 60 * 2))
+		print("[EXECUTE_ATTACK] Set attack_duration_timer=%d frames for %s (duration: %.3fs @60 FPS logic = %d @120 FPS physics)" % [int(round(anim_length * 60)), attack_name, anim_length, attack_duration_timer])
 	else:
 		# Default: 0.5 seconds @ 60 FPS = 30 frames → × 2 = 60 frames @ 120 FPS
 		attack_duration_timer = 60
@@ -954,11 +687,4 @@ func _initialize_handlers() -> void:
 	add_child(hit_handler)
 	hit_response_handler = hit_handler
 	
-	# Phase 5: ThrowHandler (【新增】)
-	var throw_handler_instance = ThrowHandler.new()
-	throw_handler_instance.name = "ThrowHandler"
-	throw_handler_instance.set_player(self)
-	add_child(throw_handler_instance)
-	throw_handler = throw_handler_instance
-	
-	print("[Player] Handlers 初始化完成 (Phase 1-5) | Seat: ", seat)
+	print("[Player] Handlers 初始化完成 (Phase 1-4) | Seat: ", seat)
