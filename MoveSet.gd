@@ -32,8 +32,19 @@ const LEGACY_SPECIAL_MOVE_RESOURCES: Array[String] = [
 class MoveState:
 	var active_move
 	var timer: int = 0  # Frame-based timer
-	var jump_timer: int = 0  # Frame-based timer
-	var has_jumped: bool = false
+	# ✅ 【新增】出招者跳躍系統
+	var caster_jump_timer: int = 0  # 出招者跳躍延遲計時器（Frame-based）
+	var caster_has_jumped: bool = false  # 出招者是否已跳躍
+	# ✅ 【新增】軌跡延遲系統
+	var trajectory_timer: int = 0  # 軌跡開始延遲計時器（Frame-based）
+	var trajectory_started: bool = false  # 軌跡是否已開始
+	# 向後兼容的跳躍變數（映射到新系統）
+	var jump_timer: int:
+		get: return caster_jump_timer
+		set(value): caster_jump_timer = value
+	var has_jumped: bool:
+		get: return caster_has_jumped
+		set(value): caster_has_jumped = value
 	var projectile_spawned: bool = false
 	var initial_facing: float = 0.0
 	var initial_parent_scale_x: float = 0.0
@@ -45,8 +56,10 @@ class MoveState:
 	func reset() -> void:
 		active_move = null
 		timer = 0
-		jump_timer = 0
-		has_jumped = false
+		caster_jump_timer = 0
+		caster_has_jumped = false
+		trajectory_timer = 0
+		trajectory_started = false
 		projectile_spawned = false
 
 # ============================================================
@@ -181,19 +194,34 @@ func _start_special(move_name: String) -> void:
 	current_move_state.projectile_spawned = false
 	# move_data.duration 是邏輯幀數（60 FPS），需轉為物理幀數 (120 FPS)
 	current_move_state.timer = duration_physics_frames
-	# 🔴 jump_delay 也是那輯幀數，需要乘以 2
-	var jump_delay_physics_frames = int(round(move_data.jump_delay_frames * 2.0))
-	current_move_state.jump_timer = jump_delay_physics_frames
-	current_move_state.has_jumped = false
+	
+	# ✅ 【新增】出招者跳躍系統初始化
+	if move_data.caster_jump_enabled:
+		var caster_jump_delay_physics = int(round(move_data.caster_jump_delay_frames * 2.0))
+		current_move_state.caster_jump_timer = caster_jump_delay_physics
+		current_move_state.caster_has_jumped = false
+		print("[CASTER_JUMP] %s: Enabled | delay=%d frames | vertical_speed=%.1f | gravity=%.1f" % [
+			move_name, caster_jump_delay_physics, move_data.caster_jump_vertical_speed, move_data.caster_jump_gravity
+		])
+	else:
+		current_move_state.caster_jump_timer = 0
+		current_move_state.caster_has_jumped = false
+	
+	# ✅ 【新增】軌跡延遲系統初始化
+	if move_data.trajectory_delay_frames > 0:
+		var trajectory_delay_physics = int(round(move_data.trajectory_delay_frames * 2.0))
+		current_move_state.trajectory_timer = trajectory_delay_physics
+		current_move_state.trajectory_started = false
+		print("[TRAJECTORY_DELAY] %s: %d frames before movement starts" % [move_name, trajectory_delay_physics])
+	else:
+		current_move_state.trajectory_timer = 0
+		current_move_state.trajectory_started = true  # 立即開始
 	current_move_state.initial_facing = parent.facing_direction
 	current_move_state.initial_parent_scale_x = parent.scale.x
 	current_move_state.initial_sprite_scale_x = sprite.scale.x
 	
 	var seat = parent.seat if "seat" in parent else "?"
-	if move_data.jump_delay_frames > 0:
-		print("[DP_START_SPECIAL] %s: %s | jump_delay=%.0f frames | jump_timer=%.4f sec | jump_speed=%.0f" % [
-			seat, move_name, move_data.jump_delay_frames, current_move_state.jump_timer, move_data.jump_speed
-		])
+	# 移除舊的 jump_delay 日志（已被 caster_jump 系統取代）
 	
 	# Projectile spawning is now handled via AnimationPlayer Call Method (_spawn_fireball)
 	
@@ -215,14 +243,17 @@ func _start_special(move_name: String) -> void:
 		current_move_state.initial_speed = base_speed
 		current_move_state.total_duration = float(duration_physics_frames)  # 使用前面已計算的 duration_physics_frames
 		
-		# Set initial velocity based on acceleration curve
-		if move_data.acceleration_curve == "accelerate":
+		# ✅ 【修正】使用枚舉型加速度，並處理軌跡延遲
+		if move_data.trajectory_delay_frames > 0:
+			# 如果有軌跡延遲，初始速度為 0
+			parent.fixed_velocity.x = 0
+		elif move_data.acceleration_curve == SpecialMoveData.AccelerationCurve.ACCELERATE:
 			parent.fixed_velocity.x = 0  # Start from zero for acceleration
-		elif move_data.acceleration_curve == "decelerate":
+		elif move_data.acceleration_curve == SpecialMoveData.AccelerationCurve.DECELERATE:
 			parent.fixed_velocity.x = int(base_speed)  # Start at full speed for deceleration
-		elif move_data.acceleration_curve == "three_phase":
+		elif move_data.acceleration_curve == SpecialMoveData.AccelerationCurve.THREE_PHASE:
 			parent.fixed_velocity.x = 0  # Start stationary for three-phase
-		else:
+		else:  # NONE
 			parent.fixed_velocity.x = int(base_speed)  # Constant speed
 	else:
 		parent.fixed_velocity = Vector2i.ZERO
@@ -406,9 +437,9 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		push_warning("World node missing")
 		return false
 	
-	# 🔴 【特殊招式jump保護】即使被擊中也要執行jump邏輯（只針對jump_delay > 0的招式）
-	if is_spmove and current_move_state.active_move and current_move_state.active_move.jump_delay_frames > 0:
-		_process_jump(delta, world, current_move_state.active_move)
+	# ✅ 【新增】出招者跳躍保護：即使被擊中也要執行跳躍邏輯
+	if is_spmove and current_move_state.active_move and current_move_state.active_move.caster_jump_enabled:
+		_process_caster_jump(delta, world, current_move_state.active_move)
 	
 	# 如果被擊中或被擊飛，停止其他處理
 	if parent.is_hit or parent.is_knockfly:
@@ -429,35 +460,50 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	
 	var move = current_move_state.active_move
 	
+	# ✅ 【新增】處理軌跡延遲（在移動開始前的等待時間）
+	if not current_move_state.trajectory_started:
+		current_move_state.trajectory_timer -= 1
+		if current_move_state.trajectory_timer <= 0:
+			current_move_state.trajectory_started = true
+			print("[TRAJECTORY_START] %s: Movement begins now!" % move.move_id)
+			# 初始化速度（根據加速度曲線）
+			if move.acceleration_curve == SpecialMoveData.AccelerationCurve.DECELERATE:
+				parent.fixed_velocity.x = int(current_move_state.initial_speed)
+			elif move.acceleration_curve == SpecialMoveData.AccelerationCurve.NONE:
+				parent.fixed_velocity.x = int(current_move_state.initial_speed)
+			# ACCELERATE 和 THREE_PHASE 維持 0
+		else:
+			# 還在等待，速度保持 0
+			parent.fixed_velocity.x = 0
+	
 	# Handle projectile spawning
 	if move.is_projectile:
 		_process_projectile_spawn(delta, world)
 	
-	# Handle jump logic
-	# 🔴 NOTE: Jump logic已在 process_move() 開始時執行（在is_hit檢查之前）
-	# 此處已移除重複調用
+	# ✅ 【移除舊的 _process_jump 調用】已被 caster_jump 系統取代
+	# 舊的 jump 邏輯已在 process_move() 開始時執行
 	
 	# 【重要】重力現在由 GravitySystem 統一管理，在 Movement._handle_gravity() 中應用
 	# 此處不再重複應用重力，避免計算重複
 	# if move.gravity > 0:
 	#	_apply_gravity(delta, world, move.gravity)
 	
-	# Update velocity based on acceleration curve
-	if move.acceleration_curve != "none" and current_move_state.total_duration > 0:
+	# ✅ 【修正】使用枚舉型加速度曲線，並處理軌跡延遲
+	if move.acceleration_curve != SpecialMoveData.AccelerationCurve.NONE and current_move_state.total_duration > 0 and current_move_state.trajectory_started:
 		# 🔴 【關鍵修復】elapsed_ratio 現在正確地基於幀數計算（不混亂秒數和幀數）
 		var elapsed_frames = current_move_state.total_duration - current_move_state.timer
 		var elapsed_ratio = elapsed_frames / current_move_state.total_duration
 		
-		if move.acceleration_curve == "accelerate":
+		if move.acceleration_curve == SpecialMoveData.AccelerationCurve.ACCELERATE:
 			# Quadratic acceleration: speed increases from 0 to max
 			var speed_multiplier = elapsed_ratio * elapsed_ratio
 			parent.fixed_velocity.x = int(current_move_state.initial_speed * speed_multiplier)
-		elif move.acceleration_curve == "decelerate":
+		elif move.acceleration_curve == SpecialMoveData.AccelerationCurve.DECELERATE:
 			# Quadratic deceleration: speed decreases from max to 0
 			var remaining_ratio = current_move_state.timer / current_move_state.total_duration
 			var speed_multiplier = remaining_ratio * remaining_ratio
 			parent.fixed_velocity.x = int(current_move_state.initial_speed * speed_multiplier)
-		elif move.acceleration_curve == "three_phase":
+		elif move.acceleration_curve == SpecialMoveData.AccelerationCurve.THREE_PHASE:
 			# Three-phase movement: stationary → acceleration → deceleration
 			var stat_end = move.stationary_ratio
 			var accel_end = stat_end + move.acceleration_ratio
@@ -583,30 +629,37 @@ func execute_fireball_spawn() -> void:
 	parent.active_fireball = fb
 	print("[MoveSet.execute_fireball_spawn] Fireball spawned for %s, params from MoveSet" % parent.name)
 
-func _process_jump(_delta: float, world: Node, move) -> void:
-	current_move_state.jump_timer -= 1  # Frame-based decrement
+func _process_caster_jump(_delta: float, world: Node, move) -> void:
+	"""✅ 【新增】處理出招者跳躍系統（如升龍拳）"""
+	current_move_state.caster_jump_timer -= 1  # Frame-based decrement
 	
 	# Jump 條件：計時到期 + 尚未跳過
 	# 🔴 【特殊招式jump】不檢查is_on_floor()，因為DP可能在前一個jump中或animation中
 	# 只要計時到期且未jump過，就執行jump
-	var timer_ready = current_move_state.jump_timer <= 0
-	var not_jumped_yet = not current_move_state.has_jumped
+	var timer_ready = current_move_state.caster_jump_timer <= 0
+	var not_jumped_yet = not current_move_state.caster_has_jumped
 	
 	var move_name = move.move_id if move else "unknown"
 	var seat = parent.seat if "seat" in parent else "?"
 	
 	if timer_ready and not_jumped_yet:
-		# ✅ jump_speed是邏輯值，乘以SIMULATION_SCALE得到固定點速度
+		# ✅ caster_jump_vertical_speed 是邏輯值，乘以SIMULATION_SCALE得到固定點速度
 		var scale = world.SIMULATION_SCALE if world else 1000
-		parent.fixed_velocity.y = int(move.jump_speed * scale)
+		parent.fixed_velocity.y = int(move.caster_jump_vertical_speed * scale)
 		parent.fixed_position.y = world.FLOOR_Y - 1 if world else 199999
 		parent.is_jumping = true
-		current_move_state.has_jumped = true
-		print("[DP_JUMP_TRIGGERED] %s: %s | velocity.y=%d | is_on_floor=%s" % [seat, move_name, parent.fixed_velocity.y, parent.is_on_floor()])
-	elif timer_ready and current_move_state.has_jumped:
+		current_move_state.caster_has_jumped = true
+		print("[CASTER_JUMP_TRIGGERED] %s: %s | velocity.y=%d | vertical_speed=%.1f | is_on_floor=%s" % [
+			seat, move_name, parent.fixed_velocity.y, move.caster_jump_vertical_speed, parent.is_on_floor()
+		])
+	elif timer_ready and current_move_state.caster_has_jumped:
 		pass  # Already jumped
-	elif current_move_state.jump_timer > 0 and not current_move_state.has_jumped:
+	elif current_move_state.caster_jump_timer > 0 and not current_move_state.caster_has_jumped:
 		pass  # Waiting for jump timer
+
+# @deprecated 向後兼容：保留舊的 _process_jump 函數名稱
+func _process_jump(delta: float, world: Node, move) -> void:
+	_process_caster_jump(delta, world, move)
 
 func _apply_gravity(delta: float, world: Node, gravity: float) -> void:
 	if parent.fixed_position.y < world.FLOOR_Y:

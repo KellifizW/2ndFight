@@ -6363,21 +6363,26 @@ metadata/_custom_type_script = "uid://tld6w015ripa"
 script = ExtResource("9_0wmxw")
 move_id = "dp"
 damage = 9.0
-jump_speed = 2000.0
-gravity = 6000000.0
+knockback = 100.0
+knockfly_force_enable = true
 knockfly_gravity = 6000000.0
 knockfly_vertical_speed = -2200.0
 knockfly_horizontal_speed = 200.0
+move_distance = 70.0
+caster_jump_enabled = true
+caster_jump_vertical_speed = -2000.0
+caster_jump_gravity = 6000000.0
+gravity = 6000000.0
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
 [sub_resource type="Resource" id="Resource_t485y"]
 script = ExtResource("9_0wmxw")
 move_id = "powerkk"
 damage = 8.0
-move_distance = 400.0
 knockfly_gravity = 6000000.0
 knockfly_vertical_speed = -1000.0
 knockfly_horizontal_speed = 500.0
+move_distance = 400.0
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
 [node name="DAV" type="CharacterBody2D" unique_id=979336923]

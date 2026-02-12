@@ -138,7 +138,7 @@ func _get_hit_parameters() -> Dictionary:
 		params.hitstun = active_move.hitstun_frames
 		params.blockstun = active_move.blockstun_frames
 		
-		# ── 特殊招式的特殊參數 ──
+		# ──  特殊招式的特殊參數 ──
 		var move_name = active_move.move_id
 		if move_name == "spnk":
 			# spnk 的傷害會根據動畫時間調整
@@ -148,7 +148,17 @@ func _get_hit_parameters() -> Dictionary:
 				if pos < 0.2667:
 					params.damage = 6.0
 		
-		if active_move.knockfly_gravity != 0.0 or active_move.knockfly_vertical_speed != 0.0 or active_move.knockfly_horizontal_speed != 0.0:
+		# ✅ 【新增】檢查強制 Knockfly 選項
+		if active_move.knockfly_force_enable:
+			params.force_knockfly = true
+			params.knockfly_params = {
+				"gravity": active_move.knockfly_gravity,
+				"vertical_speed": active_move.knockfly_vertical_speed,
+				"horizontal_speed": active_move.knockfly_horizontal_speed,
+				"duration": params.hitstun / 60.0
+			}
+		# 向後兼容：如果沒有設置 knockfly_force_enable，但有設置 knockfly 參數，則也啟用 knfly
+		elif active_move.knockfly_gravity != 0.0 or active_move.knockfly_vertical_speed != 0.0 or active_move.knockfly_horizontal_speed != 0.0:
 			params.force_knockfly = true
 			params.knockfly_params = {
 				"gravity": active_move.knockfly_gravity,
