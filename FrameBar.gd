@@ -1,6 +1,7 @@
 extends ProgressBar
 
 const DISPLAY_FPS: int = 60
+@export var startup_logs: bool = false
 
 # ── 變數宣告 ─────────────────────
 var target_player: Node = null      # 要追蹤的玩家（FrameBar 所屬玩家）
@@ -141,7 +142,8 @@ func initialize(target: Node, opponent: Node = null) -> void:
 	if target.has_meta("player_seat"):
 		var seat = target.get_meta("player_seat")
 		add_to_group("frame_bar_" + seat)
-		print("[FRAMEBAR] 已註冊到 group: frame_bar_%s" % seat)
+		if startup_logs:
+			print("[FRAMEBAR] 已註冊到 group: frame_bar_%s" % seat)
 	
 	if playback and not animation_tree.animation_finished.is_connected(_on_animation_finished):
 		animation_tree.animation_finished.connect(_on_animation_finished)
@@ -317,9 +319,7 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 				var max_display_frames = expected_stun_frames * 2  # expected_stun_frames @60FPS = × 2 @120FPS
 				if display_frame_counter >= max_display_frames:
 					should_increment = false
-					print("[FRAMEBAR HIT STOP] %s - hitstun complete, stopping counter at %d (expected: %dF @60FPS = %d @120FPS)" % [
-						target_player.name, display_frame_counter, expected_stun_frames, max_display_frames
-					])
+					# ...debug print removed...
 			
 			# 如果是攻擊動畫且有預期幀數，檢查是否已達到上限
 			elif current_attack_anim_name in ATTACK_ANIMS and current_attack_expected_frames > 0:

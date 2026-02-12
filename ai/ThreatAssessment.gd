@@ -310,3 +310,13 @@ func _get_optimal_defense(attack_type: String) -> String:
 	if attack_type.begins_with("jump_"):
 		return "dp"
 	return "stand_block"
+
+func get_attack_range_for(opponent: Player, attack_type: String) -> float:
+	if not opponent:
+		return 100.0
+	if hitbox_cache and hitbox_cache.is_initialized:
+		return hitbox_cache.get_attack_range(opponent.character_id, attack_type)
+	return attack_ranges_fallback.get(attack_type, 100.0)
+
+func get_defense_for_attack(attack_type: String) -> String:
+	return _get_optimal_defense(attack_type)

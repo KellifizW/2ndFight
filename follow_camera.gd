@@ -2,6 +2,8 @@
 
 extends Camera2D
 
+@export var startup_logs: bool = false
+
 @export var zoom_factor: float = 120.0
 @export var min_zoom: float = 1.0
 @export var max_zoom: float = 1.3
@@ -49,9 +51,10 @@ func _delayed_init() -> void:
 	y_target_buffer = target_position.y
 	position = target_position  # 立即設定，避免第一幀卡在 (0,0)
 	
-	print("=== 鏡頭延後初始化完成 ===")
-	print("追蹤玩家：%s 和 %s" % [players[0].name, players[1].name])
-	print("初始鏡頭位置：%s" % position)
+	if startup_logs:
+		print("=== 鏡頭延後初始化完成 ===")
+		print("追蹤玩家：%s 和 %s" % [players[0].name, players[1].name])
+		print("初始鏡頭位置：%s" % position)
 
 func _update_target_position_and_zoom() -> void:
 	if players.size() < 2:

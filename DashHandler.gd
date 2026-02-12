@@ -1,5 +1,7 @@
 class_name DashHandler extends Node
 
+@export var debug_dash: bool = false
+
 # Handles dash and backdash logic
 var movement_node: Node
 
@@ -9,7 +11,7 @@ func _init(movement: Node) -> void:
 func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
 	# 🔴 【除錯】記錄每幀的 dash 狀態
 	var seat = movement_node.seat if "seat" in movement_node else "?"
-	if Engine.get_physics_frames() % 30 == 0 and input_dir != 0:  # 每 30 幀輸出一次（0.25秒）
+	if debug_dash and Engine.get_physics_frames() % 30 == 0 and input_dir != 0:  # 每 30 幀輸出一次（0.25秒）
 		print("[DASH DEBUG] %s | input_dir=%d | neutral_timer=%d | pending_dir=%d | last_input=%d | conditions: on_floor=%s, attacking=%s, dashing=%s" % [
 			seat, input_dir, movement_node.neutral_timer, movement_node.pending_dash_dir, 
 			movement_node.last_input_dir, movement_node.is_on_floor(), movement_node.is_attacking, movement_node.is_dashing
@@ -19,10 +21,11 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 		
 		if movement_node.neutral_timer > 0 and input_dir != 0 and movement_node.pending_dash_dir == input_dir:
 			# 🟢 double-tap 被檢出！
-			print("[DASH DETECTED] %s | neutral_timer=%d | input_dir=%d | pending_dir=%d | facing=%f | facing_check=%d" % [
+			if debug_dash:
+				print("[DASH DETECTED] %s | neutral_timer=%d | input_dir=%d | pending_dir=%d | facing=%f | facing_check=%d" % [
 				seat, movement_node.neutral_timer, input_dir, movement_node.pending_dash_dir, 
 				movement_node.facing_direction, input_dir * int(movement_node.facing_direction)
-			])
+				])
 			if input_dir * movement_node.facing_direction > 0:
 				movement_node.is_dashing = true
 				# 🔴 【關鍵修復】轉換秒數為幀計數（在 120 FPS 物理上下文中遞減）
@@ -30,9 +33,10 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 				movement_node.dash_total_time = movement_node.dash_timer  # 保存初始幀數用於進度計算
 				movement_node.dash_initial_speed = movement_node.dash_speed * scale_factor * input_dir
 				movement_node.fixed_velocity.x = int(movement_node.dash_initial_speed)
-				print("[DASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
+				if debug_dash:
+					print("[DASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
 					seat, movement_node.dash_timer, movement_node.fixed_velocity.x, movement_node.dash_initial_speed
-				])
+					])
 				if movement_node.groundsmoke:
 					movement_node.groundsmoke.scale.x = movement_node.facing_direction
 					movement_node.groundsmoke.restart()
@@ -43,9 +47,10 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 				movement_node.dash_total_time = movement_node.dash_timer  # 保存初始幀數用於進度計算
 				movement_node.dash_initial_speed = movement_node.backdash_speed * scale_factor * input_dir
 				movement_node.fixed_velocity.x = int(movement_node.dash_initial_speed)
-				print("[BACKDASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
+				if debug_dash:
+					print("[BACKDASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
 					seat, movement_node.dash_timer, movement_node.fixed_velocity.x, movement_node.dash_initial_speed
-				])
+					])
 				if movement_node.groundsmoke:
 					movement_node.groundsmoke.scale.x = movement_node.facing_direction
 					movement_node.groundsmoke.restart()
@@ -58,7 +63,8 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 				# � 鍵盤被釋放，開始 double-tap 窗口
 				movement_node.neutral_timer = int(round(movement_node.double_tap_timer * 120.0))
 				movement_node.pending_dash_dir = movement_node.last_input_dir
-				print("[DASH WINDOW START] %s | neutral_timer_frames=%d (%.2fs) | pending_dir=%d" % [
+				if debug_dash:
+					print("[DASH WINDOW START] %s | neutral_timer_frames=%d (%.2fs) | pending_dir=%d" % [
 					seat, movement_node.neutral_timer, movement_node.neutral_timer / 120.0, movement_node.pending_dash_dir
-				])
+					])
 			movement_node.last_input_dir = input_dir

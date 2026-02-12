@@ -15,7 +15,8 @@ func handle_timers(delta: float) -> void:
 			movement_node.pending_dash_dir = 0
 	
 	if movement_node.dash_timer > 0:
-		movement_node.dash_timer = max(0, movement_node.dash_timer - delta)
+		# dash_timer is frame-based; decrement per physics frame
+		movement_node.dash_timer = max(0, movement_node.dash_timer - 1)
 		
 		# Apply deceleration curve (quadratic decay)
 		if movement_node.dash_timer > 0 and movement_node.dash_total_time > 0:

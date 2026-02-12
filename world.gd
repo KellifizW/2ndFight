@@ -8,6 +8,7 @@ const FLOOR_Y: int = 550000
 const GRAVITY: int = 7400000
 @export var arena_left: float = 0.0      # 舞台左邊界（像素）
 @export var arena_right: float = 1600.0  # 舞台右邊界（像素）
+@export var startup_logs: bool = false
 
 @onready var position_label = $UI/PositionLabel
 @export var bgm_max_volume_db: float = -6.0
@@ -76,17 +77,19 @@ var is_bgm_enabled: bool = true
 
 func _ready() -> void:
 	add_to_group("world")
-	print("Debug: World _ready() 開始執行")
+	if startup_logs:
+		print("Debug: World _ready() 開始執行")
 	
 	# ============================================================
 	# 初始化 HitboxCache（新增）
 	# ============================================================
 	var hitbox_cache = HitboxCache.new()
 	hitbox_cache.name = "HitboxCache"
-	hitbox_cache.debug_mode = true  # 啟用調試輸出
+	hitbox_cache.debug_mode = false
 	add_child(hitbox_cache)
 	hitbox_cache.add_to_group("hitbox_cache")
-	print("[WORLD] HitboxCache 已初始化")
+	if startup_logs:
+		print("[WORLD] HitboxCache 已初始化")
 	
 	# ============================================================
 	# 初始化 ResourcePreloadManager（特效預載系統）
@@ -95,7 +98,8 @@ func _ready() -> void:
 	resource_preloader.name = "ResourcePreloader"
 	add_child(resource_preloader)
 	resource_preloader.add_to_group("resource_preloader")
-	print("[WORLD] ResourcePreloadManager 已初始化")
+	if startup_logs:
+		print("[WORLD] ResourcePreloadManager 已初始化")
 	
 	# ============================================================
 	# 初始化 AI 性能監視器（Phase 2 優化）
@@ -106,9 +110,11 @@ func _ready() -> void:
 		profiler.log_interval = profiling_log_interval
 		profiler.show_realtime = false
 		add_child(profiler)
-		print("[WORLD] ✓ AI 性能監視器已啟用 (每 %.1f 秒輸出一次報告，檢查 Console 標籤)" % profiling_log_interval)
+		if startup_logs:
+			print("[WORLD] ✓ AI 性能監視器已啟用 (每 %.1f 秒輸出一次報告，檢查 Console 標籤)" % profiling_log_interval)
 	else:
-		print("[WORLD] ℹ️ AI 性能監視器已禁用 (在 Inspector 中設置 enable_performance_monitoring = True 以啟用)")
+		if startup_logs:
+			print("[WORLD] ℹ️ AI 性能監視器已禁用 (在 Inspector 中設置 enable_performance_monitoring = True 以啟用)")
 	
 	# ============================================================
 	# 🟢 【新增】初始化幀計數器（替代浮點時間戳）
@@ -116,7 +122,8 @@ func _ready() -> void:
 	frame_counter = FrameCounter.new()
 	frame_counter.name = "FrameCounter"
 	add_child(frame_counter)
-	print("[WORLD] ✓ FrameCounter 已初始化 - 精確的幀級時間追蹤")
+	if startup_logs:
+		print("[WORLD] ✓ FrameCounter 已初始化 - 精確的幀級時間追蹤")
 	
 	# ============================================================
 	# 🟢 【新增】初始化 Hit Stop 時機調試器
@@ -126,13 +133,15 @@ func _ready() -> void:
 	hitstop_debug.enabled = true  # 設為 false 可關閉調試輸出
 	hitstop_debug.detailed_logging = false  # 設為 true 可查看更詳細的日誌
 	add_child(hitstop_debug)
-	print("[WORLD] ✓ HitStopTimingDebugger 已初始化 (詳細日誌: %s)" % hitstop_debug.detailed_logging)
+	if startup_logs:
+		print("[WORLD] ✓ HitStopTimingDebugger 已初始化 (詳細日誌: %s)" % hitstop_debug.detailed_logging)
 	
 	# 關鍵修正：優先從選角畫面讀取角色（SelectedCharacters 是 Autoload 全局單例）
 	if SelectedCharacters.p1_character != null and SelectedCharacters.p2_character != null:
 		player_a_character = SelectedCharacters.p1_character
 		player_b_character = SelectedCharacters.p2_character
-		print("從選角畫面成功載入角色：P1 = %s, P2 = %s" % [player_a_character.display_name, player_b_character.display_name])
+		if startup_logs:
+			print("從選角畫面成功載入角色：P1 = %s, P2 = %s" % [player_a_character.display_name, player_b_character.display_name])
 	else:
 		# 如果直接執行 world.tscn（測試用），檢查編輯器是否有手動拖入角色
 		if not player_a_character:
@@ -141,7 +150,8 @@ func _ready() -> void:
 		if not player_b_character:
 			push_error("錯誤：Player B 的 CharacterData 未指定！請從 CharacterSelect 進入，或在 World 節點的 Inspector 中拖入角色 .tres")
 			return
-		print("使用編輯器預設角色：P1 = %s, P2 = %s" % [player_a_character.display_name, player_b_character.display_name])
+		if startup_logs:
+			print("使用編輯器預設角色：P1 = %s, P2 = %s" % [player_a_character.display_name, player_b_character.display_name])
 	
 	# 安全檢查：確保兩個角色都有 PackedScene
 	if not player_a_character.scene:
@@ -188,13 +198,15 @@ func _ready() -> void:
 		var tween = create_tween()
 		tween.tween_property(bgm_player, "volume_db", bgm_max_volume_db, 1.0)
 		tween.play()
-		print("Debug: BGM fade-in started at %s ms" % Time.get_ticks_msec())
+		if startup_logs:
+			print("Debug: BGM fade-in started at %s ms" % Time.get_ticks_msec())
 	else:
 		print("Warning: BGMPlayer node not found in world")
 	
 	initial_player_a_pos = player_a.global_position
 	initial_player_b_pos = player_b.global_position
-	print("Debug: Initial positions set - Player A: %s, Player B: %s" % [player_a.global_position, player_b.global_position])
+	if startup_logs:
+		print("Debug: Initial positions set - Player A: %s, Player B: %s" % [player_a.global_position, player_b.global_position])
 	
 	if frame_bar_p1:
 		frame_bar_p1.initialize(player_a, player_b)

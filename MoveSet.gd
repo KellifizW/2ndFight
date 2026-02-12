@@ -12,6 +12,7 @@ const LOGIC_FPS: int = 60  # 遊戲邏輯基準 FPS（用於動畫時長轉換�
 
 # ✨ 新：在 Inspector 中直観地管理特殊招式资源（像 AttackData 一样）
 @export var special_moves_data: Array[SpecialMoveData] = []
+@export var startup_logs: bool = false
 
 # 【旧版本缓冲】保留硬编码路径作为后备
 const LEGACY_SPECIAL_MOVE_RESOURCES: Array[String] = [
@@ -98,7 +99,8 @@ func _initialize_move_library() -> void:
 	
 	# 【后备】如果 export 未设置，使用旧版本硬编码路径
 	if resources_to_load.is_empty():
-		print("[MoveSet] 检测到 special_moves_data 为空，自动加载旧版本资源...")
+		if startup_logs:
+			print("[MoveSet] 检测到 special_moves_data 为空，自动加载旧版本资源...")
 		for path in LEGACY_SPECIAL_MOVE_RESOURCES:
 			var resource = load(path)
 			if resource != null:
@@ -120,7 +122,8 @@ func _initialize_move_library() -> void:
 			move_library[move_id] = []
 		move_library[move_id].append(resource)
 	
-	print("[MoveSet] Library initialized with %d move types: %s" % [move_library.size(), move_library.keys()])
+	if startup_logs:
+		print("[MoveSet] Library initialized with %d move types: %s" % [move_library.size(), move_library.keys()])
 
 func has_move_id(move_id: String) -> bool:
 	return move_library.has(move_id)

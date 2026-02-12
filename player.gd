@@ -9,6 +9,7 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @export var skip_pushbox: bool = false
 @export var attack_data: AttackData
 @export var throw_data: ThrowData
+@export var startup_logs: bool = false
 
 @onready var ATTACK_TABLE: Dictionary = {
 	"st_lp": attack_data.st_lp,
@@ -176,7 +177,8 @@ func _ready() -> void:
 			animation_player.animation_finished.disconnect(connection["callable"])
 		# Connect to Player's override
 		animation_player.animation_finished.connect(_on_animation_player_finished)
-		print("[PLAYER READY] Connected animation_player.animation_finished to Player's handler | Seat: ", seat)
+		if startup_logs:
+			print("[PLAYER READY] Connected animation_player.animation_finished to Player's handler | Seat: ", seat)
 	
 	# 🟢 【新增】設置 metadata 讓 FrameBar 可以找到玩家的 seat
 	set_meta("player_seat", seat)
@@ -711,4 +713,5 @@ func _initialize_handlers() -> void:
 	throw_handler = handler_throw
 	throw_handler.set_player(self)
 	
-	print("[Player] Handlers 初始化完成 (Phase 1-5) | Seat: ", seat)
+	if startup_logs:
+		print("[Player] Handlers 初始化完成 (Phase 1-5) | Seat: ", seat)

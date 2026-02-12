@@ -49,6 +49,8 @@ extends Label
 
 # ============================================================
 # 內部變量
+## 啟用啟動日誌
+@export var startup_logs: bool = false
 # ============================================================
 
 var world: Node = null
@@ -98,7 +100,8 @@ func _initialize() -> void:
 	print("[HITBOX DEBUG] 調試顯示已初始化")
 
 func _find_players() -> void:
-	"""尋找玩家節點並設置目標玩家"""
+	if startup_logs:
+		print("[HITBOX DEBUG] 調試顯示已初始化")
 	var players = get_tree().get_nodes_in_group("players")
 	
 	if players.size() < 1:

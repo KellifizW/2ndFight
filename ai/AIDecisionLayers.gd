@@ -11,6 +11,7 @@ const CACHE_DURATION: float = 0.1  # Cache for 6 frames at 60 FPS (100ms)
 
 @export var enable_decision_cache: bool = true
 @export var cache_duration_override: float = 0.0  # Set to 0 to use CACHE_DURATION, >0 for custom, <0 to disable caching
+@export var debug_block_trace: bool = false
 
 # ============================================================
 # PRIORITY CONSTANTS (Deterministic Hierarchy)
@@ -50,6 +51,8 @@ const PRIORITY_JUMP = 63.0           # Jump approach (increased)
 const PRIORITY_POSITIONING = 30.0    # Space control
 const PRIORITY_IDLE = 10.0           # Default behavior
 const PRIORITY_CROUCH_LOW = 63.0     # Crouch attacks (alternative priority)
+
+const SPECIAL_MOVE_ACTIONS = ["fireball", "spm2", "powerkk", "spnk", "hdk", "dp", "super"]
 
 class Decision:
 	var layer: DecisionLayer
@@ -177,11 +180,27 @@ func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 	
 	# React to any threat level (including LOW for fireballs)
 	if threat.level == ThreatAssessment.ThreatLevel.NONE:
+		if opponent and opponent.is_attacking:
+			var attack_type = opponent.attack_type if "attack_type" in opponent else "st_mp"
+			var distance = abs(ai_player.global_position.x - opponent.global_position.x)
+			var attack_range = threat_system.get_attack_range_for(opponent, attack_type) if threat_system else 100.0
+			if distance <= attack_range + 10.0:
+				var emergency = Decision.new()
+				emergency.layer = DecisionLayer.SURVIVAL
+				emergency.action = threat_system.get_defense_for_attack(attack_type) if threat_system else "stand_block"
+				emergency.priority = PRIORITY_SURVIVAL
+				emergency.reason = "Emergency block: " + attack_type
+				return emergency
 		return null
 	
 	var decision = Decision.new()
 	decision.layer = DecisionLayer.SURVIVAL
 	decision.action = threat.recommended_response
+	if decision.action in SPECIAL_MOVE_ACTIONS and not _can_use_special(ai_player, opponent):
+		decision.action = "stand_block"
+		decision.reason = "Threat: %s (special gated)" % threat.source
+		decision.priority = PRIORITY_SURVIVAL
+		return decision
 	
 	# Adjust priority based on threat level
 	if threat.level == ThreatAssessment.ThreatLevel.CRITICAL:
@@ -199,11 +218,20 @@ func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 
 func _evaluate_punish_layer(ai_player: Player, opponent: Player) -> Decision:
 	# 檢查對手是否處於可懲罰狀態
-	if not (opponent.is_hit or opponent.is_knockfly or frame_data.is_in_recovery(opponent)):
+	var punish_window = 0
+	if opponent.is_hit or opponent.is_knockfly:
+		punish_window = max(punish_window, frame_data.get_hitstun_frames_remaining_logic(opponent))
+	if frame_data.is_in_recovery(opponent):
+		punish_window = max(punish_window, frame_data.get_punish_window_logic(ai_player, opponent))
+	if punish_window <= 0:
+		return null
+	
+	var ai_blockstun = frame_data.get_blockstun_frames_remaining_logic(ai_player)
+	if ai_blockstun > 1:
 		return null
 	
 	var distance = abs(ai_player.global_position.x - opponent.global_position.x)
-	var best_punish = _select_punish_attack(ai_player, distance)
+	var best_punish = _select_punish_attack(ai_player, distance, punish_window)
 	
 	if best_punish == "":
 		return null
@@ -212,10 +240,10 @@ func _evaluate_punish_layer(ai_player: Player, opponent: Player) -> Decision:
 	decision.layer = DecisionLayer.PUNISH
 	decision.action = best_punish
 	decision.priority = PRIORITY_PUNISH
-	decision.reason = "Punish opportunity"
+	decision.reason = "Punish window %dF" % punish_window
 	return decision
 
-func _select_punish_attack(ai_player: Player, distance: float) -> String:
+func _select_punish_attack(ai_player: Player, distance: float, punish_window: int) -> String:
 	var char_id = ai_player.character_id if "character_id" in ai_player else "UNKNOWN"
 	
 	# 根據角色和距離選擇最佳懲罰招式
@@ -226,30 +254,45 @@ func _select_punish_attack(ai_player: Player, distance: float) -> String:
 			{"name": "dp", "range": 85.0, "damage": 15.0},
 			{"name": "st_mk", "range": 95.0, "damage": 12.0},
 			{"name": "st_mp", "range": 75.0, "damage": 10.0},
+			{"name": "st_lp", "range": 65.0, "damage": 6.0},
+			{"name": "cr_lp", "range": 60.0, "damage": 5.0},
 		]
 	else:  # DEN or others
 		options = [
 			{"name": "spnk", "range": 95.0, "damage": 12.0},
 			{"name": "st_mk", "range": 95.0, "damage": 12.0},
 			{"name": "st_mp", "range": 75.0, "damage": 10.0},
+			{"name": "st_lp", "range": 65.0, "damage": 6.0},
+			{"name": "cr_lp", "range": 60.0, "damage": 5.0},
 		]
 	
+	var best_move = ""
+	var best_score = -9999.0
 	for option in options:
-		if distance <= option["range"]:
-			var move_name = option["name"]
-			# 檢查招式是否被限制，如果是則尋找替代方案
-			if not _is_move_restricted(move_name):
-				return move_name
-			else:
-				# 記錄被限制的招式，並繼續尋找替代方案
-				if Engine.get_physics_frames() % 120 == 0:
-					print("[AI._select_punish_attack] Move '%s' is restricted, looking for alternative..." % move_name)
+		if distance > option["range"]:
+			continue
+		var move_name = option["name"]
+		if _is_move_restricted(move_name):
+			continue
+		var startup = frame_data.get_startup_frames(move_name)
+		if startup > punish_window:
+			continue
+		var damage = option["damage"]
+		var score = damage - (float(startup) * 0.35)
+		if score > best_score:
+			best_score = score
+			best_move = move_name
 	
-	# 如果所有選項都被限制或超出範圍，返回可靠的普通攻擊備選方案
-	if distance <= 95.0:
-		return _get_unrestricted_alternative("st_mk", ["st_mp", "st_lk"])
-	else:
-		return "st_mp"
+	return best_move
+
+func _can_use_special(ai_player: Player, opponent: Player) -> bool:
+	if not ai_player or not opponent:
+		return false
+	if opponent.is_hit or opponent.is_knockfly:
+		return true
+	if frame_data.is_in_recovery(opponent):
+		return true
+	return false
 
 func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Decision]:
 	"""
@@ -264,7 +307,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 	# ============================================================
 	if distance > 250:
 		# Priority 1: Fireball (zoning) - only if not busy
-		if ai_player and ai_player.move_set and not ai_player.move_set.is_spmove:
+		if ai_player and ai_player.move_set and not ai_player.move_set.is_spmove and _can_use_special(ai_player, opponent):
 			var fb = Decision.new()
 			fb.layer = DecisionLayer.TACTICAL
 			fb.action = "fireball"
@@ -313,7 +356,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		
 		# Priority 1: Special moves (character-specific) - ADDED
 		var char_id = ai_player.character_id if "character_id" in ai_player else ""
-		if char_id == "DAV":
+		if char_id == "DAV" and _can_use_special(ai_player, opponent):
 			# DP (dragon punch) - anti-air and pressure
 			var dp = Decision.new()
 			dp.layer = DecisionLayer.TACTICAL
@@ -328,7 +371,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			powerkk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-2.0, 3.0)  # 70 + (-2 to 3) = 68-73
 			powerkk.reason = "Mid range: power kick"
 			decisions.append(powerkk)
-		elif char_id == "DEN":
+		elif char_id == "DEN" and _can_use_special(ai_player, opponent):
 			# Special NK
 			var spnk = Decision.new()
 			spnk.layer = DecisionLayer.TACTICAL
@@ -485,7 +528,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		
 		# Priority 2: Special moves (character-specific) - INCREASED PRIORITY
 		var char_id = ai_player.character_id if "character_id" in ai_player else ""
-		if char_id == "DAV":
+		if char_id == "DAV" and _can_use_special(ai_player, opponent):
 			# DP (dragon punch)
 			var dp = Decision.new()
 			dp.layer = DecisionLayer.TACTICAL
@@ -500,7 +543,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			powerkk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-1.0, 4.0)  # 70 + (-1 to 4) = 69-74
 			powerkk.reason = "Close range: power kick"
 			decisions.append(powerkk)
-		elif char_id == "DEN":
+		elif char_id == "DEN" and _can_use_special(ai_player, opponent):
 			# Special NK
 			var spnk = Decision.new()
 			spnk.layer = DecisionLayer.TACTICAL

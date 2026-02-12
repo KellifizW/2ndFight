@@ -16,6 +16,7 @@ var ai_enabled_b: bool = false  # Player B（右邊/後手）的 AI 開關
 @export_category("Player B AI Settings")
 @export var enable_restrictions_b: bool = false
 @export var restricted_moves_b: Array[String] = []
+@export var startup_logs: bool = false
 
 func _ready() -> void:
 	# 延遲一幀抓取，確保 world 已生成玩家並加入群組
@@ -25,8 +26,9 @@ func _ready() -> void:
 	if players.size() < 2:
 		push_warning("CPUController：找不到兩個玩家！目前找到 %d 個" % players.size())
 	else:
-		print("Debug: CPUController ready! 找到 %d 個玩家" % players.size())
-		print("Debug: 按 'C' 鍵切換 Player A AI，按 'V' 鍵切換 Player B AI")
+		if startup_logs:
+			print("Debug: CPUController ready! 找到 %d 個玩家" % players.size())
+			print("Debug: 按 'C' 鍵切換 Player A AI，按 'V' 鍵切換 Player B AI")
 		
 		# 應用招式限制設定到動態生成的玩家
 		_apply_move_restrictions()
@@ -81,7 +83,8 @@ func _apply_move_restrictions() -> void:
 	if ai_behavior_a and ai_behavior_a.has_method("set_move_restrictions"):
 		ai_behavior_a.set_move_restrictions(restricted_moves_a, enable_restrictions_a)
 		if enable_restrictions_a and restricted_moves_a.size() > 0:
-			print("[CPU Controller] Player A move restrictions applied: %s" % str(restricted_moves_a))
+			if startup_logs:
+				print("[CPU Controller] Player A move restrictions applied: %s" % str(restricted_moves_a))
 	
 	# 應用 Player B 的限制
 	var player_b = players[1]
@@ -89,4 +92,5 @@ func _apply_move_restrictions() -> void:
 	if ai_behavior_b and ai_behavior_b.has_method("set_move_restrictions"):
 		ai_behavior_b.set_move_restrictions(restricted_moves_b, enable_restrictions_b)
 		if enable_restrictions_b and restricted_moves_b.size() > 0:
-			print("[CPU Controller] Player B move restrictions applied: %s" % str(restricted_moves_b))
+			if startup_logs:
+				print("[CPU Controller] Player B move restrictions applied: %s" % str(restricted_moves_b))

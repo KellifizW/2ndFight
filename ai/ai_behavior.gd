@@ -19,6 +19,9 @@ var space_control: SpaceControl
 @export var ai_enabled: bool = false
 @export var ai_difficulty: int = 5  ## AI 難度 (1-10)，目前未使用，保留供未來實現反應時間/決策品質調整
 @export var debug_mode: bool = false
+@export var debug_block_trace: bool = false
+@export var startup_logs: bool = false
+@export var verbose_decision_logs: bool = false
 
 # Move restrictions now managed by CPUController
 var enable_move_restrictions: bool = false
@@ -102,6 +105,8 @@ var opponent_search_timer: float = 0.0
 
 # Internal delta tracking for commitment system
 var _last_delta: float = 1.0/60.0
+var _last_block_trace_attack_frame: int = -1
+var _last_block_trace_action: String = ""
 
 func _adjust_decision_interval(threat_level: int, distance: float) -> void:
 	"""根據威脅等級和距離動態調整決策速度"""
@@ -133,7 +138,7 @@ func _ready() -> void:
 	_init_subsystems()
 	opponent_search_timer = 0.1
 	
-	if debug_mode:
+	if debug_mode and startup_logs:
 		print("[AI] AIBehavior initialized for %s" % parent.name)
 
 func _init_subsystems() -> void:
@@ -158,6 +163,7 @@ func _init_subsystems() -> void:
 	decision_layers.frame_data = frame_data
 	decision_layers.combo_system = combo_system
 	decision_layers.space_control = space_control
+	decision_layers.debug_block_trace = debug_block_trace
 	
 	# Move restrictions initialized by CPUController
 
@@ -189,7 +195,7 @@ func set_move_restrictions(restricted: Array[String], enable: bool) -> void:
 	if decision_layers:
 		decision_layers.restricted_moves = restricted
 	
-	if debug_mode or enable:
+	if debug_mode and startup_logs:
 		var restriction_str = "None" if restricted.is_empty() else str(restricted)
 		var parent_name = parent.name if parent else "unknown"
 		print("[AI.set_move_restrictions] %s - Restricted moves: %s (enabled: %s)" % [
@@ -204,7 +210,7 @@ func find_opponent() -> void:
 	for player in players:
 		if player != parent:
 			opponent = player
-			if debug_mode:
+			if debug_mode and startup_logs:
 				print("[AI] Found opponent: %s" % opponent.name)
 			return
 	if debug_mode:
@@ -218,15 +224,68 @@ func get_ai_input() -> Dictionary:
 	var delta = _last_delta  # Use tracked delta from _process
 	
 	# ============================================================
+	# LAYER 0: EMERGENCY BLOCK OVERRIDE (Highest Priority)
+	# ============================================================
+	# If opponent is attacking and in range, ALWAYS block immediately
+	# This bypasses all decision layers and commitments
+	if opponent and opponent.is_attacking:
+		var distance = abs(parent.global_position.x - opponent.global_position.x)
+		var attack_type = opponent.attack_type if "attack_type" in opponent else "st_mp"
+		var attack_range = 150.0  # Conservative estimate
+		if threat_system and threat_system.has_method("get_attack_range_for"):
+			attack_range = threat_system.get_attack_range_for(opponent, attack_type)
+		
+		if distance <= attack_range + 20.0:
+			# Cancel any dash state
+			_cancel_dash_state()
+			
+			# Force block immediately
+			var relative_dir = sign(opponent.global_position.x - parent.global_position.x)
+			var input_dir = -int(relative_dir) if relative_dir != 0 else -int(parent.facing_direction)
+			var block_input = _neutral_input()
+			block_input.input_dir = input_dir
+			block_input.block_pressed = true
+			
+			# Check if should crouch block
+			if attack_type.begins_with("cr_"):
+				block_input.crouch_pressed = true
+			
+			if debug_mode or debug_block_trace:
+				print("[AI EMERGENCY BLOCK] attack=%s dist=%.1f range=%.1f input_dir=%d facing=%.1f" % [
+					attack_type, distance, attack_range, input_dir, parent.facing_direction
+				])
+			
+			return block_input
+	
+	# ============================================================
 	# LAYER 1: ACTION COMMITMENT (Highest Priority)
 	# ============================================================
 	# If currently committed to an action, continue executing it
 	# This prevents jittery behavior and ensures smooth action completion
 	if commitment_timer > 0:
-		commitment_timer -= delta
-		if debug_mode and Engine.get_physics_frames() % 60 == 0:
-			print("[AI] Committed: %s (%.2fs remaining)" % [current_committed_action, commitment_timer])
-		return committed_input
+		# Allow defensive override on high/critical threats or imminent contact
+		var threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
+		var imminent_contact = _is_attack_in_block_range(opponent)
+		if (threat and threat.level >= ThreatAssessment.ThreatLevel.MEDIUM) or imminent_contact:
+			if current_committed_action in ["dash_forward", "backdash"]:
+				_cancel_dash_state()
+			if current_committed_action not in ["stand_block", "crouch_block"]:
+				commitment_timer = 0.0
+				committed_input = {}
+		else:
+			# Release block commitment once blockstun ends to allow punish
+			if current_committed_action in ["stand_block", "crouch_block"] and parent and not parent.is_blocking:
+				commitment_timer = 0.0
+				committed_input = {}
+				current_committed_action = ""
+			else:
+				if current_committed_action in ["stand_block", "crouch_block"] and parent and "blockstun_frames" in parent:
+					var remaining = float(parent.blockstun_frames) / max(1.0, float(Engine.physics_ticks_per_second))
+					commitment_timer = min(commitment_timer, remaining)
+				commitment_timer -= delta
+				if debug_mode and Engine.get_physics_frames() % 60 == 0:
+					print("[AI] Committed: %s (%.2fs remaining)" % [current_committed_action, commitment_timer])
+				return committed_input
 	
 	# ============================================================
 	# LAYER 2: COMBO PROTECTION (Special State)
@@ -254,6 +313,20 @@ func get_ai_input() -> Dictionary:
 	# ============================================================
 	# Only reached every DECISION_INTERVAL seconds
 	var decision = decision_layers.get_best_decision(parent, opponent)
+	if debug_block_trace and opponent and opponent.is_attacking:
+		var attack_frame = opponent.attack_start_frame if "attack_start_frame" in opponent else Engine.get_physics_frames()
+		var attack_type = opponent.attack_type if "attack_type" in opponent else "st_mp"
+		if decision.action in ["stand_block", "crouch_block"] and (attack_frame != _last_block_trace_attack_frame or decision.action != _last_block_trace_action):
+			var dist = abs(parent.global_position.x - opponent.global_position.x)
+			var relative_dir = sign(opponent.global_position.x - parent.global_position.x)
+			var input_dir = -int(relative_dir) if relative_dir != 0 else -int(parent.facing_direction)
+			var holding_back = input_dir * parent.facing_direction < 0
+			print("[AI BLOCK TRACE] action=%s attack=%s dist=%.1f input_dir=%d facing=%.1f holding_back=%s dashing=%s backdash=%s attacking=%s" % [
+				decision.action, attack_type, dist, input_dir, parent.facing_direction, holding_back,
+				parent.is_dashing, parent.is_backdashing, parent.is_attacking
+			])
+			_last_block_trace_attack_frame = attack_frame
+			_last_block_trace_action = decision.action
 	
 	# 檢查招式是否被限制，如果是則獲取替代決策
 	if enable_move_restrictions and decision.action in restricted_moves:
@@ -284,12 +357,14 @@ func get_ai_input() -> Dictionary:
 			active_interval = DECISION_INTERVAL
 	else:  # < 0, immediate updates
 		active_interval = 0.0
+	if frame_data and frame_data.get_punish_window_logic(parent, opponent) > 0:
+		active_interval = min(active_interval, INTERVAL_CRITICAL)
 	decision_cooldown = active_interval
 	
 	# ============================================================
 	# 增強的調試輸出
 	# ============================================================
-	if debug_mode:
+	if debug_mode and verbose_decision_logs and not debug_block_trace:
 		# 獲取威脅信息
 		var threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
 		
@@ -308,7 +383,7 @@ func get_ai_input() -> Dictionary:
 					print("  威脅來源: %s" % threat.source)
 				if threat.frames_until_hit < 999:
 					print("  撞擊幀數: %d" % threat.frames_until_hit)
-	elif Engine.get_physics_frames() % 20 == 0 or decision.action in SPECIAL_MOVE_ACTIONS:
+	elif debug_mode and verbose_decision_logs and not debug_block_trace and (Engine.get_physics_frames() % 20 == 0 or decision.action in SPECIAL_MOVE_ACTIONS):
 		# 簡化日誌（保持原有行為）
 		print("[AI] %s decision: %s (priority: %.1f) - %s" % [parent.name, decision.action, decision.priority, decision.reason])
 	
@@ -337,6 +412,9 @@ func _commit_action(action: String, duration: float) -> Dictionary:
 	Commit to executing an action for a minimum duration
 	This is the core of preventing jittery behavior
 	"""
+	if action in ["stand_block", "crouch_block"]:
+		_cancel_dash_state()
+
 	current_committed_action = action
 	commitment_timer = duration
 	committed_input = _action_to_input(action)
@@ -369,6 +447,8 @@ func _action_to_input(action: String) -> Dictionary:
 		return input
 	
 	var relative_dir = sign(opponent.global_position.x - parent.global_position.x)
+	if relative_dir == 0:
+		relative_dir = int(parent.facing_direction)
 	
 	match action:
 		"stand_block":
@@ -485,3 +565,29 @@ func _neutral_input() -> Dictionary:
 		"dash_pressed": false,
 		"backdash_pressed": false
 	}
+
+func _cancel_dash_state() -> void:
+	if not parent:
+		return
+	if "is_dashing" in parent:
+		parent.is_dashing = false
+	if "is_backdashing" in parent:
+		parent.is_backdashing = false
+	if "dash_timer" in parent:
+		parent.dash_timer = 0
+	if "fixed_velocity" in parent:
+		parent.fixed_velocity.x = 0
+	if "landing_facing_lock" in parent:
+		parent.landing_facing_lock = false
+	if "dash_initial_speed" in parent:
+		parent.dash_initial_speed = 0.0
+	if "dash_total_time" in parent:
+		parent.dash_total_time = 0.0
+
+func _is_attack_in_block_range(target: Player) -> bool:
+	if not target or not target.is_attacking or not parent:
+		return false
+	var attack_type = target.attack_type if "attack_type" in target else "st_mp"
+	var attack_range = threat_system.get_attack_range_for(target, attack_type) if threat_system else 100.0
+	var distance = abs(parent.global_position.x - target.global_position.x)
+	return distance <= attack_range + 10.0

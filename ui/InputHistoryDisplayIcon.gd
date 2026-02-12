@@ -4,6 +4,8 @@
 
 extends VBoxContainer
 
+@export var startup_logs: bool = false
+
 @export var max_history_elements: int = 15
 @export var show_frame_count: bool = true
 @export_enum("Player A", "Player B") var track_player: String = "Player A"
@@ -202,7 +204,8 @@ func _find_player():
 	if player_to_track:
 		input_manager = player_to_track.get_node_or_null("InputManager")
 		if input_manager:
-			print("[InputHistoryDisplayIcon] 成功連接到 %s 的 InputManager" % player_to_track.name)
+			if startup_logs:
+				print("[InputHistoryDisplayIcon] 成功連接到 %s 的 InputManager" % player_to_track.name)
 		else:
 			print("[InputHistoryDisplayIcon] 警告：玩家 %s 沒有 InputManager" % player_to_track.name)
 	else:

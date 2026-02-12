@@ -42,7 +42,7 @@ var hurtbox_cache: Dictionary = {} # Key: "character_id" → HurtboxData
 var is_initialized: bool = false
 
 # 調試模式
-@export var debug_mode: bool = true
+@export var debug_mode: bool = false
 
 # ============================================================
 # LAZY LOADING SYSTEM (Phase 2 Optimization)

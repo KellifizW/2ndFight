@@ -1,5 +1,7 @@
 class_name FrameDataManager extends Node
 
+const LOGIC_FPS: int = 60
+
 var frame_database: Dictionary = {
 	"st_lp": {"startup": 4, "active": 2, "recovery": 6, "total": 12},
 	"st_mp": {"startup": 5, "active": 3, "recovery": 8, "total": 16},
@@ -71,10 +73,12 @@ func get_recovery_frames(move_name: String) -> int:
 	return frame_database.get(move_name, {}).get("recovery", 10)
 
 func get_recovery_frames_remaining(player: Player) -> int:
-	if not player.animation_player or not player.is_attacking:
+	if not player or not player.animation_player:
 		return 0
 	
 	var current_anim = player.animation_player.current_animation
+	if not frame_database.has(current_anim):
+		return 0
 	var anim_length = player.animation_player.current_animation_length
 	if anim_length <= 0:
 		return 0
@@ -88,6 +92,35 @@ func get_recovery_frames_remaining(player: Player) -> int:
 	var recovery_start = startup + active
 	
 	return total - current_frame if current_frame >= recovery_start else 0
+
+func get_blockstun_frames_remaining_logic(player: Player) -> int:
+	if not player:
+		return 0
+	if not ("blockstun_frames" in player):
+		return 0
+	return _physics_to_logic_frames(player.blockstun_frames)
+
+func get_hitstun_frames_remaining_logic(player: Player) -> int:
+	if not player:
+		return 0
+	if not ("hitstun_frames" in player):
+		return 0
+	return _physics_to_logic_frames(player.hitstun_frames)
+
+func get_punish_window_logic(ai_player: Player, opponent: Player) -> int:
+	var opponent_recovery = get_recovery_frames_remaining(opponent)
+	if opponent_recovery <= 0:
+		return 0
+	var ai_blockstun = get_blockstun_frames_remaining_logic(ai_player)
+	return max(0, opponent_recovery - ai_blockstun)
+
+func _physics_to_logic_frames(physics_frames: int) -> int:
+	if physics_frames <= 0:
+		return 0
+	var physics_fps = Engine.physics_ticks_per_second
+	if physics_fps <= 0:
+		return 0
+	return int(round(physics_frames * float(LOGIC_FPS) / float(physics_fps)))
 
 func is_in_recovery(player: Player) -> bool:
 	return get_recovery_frames_remaining(player) > 0

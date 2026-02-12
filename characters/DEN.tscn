@@ -6133,7 +6133,7 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 120
+frame = 2
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
@@ -6204,6 +6204,8 @@ special_moves_data = Array[ExtResource("8_4lg2u")]([SubResource("Resource_a1vnf"
 
 [node name="AIBehavior" type="Node" parent="." unique_id=1013836967]
 script = ExtResource("7_wv6ou")
+debug_mode = true
+debug_block_trace = true
 
 [node name="PlayerController" type="Node" parent="." unique_id=1358927480]
 script = ExtResource("8_808jx")
