@@ -8,6 +8,7 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @export var cancel_window_duration: float = 0.3
 @export var skip_pushbox: bool = false
 @export var attack_data: AttackData
+@export var throw_data: ThrowData
 
 @onready var ATTACK_TABLE: Dictionary = {
 	"st_lp": attack_data.st_lp,
@@ -41,6 +42,7 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @onready var cancel_window_handler: CancelWindowHandler = null
 @onready var attack_executor: AttackExecutor = null
 @onready var hit_response_handler: HitResponseHandler = null
+@onready var throw_handler: ThrowHandler = null
 
 # 新增：由 world.gd 動態生成時設定，決定這個角色是左邊還是右邊玩家
 var seat: String = "player_a"  # "player_a" 或 "player_b"
@@ -195,6 +197,11 @@ func _ready() -> void:
 func set_input_data(data: Dictionary) -> void:
 	special_input_data = data
 
+func get_throw_data() -> Dictionary:
+	if throw_data:
+		return throw_data.get_throw_data()
+	return {}
+
 var default_input: Dictionary = {
 	"input_dir": 0,
 	"crouch_pressed": false,
@@ -274,6 +281,9 @@ func _physics_process(delta: float) -> void:
 	var input_data = get_input()
 	input_data.merge(special_input_data, true)
 
+	if throw_handler:
+		throw_handler.handle_throw(delta, input_data)
+
 	# 移除：這段邏輯會在取消判定前清空按鈕，導致 attack_type 無法正確檢測
 	# if input_data.spm2_pressed or input_data.dp_pressed or input_data.spm1_pressed or input_data.super_pressed:
 	#     input_data.st_mp_pressed = false
@@ -327,7 +337,12 @@ func _physics_process(delta: float) -> void:
 		input_data.st_hk_pressed = false
 
 	# ── 地面攻擊執行（使用 AttackExecutor Handler）──
-	if (input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed or input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed) and is_valid_ground_state:
+	var has_ground_attack_input = (
+		input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed or
+		input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed or
+		input_data.get("throw_pressed", false)
+	)
+	if has_ground_attack_input and is_valid_ground_state:
 		force_update_facing_direction()
 		if attack_executor and attack_executor.try_execute_ground_attack(input_data, is_crouching):
 			# 攻擊已執行，只有在沒有攻擊移動激活時才清零速度
@@ -619,6 +634,8 @@ func _execute_attack(attack_name: String) -> void:
 		current_damage = 0.0
 	is_attacking = true
 	attack_type = attack_name
+	if is_throw_attack and throw_handler:
+		throw_handler.try_initiate_throw({})
 	
 	# 🟢 【新增】記錄攻擊開始幀（用於精確計算優勢）
 	var frame_counter = get_tree().root.get_node_or_null("World/FrameCounter")
@@ -686,5 +703,12 @@ func _initialize_handlers() -> void:
 	hit_handler.name = "HitResponseHandler"
 	add_child(hit_handler)
 	hit_response_handler = hit_handler
+
+	# Phase 5: ThrowHandler
+	var handler_throw = ThrowHandler.new()
+	handler_throw.name = "ThrowHandler"
+	add_child(handler_throw)
+	throw_handler = handler_throw
+	throw_handler.set_player(self)
 	
-	print("[Player] Handlers 初始化完成 (Phase 1-4) | Seat: ", seat)
+	print("[Player] Handlers 初始化完成 (Phase 1-5) | Seat: ", seat)

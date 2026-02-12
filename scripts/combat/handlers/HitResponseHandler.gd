@@ -96,6 +96,8 @@ func _is_valid_hit(area: Area2D) -> bool:
 	"""檢查碰撞是否有效"""
 	if area.name != "Hurtbox":
 		return false
+	if parent_player and parent_player.attack_type in ["throw_enter", "throw_seq"]:
+		return false
 	if not area.get_parent().is_in_group("players"):
 		return false
 	if area.get_parent() == parent_player:

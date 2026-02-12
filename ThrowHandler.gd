@@ -49,6 +49,7 @@ var escape_window_active: bool = false             # 逃脫窗口是否開啟
 var escape_input_count: int = 0                    # 當前幀內的按鍵計數
 var escape_check_frame_start: int = 0              # 逃脫檢測開始的幀數
 var escape_mash_threshold: int = 8                 # 逃脫所需按鍵次數（預設）
+var hold_start_frame: int = -1                     # 進入 HOLD 的起始物理幀
 
 # ── 引用節點 ──
 var player_node: Node = null                       # 主玩家節點（攻擊者）
@@ -211,18 +212,16 @@ func lock_opponent(opponent: Node) -> void:
 	
 	# 計算位置偏移（從 ThrowData 獲取）
 	var throw_data = _get_throw_data()
-	if throw_data:
-		var pivot_x = throw_data.get("pivot_offset_x", 50.0)  # 預設 50 像素
-		var pivot_y = throw_data.get("pivot_offset_y", -30.0)  # 預設 -30 像素（向上）
-		
-		if world_node:
-			throw_pivot_offset = Vector2i(
-				int(pivot_x * world_node.SIMULATION_SCALE),
-				int(pivot_y * world_node.SIMULATION_SCALE)
-			)
-		else:
-			# 無 world 引用時使用預設 SIMULATION_SCALE = 1000
-			throw_pivot_offset = Vector2i(int(pivot_x * 1000), int(pivot_y * 1000))
+	var pivot_x = throw_data.get("pivot_offset_x", 50.0)  # 預設 50 像素
+	var pivot_y = throw_data.get("pivot_offset_y", -30.0)  # 預設 -30 像素（向上）
+	if world_node:
+		throw_pivot_offset = Vector2i(
+			int(pivot_x * world_node.SIMULATION_SCALE),
+			int(pivot_y * world_node.SIMULATION_SCALE)
+		)
+	else:
+		# 無 world 引用時使用預設 SIMULATION_SCALE = 1000
+		throw_pivot_offset = Vector2i(int(pivot_x * 1000), int(pivot_y * 1000))
 	
 	if debug_enabled:
 		print("[ThrowHandler] Opponent locked: %s | pivot_offset: %s" % [opponent.name, throw_pivot_offset])
@@ -245,6 +244,24 @@ func lock_opponent(opponent: Node) -> void:
 	
 	# 立即進入 HOLD 階段
 	current_phase = ThrowPhase.HOLD
+	hold_start_frame = Engine.get_physics_frames()
+
+	# 進入 throw_seq 動畫（抓到後正式執行摔投）
+	if player_node:
+		player_node.is_attacking = true
+		player_node.attack_type = "throw_seq"
+		if "attack_duration_timer" in player_node:
+			if player_node.animation_player and player_node.animation_player.has_animation("throw_seq"):
+				var anim_length = player_node.animation_player.get_animation("throw_seq").length
+				player_node.attack_duration_timer = int(round(anim_length * 60 * 2))
+				if debug_enabled:
+					print("[ThrowHandler] Switched to throw_seq | timer=%d frames" % player_node.attack_duration_timer)
+				else:
+					player_node.attack_duration_timer = 60
+			else:
+				player_node.attack_duration_timer = 60
+		if player_node.animation_state:
+			player_node.animation_state.travel("throw_seq")
 	
 	# 啟動逃脫窗口
 	_start_escape_window()
@@ -471,6 +488,15 @@ func _handle_startup_phase() -> void:
 
 func _handle_hold_phase(delta: float) -> void:
 	"""處理 HOLD 階段（throw_seq 期間）"""
+	# 按 ThrowData 設定的持有幀數釋放（避免長時間綁定）
+	if hold_start_frame >= 0:
+		var throw_data = _get_throw_data()
+		var hold_frames = throw_data.get("hold_duration_frames", 30)
+		var hold_physics = _logic_frames_to_physics_frames(hold_frames)
+		if Engine.get_physics_frames() - hold_start_frame >= hold_physics:
+			release_opponent()
+			return
+
 	# 【新增】自動釋放機制：如果 throw_seq 動畫結束但沒有觸發事件，自動釋放
 	if player_node and "attack_duration_timer" in player_node:
 		# 當攻擊計時器歸零且還在 HOLD 階段，說明動畫已結束但沒有釋放
@@ -582,6 +608,7 @@ func reset_throw_state() -> void:
 	lock_opponent_position = false
 	escape_window_active = false
 	escape_input_count = 0
+	hold_start_frame = -1
 	
 	_cleanup_opponent_state()
 	
