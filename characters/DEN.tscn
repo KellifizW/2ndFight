@@ -907,7 +907,7 @@ size = Vector2(40, 20)
 size = Vector2(40, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_7gy1f"]
-size = Vector2(150, 50)
+size = Vector2(40, 20)
 
 [sub_resource type="Animation" id="Animation_jo7nc"]
 resource_name = "cr_hk"
@@ -2107,7 +2107,7 @@ tracks/11/keys = {
 "times": PackedFloat32Array(0.11666667),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(150, 50)]
+"values": [Vector2(175, 50)]
 }
 tracks/12/type = "value"
 tracks/12/imported = false
@@ -2119,7 +2119,7 @@ tracks/12/keys = {
 "times": PackedFloat32Array(0.11666667),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(75, 110)]
+"values": [Vector2(85, 120)]
 }
 tracks/13/type = "value"
 tracks/13/imported = false
@@ -2200,7 +2200,7 @@ tracks/19/path = NodePath(".")
 tracks/19/interp = 1
 tracks/19/loop_wrap = true
 tracks/19/keys = {
-"times": PackedFloat32Array(0.13333334, 0.16666667),
+"times": PackedFloat32Array(0.11666667, 0.21666667),
 "transitions": PackedFloat32Array(1, 1),
 "values": [{
 "args": [["fireball", "spnk"]],
@@ -2232,7 +2232,7 @@ tracks/21/keys = {
 "times": PackedFloat32Array(0, 0.05, 0.11666667, 0.21666667, 0.28333333),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1),
 "update": 1,
-"values": [Vector2(0, 80), Vector2(60, 80), Vector2(120, 80), Vector2(150, 80), Vector2(100, 80)]
+"values": [Vector2(0, 80), Vector2(60, 100), Vector2(120, 80), Vector2(150, 80), Vector2(100, 80)]
 }
 
 [sub_resource type="Animation" id="Animation_7gy1f"]
@@ -6158,7 +6158,7 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 125
+frame = 127
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
