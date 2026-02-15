@@ -468,12 +468,24 @@ tracks/35/keys = {
 "update": 0,
 "values": [Vector2(100, 300)]
 }
+tracks/36/type = "value"
+tracks/36/imported = false
+tracks/36/enabled = true
+tracks/36/path = NodePath("AnimatedSprite2D:rotation")
+tracks/36/interp = 1
+tracks/36/loop_wrap = true
+tracks/36/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [0.0]
+}
 
 [sub_resource type="Animation" id="Animation_meopb"]
 resource_name = "davis_backdash"
 length = 0.4
 loop_mode = 1
-step = 0.05
+step = 0.016666668
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
@@ -505,10 +517,10 @@ tracks/2/path = NodePath("AnimatedSprite2D:frame")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0, 0.05, 0.1, 0.2, 0.25, 0.3, 0.35),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.06666667, 0.13333334, 0.25, 0.31666666),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
 "update": 1,
-"values": [0, 1, 2, 3, 4, 5, 6]
+"values": [0, 2, 3, 4, 5]
 }
 
 [sub_resource type="Animation" id="Animation_3h1ys"]
@@ -952,7 +964,7 @@ tracks/10/keys = {
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_6flp4"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ak627"]
-size = Vector2(172, 52)
+size = Vector2(80, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_s33xd"]
 size = Vector2(172, 52)
@@ -2542,7 +2554,7 @@ tracks/18/keys = {
 [sub_resource type="Animation" id="Animation_idi7q"]
 resource_name = "davis_dash"
 length = 0.35
-step = 0.0333
+step = 0.016666668
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
@@ -2586,10 +2598,10 @@ tracks/3/path = NodePath("AnimatedSprite2D:frame")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.1, 0.2, 0.26666668, 0.3),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.1, 0.18333334, 0.23333333, 0.28333333, 0.31666666),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [0, 1, 2, 3, 4, 5, 6]
+"values": [0, 1, 2, 3, 4, 5, 6, 7]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -3003,10 +3015,10 @@ tracks/0/path = NodePath("Sprite2D:frame_coords")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.13333334, 0.3),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.13333334, 0.3),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": [Vector2i(3, 2), Vector2i(4, 2), Vector2i(4, 6), Vector2i(5, 6), Vector2i(4, 6)]
+"values": [Vector2i(3, 2), Vector2i(4, 6), Vector2i(5, 6), Vector2i(4, 6)]
 }
 tracks/1/type = "value"
 tracks/1/imported = false
@@ -3039,10 +3051,10 @@ tracks/3/path = NodePath("AnimatedSprite2D:frame")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.03333333, 0.06666666, 0.1, 0.16666667, 0.26666668, 0.36666667),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.06666667, 0.16666667, 0.26666668, 0.46666667, 0.53333336),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [0, 1, 2, 3, 4, 5, 6]
+"values": [0, 1, 2, 3, 4, 5]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -3053,8 +3065,20 @@ tracks/4/loop_wrap = true
 tracks/4/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
+"update": 1,
 "values": [&"jumpB"]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("AnimatedSprite2D:rotation")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0, 0.16666669, 0.26666668, 0.36666667, 0.43333334),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
+"update": 1,
+"values": [0.0, 4.71238898038469, 3.141592653589793, 1.5707963267948966, 0.0]
 }
 
 [sub_resource type="Animation" id="Animation_md12c"]
@@ -3194,7 +3218,7 @@ tracks/10/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3odsw"]
-size = Vector2(80, 160)
+size = Vector2(180, 110)
 
 [sub_resource type="Animation" id="Animation_xvg5s"]
 resource_name = "jump_hk"
@@ -3255,10 +3279,10 @@ tracks/4/path = NodePath("AnimatedSprite2D:frame")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
-"times": PackedFloat32Array(0, 0.01666667, 0.05, 0.083333336, 0.11666667, 0.16666667, 0.21666667, 0.31666666),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.1, 0.2, 0.35, 0.43333334),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [0, 1, 2, 3, 4, 5, 6, 3]
+"values": [0, 1, 2, 3, 2, 1, 4]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
@@ -3346,7 +3370,7 @@ tracks/11/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_md12c"]
-size = Vector2(80, 20)
+size = Vector2(230, 110)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_c5mkm"]
 size = Vector2(120, 120)
@@ -3458,10 +3482,10 @@ tracks/8/path = NodePath("AnimatedSprite2D:animation")
 tracks/8/interp = 1
 tracks/8/loop_wrap = true
 tracks/8/keys = {
-"times": PackedFloat32Array(0, 0.25),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [&"jump_hp", &"jump_lp"]
+"values": [&"jump_hp"]
 }
 tracks/9/type = "value"
 tracks/9/imported = false
@@ -3470,10 +3494,10 @@ tracks/9/path = NodePath("AnimatedSprite2D:frame")
 tracks/9/interp = 1
 tracks/9/loop_wrap = true
 tracks/9/keys = {
-"times": PackedFloat32Array(0, 0.016666668, 0.033333335, 0.06666667, 0.083333336, 0.1, 0.13333334, 0.16666667, 0.2, 0.25),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.016666668, 0.033333335, 0.06666667, 0.1, 0.13333334, 0.15, 0.16666667, 0.2),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 4]
+"values": [0, 1, 2, 3, 4, 5, 6, 7, 8]
 }
 tracks/10/type = "value"
 tracks/10/imported = false
