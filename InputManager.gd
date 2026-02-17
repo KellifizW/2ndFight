@@ -31,7 +31,8 @@ const SPECIAL_INPUT_RESOURCES: Array[String] = [
 	"res://data/specials/inputs/powerkk_input.tres",
 	"res://data/specials/inputs/spnk_input.tres",
 	"res://data/specials/inputs/dp_input.tres",
-	"res://data/specials/inputs/hdk_input.tres"
+	"res://data/specials/inputs/hdk_input.tres",
+	"res://data/specials/inputs/100p_input.tres"
 ]
 
 var special_input_registry: Dictionary = {}
@@ -285,6 +286,9 @@ func check_hdk_input() -> bool:
 
 func check_dp_input() -> bool:
 	return check_motion(_get_motion_for("dp"))
+
+func check_100p_input() -> bool:
+	return check_motion(_get_motion_for("100p"))
 
 func check_motion(motion: Dictionary) -> bool:
 	if motion.is_empty():

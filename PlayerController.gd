@@ -229,6 +229,10 @@ func get_input_data() -> Dictionary:
 		if character_id == "DAV" and input_manager.check_dp_input():
 			dp_pressed = true
 			st_mp_pressed = false
+		if character_id == "DAV" and input_manager.check_100p_input():
+			# 100p 是 236+MK 的多段連打招式
+			spm1_pressed = true
+			st_mk_pressed = false
 		
 		# DEN（原本 p2）的招式
 		if character_id == "DEN" and input_manager.check_hdk_input():

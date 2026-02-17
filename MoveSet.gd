@@ -19,6 +19,7 @@ const LEGACY_SPECIAL_MOVE_RESOURCES: Array[String] = [
 	"res://data/specials/dav_powerkk.tres",
 	"res://data/specials/dav_super.tres",
 	"res://data/specials/dav_dp.tres",
+	"res://data/specials/dav_100p.tres",
 	"res://data/specials/den_spnk.tres",
 	"res://data/specials/den_hdk.tres",
 	"res://data/specials/dav_fireball.tres",

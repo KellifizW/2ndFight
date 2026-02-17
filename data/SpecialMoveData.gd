@@ -79,6 +79,13 @@ enum AccelerationCurve {
 @export var projectile_speed: float = 0.0  ## 飛行道具速度（像素/秒）
 
 # ============================================================
+# MULTI-HIT SUPPORT (NEW!)
+# ============================================================
+@export_group("多段連打支援", "multi_")
+@export var is_multi_hit: bool = false  ## 是否為多段連打招式
+@export var hit_phases: Array[Dictionary] = []  ## 多段信息列表：[{frame: int, damage: float, hitstun: int, blockstun: int, knockback: float}]
+
+# ============================================================
 # DEPRECATED (Kept for backward compatibility)
 # ============================================================
 # @deprecated Use caster_jump_vertical_speed instead

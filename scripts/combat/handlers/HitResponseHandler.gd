@@ -9,6 +9,7 @@ class_name HitResponseHandler extends Node
 ## - VFX/SFX 效果觸發
 ## - Pushback 處理
 ## - Hit-confirm cancel 信號
+## - 多段招式 hit 追蹤
 ##
 ## 基於業界格鬥遊戲模式：
 ## - Street Fighter V: HitDetector with damage calculator
@@ -18,6 +19,9 @@ class_name HitResponseHandler extends Node
 # ── 引用 ──
 var parent_player: Node = null
 var world: Node = null
+
+# ── 多段招式追蹤 ──
+var multi_hit_targets: Dictionary = {}  # {target_id: {hit_index: int, last_hit_frame: int}}
 
 # ── VFX 系統 ──
 const VFXImpact = preload("res://vfx_impact.gd")
