@@ -32,6 +32,26 @@ func _init(player: Node) -> void:
 func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
 
+func process_multi_hit_overlaps() -> void:
+	"""多段連打專用：每幀輪詢重疊的 Hurtbox，避免只靠 area_entered 漏段"""
+	if not parent_player:
+		return
+	var move_set = parent_player.move_set if "move_set" in parent_player else null
+	if not move_set or not move_set.is_spmove or not move_set.current_move_state.active_move:
+		return
+	var active_move = move_set.current_move_state.active_move
+	if not active_move.is_multi_hit:
+		return
+	
+	var hitbox = parent_player.get_node_or_null("Hitbox")
+	if not hitbox:
+		return
+	
+	var overlapping = hitbox.get_overlapping_areas()
+	for area in overlapping:
+		if area is Area2D:
+			handle_hitbox_collision(area)
+
 # ═══════════════════════════════════════════════════════════════════════════
 # 主要碰撞處理
 # ═══════════════════════════════════════════════════════════════════════════

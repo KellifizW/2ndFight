@@ -253,6 +253,8 @@ func take_hit(
 func _physics_process(delta: float) -> void:
 	if has_node("InputManager"):
 		$InputManager.update_input()
+	if hit_response_handler:
+		hit_response_handler.process_multi_hit_overlaps()
 	
 	# ── 攻擊移動處理（必須在 super._physics_process 之前，確保速度在應用前被設置） ──
 	if attack_movement_handler:

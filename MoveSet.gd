@@ -35,6 +35,7 @@ class MoveState:
 	var timer: int = 0  # Frame-based timer
 	var total_duration_frames: int = 0  # Full move duration (physics frames)
 	var movement_duration_frames: int = 0  # Movement duration (physics frames)
+	var start_frame: int = -1  # Global frame when move started (hitstop-aware)
 	# ✅ 【新增】出招者跳躍系統
 	var caster_jump_timer: int = 0  # 出招者跳躍延遲計時器（Frame-based）
 	var caster_has_jumped: bool = false  # 出招者是否已跳躍
@@ -61,6 +62,7 @@ class MoveState:
 		timer = 0
 		total_duration_frames = 0
 		movement_duration_frames = 0
+		start_frame = -1
 		caster_jump_timer = 0
 		caster_has_jumped = false
 		trajectory_timer = 0
@@ -202,6 +204,8 @@ func _start_special(move_name: String) -> void:
 	# move_data.duration 是邏輯幀數（60 FPS），需轉為物理幀數 (120 FPS)
 	current_move_state.timer = duration_physics_frames
 	current_move_state.total_duration_frames = duration_physics_frames
+	var frame_counter = get_tree().root.get_node_or_null("World/FrameCounter")
+	current_move_state.start_frame = frame_counter.get_current_frame() if frame_counter else -1
 	
 	# ✅ 【新增】出招者跳躍系統初始化
 	if move_data.caster_jump_enabled:
@@ -455,6 +459,10 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if not world:
 		push_warning("World node missing")
 		return false
+
+	# Hit stop 期間：凍結特殊招式內部計時與位移，確保 frame 對齊
+	if _is_hitstop_active():
+		return is_spmove
 	
 	# ✅ 【新增】出招者跳躍保護：即使被擊中也要執行跳躍邏輯
 	if is_spmove and current_move_state.active_move and current_move_state.active_move.caster_jump_enabled:
@@ -740,7 +748,19 @@ func get_active_move_name() -> String:
 func get_active_move_elapsed_frames() -> int:
 	if not is_spmove or current_move_state.active_move == null:
 		return 0
+	var frame_counter = get_tree().root.get_node_or_null("World/FrameCounter")
+	if frame_counter and current_move_state.start_frame >= 0:
+		return max(0, frame_counter.get_current_frame() - current_move_state.start_frame)
 	return current_move_state.total_duration_frames - current_move_state.timer
+
+func _is_hitstop_active() -> bool:
+	var frame_counter = get_tree().root.get_node_or_null("World/FrameCounter")
+	if frame_counter and "is_paused" in frame_counter:
+		return frame_counter.is_paused
+	var slowmo = get_tree().root.get_node_or_null("World/SlowMoController")
+	if slowmo and "is_hit_slowmo" in slowmo:
+		return slowmo.is_hit_slowmo
+	return false
 
 # ============================================================
 # HELPER: Check if specific move is active

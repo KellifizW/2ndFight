@@ -553,12 +553,12 @@ func _get_throw_data() -> Dictionary:
 
 func _apply_throw_damage(opponent: Node, damage: float) -> void:
 	"""應用摔投傷害"""
-	if opponent.has_node("Healthbar"):
-		var healthbar = opponent.get_node("Healthbar")
-		if "current_health" in healthbar:
-			healthbar.current_health -= damage
-			if debug_enabled:
-				print("[ThrowHandler] Applied %.1f damage | remaining health: %.1f" % [damage, healthbar.current_health])
+	if "healthbar" in opponent and opponent.healthbar != null:
+		opponent.healthbar.current_health -= damage
+		if debug_enabled:
+			print("[ThrowHandler] Applied %.1f damage | remaining health: %.1f" % [damage, opponent.healthbar.current_health])
+	else:
+		push_warning("[ThrowHandler] Cannot apply damage: healthbar not found on %s" % opponent.name)
 
 
 func _apply_launch_velocity(opponent: Node, throw_data: Dictionary) -> void:
