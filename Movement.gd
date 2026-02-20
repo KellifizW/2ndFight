@@ -168,7 +168,7 @@ var animation_conditions: Array = [
 	"cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk",
 	"Jump_F", "Jump_B", "Jump_V",
 	"hit", "knockfly", "block", "cr_block",
-	"powerkk", "spnk", "fireball",
+	"powerkk", "spnk", "fireball", "100p",
 	"jump_mp", "jump_mk", "landing", "wakeup", "super", "dp", "hdk", "layground"
 ]
 

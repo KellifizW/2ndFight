@@ -1,6 +1,43 @@
 [gd_resource type="Resource" script_class="SpecialMoveData" format=3]
 
 [ext_resource type="Script" path="res://data/SpecialMoveData.gd" id="1"]
+[ext_resource type="Script" path="res://data/HitPhaseData.gd" id="2"]
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("2")
+frame = 8
+damage = 5.0
+hitstun = 18
+blockstun = 12
+knockback = 50.0
+force_knockfly = false
+knockfly_gravity = 0.0
+knockfly_vertical_speed = 0.0
+knockfly_horizontal_speed = 0.0
+
+[sub_resource type="Resource" id="2"]
+script = ExtResource("2")
+frame = 16
+damage = 5.0
+hitstun = 18
+blockstun = 12
+knockback = 50.0
+force_knockfly = false
+knockfly_gravity = 0.0
+knockfly_vertical_speed = 0.0
+knockfly_horizontal_speed = 0.0
+
+[sub_resource type="Resource" id="3"]
+script = ExtResource("2")
+frame = 24
+damage = 6.0
+hitstun = 30
+blockstun = 20
+knockback = 120.0
+force_knockfly = true
+knockfly_gravity = 1900000.0
+knockfly_vertical_speed = -400.0
+knockfly_horizontal_speed = 6000.0
 
 [resource]
 script = ExtResource("1")
@@ -32,22 +69,4 @@ knockfly_horizontal_speed = 0.0
 projectile_speed = 0.0
 trajectory_delay_frames = 0
 is_multi_hit = true
-hit_phases = [{
-"frame": 8,
-"damage": 5.0,
-"hitstun": 18,
-"blockstun": 12,
-"knockback": 50.0
-}, {
-"frame": 16,
-"damage": 5.0,
-"hitstun": 18,
-"blockstun": 12,
-"knockback": 50.0
-}, {
-"frame": 24,
-"damage": 6.0,
-"hitstun": 30,
-"blockstun": 20,
-"knockback": 120.0
-}]
+hit_phases = [SubResource("1"), SubResource("2"), SubResource("3")]

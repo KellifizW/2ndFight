@@ -87,19 +87,17 @@ func update_input():
 	if InputMap.has_action(super_action) and Input.is_action_just_pressed(super_action):
 		input_data["super_pressed"] = true
 	
-	# 普通按鈕輸入
+	# 普通按鈕輸入 - MP (Power Punch)
 	if Input.is_action_just_pressed("st_mp" + suffix):
 		# 檢查特殊招式（只檢查該角色擁有的招式）
-		if is_dav:
-			if check_powerkk_input():
-				input_data["spm1_pressed"] = true
-			if check_dp_input():
-				input_data["dp_pressed"] = true
-			if check_fireball_input():
-				input_data["spm2_pressed"] = true
-		elif is_den:
-			if check_fireball_input():
-				input_data["spm2_pressed"] = true
+		# 【重要】不在這裡設置 input_data，由 PlayerController 從 buffer 處理
+		pass
+	
+	# 普通按鈕輸入 - MK (Power Kick) 【新增】
+	if Input.is_action_just_pressed("st_mk" + suffix):
+		# 檢查特殊招式（只檢查該角色擁有的招式）
+		# 【重要】不在這裡設置 input_data，由 PlayerController 從 buffer 處理
+		pass
 	
 	# 傳給 Player
 	parent.set_input_data(input_data)
@@ -247,6 +245,7 @@ func _update_charge_buffers() -> void:
 
 func _load_special_input_sequences() -> void:
 	special_input_registry.clear()
+	print("[InputManager] Loading special input sequences...")
 	for path in SPECIAL_INPUT_RESOURCES:
 		var resource = load(path)
 		if resource == null:
@@ -260,6 +259,8 @@ func _load_special_input_sequences() -> void:
 			push_warning("InputManager: Input sequence missing sequence_id: %s" % path)
 			continue
 		special_input_registry[sequence_id] = _build_motion_from_sequence(resource)
+		print("[InputManager] ✓ Loaded: %s (from %s)" % [sequence_id, path.get_file()])
+	print("[InputManager] Registry:", special_input_registry.keys())
 
 func _build_motion_from_sequence(sequence: SpecialInputSequence) -> Dictionary:
 	return {
@@ -288,7 +289,10 @@ func check_dp_input() -> bool:
 	return check_motion(_get_motion_for("dp"))
 
 func check_100p_input() -> bool:
-	return check_motion(_get_motion_for("100p"))
+	var motion = _get_motion_for("100p")
+	if motion.is_empty():
+		return false
+	return check_motion(motion)
 
 func check_motion(motion: Dictionary) -> bool:
 	if motion.is_empty():
@@ -347,7 +351,7 @@ func check_motion(motion: Dictionary) -> bool:
 func detect_special_move() -> String:
 	"""
 	檢測所有可能的特殊招式，返回檢測到的招式名稱
-	優先級：super > DP > powerkk/spnk > fireball/hdk
+	優先級：super > DP > powerkk/100p > spnk > fireball/hdk
 	"""
 	# Prevent double-detection in same frame
 	if last_detection_frame == Engine.get_physics_frames():
@@ -362,6 +366,11 @@ func detect_special_move() -> String:
 		if move_set and move_set.has_method("has_move_for_character"):
 			return move_set.has_move_for_character(move_id, character_id)
 		return false
+
+	# Avoid re-buffering while a special move is active
+	if move_set and "is_spmove" in move_set and move_set.is_spmove:
+		detected_special_this_frame = ""
+		return ""
 	
 	# Check in priority order
 	# Note: Only check moves available to this character
@@ -371,26 +380,37 @@ func detect_special_move() -> String:
 	
 	# DP
 	if can_use_special.call("dp") and check_dp_input():
+		print("[DETECT_SPECIAL] DP detected")
 		detected_special_this_frame = "dp"
 		return "dp"
 	
+	# 【新增】100p 多段連打（236+MK）- DAV only
+	if character_id == "DAV" and can_use_special.call("100p") and check_100p_input():
+		print("[DETECT_SPECIAL] 100p detected!")
+		detected_special_this_frame = "100p"
+		return "100p"
+	
 	# PowerKK
 	if can_use_special.call("powerkk") and check_powerkk_input():
+		print("[DETECT_SPECIAL] PowerKK detected")
 		detected_special_this_frame = "powerkk"
 		return "powerkk"
 	
 	# SPNK
 	if can_use_special.call("spnk") and check_spnk_input():
+		print("[DETECT_SPECIAL] SPNK detected")
 		detected_special_this_frame = "spnk"
 		return "spnk"
 	
 	# HDK
 	if can_use_special.call("hdk") and check_hdk_input():
+		print("[DETECT_SPECIAL] HDK detected")
 		detected_special_this_frame = "hdk"
 		return "hdk"
 	
 	# Fireball
 	if can_use_special.call("fireball") and check_fireball_input():
+		print("[DETECT_SPECIAL] Fireball detected")
 		detected_special_this_frame = "fireball"
 		return "fireball"
 	

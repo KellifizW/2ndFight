@@ -73,7 +73,7 @@ func compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, ani
 	
 	if move_set and move_set.is_spmove:
 		var active_move_name = move_set.get_active_move_name()
-		if active_move_name in ["super", "hdk", "powerkk", "spnk", "dp", "fireball"]:
+		if active_move_name in ["super", "hdk", "powerkk", "spnk", "dp", "fireball", "100p"]:
 			return active_move_name
 	
 	if movement_node.is_proximity_blocking:
@@ -83,7 +83,7 @@ func compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, ani
 	
 	if movement_node.is_attacking:
 		var atype = movement_node.get("attack_type") if "attack_type" in movement_node else "none"
-		if atype in ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk", "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk", "throw_enter", "throw_seq", "super", "dp", "powerkk", "spnk", "fireball", "hdk"]:
+		if atype in ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk", "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk", "throw_enter", "throw_seq", "super", "dp", "powerkk", "spnk", "fireball", "hdk", "100p"]:
 			return atype
 		return "Walk"
 	

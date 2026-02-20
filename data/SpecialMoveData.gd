@@ -41,6 +41,7 @@ enum AccelerationCurve {
 # ============================================================
 @export_group("時間與移動")
 @export var duration_frames: int = 0  ## 招式持續時間（邏輯幀數）。**設為0時自動使用動畫長度**
+@export var movement_duration_frames: int = 0  ## 移動持續時間（邏輯幀數）。0=跟隨duration_frames/動畫長度
 @export var move_distance: float = 0.0  ## 角色移動距離（像素）
 @export var trajectory_delay_frames: int = 0  ## ✅ 【新增】招式軌跡開始前的延遲時間（邏輯幀數），用於"蓄力後爆發"的招式
 
@@ -83,7 +84,7 @@ enum AccelerationCurve {
 # ============================================================
 @export_group("多段連打支援", "multi_")
 @export var is_multi_hit: bool = false  ## 是否為多段連打招式
-@export var hit_phases: Array[Dictionary] = []  ## 多段信息列表：[{frame: int, damage: float, hitstun: int, blockstun: int, knockback: float}]
+@export var hit_phases: Array[HitPhaseData] = []  ## 多段信息列表（資源）：HitPhaseData
 
 # ============================================================
 # DEPRECATED (Kept for backward compatibility)

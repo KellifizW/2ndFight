@@ -33,6 +33,8 @@ const LEGACY_SPECIAL_MOVE_RESOURCES: Array[String] = [
 class MoveState:
 	var active_move
 	var timer: int = 0  # Frame-based timer
+	var total_duration_frames: int = 0  # Full move duration (physics frames)
+	var movement_duration_frames: int = 0  # Movement duration (physics frames)
 	# ✅ 【新增】出招者跳躍系統
 	var caster_jump_timer: int = 0  # 出招者跳躍延遲計時器（Frame-based）
 	var caster_has_jumped: bool = false  # 出招者是否已跳躍
@@ -57,6 +59,8 @@ class MoveState:
 	func reset() -> void:
 		active_move = null
 		timer = 0
+		total_duration_frames = 0
+		movement_duration_frames = 0
 		caster_jump_timer = 0
 		caster_has_jumped = false
 		trajectory_timer = 0
@@ -177,14 +181,16 @@ func _start_special(move_name: String) -> void:
 		print("[MoveSet] %s cannot use %s: already attacking or in special move" % [parent.name, move_name])
 		return
 	
-	# Align duration to animation length when available (per-character)
+	# Align duration to animation length only when duration_frames == 0
 	var duration_logic_frames = int(round(move_data.duration_frames))
 	var duration_physics_frames = int(round(move_data.duration_frames * 2.0))
-	if animation_player and animation_player.has_animation(move_name):
+	if duration_logic_frames <= 0 and animation_player and animation_player.has_animation(move_name):
 		var anim = animation_player.get_animation(move_name)
 		duration_logic_frames = int(round(anim.length * LOGIC_FPS))
 		duration_physics_frames = int(round(anim.length * PHYSICS_FPS))
 		move_data.duration_frames = duration_logic_frames
+	elif duration_logic_frames > 0:
+		duration_physics_frames = int(round(duration_logic_frames * 2.0))
 
 	# Set up move state
 	is_spmove = true
@@ -195,6 +201,7 @@ func _start_special(move_name: String) -> void:
 	current_move_state.projectile_spawned = false
 	# move_data.duration 是邏輯幀數（60 FPS），需轉為物理幀數 (120 FPS)
 	current_move_state.timer = duration_physics_frames
+	current_move_state.total_duration_frames = duration_physics_frames
 	
 	# ✅ 【新增】出招者跳躍系統初始化
 	if move_data.caster_jump_enabled:
@@ -229,6 +236,8 @@ func _start_special(move_name: String) -> void:
 	# Update parent
 	parent.current_damage = move_data.damage
 	parent.attack_type = move_name
+	if "hit_response_handler" in parent and parent.hit_response_handler:
+		parent.hit_response_handler.reset_multi_hit_state()
 	
 	if "is_facing_locked" in parent:
 		parent.is_facing_locked = true
@@ -236,13 +245,20 @@ func _start_special(move_name: String) -> void:
 		parent.is_special_moving = true
 	
 	# Calculate velocity
+	var movement_logic_frames = move_data.movement_duration_frames if move_data.movement_duration_frames > 0 else duration_logic_frames
+	var movement_physics_frames = int(round(movement_logic_frames * 2.0)) if movement_logic_frames > 0 else 0
+	current_move_state.movement_duration_frames = movement_physics_frames
+	current_move_state.total_duration = float(movement_physics_frames)
+
 	var world = get_tree().get_first_node_in_group("world")
 	if world and move_data.move_distance > 0:
 		# 🔴 【關鍵修復】move_data.duration 是那輯幀數，需轉換為秒數
-		var duration_seconds = move_data.duration_frames / 60.0  # 那輯幀 -> 秒数
-		var base_speed = (move_data.move_distance / duration_seconds) * world.SIMULATION_SCALE * parent.facing_direction
+		var duration_seconds = movement_logic_frames / 60.0  # 邏輯幀 -> 秒
+		var base_speed = 0.0
+		if duration_seconds > 0:
+			base_speed = (move_data.move_distance / duration_seconds) * world.SIMULATION_SCALE * parent.facing_direction
 		current_move_state.initial_speed = base_speed
-		current_move_state.total_duration = float(duration_physics_frames)  # 使用前面已計算的 duration_physics_frames
+		current_move_state.total_duration = float(movement_physics_frames)  # 移動用時
 		
 		# ✅ 【修正】使用枚舉型加速度，並處理軌跡延遲
 		if move_data.trajectory_delay_frames > 0:
@@ -427,6 +443,8 @@ func stop_special_move() -> void:
 	
 	# 重設move狀態
 	current_move_state.reset()
+	if "hit_response_handler" in parent and parent.hit_response_handler:
+		parent.hit_response_handler.reset_multi_hit_state()
 
 # ============================================================
 # UNIFIED MOVE PROCESSING
@@ -489,10 +507,13 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	# if move.gravity > 0:
 	#	_apply_gravity(delta, world, move.gravity)
 	
+	var elapsed_frames = current_move_state.total_duration_frames - current_move_state.timer
+	var movement_active = current_move_state.movement_duration_frames > 0 and elapsed_frames < current_move_state.movement_duration_frames
+	if not movement_active:
+		parent.fixed_velocity.x = 0
 	# ✅ 【修正】使用枚舉型加速度曲線，並處理軌跡延遲
-	if move.acceleration_curve != SpecialMoveData.AccelerationCurve.NONE and current_move_state.total_duration > 0 and current_move_state.trajectory_started:
+	if movement_active and move.acceleration_curve != SpecialMoveData.AccelerationCurve.NONE and current_move_state.total_duration > 0 and current_move_state.trajectory_started:
 		# 🔴 【關鍵修復】elapsed_ratio 現在正確地基於幀數計算（不混亂秒數和幀數）
-		var elapsed_frames = current_move_state.total_duration - current_move_state.timer
 		var elapsed_ratio = elapsed_frames / current_move_state.total_duration
 		
 		if move.acceleration_curve == SpecialMoveData.AccelerationCurve.ACCELERATE:
@@ -545,12 +566,21 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 
 func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 	var controller = parent.get_node_or_null("PlayerController")
+	var attack_type = input_data.get("attack_type", "none")
 	
 	if input_data.get("super_pressed", false) and not parent.is_attacking and not is_spmove:
 		# Consume the buffered input
 		if controller and controller.has_method("consume_button_input"):
 			controller.consume_button_input("super")
 		start_super()
+		return true
+	
+	# 【最高優先級】100p 多段連打 - 必須在所有其他特殊招式之前檢查
+	if attack_type == "100p" and parent.character_id == "DAV" and not parent.is_attacking and not is_spmove:
+		if controller and controller.has_method("consume_button_input"):
+			controller.consume_button_input("100p")  # Consume the special move buffer
+			controller.consume_button_input("st_mk")  # Also consume trigger button
+		_start_special("100p")  # 直接啟動100p動畫
 		return true
 	
 	if input_data.get("dp_pressed", false) and not parent.is_attacking and not is_spmove:
@@ -572,20 +602,23 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 		return true
 	
 	if input_data.get("spm1_pressed", false) and not parent.is_attacking and not is_spmove:
-		# Consume appropriate buffered special move
-		if controller and controller.has_method("consume_button_input"):
+		# 只有在 attack_type 不是 100p 時才執行 powerkk/spnk
+		# （如果是100p，會在上面已經處理過了）
+		if attack_type != "100p":
+			# Consume appropriate buffered special move
+			if controller and controller.has_method("consume_button_input"):
+				if parent.character_id == "DAV":
+					controller.consume_button_input("powerkk")  # Consume the special move buffer
+					controller.consume_button_input("st_mp")  # Also consume trigger button
+				elif parent.character_id == "DEN":
+					controller.consume_button_input("spnk")  # Consume the special move buffer
+					controller.consume_button_input("st_mk")  # Also consume trigger button
+			
 			if parent.character_id == "DAV":
-				controller.consume_button_input("powerkk")  # Consume the special move buffer
-				controller.consume_button_input("st_mp")  # Also consume trigger button
+				start_powerkk()
 			elif parent.character_id == "DEN":
-				controller.consume_button_input("spnk")  # Consume the special move buffer
-				controller.consume_button_input("st_mk")  # Also consume trigger button
-		
-		if parent.character_id == "DAV":
-			start_powerkk()
-		elif parent.character_id == "DEN":
-			start_spnk()
-		return true
+				start_spnk()
+			return true
 	
 	if input_data.get("spm3_pressed", false) and parent.character_id == "DEN" and not parent.is_attacking and not is_spmove:
 		# Consume buffered HDK
@@ -703,6 +736,11 @@ func get_active_move_name() -> String:
 	if is_spmove and current_move_state.active_move:
 		return current_move_state.active_move.move_id
 	return ""
+
+func get_active_move_elapsed_frames() -> int:
+	if not is_spmove or current_move_state.active_move == null:
+		return 0
+	return current_move_state.total_duration_frames - current_move_state.timer
 
 # ============================================================
 # HELPER: Check if specific move is active

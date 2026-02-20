@@ -107,7 +107,13 @@ func _physics_process(_delta: float) -> void:
 	
 	# Check for special move inputs via InputManager
 	var input_manager = player_node.get_node_or_null("InputManager")
-	if input_manager and input_manager.has_method("detect_special_move"):
+	var move_set = player_node.get_node_or_null("MoveSet")
+	var can_detect_special = true
+	if move_set and "is_spmove" in move_set and move_set.is_spmove:
+		can_detect_special = false
+	if "is_attacking" in player_node and player_node.is_attacking:
+		can_detect_special = false
+	if can_detect_special and input_manager and input_manager.has_method("detect_special_move"):
 		var detected_special = input_manager.detect_special_move()
 		if detected_special != "":
 			# Record the detected special move into buffer
@@ -186,6 +192,7 @@ func get_input_data() -> Dictionary:
 	var spm3_pressed  = input_buffer.is_input_buffered("spmove3")
 	var super_pressed = input_buffer.is_input_buffered("super")
 	var dp_pressed    = false
+	var is_100p       = false  # 【重要】初始化為 false，確保每幀重置
 	
 	# === 檢查 buffer 中的特殊招式（優先級最高）===
 	var fireball_buffered = input_buffer.is_input_buffered("fireball")
@@ -193,12 +200,18 @@ func get_input_data() -> Dictionary:
 	var spnk_buffered = input_buffer.is_input_buffered("spnk")
 	var hdk_buffered = input_buffer.is_input_buffered("hdk")
 	var dp_buffered = input_buffer.is_input_buffered("dp")
+	var p100_buffered = input_buffer.is_input_buffered("100p")  # 【新增】100p多段連打
 	
 	# 如果 buffer 中有特殊招式，設置對應的標誌
 	if fireball_buffered:
 		spm2_pressed = true
 		st_mp_pressed = false  # 防止同時觸發普通攻擊
-	if powerkk_buffered:
+	# 【重要】100p 優先於 powerkk
+	if p100_buffered:  # 【新增】100p的buffer檢測 - 優先級最高
+		is_100p = true  # 標記為 100p
+		st_mk_pressed = false
+		spm1_pressed = false  # 避免 powerkk 同時被設置
+	elif powerkk_buffered:  # 只有在沒有 100p 時才檢查 powerkk
 		spm1_pressed = true
 		st_mp_pressed = false
 	if spnk_buffered:
@@ -221,40 +234,47 @@ func get_input_data() -> Dictionary:
 		character_id = get_parent().character_id
 	
 	# 只有在 buffer 中沒有檢測到特殊招式時才執行舊邏輯（fallback）
-	if input_manager and not (fireball_buffered or powerkk_buffered or spnk_buffered or hdk_buffered or dp_buffered):
-		# DAV（原本 p1）的招式
-		if character_id == "DAV" and input_manager.check_powerkk_input():
-			spm1_pressed = true
-			st_mp_pressed = false
-		if character_id == "DAV" and input_manager.check_dp_input():
-			dp_pressed = true
-			st_mp_pressed = false
-		if character_id == "DAV" and input_manager.check_100p_input():
-			# 100p 是 236+MK 的多段連打招式
-			spm1_pressed = true
-			st_mk_pressed = false
+	if input_manager and not (fireball_buffered or powerkk_buffered or spnk_buffered or hdk_buffered or dp_buffered or p100_buffered):
+		# ── DAV（原本 p1）的招式 ──
+		# 【重要】根據按下的按鈕類型來分別檢測，防止st_mp和st_mk衝突
 		
-		# DEN（原本 p2）的招式
-		if character_id == "DEN" and input_manager.check_hdk_input():
-			spm3_pressed = true
-			st_mk_pressed = false
-		if character_id == "DEN" and input_manager.check_spnk_input():
-			spm1_pressed = true
-			st_mk_pressed = false
+		if character_id == "DAV" and st_mk_pressed:
+			# st_mk 相關招式：100p（新多段連打）
+			var check_100p_result = input_manager.check_100p_input()
+			if check_100p_result:
+				is_100p = true
+				st_mk_pressed = false
+		
+		if character_id == "DEN" and st_mk_pressed:
+			# st_mk 相關招式：hdk, spnk
+			if input_manager.check_hdk_input():
+				spm3_pressed = true
+				st_mk_pressed = false
+			elif input_manager.check_spnk_input():
+				spm1_pressed = true
+				st_mk_pressed = false
 		
 		# 通用招式
 		if input_manager.check_fireball_input():
 			spm2_pressed = true
 			st_mp_pressed = false
+		
+		# 【重要】100p 單獨處理，優先於 powerkk
+		if is_100p:
+			spm1_pressed = true
+	else:
+		pass
 	
 	# DAV 的 spmove3 快捷鍵觸發 DP
 	if character_id == "DAV" and spm3_pressed:
 		dp_pressed = true
 	
 	# 攻擊優先級（已移除 player_id 判斷，改用 character_id）
+	# 【重要】100p 要全局優先於 powerkk，因為 spm1_pressed 被兩者共用
 	var attack_type = (
 		"throw"    if throw_pressed else  # 【摔投優先級最高】
 		"super"    if super_pressed else
+		"100p"     if is_100p else  # 【100p優先級】- 全局覆蓋
 		"powerkk"  if spm1_pressed and character_id == "DAV" else
 		"dp"       if dp_pressed and character_id == "DAV" else
 		"spnk"     if spm1_pressed and character_id == "DEN" else
@@ -269,7 +289,8 @@ func get_input_data() -> Dictionary:
 		"none"
 	)
 	
-
+	# 【調試】輸出attack_type和is_100p資訊（只在首次選擇時打印）
+	
 	
 	return {
 		"input_dir": input_dir,

@@ -44,12 +44,22 @@ func handle_hitbox_collision(area: Area2D) -> void:
 	
 	var target = area.get_parent()
 	var was_in_stun = target.is_hit or target.is_knockfly
+	var move_set = parent_player.move_set if "move_set" in parent_player else null
+	var active_move = move_set.current_move_state.active_move if move_set and move_set.is_spmove else null
 	
 	if not world:
 		return
 	
+	# ── 多段招式：取得當前段數與參數 ──
+	var phase_data = null
+	if active_move and active_move.is_multi_hit and active_move.hit_phases.size() > 0:
+		var elapsed_frames = move_set.get_active_move_elapsed_frames() if move_set and move_set.has_method("get_active_move_elapsed_frames") else 0
+		phase_data = _get_multi_hit_phase(active_move, target, elapsed_frames)
+		if phase_data == null:
+			return
+	
 	# ── 獲取攻擊參數 ──
-	var hit_params = _get_hit_parameters()
+	var hit_params = _get_hit_parameters(phase_data)
 	
 	print("═══════════════════════════════════════════════════════════")
 	print("[HitResponseHandler] %s 擊中 %s" % [parent_player.name, target.name])
@@ -108,7 +118,7 @@ func _is_valid_hit(area: Area2D) -> bool:
 		return false
 	return true
 
-func _get_hit_parameters() -> Dictionary:
+func _get_hit_parameters(phase_data = null) -> Dictionary:
 	"""從 ATTACK_TABLE 或 MoveSet 獲取攻擊參數"""
 	var params = {
 		"hitstun": 18,      # 18 幀 = 0.30 秒
@@ -141,6 +151,11 @@ func _get_hit_parameters() -> Dictionary:
 		params.penetrable = active_move.penetrable
 		params.hitstun = active_move.hitstun_frames
 		params.blockstun = active_move.blockstun_frames
+		if phase_data != null:
+			params.damage = phase_data.damage if phase_data.damage != 0.0 else params.damage
+			params.hitstun = phase_data.hitstun if phase_data.hitstun != 0 else params.hitstun
+			params.blockstun = phase_data.blockstun if phase_data.blockstun != 0 else params.blockstun
+			params.knockback = phase_data.knockback if phase_data.knockback != 0.0 else params.knockback
 		
 		# ──  特殊招式的特殊參數 ──
 		var move_name = active_move.move_id
@@ -153,7 +168,16 @@ func _get_hit_parameters() -> Dictionary:
 					params.damage = 6.0
 		
 		# ✅ 【新增】檢查強制 Knockfly 選項
-		if active_move.knockfly_force_enable:
+		var phase_force_knockfly = phase_data.force_knockfly if phase_data != null else false
+		if phase_force_knockfly:
+			params.force_knockfly = true
+			params.knockfly_params = {
+				"gravity": phase_data.knockfly_gravity if phase_data != null else active_move.knockfly_gravity,
+				"vertical_speed": phase_data.knockfly_vertical_speed if phase_data != null else active_move.knockfly_vertical_speed,
+				"horizontal_speed": phase_data.knockfly_horizontal_speed if phase_data != null else active_move.knockfly_horizontal_speed,
+				"duration": params.hitstun / 60.0
+			}
+		elif active_move.knockfly_force_enable:
 			params.force_knockfly = true
 			params.knockfly_params = {
 				"gravity": active_move.knockfly_gravity,
@@ -172,6 +196,39 @@ func _get_hit_parameters() -> Dictionary:
 			}
 	
 	return params
+
+func reset_multi_hit_state() -> void:
+	multi_hit_targets.clear()
+
+func _get_multi_hit_phase(active_move, target: Node, elapsed_frames: int):
+	if elapsed_frames < 0:
+		return null
+	var physics_fps = parent_player.PHYSICS_FPS if "PHYSICS_FPS" in parent_player else 120
+	var hit_index = -1
+	var phase_data = null
+	for i in active_move.hit_phases.size():
+		var phase = active_move.hit_phases[i]
+		if phase == null:
+			continue
+		var phase_frame = int(phase.frame)
+		if phase_frame < 0:
+			continue
+		var phase_physics = int(round(phase_frame * float(physics_fps) / 60.0))
+		if elapsed_frames >= phase_physics:
+			hit_index = i
+			phase_data = phase
+	
+	if hit_index < 0:
+		return null
+	
+	var target_id = target.get_instance_id()
+	var record = multi_hit_targets.get(target_id, {"hit_index": -1, "last_hit_frame": -1})
+	if record["hit_index"] == hit_index:
+		return null
+	record["hit_index"] = hit_index
+	record["last_hit_frame"] = elapsed_frames
+	multi_hit_targets[target_id] = record
+	return phase_data
 
 func _play_hit_sound(is_blocked: bool) -> void:
 	"""播放擊中/格擋音效"""
