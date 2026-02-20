@@ -15,6 +15,7 @@ var double_tap_timer: float = 0.0
 const DOUBLE_TAP_TIME: float = 0.3  # 雙擊時間窗口（秒），與 Movement 原設定一致
 const THROW_LENIENCE_FRAMES: int = 6  # 6 frames at 120 FPS (~50ms) - 標準競技級容許窗口
 const DEBUG_THROW_INPUT: bool = false  # 設為 false 可關閉除錯輸出
+const DEBUG_DP_INPUT: bool = true     # 設為 false 可關閉 DP 輸入除錯
 
 var last_st_lp_frame: int = -9999
 var last_st_lk_frame: int = -9999
@@ -109,16 +110,26 @@ func _physics_process(_delta: float) -> void:
 	var input_manager = player_node.get_node_or_null("InputManager")
 	var move_set = player_node.get_node_or_null("MoveSet")
 	var can_detect_special = true
+	var block_reason := ""
 	if move_set and "is_spmove" in move_set and move_set.is_spmove:
 		can_detect_special = false
+		block_reason = "is_spmove"
 	if "is_attacking" in player_node and player_node.is_attacking:
 		can_detect_special = false
+		block_reason = "is_attacking(%s)" % player_node.get("attack_type")
+	if DEBUG_DP_INPUT and not can_detect_special:
+		var punch_just = Input.is_action_just_pressed("st_lp" + suffix) or \
+			Input.is_action_just_pressed("st_mp" + suffix) or \
+			Input.is_action_just_pressed("st_hp" + suffix)
+		if punch_just:
+			print("[DP_DEBUG] detect_special BLOCKED | reason=%s | seat=%s" % [block_reason, player_seat])
 	if can_detect_special and input_manager and input_manager.has_method("detect_special_move"):
 		var detected_special = input_manager.detect_special_move()
 		if detected_special != "":
 			# Record the detected special move into buffer
 			input_buffer.record_input(detected_special)
-			# print("[PlayerController] Detected and buffered special move: %s" % detected_special)
+			if DEBUG_DP_INPUT and detected_special == "dp":
+				print("[DP_DEBUG] DP motion detected and buffered! | seat=%s | frame=%d" % [player_seat, Engine.get_physics_frames()])
 
 # 每幀更新雙擊計時器
 func _process(delta: float) -> void:

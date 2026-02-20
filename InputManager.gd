@@ -26,6 +26,8 @@ const MAX_TOTAL_FRAMES: int = 120  # 總匹配時間限制，約 2 秒
 var detected_special_this_frame: String = ""
 var last_detection_frame: int = 0
 
+const DEBUG_DP: bool = true  # 設為 false 可關閉 DP 輸入除錯
+
 const SPECIAL_INPUT_RESOURCES: Array[String] = [
 	"res://data/specials/inputs/fireball_input.tres",
 	"res://data/specials/inputs/powerkk_input.tres",
@@ -286,7 +288,86 @@ func check_hdk_input() -> bool:
 	return check_motion(_get_motion_for("hdk"))
 
 func check_dp_input() -> bool:
-	return check_motion(_get_motion_for("dp"))
+	var motion = _get_motion_for("dp")
+	if motion.is_empty():
+		if DEBUG_DP: print("[DP_DEBUG] dp_input.tres not loaded!")
+		return false
+	if DEBUG_DP:
+		_check_motion_debug(motion, "dp")
+	return check_motion(motion)
+
+# デバッグ用：最後 N 個 history entry を相対方向で表示
+func _dump_recent_history(count: int) -> String:
+	var parts := []
+	for i in count:
+		var idx = (current_history - i + INPUT_HISTORY_SIZE) % INPUT_HISTORY_SIZE
+		var h = input_history[idx]
+		var abs_dir = h.raw_input >> 8
+		var rel_dir = get_relative_direction(abs_dir)
+		var btns = h.raw_input & 0xFF
+		parts.append("[abs=%d rel=%d btn=%d dur=%d]" % [abs_dir, rel_dir, btns, h.duration])
+	return ", ".join(parts)
+
+# DP 專用詳細 check_motion 除錯（只在 DEBUG_DP 時呼叫）
+# 只在有按住拳腳按鈕時才輸出，避免每幀狂刷
+func _check_motion_debug(motion: Dictionary, move_id: String) -> void:
+	var valid_inputs = motion.get("ValidInputs", [])
+	var input_buffer_size = motion.get("InputBuffer", INPUT_BUFFER)
+	var max_total_frames = motion.get("MaxTotalFrames", MAX_TOTAL_FRAMES)
+	var absolute_direction = motion.get("AbsoluteDirection", false)
+	var last_buttons = input_history[current_history].raw_input & 0xFF
+	# 只在有按下拳腳時才詳細輸出
+	var punch_mask = ButtonInputs.ST_LP | ButtonInputs.ST_MP | ButtonInputs.ST_HP
+	if (last_buttons & punch_mask) == 0:
+		return
+	print("[DP_DEBUG] check_motion(%s) | seat=%s | cur_history=%d | last_buttons=%d | input_side=%d | history(newest5): %s" % [
+		move_id, get_parent().seat if get_parent() and "seat" in get_parent() else "?", current_history, last_buttons, input_side, _dump_recent_history(5)])
+	for si in valid_inputs.size():
+		var seq = valid_inputs[si]
+		var target_button = seq.back().buttons
+		if last_buttons != target_button:
+			print("[DP_DEBUG]   seq[%d] SKIP early-exit: last_buttons=%d != target_button=%d" % [si, last_buttons, target_button])
+			continue
+		print("[DP_DEBUG]   seq[%d] button match OK (btn=%d), checking %d steps..." % [si, target_button, seq.size()])
+		var seq_idx = seq.size() - 1
+		var hist_pos = current_history
+		var total_frames = 0
+		var matched = true
+		while seq_idx >= 0 and matched:
+			var step = seq[seq_idx]
+			var step_matched = false
+			var step_frames = 0
+			while hist_pos >= 0 and not step_matched and step_frames < input_buffer_size:
+				var h = input_history[hist_pos]
+				step_frames += h.duration
+				total_frames += h.duration
+				if total_frames > max_total_frames:
+					print("[DP_DEBUG]     step[%d] TIMEOUT total_frames=%d > max=%d" % [seq_idx, total_frames, max_total_frames])
+					matched = false
+					break
+				var abs_dir = h.raw_input >> 8
+				var rel_dir = get_relative_direction(abs_dir)
+				var btn = h.raw_input & 0xFF
+				var dir_ok = (step.directional == abs_dir) if absolute_direction else (step.directional == rel_dir)
+				var btn_ok = (step.buttons == ButtonInputs.NONE) or ((btn & step.buttons) != 0)
+				if dir_ok and btn_ok:
+					print("[DP_DEBUG]     step[%d] MATCH: want(dir=%d,btn=%d) got(rel=%d,abs=%d,btn=%d) dur=%d" % [seq_idx, step.directional, step.buttons, rel_dir, abs_dir, btn, h.duration])
+					var is_final_step = (seq_idx == seq.size() - 1)
+					if not is_final_step or h.duration <= input_buffer_size:
+						step_matched = true
+						seq_idx -= 1
+					else:
+						print("[DP_DEBUG]     step[%d] MATCH but final-step duration %d > buffer %d" % [seq_idx, h.duration, input_buffer_size])
+				else:
+					print("[DP_DEBUG]     step[%d] no match: want(dir=%d,btn=%d) got(rel=%d,abs=%d,btn=%d) dir_ok=%s btn_ok=%s" % [seq_idx, step.directional, step.buttons, rel_dir, abs_dir, btn, dir_ok, btn_ok])
+				hist_pos = (hist_pos - 1 + INPUT_HISTORY_SIZE) % INPUT_HISTORY_SIZE
+			if not step_matched:
+				print("[DP_DEBUG]     step[%d] FAILED (no match within buffer)" % seq_idx)
+				matched = false
+		if matched:
+			print("[DP_DEBUG]   seq[%d] ✅ FULL MATCH!" % si)
+		else:
+			print("[DP_DEBUG]   seq[%d] ❌ no match" % si)
 
 func check_100p_input() -> bool:
 	var motion = _get_motion_for("100p")
@@ -328,10 +409,11 @@ func check_motion(motion: Dictionary) -> bool:
 					break
 				
 				if check_input(hist_pos, step.directional, step.buttons if "buttons" in step else 0, step.dir_mode, step.but_mode if "but_mode" in step else ButtonMode.PRESS, absolute_direction):
-					if hist.duration <= input_buffer:
+					# Allow any duration for intermediate steps; only restrict the final button step
+					var is_final_step = (seq_idx == seq.size() - 1)
+					if not is_final_step or hist.duration <= input_buffer:
 						step_matched = true
 						seq_idx -= 1
-				
 				hist_pos = (hist_pos - 1 + INPUT_HISTORY_SIZE) % INPUT_HISTORY_SIZE
 			
 			if not step_matched:
@@ -379,7 +461,11 @@ func detect_special_move() -> String:
 	# TODO: Add super detection if needed
 	
 	# DP
-	if can_use_special.call("dp") and check_dp_input():
+	var dp_can_use = can_use_special.call("dp")
+	if DEBUG_DP and not dp_can_use:
+		var seat = parent.seat if parent and "seat" in parent else "?"
+		print("[DP_DEBUG] can_use_special('dp')=false | char=%s | seat=%s" % [character_id, seat])
+	if dp_can_use and check_dp_input():
 		print("[DETECT_SPECIAL] DP detected")
 		detected_special_this_frame = "dp"
 		return "dp"
