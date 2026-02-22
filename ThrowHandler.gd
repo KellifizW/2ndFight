@@ -144,7 +144,15 @@ func check_grab_collision() -> Node:
 			print("[ThrowHandler] No ThrowBox found on player")
 		return null
 	
+	# 只有在 ThrowHit 判定框為 active 時才進行檢測
 	var throw_box = player_node.get_node("ThrowBox")
+	if throw_box.has_node("ThrowHit"):
+		var throw_hit = throw_box.get_node("ThrowHit")
+		if throw_hit.disabled:
+			if debug_enabled:
+				print("[ThrowHandler] ThrowHit is disabled - skipping grab detection")
+			return null
+	
 	var overlapping_areas = throw_box.get_overlapping_areas()
 	
 	if debug_enabled and overlapping_areas.size() > 0:
@@ -479,6 +487,18 @@ func _execute_escape() -> void:
 
 func _handle_startup_phase() -> void:
 	"""處理 STARTUP 階段（throw_enter 期間）"""
+	# 若玩家已不在 throw_enter 攻擊狀態，說明動畫結束但未抓到人，立即終止
+	if not player_node:
+		reset_throw_state()
+		return
+	
+	var still_in_throw_enter = player_node.is_attacking and player_node.attack_type == "throw_enter"
+	if not still_in_throw_enter:
+		if debug_enabled:
+			print("[ThrowHandler] throw_enter ended without grab - resetting throw state")
+		reset_throw_state()
+		return
+	
 	# 持續檢查碰撞直到抓取成功或階段結束
 	if is_grabbing:
 		var opponent = check_grab_collision()

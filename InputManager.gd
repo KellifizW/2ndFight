@@ -26,7 +26,7 @@ const MAX_TOTAL_FRAMES: int = 120  # 總匹配時間限制，約 2 秒
 var detected_special_this_frame: String = ""
 var last_detection_frame: int = 0
 
-const DEBUG_DP: bool = true  # 設為 false 可關閉 DP 輸入除錯
+const DEBUG_DP: bool = false  # 設為 true 可開啟 DP 輸入除錯
 
 const SPECIAL_INPUT_RESOURCES: Array[String] = [
 	"res://data/specials/inputs/fireball_input.tres",

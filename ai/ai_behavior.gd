@@ -81,6 +81,9 @@ const ACTION_DURATIONS = {
 	"cr_mk": {"min": 0.40, "max": 0.40},
 	"cr_hk": {"min": 0.50, "max": 0.50},
 	
+	# Throw
+	"throw": {"min": 0.7, "max": 0.7},
+	
 	# Special moves - must complete full animation
 	"fireball": {"min": 0.8, "max": 0.8},
 	"spm2": {"min": 0.8, "max": 0.8},
@@ -226,36 +229,41 @@ func get_ai_input() -> Dictionary:
 	# ============================================================
 	# LAYER 0: EMERGENCY BLOCK OVERRIDE (Highest Priority)
 	# ============================================================
-	# If opponent is attacking and in range, ALWAYS block immediately
+	# If opponent is attacking (normal OR special) and in range, ALWAYS block immediately
 	# This bypasses all decision layers and commitments
-	if opponent and opponent.is_attacking:
+	var opponent_move_set = opponent.get_node_or_null("MoveSet") if opponent else null
+	var opponent_doing_special = opponent_move_set != null and "is_spmove" in opponent_move_set and opponent_move_set.is_spmove
+	if opponent and (opponent.is_attacking or opponent_doing_special):
 		var distance = abs(parent.global_position.x - opponent.global_position.x)
 		var attack_type = opponent.attack_type if "attack_type" in opponent else "st_mp"
-		var attack_range = 150.0  # Conservative estimate
-		if threat_system and threat_system.has_method("get_attack_range_for"):
-			attack_range = threat_system.get_attack_range_for(opponent, attack_type)
-		
-		if distance <= attack_range + 20.0:
-			# Cancel any dash state
-			_cancel_dash_state()
+		# 火球必殺技的威脅由 projectile 系統處理，不在近身範圍觸發 emergency block
+		var is_projectile_special = attack_type in ["fireball", "spm2"]
+		if not is_projectile_special:
+			var attack_range = 150.0  # Conservative estimate
+			if threat_system and threat_system.has_method("get_attack_range_for"):
+				attack_range = threat_system.get_attack_range_for(opponent, attack_type)
 			
-			# Force block immediately
-			var relative_dir = sign(opponent.global_position.x - parent.global_position.x)
-			var input_dir = -int(relative_dir) if relative_dir != 0 else -int(parent.facing_direction)
-			var block_input = _neutral_input()
-			block_input.input_dir = input_dir
-			block_input.block_pressed = true
-			
-			# Check if should crouch block
-			if attack_type.begins_with("cr_"):
-				block_input.crouch_pressed = true
-			
-			if debug_mode or debug_block_trace:
-				print("[AI EMERGENCY BLOCK] attack=%s dist=%.1f range=%.1f input_dir=%d facing=%.1f" % [
-					attack_type, distance, attack_range, input_dir, parent.facing_direction
-				])
-			
-			return block_input
+			if distance <= attack_range + 20.0:
+				# Cancel any dash state
+				_cancel_dash_state()
+				
+				# Force block immediately
+				var relative_dir = sign(opponent.global_position.x - parent.global_position.x)
+				var input_dir = -int(relative_dir) if relative_dir != 0 else -int(parent.facing_direction)
+				var block_input = _neutral_input()
+				block_input.input_dir = input_dir
+				block_input.block_pressed = true
+				
+				# Check if should crouch block
+				if attack_type.begins_with("cr_"):
+					block_input.crouch_pressed = true
+				
+				if debug_mode or debug_block_trace:
+					print("[AI EMERGENCY BLOCK] attack=%s dist=%.1f range=%.1f input_dir=%d facing=%.1f" % [
+						attack_type, distance, attack_range, input_dir, parent.facing_direction
+					])
+				
+				return block_input
 	
 	# ============================================================
 	# LAYER 1: ACTION COMMITMENT (Highest Priority)
@@ -266,7 +274,9 @@ func get_ai_input() -> Dictionary:
 		# Allow defensive override on high/critical threats or imminent contact
 		var threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
 		var imminent_contact = _is_attack_in_block_range(opponent)
-		if (threat and threat.level >= ThreatAssessment.ThreatLevel.MEDIUM) or imminent_contact:
+		# 火球威脅（LOW 及以上）也應中斷承諾動作，讓 AI 評估格擋
+		var has_fireball_threat = threat != null and threat.source == "fireball" and threat.level >= ThreatAssessment.ThreatLevel.LOW
+		if (threat and threat.level >= ThreatAssessment.ThreatLevel.MEDIUM) or imminent_contact or has_fireball_threat:
 			if current_committed_action in ["dash_forward", "backdash"]:
 				_cancel_dash_state()
 			if current_committed_action not in ["stand_block", "crouch_block"]:
@@ -287,6 +297,12 @@ func get_ai_input() -> Dictionary:
 					print("[AI] Committed: %s (%.2fs remaining)" % [current_committed_action, commitment_timer])
 				return committed_input
 	
+	# 承諾動作剛剛自然結束：清除舊輸入，避免持續走路/重複按鍵
+	if current_committed_action != "" and commitment_timer <= 0.0:
+		committed_input = _neutral_input()
+		current_committed_action = ""
+		decision_cooldown = 0.0  # 立即重新評估下一個動作
+
 	# ============================================================
 	# LAYER 2: COMBO PROTECTION (Special State)
 	# ============================================================
@@ -488,6 +504,8 @@ func _action_to_input(action: String) -> Dictionary:
 		"cr_hk":
 			input.crouch_pressed = true
 			input.st_hk_pressed = true
+		"throw":
+			input.throw_pressed = true
 		"fireball", "spm2":
 			# ⚠️ 檢查：不應該到達這裡（應該被決策層過濾）
 			if enable_move_restrictions and "fireball" in restricted_moves:
@@ -563,7 +581,8 @@ func _neutral_input() -> Dictionary:
 		"super_pressed": false,
 		"block_pressed": false,
 		"dash_pressed": false,
-		"backdash_pressed": false
+		"backdash_pressed": false,
+		"throw_pressed": false
 	}
 
 func _cancel_dash_state() -> void:
@@ -575,7 +594,11 @@ func _cancel_dash_state() -> void:
 		parent.is_backdashing = false
 	if "dash_timer" in parent:
 		parent.dash_timer = 0
-	if "fixed_velocity" in parent:
+	# 🟢 【修復】不在 knockback / block_knockback 期間清零速度，
+	# 否則每幀都會抹掉 PushManager 設置的格擋退後速度，導致 AI 格擋時沒有後退位移。
+	var in_knockback = "knockback_frames" in parent and parent.knockback_frames > 0
+	var in_block_knockback = "block_knockback_frames" in parent and parent.block_knockback_frames > 0
+	if "fixed_velocity" in parent and not in_knockback and not in_block_knockback:
 		parent.fixed_velocity.x = 0
 	if "landing_facing_lock" in parent:
 		parent.landing_facing_lock = false

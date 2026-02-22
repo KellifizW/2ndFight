@@ -69,6 +69,13 @@ var space_control: SpaceControl
 var restricted_moves: Array[String] = []
 
 # ============================================================
+# SPECIAL MOVE COOLDOWN SYSTEM
+# ============================================================
+# 防止必殺技刷屏：每次使用必殺技後必須等待一段時間
+var special_cooldown_timer: float = 0.0
+const SPECIAL_COOLDOWN: float = 2.2  # 必殺技使用後 2.2 秒內不可再次使用
+
+# ============================================================
 # HELPER METHODS FOR MOVE RESTRICTION CHECKING
 # ============================================================
 func _is_move_restricted(move_name: String) -> bool:
@@ -88,9 +95,11 @@ func _get_unrestricted_alternative(primary_move: String, alternatives: Array[Str
 	return alternatives[-1] if alternatives.size() > 0 else "stand_block"
 
 func _process(delta: float) -> void:
-	"""Update cache timer"""
+	"""Update cache and cooldown timers"""
 	if cache_timer > 0:
 		cache_timer -= delta
+	if special_cooldown_timer > 0:
+		special_cooldown_timer -= delta
 
 func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
 	# Use cached decision if valid
@@ -174,6 +183,9 @@ func _cache_decision(decision: Decision) -> void:
 			cache_timer = CACHE_DURATION
 		else:  # < 0, disable caching
 			cache_timer = 0.0
+	# 必殺技已選擇：啟動冷卻，避免刷屏
+	if decision.action in SPECIAL_MOVE_ACTIONS:
+		special_cooldown_timer = SPECIAL_COOLDOWN
 
 func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 	var threat = threat_system.evaluate_threats(ai_player, opponent)
@@ -288,11 +300,29 @@ func _select_punish_attack(ai_player: Player, distance: float, punish_window: in
 func _can_use_special(ai_player: Player, opponent: Player) -> bool:
 	if not ai_player or not opponent:
 		return false
+	# 必殺技冷卻中，不允許再次使用
+	if special_cooldown_timer > 0:
+		return false
+	# 懲罰窗口：永遠允許
 	if opponent.is_hit or opponent.is_knockfly:
 		return true
 	if frame_data.is_in_recovery(opponent):
 		return true
+	# 中立狀態下允許：只要 AI 玩家自己不在攻擊/受傷/被擊飛/空中的狀態
+	if not ai_player.is_attacking and not ai_player.is_hit and not ai_player.is_knockfly and ai_player.is_on_floor():
+		return true
 	return false
+
+func _is_punish_opportunity(opponent: Player) -> bool:
+	"""對手是否處於可懲罰狀態（被擊中、被擊飛、或在恢復動作）"""
+	return opponent.is_hit or opponent.is_knockfly or frame_data.is_in_recovery(opponent)
+
+func _get_special_priority(opponent: Player) -> float:
+	"""取得必殺技優先級：懲罰時高於普通攻擊，中立時低於普通攻擊"""
+	if _is_punish_opportunity(opponent):
+		return PRIORITY_PUNISH + randf_range(0.0, 5.0)  # 90-95，確保懲罰時使用
+	else:
+		return PRIORITY_SPECIAL_CLOSE - 9.0 + randf_range(-1.0, 5.0)  # 61-66，與普通攻擊競爭但通常落敗
 
 func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Decision]:
 	"""
@@ -361,14 +391,14 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			var dp = Decision.new()
 			dp.layer = DecisionLayer.TACTICAL
 			dp.action = "dp"
-			dp.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-1.0, 4.0)  # 70 + (-1 to 4) = 69-74
+			dp.priority = _get_special_priority(opponent)
 			dp.reason = "Mid range: DP"
 			decisions.append(dp)
 			# Power kick
 			var powerkk = Decision.new()
 			powerkk.layer = DecisionLayer.TACTICAL
 			powerkk.action = "powerkk"
-			powerkk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-2.0, 3.0)  # 70 + (-2 to 3) = 68-73
+			powerkk.priority = _get_special_priority(opponent)
 			powerkk.reason = "Mid range: power kick"
 			decisions.append(powerkk)
 		elif char_id == "DEN" and _can_use_special(ai_player, opponent):
@@ -376,14 +406,14 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			var spnk = Decision.new()
 			spnk.layer = DecisionLayer.TACTICAL
 			spnk.action = "spnk"
-			spnk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-1.0, 4.0)  # 70 + (-1 to 4) = 69-74
+			spnk.priority = _get_special_priority(opponent)
 			spnk.reason = "Mid range: special"
 			decisions.append(spnk)
 			# HDK move
 			var hdk = Decision.new()
 			hdk.layer = DecisionLayer.TACTICAL
 			hdk.action = "hdk"
-			hdk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-2.0, 3.0)  # 70 + (-2 to 3) = 68-73
+			hdk.priority = _get_special_priority(opponent)
 			hdk.reason = "Mid range: hdk"
 			decisions.append(hdk)
 		
@@ -533,14 +563,14 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			var dp = Decision.new()
 			dp.layer = DecisionLayer.TACTICAL
 			dp.action = "dp"
-			dp.priority = PRIORITY_SPECIAL_CLOSE + randf_range(0.0, 5.0)  # 70 + (0 to 5) = 70-75
+			dp.priority = _get_special_priority(opponent)
 			dp.reason = "Close range: DP"
 			decisions.append(dp)
 			# Power kick
 			var powerkk = Decision.new()
 			powerkk.layer = DecisionLayer.TACTICAL
 			powerkk.action = "powerkk"
-			powerkk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-1.0, 4.0)  # 70 + (-1 to 4) = 69-74
+			powerkk.priority = _get_special_priority(opponent)
 			powerkk.reason = "Close range: power kick"
 			decisions.append(powerkk)
 		elif char_id == "DEN" and _can_use_special(ai_player, opponent):
@@ -548,16 +578,31 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			var spnk = Decision.new()
 			spnk.layer = DecisionLayer.TACTICAL
 			spnk.action = "spnk"
-			spnk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(0.0, 5.0)  # 70 + (0 to 5) = 70-75
+			spnk.priority = _get_special_priority(opponent)
 			spnk.reason = "Close range: special"
 			decisions.append(spnk)
 			# HDK move
 			var hdk = Decision.new()
 			hdk.layer = DecisionLayer.TACTICAL
 			hdk.action = "hdk"
-			hdk.priority = PRIORITY_SPECIAL_CLOSE + randf_range(-1.0, 4.0)  # 70 + (-1 to 4) = 69-74
+			hdk.priority = _get_special_priority(opponent)
 			hdk.reason = "Close range: hdk"
 			decisions.append(hdk)
+		
+		# Priority 2b: Throw - 破格擋的利器，近身必學
+		if distance < 90 and not ai_player.is_attacking and not ai_player.is_hit and not ai_player.is_knockfly:
+			var throw_dec = Decision.new()
+			throw_dec.layer = DecisionLayer.TACTICAL
+			throw_dec.action = "throw"
+			if opponent.is_blocking:
+				# 對手正在格擋時摔投優先級大幅提升（摔投無視格擋）
+				throw_dec.priority = 76.0 + randf_range(-2.0, 3.0)
+				throw_dec.reason = "Close range: throw beats block"
+			else:
+				# 中立時摔投優先級較低，讓普通攻擊和必殺技優先
+				throw_dec.priority = 62.0 + randf_range(-2.0, 2.0)
+				throw_dec.reason = "Close range: throw"
+			decisions.append(throw_dec)
 		
 		# Priority 3: Medium-range normals (st_mp, st_mk, cr_mp) - 平衡優先級
 		var close_rand = randf_range(-2.0, 3.0)  # 中攻击范围

@@ -49,7 +49,10 @@ func _ready() -> void:
 			animation_player.animation_finished.connect(_on_animation_finished)
 	
 	if hitbox:
+		hitbox.monitoring = true  # 明確確保 monitoring 已啟用（防禦性設置）
 		hitbox.area_entered.connect(_on_hitbox_area_entered)
+	else:
+		push_error("[Fireball] CRITICAL: Hitbox node not found for %s!" % owner_character_id)
 	if hurtbox:
 		hurtbox.area_entered.connect(_on_hurtbox_area_entered)
 	if prox_shape:
@@ -75,9 +78,6 @@ func _ready() -> void:
 		spawn_sound_player.play()
 	else:
 		push_warning("Warning: SpawnSoundPlayer not found in Fireball!")
-	
-	print("Debug: Fireball initialized, owner_character_id: %s, speed: %.1f, direction: %d" %
-		[owner_character_id, speed, direction])
 
 func _physics_process(delta: float) -> void:
 	if is_active:
@@ -105,8 +105,6 @@ func _physics_process(delta: float) -> void:
 		var right_bound = camera_x + visible_half_width + 100
 		
 		if global_position.x < left_bound or global_position.x > right_bound:
-			print("Fireball out of camera bounds, destroying at position: %s (camera: %s, bounds: %s to %s)" % 
-				[global_position.x, camera_x, left_bound, right_bound])
 			_clear_owner_reference()
 			queue_free()
 
@@ -120,8 +118,6 @@ func _load_knockback_from_moveset() -> void:
 		return
 	
 	var fireball_move = move_set.get_move_data_for_character(special_move_id, owner_character_id) if move_set.has_method("get_move_data_for_character") else null
-	if fireball_move:
-		print("[Fireball] 初始化完成，owner: %s, MoveSet 已準備" % owner_character_id)
 
 func _apply_data_from_moveset() -> void:
 	if not fireball_owner:
@@ -148,16 +144,13 @@ func _get_fireball_params_from_moveset() -> Dictionary:
 	}
 	
 	if not fireball_owner:
-		print("[Fireball] WARNING: fireball_owner is null, using default params")
 		return params
 	
 	var move_set = fireball_owner.move_set if "move_set" in fireball_owner else null
 	if not move_set:
-		print("[Fireball] WARNING: move_set is null, using default params")
 		return params
 	
 	if not move_set.has_method("get_move_data_for_character"):
-		print("[Fireball] WARNING: move_set missing getter, using default params")
 		return params
 	
 	var fireball_move = move_set.get_move_data_for_character(special_move_id, owner_character_id)
@@ -166,7 +159,6 @@ func _get_fireball_params_from_moveset() -> Dictionary:
 		params["knockback"] = fireball_move.knockback
 		params["hitstun"] = fireball_move.hitstun_frames
 		params["blockstun"] = fireball_move.blockstun_frames
-		print("[Fireball] 從 MoveSet 讀取參數: damage=%.1f, hitstun=%d, blockstun=%d, knockback=%.1f" % [params["damage"], params["hitstun"], params["blockstun"], params["knockback"]])
 	
 	return params
 
@@ -234,8 +226,6 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		var final_knockback = fb_params["knockback"]
 		var world = get_tree().get_first_node_in_group("world")
 		
-		print("[Fireball Hit] 使用 MoveSet 參數: hitstun=%d, blockstun=%d, damage=%.1f, knockback=%.1f" % [final_hitstun, final_blockstun, final_damage, final_knockback])
-		
 		# 🟢 【關鍵】禁用 target 的 hitbox 碰撞，避免 HitResponseHandler 重複調用 take_hit()
 		if target.has_node("Hitbox/HitShape"):
 			var target_hitbox = target.get_node("Hitbox/HitShape")
@@ -253,9 +243,6 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		if target.has_signal("hit_detected"):
 			target.hit_detected.emit(name, final_blockstun, is_blocked)
-		
-		print("Fireball hit %s, is_blocked: %s, damage: %.1f, owner: %s" %
-			[target.name, is_blocked, final_damage, owner_character_id])
 		
 		# VFX
 		var vfx_position = (global_position + area.global_position) / 2.0
@@ -310,11 +297,6 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 				get_tree().current_scene.add_child(vfx)
 		
 		animation_player.play("fireball/ball_impact")
-		
-		if area.get_parent().is_in_group("fireball"):
-			print("Fireball collided with another fireball, owner: %s" % owner_character_id)
-		else:
-			print("Fireball hit by %s's Hitbox, owner: %s" % [area.get_parent().name, owner_character_id])
 
 func _on_proximitybox_area_entered(area: Area2D) -> void:
 	if not is_active: return
@@ -349,8 +331,6 @@ func _on_proximitybox_area_entered(area: Area2D) -> void:
 				sound.play()
 				sound.finished.connect(func(): sound.queue_free())
 			
-			print("Fireball proximity blocked by %s, owner: %s" % [target.name, owner_character_id])
-			
 			# 格擋 VFX
 			var vfx_position = (global_position + area.global_position) / 2.0
 			
@@ -365,7 +345,6 @@ func _on_proximitybox_area_entered(area: Area2D) -> void:
 
 func _on_animation_finished(anim_name: String) -> void:
 	if anim_name == "fireball/ball_impact":
-		print("Fireball impact animation finished, destroying, owner: %s" % owner_character_id)
 		queue_free()
 
 # 清除發射者的 active_fireball 引用
@@ -373,4 +352,3 @@ func _clear_owner_reference() -> void:
 	if fireball_owner and is_instance_valid(fireball_owner) and "active_fireball" in fireball_owner:
 		if fireball_owner.active_fireball == self:
 			fireball_owner.active_fireball = null
-			print("[Fireball] Cleared active_fireball reference for %s" % fireball_owner.name)

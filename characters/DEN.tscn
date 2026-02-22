@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_wv6ou"]
 [ext_resource type="Script" uid="uid://tld6w015ripa" path="res://data/SpecialMoveData.gd" id="8_4lg2u"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://PlayerController.gd" id="8_808jx"]
+[ext_resource type="Script" uid="uid://um826wha4t60" path="res://data/HitPhaseData.gd" id="9_a1vnf"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://InputManager.gd" id="9_mhb1e"]
 [ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://audio/heavy_hit_sound.wav" id="10_bi6lw"]
 [ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://audio/block_sound.wav" id="11_ysvx1"]
@@ -6135,6 +6136,7 @@ metadata/_custom_type_script = "uid://tld6w015ripa"
 [sub_resource type="Resource" id="Resource_x0tr5"]
 script = ExtResource("8_4lg2u")
 move_id = "fireball"
+damage = 8.0
 knockback = 50.0
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
@@ -6158,7 +6160,7 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 146
+frame = 2
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)

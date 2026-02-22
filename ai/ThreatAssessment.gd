@@ -62,8 +62,10 @@ func _init_hitbox_cache() -> void:
 func evaluate_threats(ai_player: Player, opponent: Player) -> ThreatInfo:
 	var threat = ThreatInfo.new()
 	
-	# 檢查地面攻擊
-	if opponent.is_attacking:
+	# 檢查地面攻擊（包含必殺技：is_attacking 是普通攻擊旗標，is_spmove 是必殺技旗標）
+	var opponent_move_set = opponent.get_node_or_null("MoveSet")
+	var opponent_doing_special = opponent_move_set != null and "is_spmove" in opponent_move_set and opponent_move_set.is_spmove
+	if opponent.is_attacking or opponent_doing_special:
 		var attack_threat = _evaluate_attack_threat(ai_player, opponent)
 		if attack_threat.level > threat.level:
 			threat = attack_threat
@@ -97,6 +99,9 @@ func _evaluate_attack_threat(ai_player: Player, opponent: Player) -> ThreatInfo:
 	if hitbox_cache and hitbox_cache.is_initialized:
 		# 使用 HitboxCache 獲取真實攻擊範圍
 		attack_range = hitbox_cache.get_attack_range(opponent.character_id, attack_type)
+		# HitboxCache 沒有必殺技資料時會回傳預設 25px，改用 fallback 表
+		if attack_range < 30.0 and attack_ranges_fallback.has(attack_type):
+			attack_range = attack_ranges_fallback[attack_type]
 		
 		# 進行真實的 AABB 碰撞檢測
 		var opponent_facing = opponent.get("facing_direction") if "facing_direction" in opponent else 1.0

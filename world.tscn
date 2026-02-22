@@ -270,9 +270,6 @@ track_player = "Player B"
 
 [node name="CPUController" type="Node" parent="." unique_id=172666553]
 script = ExtResource("6_dwbse")
-enable_restrictions_a = true
-enable_restrictions_b = true
-restricted_moves_b = Array[String](["hdk"])
 
 [node name="SlowMoController" type="Node" parent="." unique_id=1834090566]
 script = ExtResource("7_pkg7o")
