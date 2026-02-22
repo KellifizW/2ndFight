@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="SpecialMoveData" format=3]
+
+[ext_resource type="Script" path="res://data/SpecialMoveData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+move_id = "dpL"
+character_requirement = "DAV"
+damage = 4.0
+knockback = 80.0
+hitstun_frames = 33
+blockstun_frames = 19
+duration_frames = 47
+move_distance = 30.0
+jump_delay_frames = 4
+jump_speed = -1700.0
+is_freeze = false
+is_projectile = false
+gravity = 7200000.0
+sound_type = "special"
+penetrable = true
+acceleration_curve = "none"
+stationary_ratio = 0.0
+acceleration_ratio = 0.0
+deceleration_ratio = 0.0
+knockfly_gravity = 10000000.0
+knockfly_vertical_speed = -2800.0
+knockfly_horizontal_speed = 20.0
+projectile_speed = 0.0

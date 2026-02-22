@@ -389,6 +389,11 @@ func check_motion(motion: Dictionary) -> bool:
 		if last_buttons != target_button:
 			continue
 		
+		# Lenient input: only proceed if the button was freshly pressed
+		# (current history entry duration within the buffer window)
+		if input_history[current_history].duration > input_buffer:
+			continue
+		
 		var seq_idx = seq.size() - 1
 		var hist_pos = current_history
 		var total_frames = 0
@@ -396,25 +401,49 @@ func check_motion(motion: Dictionary) -> bool:
 		
 		while seq_idx >= 0 and matched:
 			var step = seq[seq_idx]
+			var is_final_step = (seq_idx == seq.size() - 1)
 			var step_matched = false
 			var step_frames = 0
 			
-			while hist_pos >= 0 and not step_matched and step_frames < input_buffer:
-				var hist = input_history[hist_pos]
-				step_frames += hist.duration
-				total_frames += hist.duration
-				
-				if total_frames > max_total_frames:
-					matched = false
-					break
-				
-				if check_input(hist_pos, step.directional, step.buttons if "buttons" in step else 0, step.dir_mode, step.but_mode if "but_mode" in step else ButtonMode.PRESS, absolute_direction):
-					# Allow any duration for intermediate steps; only restrict the final button step
-					var is_final_step = (seq_idx == seq.size() - 1)
-					if not is_final_step or hist.duration <= input_buffer:
+			# ── Lenient final-step logic ──────────────────────────────────────────
+			# The button press is already confirmed by the last_buttons check above.
+			# For the final step we only need to find the required direction somewhere
+			# in the recent history (within input_buffer frames), so pressing the
+			# button separately after completing the motion also triggers the move.
+			if is_final_step and step.buttons != ButtonInputs.NONE:
+				if step.directional == DirectionalInputs.NEUTRAL:
+					# No direction requirement — button alone is sufficient.
+					step_matched = true
+					seq_idx -= 1
+				else:
+					# Search recent history for the required direction (ignore button).
+					while hist_pos >= 0 and not step_matched and step_frames < input_buffer:
+						var hist = input_history[hist_pos]
+						step_frames += hist.duration
+						total_frames += hist.duration
+						if total_frames > max_total_frames:
+							matched = false
+							break
+						# Direction-only check (button already confirmed above)
+						if check_input(hist_pos, step.directional, ButtonInputs.NONE, step.dir_mode, step.but_mode if "but_mode" in step else ButtonMode.PRESS, absolute_direction):
+							step_matched = true
+							seq_idx -= 1
+						hist_pos = (hist_pos - 1 + INPUT_HISTORY_SIZE) % INPUT_HISTORY_SIZE
+			else:
+				# ── Standard matching for all non-final steps ─────────────────────
+				while hist_pos >= 0 and not step_matched and step_frames < input_buffer:
+					var hist = input_history[hist_pos]
+					step_frames += hist.duration
+					total_frames += hist.duration
+					
+					if total_frames > max_total_frames:
+						matched = false
+						break
+					
+					if check_input(hist_pos, step.directional, step.buttons if "buttons" in step else 0, step.dir_mode, step.but_mode if "but_mode" in step else ButtonMode.PRESS, absolute_direction):
 						step_matched = true
 						seq_idx -= 1
-				hist_pos = (hist_pos - 1 + INPUT_HISTORY_SIZE) % INPUT_HISTORY_SIZE
+					hist_pos = (hist_pos - 1 + INPUT_HISTORY_SIZE) % INPUT_HISTORY_SIZE
 			
 			if not step_matched:
 				matched = false
@@ -461,14 +490,16 @@ func detect_special_move() -> String:
 	# TODO: Add super detection if needed
 	
 	# DP
-	var dp_can_use = can_use_special.call("dp")
+	var dp_can_use = can_use_special.call("dp") or can_use_special.call("dpL")
 	if DEBUG_DP and not dp_can_use:
 		var seat = parent.seat if parent and "seat" in parent else "?"
 		print("[DP_DEBUG] can_use_special('dp')=false | char=%s | seat=%s" % [character_id, seat])
 	if dp_can_use and check_dp_input():
-		print("[DETECT_SPECIAL] DP detected")
-		detected_special_this_frame = "dp"
-		return "dp"
+		var strength = _get_punch_strength()
+		var dp_variant = ("dp" + strength) if can_use_special.call("dp" + strength) else "dp"
+		print("[DETECT_SPECIAL] DP detected → %s" % dp_variant)
+		detected_special_this_frame = dp_variant
+		return dp_variant
 	
 	# 【新增】100p 多段連打（236+MK）- DAV only
 	if character_id == "DAV" and can_use_special.call("100p") and check_100p_input():
@@ -495,13 +526,25 @@ func detect_special_move() -> String:
 		return "hdk"
 	
 	# Fireball
-	if can_use_special.call("fireball") and check_fireball_input():
-		print("[DETECT_SPECIAL] Fireball detected")
-		detected_special_this_frame = "fireball"
-		return "fireball"
+	if (can_use_special.call("fireball") or can_use_special.call("fireballL")) and check_fireball_input():
+		var strength = _get_punch_strength()
+		var fireball_variant = ("fireball" + strength) if can_use_special.call("fireball" + strength) else "fireball"
+		print("[DETECT_SPECIAL] Fireball detected → %s" % fireball_variant)
+		detected_special_this_frame = fireball_variant
+		return fireball_variant
 	
 	detected_special_this_frame = ""
 	return ""
+
+func _get_punch_strength() -> String:
+	"""判斷輸入歷史中最新按下的拳按鈕強度（L/M/H）"""
+	var buttons = input_history[current_history].raw_input & 0xFF
+	if buttons & ButtonInputs.ST_LP:
+		return "L"
+	elif buttons & ButtonInputs.ST_HP:
+		return "H"
+	else:
+		return "M"  # ST_MP or unknown defaults to Medium
 
 # check_motion is already defined above (line 276), so we continue with check_input
 

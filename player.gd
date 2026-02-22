@@ -156,7 +156,9 @@ const GROUND_ATTACK_ANIMS = ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk
 							  "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk"]
 const AIR_ATTACK_ANIMS = ["jump_lp", "jump_mp", "jump_hp", "jump_lk", "jump_mk", "jump_hk"]
 const JUMP_ANIMS = ["jump_v", "Jump_V", "Jump_F", "Jump_B"]
-const SPECIAL_ANIMS = ["fireball", "powerkk", "spnk", "dp", "hdk"]
+const SPECIAL_ANIMS = ["fireball", "powerkk", "spnk", "dp", "hdk",
+					   "fireballL", "fireballM", "fireballH",
+					   "dpL", "dpM", "dpH"]
 
 func _ready() -> void:
 	super._ready()
@@ -269,18 +271,15 @@ func _physics_process(delta: float) -> void:
 		is_air_attacking = false
 		is_attacking = false
 		var air_input_data = get_input()
-		if not (air_input_data.input_dir != 0 or air_input_data.crouch_pressed or air_input_data.jump_pressed):
+		if not (air_input_data.input_dir != 0 or air_input_data.crouch_pressed or air_input_data.jump_pressed \
+			or air_input_data.st_lp_pressed or air_input_data.st_mp_pressed or air_input_data.st_hp_pressed \
+			or air_input_data.st_lk_pressed or air_input_data.st_mk_pressed or air_input_data.st_hk_pressed \
+			or air_input_data.spm1_pressed or air_input_data.spm2_pressed or air_input_data.dp_pressed):
 			is_landing = true
 			# 轉換 landing_duration（秒）為幀數 @120 FPS (PHYSICS_FPS)
 			landing_lock_timer = int(round(landing_duration * 120)) if "landing_duration" in self else 24
 			print("[ON FLOOR LANDING DEBUG] Landing triggered | duration: %.3fs -> timer: %d frames @120 FPS" % [landing_duration, landing_lock_timer])
 			animation_state.travel("landing")
-		else:
-			is_landing = false
-			has_air_attacked = false
-
-	# 取消窗口由動畫 call method 控制（_open_cancel_window / _close_cancel_window）
-	# 不需要 timer 倒數
 
 	var input_data = get_input()
 	input_data.merge(special_input_data, true)
@@ -293,7 +292,7 @@ func _physics_process(delta: float) -> void:
 	#     input_data.st_mp_pressed = false
 	#     input_data.st_mk_pressed = false
 
-	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup and not is_layground
+	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup and not is_layground and not (is_landing and landing_lock_timer > 0.001)
 
 	if move_set and move_set.is_spmove:
 		is_attacking = false
@@ -346,6 +345,16 @@ func _physics_process(delta: float) -> void:
 		input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed or
 		input_data.get("throw_pressed", false)
 	)
+
+	# 【著地攻擊取消】著地動畫可被攻擊指令取消（強制2幀後）
+	if has_ground_attack_input and is_landing and _landing_forced_frames >= 2:
+		is_landing = false
+		landing_lock_timer = 0
+		landing_facing_lock = false
+		has_air_attacked = false
+		# 重新計算 is_valid_ground_state（is_landing 已清除）
+		is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup and not is_layground
+
 	if has_ground_attack_input and is_valid_ground_state:
 		force_update_facing_direction()
 		if attack_executor and attack_executor.try_execute_ground_attack(input_data, is_crouching):
@@ -436,6 +445,11 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 
 	if move_set and move_set.is_spmove:
 		var active_move_name = move_set.get_active_move_name()
+		# For L/M/H variants, return the base animation name (shared animation)
+		if active_move_name in ["fireballL", "fireballM", "fireballH"]:
+			return "fireball"
+		if active_move_name in ["dpL", "dpM", "dpH"]:
+			return "dp"
 		if active_move_name in ["super", "powerkk", "dp", "spnk", "fireball"]:
 			return active_move_name
 
@@ -500,7 +514,7 @@ func _on_animation_player_finished(anim_name: String) -> void:
 	elif anim_name in SPECIAL_ANIMS:
 		print("  → Special move reset")
 		# 🟢 【DP自帶著地修正】DP/HDK/POWERKK自帶著地動畫，完成時視為著地完成
-		if move_set and move_set.get_active_move_name() in ["dp", "hdk", "powerkk"]:
+		if move_set and move_set.get_active_move_name() in ["dp", "dpL", "dpM", "dpH", "hdk", "powerkk"]:
 			print("     (self-landing move)")
 		reset_special_state()
 	# 摔投重置
@@ -526,7 +540,8 @@ func _reset_jump_state() -> void:
 		is_jumping = false
 		var input_data = get_input()
 		if (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed
-			or input_data.st_mp_pressed or input_data.st_mk_pressed
+			or input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed
+			or input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed
 			or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed):
 			is_landing = false
 			landing_facing_lock = false

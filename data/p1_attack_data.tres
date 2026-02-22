@@ -7,5 +7,8 @@
 [resource]
 script = ExtResource("1_6mkls")
 st_hp_movement = ExtResource("2_ffeoh")
+st_lk_hitstun_frames = 11
+st_lk_blockstun_frames = 8
+st_lk_knockback = 60.0
 st_hk_movement = ExtResource("2_11y2a")
 metadata/_custom_type_script = "uid://ccjfweg28wskh"

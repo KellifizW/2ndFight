@@ -20,7 +20,7 @@
 
 [sub_resource type="Resource" id="Resource_4lg2u"]
 script = ExtResource("3_jo7nc")
-throw_damage = 4.0
+throw_damage = 10.0
 throw_launch_horizontal_speed = 1500.0
 pivot_offset_x = 100.0
 pivot_offset_y = 0.0
@@ -6130,7 +6130,11 @@ script = ExtResource("8_4lg2u")
 move_id = "spnk"
 damage = 8.0
 knockback = 80.0
+hitstun_frames = 27
+blockstun_frames = 23
+duration_frames = 72
 move_distance = 300.0
+sound_type = "special"
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
 [sub_resource type="Resource" id="Resource_x0tr5"]
@@ -6138,6 +6142,13 @@ script = ExtResource("8_4lg2u")
 move_id = "fireball"
 damage = 8.0
 knockback = 50.0
+hitstun_frames = 22
+blockstun_frames = 13
+duration_frames = 48
+is_projectile = true
+sound_type = "fireball"
+penetrable = true
+projectile_speed = 750.0
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
 [node name="DEN" type="CharacterBody2D" unique_id=1134608601]
@@ -6160,7 +6171,6 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 2
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)

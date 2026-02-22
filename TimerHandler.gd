@@ -58,10 +58,13 @@ func handle_timers(delta: float) -> void:
 		# 【重點】在遞減timer之前執行checkpoint，否則會被跳過
 		if movement_node._landing_forced_frames >= 2 and not movement_node._landing_checkpoint_executed:
 			# 強制2幀已結束，檢查是否有輸入
-			# 【關鍵】著地2幀強制鎖定期間，檢查任何輸入（包括跳躍）
+			# 【關鍵】著地2幀強制鎖定期間，檢查任何輸入（包括跳躍和攻擊）
 			var input_data = movement_node.get_input() if movement_node.has_method("get_input") else {}
-			var has_input = input_data.get("input_dir", 0) != 0 or input_data.get("crouch_pressed", false) or input_data.get("jump_pressed", false)
-			# 【改進】現在包括 jump_pressed 檢查，這樣連續跳躍時著地動畫會被立即中斷
+			var has_input = input_data.get("input_dir", 0) != 0 or input_data.get("crouch_pressed", false) or input_data.get("jump_pressed", false) \
+					or input_data.get("st_lp_pressed", false) or input_data.get("st_mp_pressed", false) or input_data.get("st_hp_pressed", false) \
+					or input_data.get("st_lk_pressed", false) or input_data.get("st_mk_pressed", false) or input_data.get("st_hk_pressed", false) \
+					or input_data.get("spm1_pressed", false) or input_data.get("spm2_pressed", false) or input_data.get("dp_pressed", false)
+			# 【改進】現在包括 jump_pressed 和攻擊檢查，這樣連續跳躍或攻擊時著地動畫會被立即中斷
 			
 			# 【重點】標記checkpoint已執行，防止重複執行
 			movement_node._landing_checkpoint_executed = true
@@ -89,17 +92,16 @@ func handle_timers(delta: float) -> void:
 				movement_node.landing_lock_timer = 0.001
 				# 【新增】標記著地被輸入中斷，下一幀設置 is_landing=false
 				movement_node._landing_interrupted_by_input = true
-				return
 			else:
 				var landing_duration = movement_node.landing_duration if "landing_duration" in movement_node else 0.2
 				movement_node.landing_lock_timer = landing_duration
-				return
 		
-		# 現在才遞減timer（在checkpoint之後）
+		# 【關鍵修正】移除早期return，讓timer正常遞減
+		# 正常計時器遞減（每幀都要執行）
 		movement_node.landing_lock_timer = max(0, movement_node.landing_lock_timer - delta)
 		
-		# 正常計時器遞減
-		if movement_node.landing_lock_timer == 0:
+		# 檢查著地是否完成
+		if movement_node.landing_lock_timer <= 0:
 			print("[%s] ✓ Landing COMPLETE, is_landing=false" % [_seat])
 			movement_node.is_landing = false
 			movement_node.is_jumping = false  # 【關鍵】著地完成時清除 is_jumping，完全解除著地狀態

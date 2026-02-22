@@ -204,19 +204,59 @@ func get_input_data() -> Dictionary:
 	var super_pressed = input_buffer.is_input_buffered("super")
 	var dp_pressed    = false
 	var is_100p       = false  # 【重要】初始化為 false，確保每幀重置
+	var fireball_variant: String = ""  # 記錄 fireball 輕中重版本
+	var dp_variant: String = ""        # 記錄 dp 輕中重版本
 	
 	# === 檢查 buffer 中的特殊招式（優先級最高）===
 	var fireball_buffered = input_buffer.is_input_buffered("fireball")
+	var fireballL_buffered = input_buffer.is_input_buffered("fireballL")
+	var fireballM_buffered = input_buffer.is_input_buffered("fireballM")
+	var fireballH_buffered = input_buffer.is_input_buffered("fireballH")
 	var powerkk_buffered = input_buffer.is_input_buffered("powerkk")
 	var spnk_buffered = input_buffer.is_input_buffered("spnk")
 	var hdk_buffered = input_buffer.is_input_buffered("hdk")
 	var dp_buffered = input_buffer.is_input_buffered("dp")
+	var dpL_buffered = input_buffer.is_input_buffered("dpL")
+	var dpM_buffered = input_buffer.is_input_buffered("dpM")
+	var dpH_buffered = input_buffer.is_input_buffered("dpH")
 	var p100_buffered = input_buffer.is_input_buffered("100p")  # 【新增】100p多段連打
 	
 	# 如果 buffer 中有特殊招式，設置對應的標誌
-	if fireball_buffered:
+	# 優先處理輕中重版本，再 fallback 到通用版本（AI/舊格式）
+	if fireballL_buffered:
 		spm2_pressed = true
-		st_mp_pressed = false  # 防止同時觸發普通攻擊
+		fireball_variant = "fireballL"
+		st_lp_pressed = false
+	elif fireballM_buffered:
+		spm2_pressed = true
+		fireball_variant = "fireballM"
+		st_mp_pressed = false
+	elif fireballH_buffered:
+		spm2_pressed = true
+		fireball_variant = "fireballH"
+		st_hp_pressed = false
+	elif fireball_buffered:
+		spm2_pressed = true
+		fireball_variant = "fireball"
+		st_mp_pressed = false
+	
+	if dpL_buffered:
+		dp_pressed = true
+		dp_variant = "dpL"
+		st_lp_pressed = false
+	elif dpM_buffered:
+		dp_pressed = true
+		dp_variant = "dpM"
+		st_mp_pressed = false
+	elif dpH_buffered:
+		dp_pressed = true
+		dp_variant = "dpH"
+		st_hp_pressed = false
+	elif dp_buffered:
+		dp_pressed = true
+		dp_variant = "dp"
+		st_mp_pressed = false
+	
 	# 【重要】100p 優先於 powerkk
 	if p100_buffered:  # 【新增】100p的buffer檢測 - 優先級最高
 		is_100p = true  # 標記為 100p
@@ -231,9 +271,6 @@ func get_input_data() -> Dictionary:
 	if hdk_buffered:
 		spm3_pressed = true
 		st_mk_pressed = false
-	if dp_buffered:
-		dp_pressed = true
-		st_mp_pressed = false
 	
 	
 	# === 舊版輸入序列檢測（作為備用，但不應該再需要了）===
@@ -244,8 +281,10 @@ func get_input_data() -> Dictionary:
 	if get_parent() and "character_id" in get_parent():
 		character_id = get_parent().character_id
 	
+	var any_fireball_buffered = fireball_buffered or fireballL_buffered or fireballM_buffered or fireballH_buffered
+	var any_dp_buffered = dp_buffered or dpL_buffered or dpM_buffered or dpH_buffered
 	# 只有在 buffer 中沒有檢測到特殊招式時才執行舊邏輯（fallback）
-	if input_manager and not (fireball_buffered or powerkk_buffered or spnk_buffered or hdk_buffered or dp_buffered or p100_buffered):
+	if input_manager and not (any_fireball_buffered or powerkk_buffered or spnk_buffered or hdk_buffered or any_dp_buffered or p100_buffered):
 		# ── DAV（原本 p1）的招式 ──
 		# 【重要】根據按下的按鈕類型來分別檢測，防止st_mp和st_mk衝突
 		
@@ -265,9 +304,10 @@ func get_input_data() -> Dictionary:
 				spm1_pressed = true
 				st_mk_pressed = false
 		
-		# 通用招式
+		# 通用招式（fallback，不分輕中重）
 		if input_manager.check_fireball_input():
 			spm2_pressed = true
+			fireball_variant = "fireball"
 			st_mp_pressed = false
 		
 		# 【重要】100p 單獨處理，優先於 powerkk
@@ -277,26 +317,30 @@ func get_input_data() -> Dictionary:
 		pass
 	
 	# DAV 的 spmove3 快捷鍵觸發 DP
-	if character_id == "DAV" and spm3_pressed:
+	if character_id == "DAV" and spm3_pressed and not dp_pressed:
 		dp_pressed = true
+		dp_variant = "dp"
 	
 	# 攻擊優先級（已移除 player_id 判斷，改用 character_id）
 	# 【重要】100p 要全局優先於 powerkk，因為 spm1_pressed 被兩者共用
+	# dp_variant / fireball_variant 決定具體的輕中重招式
+	var _dp_type = dp_variant if dp_variant != "" else "dp"
+	var _fireball_type = fireball_variant if fireball_variant != "" else "fireball"
 	var attack_type = (
-		"throw"    if throw_pressed else  # 【摔投優先級最高】
-		"super"    if super_pressed else
-		"100p"     if is_100p else  # 【100p優先級】- 全局覆蓋
-		"powerkk"  if spm1_pressed and character_id == "DAV" else
-		"dp"       if dp_pressed and character_id == "DAV" else
-		"spnk"     if spm1_pressed and character_id == "DEN" else
-		"hdk"      if spm3_pressed and character_id == "DEN" else
-		"fireball" if spm2_pressed else
-		"st_hp"    if st_hp_pressed else
-		"st_mp"    if st_mp_pressed else
-		"st_lp"    if st_lp_pressed else
-		"st_hk"    if st_hk_pressed else
-		"st_mk"    if st_mk_pressed else
-		"st_lk"    if st_lk_pressed else
+		"throw"      if throw_pressed else  # 【摔投優先級最高】
+		"super"      if super_pressed else
+		"100p"       if is_100p else  # 【100p優先級】- 全局覆蓋
+		"powerkk"    if spm1_pressed and character_id == "DAV" else
+		_dp_type     if dp_pressed and character_id == "DAV" else
+		"spnk"       if spm1_pressed and character_id == "DEN" else
+		"hdk"        if spm3_pressed and character_id == "DEN" else
+		_fireball_type if spm2_pressed else
+		"st_hp"      if st_hp_pressed else
+		"st_mp"      if st_mp_pressed else
+		"st_lp"      if st_lp_pressed else
+		"st_hk"      if st_hk_pressed else
+		"st_mk"      if st_mk_pressed else
+		"st_lk"      if st_lk_pressed else
 		"none"
 	)
 	
@@ -320,6 +364,8 @@ func get_input_data() -> Dictionary:
 		"spm3_pressed": spm3_pressed,
 		"super_pressed": super_pressed,
 		"dp_pressed": dp_pressed,
+		"dp_variant": dp_variant,
+		"fireball_variant": fireball_variant,
 		"dash_pressed": dash_pressed,
 		"backdash_pressed": backdash_pressed
 	}

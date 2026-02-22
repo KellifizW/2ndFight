@@ -19,10 +19,16 @@ const LEGACY_SPECIAL_MOVE_RESOURCES: Array[String] = [
 	"res://data/specials/dav_powerkk.tres",
 	"res://data/specials/dav_super.tres",
 	"res://data/specials/dav_dp.tres",
+	"res://data/specials/dav_dpL.tres",
+	"res://data/specials/dav_dpM.tres",
+	"res://data/specials/dav_dpH.tres",
 	"res://data/specials/dav_100p.tres",
 	"res://data/specials/den_spnk.tres",
 	"res://data/specials/den_hdk.tres",
 	"res://data/specials/dav_fireball.tres",
+	"res://data/specials/dav_fireballL.tres",
+	"res://data/specials/dav_fireballM.tres",
+	"res://data/specials/dav_fireballH.tres",
 	"res://data/specials/den_fireball.tres"
 ]
 
@@ -176,6 +182,22 @@ func _start_special(move_name: String) -> void:
 	
 	print("[MoveSet._start_special] Starting move: %s (player: %s)" % [move_name, parent.name])
 	
+	# Fresh AnimationPlayer lookup: @onready may cache null due to load order; re-fetch at call time.
+	var ap = animation_player
+	if ap == null:
+		ap = parent.get_node_or_null("AnimationPlayer")
+		if ap != null:
+			print("  [MoveSet] Cached animation_player was null; resolved via fresh get_node_or_null.")
+	
+	# 為輕中重版本（fireballL/M/H, dpL/M/H）確定有效動畫名稱。
+	# 如果專屬動畫不存在，則 fallback 到基礎動畫（"fireball"/"dp"）。
+	var anim_name = move_name
+	if move_name.length() > 1 and move_name[-1] in ["L", "M", "H"]:
+		var base_name = move_name.left(move_name.length() - 1)
+		if not (ap and ap.has_animation(move_name)):
+			anim_name = base_name
+			print("  [ANIM_FALLBACK] '%s' animation not found, using base '%s'" % [move_name, base_name])
+	
 	var move_data = source_move.duplicate(true)
 	
 	# State check
@@ -186,8 +208,8 @@ func _start_special(move_name: String) -> void:
 	# Align duration to animation length only when duration_frames == 0
 	var duration_logic_frames = int(round(move_data.duration_frames))
 	var duration_physics_frames = int(round(move_data.duration_frames * 2.0))
-	if duration_logic_frames <= 0 and animation_player and animation_player.has_animation(move_name):
-		var anim = animation_player.get_animation(move_name)
+	if duration_logic_frames <= 0 and ap and ap.has_animation(anim_name):
+		var anim = ap.get_animation(anim_name)
 		duration_logic_frames = int(round(anim.length * LOGIC_FPS))
 		duration_physics_frames = int(round(anim.length * PHYSICS_FPS))
 		move_data.duration_frames = duration_logic_frames
@@ -283,10 +305,10 @@ func _start_special(move_name: String) -> void:
 	
 	# Play animation via AnimationTree state machine (same as normal attacks)
 	var seat_str = parent.seat if "seat" in parent else "?"
-	if animation_player and animation_player.has_animation(move_name):
-		var anim = animation_player.get_animation(move_name)
+	if ap and ap.has_animation(anim_name):
+		var anim = ap.get_animation(anim_name)
 		# Timer 已在前面對齊動畫長度
-		print("[MoveSet DEBUG] Animation '%s' loaded | Duration: %.3fs | Timer: %d frames @%d FPS (physics)" % [move_name, anim.length, current_move_state.timer, 120])
+		print("[MoveSet DEBUG] Animation '%s' loaded | Duration: %.3fs | Timer: %d frames @%d FPS (physics)" % [anim_name, anim.length, current_move_state.timer, 120])
 		
 		# 🟢 【詳細除錯】移動參數分析
 		if move_data.move_distance > 0:
@@ -295,29 +317,29 @@ func _start_special(move_name: String) -> void:
 			var spd_frame = spd_sec / 120.0  # pixel per 120 FPS physics frame
 			print("  [MOVE DEBUG] 移動距離: %.1f px, 時長: %.3f s (%d logical frames), 速度: %.1f px/s (%.3f px/frame @120FPS physics)" % [move_data.move_distance, d_secs, int(move_data.duration_frames), spd_sec, spd_frame])
 	else:
-		print("[MoveSet._start_special] ⚠️  WARNING: Animation '%s' not found! (Seat: %s)" % [move_name, seat_str])
+		print("[MoveSet._start_special] ⚠️  WARNING: Animation '%s' not found! (Seat: %s)" % [anim_name, seat_str])
 	
 	# Use AnimationTree.travel() (prevents dual playback with AnimationPlayer)
 	# parent is Movement which has animation_state
 	if parent and "animation_state" in parent:
 		var current_anim_state: String = parent.animation_state.get_current_node() if parent.animation_state else "(unknown)"
-		print("[MoveSet._start_special] 🎬 Playing '%s' | Current AnimTree state: '%s' | Seat: %s" % [move_name, current_anim_state, seat_str])
+		print("[MoveSet._start_special] 🎬 Playing '%s' (anim='%s') | Current AnimTree state: '%s' | Seat: %s" % [move_name, anim_name, current_anim_state, seat_str])
 		
 		# 🟢 強制重置：如果已經在同一招式狀態，需要直接通過AnimationPlayer強制重啟
-		if current_anim_state == move_name:
-			print("  ⚠️  Already in '%s' state! Forcing reset via AnimationPlayer..." % move_name)
+		if current_anim_state == anim_name:
+			print("  ⚠️  Already in '%s' state! Forcing reset via AnimationPlayer..." % anim_name)
 			# 直接用 AnimationPlayer.play() 強制重新開始動畫（這會重置播放位置到第0幀）
-			if animation_player:
-				animation_player.play(move_name)
-				print("  ✓ AnimationPlayer.play('%s') called - animation restarted from frame 0" % move_name)
+			if ap:
+				ap.play(anim_name)
+				print("  ✓ AnimationPlayer.play('%s') called - animation restarted from frame 0" % anim_name)
 		else:
 			# 正常情況：使用 travel()
-			parent.animation_state.travel(move_name)
-			print("  ✓ AnimTree travel() called | New state: '%s'" % move_name)
+			parent.animation_state.travel(anim_name)
+			print("  ✓ AnimTree travel() called | New state: '%s'" % anim_name)
 	else:
-		print("[MoveSet._start_special] Fallback: Playing via AnimationPlayer.play(): %s" % move_name)
-		if animation_player:
-			animation_player.play(move_name)
+		print("[MoveSet._start_special] Fallback: Playing via AnimationPlayer.play(): %s" % anim_name)
+		if ap:
+			ap.play(anim_name)
 	
 	# Freeze if needed
 	if move_data.is_freeze:
@@ -347,19 +369,46 @@ func start_super() -> void:
 func start_dp() -> void:
 	_start_special("dp")
 
+func start_dpL() -> void:
+	_start_special("dpL")
+
+func start_dpM() -> void:
+	_start_special("dpM")
+
+func start_dpH() -> void:
+	_start_special("dpH")
+
 func start_hdk() -> void:
 	_start_special("hdk")
 
-func start_fireball() -> void:
+func _can_start_fireball(variant: String) -> bool:
 	if parent.is_attacking or is_spmove:
-		print("[MoveSet] %s: Cannot start fireball - is_attacking=%s, is_spmove=%s" % [parent.name, parent.is_attacking, is_spmove])
-		return
-	# 檢查是否已有活躍的 fireball（同一時間只能有一個）
+		print("[MoveSet] %s: Cannot start %s - is_attacking=%s, is_spmove=%s" % [parent.name, variant, parent.is_attacking, is_spmove])
+		return false
 	if parent.active_fireball != null and is_instance_valid(parent.active_fireball):
-		print("[MoveSet] %s: Cannot start fireball - active_fireball already exists" % parent.name)
-		return
+		print("[MoveSet] %s: Cannot start %s - active_fireball already exists" % [parent.name, variant])
+		return false
+	return true
+
+func start_fireball() -> void:
+	if not _can_start_fireball("fireball"): return
 	print("[MoveSet] %s: Starting fireball (AI=%s)" % [parent.name, parent.is_ai_controlled])
 	_start_special("fireball")
+
+func start_fireballL() -> void:
+	if not _can_start_fireball("fireballL"): return
+	print("[MoveSet] %s: Starting fireballL" % parent.name)
+	_start_special("fireballL")
+
+func start_fireballM() -> void:
+	if not _can_start_fireball("fireballM"): return
+	print("[MoveSet] %s: Starting fireballM" % parent.name)
+	_start_special("fireballM")
+
+func start_fireballH() -> void:
+	if not _can_start_fireball("fireballH"): return
+	print("[MoveSet] %s: Starting fireballH" % parent.name)
+	_start_special("fireballH")
 
 # === Freeze logic ===
 func freeze_game(duration: float) -> void:
@@ -592,21 +641,39 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 		return true
 	
 	if input_data.get("dp_pressed", false) and not parent.is_attacking and not is_spmove:
-		# Consume buffered DP special move (detected by motion input)
+		var dv: String = input_data.get("dp_variant", "dp")
+		if dv == "": dv = "dp"
 		if controller and controller.has_method("consume_button_input"):
-			controller.consume_button_input("dp")  # Consume the special move buffer
-			controller.consume_button_input("st_mp")  # Also consume trigger button
-		start_dp()
+			controller.consume_button_input(dv)   # Consume the L/M/H or generic dp buffer
+			# Also consume old "dp" slot if different (AI/legacy path)
+			if dv != "dp": controller.consume_button_input("dp")
+			# Consume trigger button based on strength
+			if dv.ends_with("L"): controller.consume_button_input("st_lp")
+			elif dv.ends_with("H"): controller.consume_button_input("st_hp")
+			else: controller.consume_button_input("st_mp")
+		match dv:
+			"dpL": start_dpL()
+			"dpH": start_dpH()
+			"dpM": start_dpM()
+			_:    start_dp()
 		return true
 	
 	if input_data.get("spm2_pressed", false) and not parent.is_attacking and not is_spmove:
+		var fv: String = input_data.get("fireball_variant", "fireball")
+		if fv == "": fv = "fireball"
 		if parent.is_ai_controlled:
-			print("[MoveSet._handle_input] %s spm2_pressed detected (AI=true)" % parent.name)
-		# Consume buffered fireball (detected by motion input)
+			print("[MoveSet._handle_input] %s spm2_pressed detected (AI=true, variant=%s)" % [parent.name, fv])
 		if controller and controller.has_method("consume_button_input"):
-			controller.consume_button_input("fireball")  # Consume the special move buffer
-			controller.consume_button_input("st_mp")  # Also consume trigger button
-		start_fireball()
+			controller.consume_button_input(fv)   # Consume the L/M/H or generic fireball buffer
+			if fv != "fireball": controller.consume_button_input("fireball")
+			if fv.ends_with("L"): controller.consume_button_input("st_lp")
+			elif fv.ends_with("H"): controller.consume_button_input("st_hp")
+			else: controller.consume_button_input("st_mp")
+		match fv:
+			"fireballL": start_fireballL()
+			"fireballH": start_fireballH()
+			"fireballM": start_fireballM()
+			_:           start_fireball()
 		return true
 	
 	if input_data.get("spm1_pressed", false) and not parent.is_attacking and not is_spmove:
@@ -644,7 +711,10 @@ func _process_projectile_spawn(_delta: float, _world: Node) -> void:
 	pass
 
 func execute_fireball_spawn() -> void:
-	if not is_spmove or current_move_state.active_move == null or current_move_state.active_move.move_id != "fireball":
+	if not is_spmove or current_move_state.active_move == null:
+		return
+	var _fid = current_move_state.active_move.move_id
+	if not (_fid == "fireball" or _fid.begins_with("fireball")):
 		return
 	if current_move_state.projectile_spawned:
 		return
