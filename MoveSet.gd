@@ -178,7 +178,8 @@ func _smd_to_move_data(res: Resource) -> MoveData:
 		float(res.get("caster_jump_vertical_speed")),
 		res.get("is_freeze"),
 		res.get("is_projectile"),
-		res.get("gravity"),
+		# 優先使用 caster_jump_gravity（新字段），退而使用舊 gravity 字段
+		(res.get("caster_jump_gravity") if ("caster_jump_gravity" in res and res.get("caster_jump_gravity") > 0.0) else res.get("gravity")),
 		res.get("sound_type"),
 		res.get("penetrable"),
 		curve_str,
@@ -198,13 +199,24 @@ func _smd_to_move_data(res: Resource) -> MoveData:
 	return md
 
 ## export_var 優先；若為 null 則從 fallback_path 載入
+## 若 export_var 的 move_id 為空，自動從 fallback_path 檔名推導（如 dav_dpM.tres → dpM）
 func _load_smd(export_var, fallback_path: String) -> MoveData:
 	var res: Resource = export_var if export_var != null else load(fallback_path)
 	if res == null:
 		push_warning("[MoveSet] 無法載入招式資料: %s" % fallback_path)
 		return null
 	if not ("move_id" in res):
-		push_warning("[MoveSet] Resource 缺少 move_id: %s" % fallback_path)
+		push_warning("[MoveSet] Resource 缺少 move_id 屬性: %s" % fallback_path)
+		return null
+	# ✅ 自動從 fallback_path 推導 move_id（Inspector 里不填也能正常運作）
+	if res.get("move_id") == "" and fallback_path != "":
+		var fname: String = fallback_path.get_file().get_basename()  # e.g. "dav_dpM"
+		var sep: int = fname.rfind("_")
+		var inferred_id: String = fname.substr(sep + 1) if sep >= 0 else fname
+		res.set("move_id", inferred_id)
+		push_warning("[MoveSet] move_id 未設定—自動推導為 '%s'（建議從 Inspector 輸入）" % inferred_id)
+	if res.get("move_id") == "":
+		push_warning("[MoveSet] 無法推導 move_id，跳過此招式: %s" % fallback_path)
 		return null
 	var md = _smd_to_move_data(res)
 	var src = "(Inspector)" if export_var != null else fallback_path.get_file()
@@ -249,9 +261,12 @@ func _start_special(move_name: String) -> void:
 	is_spmove_animation_playing = true
 	
 	current_move_state.active_move = move_data
-	# 🔴 【關鍵修復】move_data.duration 是那輯幀數（60 FPS），不是秒數
-	# 轉換策略：那輯幀 * 2 = 物理幀數 (120 FPS)
-	var duration_physics_frames = int(round(move_data.duration * 2.0))
+	# 那輯幀 * 2 = 物理幀數 (120 FPS)
+	# ★ 若為 0，自動使用動畫長度（叏應 duration_frames=0 設計）
+	var duration_physics_frames := int(round(move_data.duration * 2.0))
+	if duration_physics_frames == 0 and animation_player and animation_player.has_animation(move_name):
+		var _anim_for_dur = animation_player.get_animation(move_name)
+		duration_physics_frames = int(round(_anim_for_dur.length * PHYSICS_FPS))
 	current_move_state.timer = duration_physics_frames
 	# 🔴 jump_delay 也是那輯幀數，需要乘以 2
 	var jump_delay_physics_frames = int(round(move_data.jump_delay * 2.0))
@@ -281,11 +296,11 @@ func _start_special(move_name: String) -> void:
 	# Calculate velocity
 	var world = get_tree().get_first_node_in_group("world")
 	if world and move_data.move_distance > 0:
-		# 🔴 【關鍵修復】move_data.duration 是那輯幀數，需轉換為秒數
-		var duration_seconds = move_data.duration / 60.0  # 那輯幀 -> 秒数
-		var base_speed = (move_data.move_distance / duration_seconds) * world.SIMULATION_SCALE * parent.facing_direction
+		# duration_physics_frames 已處理過 0（即已替換為動畫長度）
+		var duration_seconds = duration_physics_frames / float(PHYSICS_FPS)  # 物理幀 -> 秒數
+		var base_speed = (move_data.move_distance / max(duration_seconds, 0.001)) * world.SIMULATION_SCALE * parent.facing_direction
 		current_move_state.initial_speed = base_speed
-		current_move_state.total_duration = float(duration_physics_frames)  # 使用前面已計算的 duration_physics_frames
+		current_move_state.total_duration = float(duration_physics_frames)
 		
 		# Set initial velocity based on acceleration curve
 		if move_data.acceleration_curve == "accelerate":

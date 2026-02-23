@@ -7155,20 +7155,40 @@ alpha_curve = SubResource("CurveTexture_vhfda")
 
 [sub_resource type="Resource" id="Resource_b3w3n"]
 script = ExtResource("9_0wmxw")
-move_id = "dpL"
+damage = 8.0
+knockfly_force_enable = true
+knockfly_gravity = 6000000.0
+knockfly_vertical_speed = -1600.0
+knockfly_horizontal_speed = 100.0
 caster_jump_enabled = true
 caster_jump_delay_frames = 8
-caster_jump_vertical_speed = -2000.0
-caster_jump_gravity = 600000.0
+caster_jump_vertical_speed = -1600.0
+caster_jump_gravity = 6000000.0
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
 [sub_resource type="Resource" id="Resource_t485y"]
 script = ExtResource("9_0wmxw")
-move_id = "dpM"
+damage = 10.0
+knockfly_force_enable = true
+knockfly_gravity = 6000000.0
+knockfly_vertical_speed = -2200.0
 caster_jump_enabled = true
 caster_jump_delay_frames = 8
-caster_jump_vertical_speed = -3000.0
-caster_jump_gravity = 600000.0
+caster_jump_vertical_speed = -2100.0
+caster_jump_gravity = 6000000.0
+metadata/_custom_type_script = "uid://tld6w015ripa"
+
+[sub_resource type="Resource" id="Resource_hshs3"]
+script = ExtResource("9_0wmxw")
+damage = 10.0
+knockfly_force_enable = true
+knockfly_gravity = 6000000.0
+knockfly_vertical_speed = -2200.0
+knockfly_horizontal_speed = 200.0
+caster_jump_enabled = true
+caster_jump_delay_frames = 8
+caster_jump_vertical_speed = -2200.0
+caster_jump_gravity = 6000000.0
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
 [node name="DAV" type="CharacterBody2D" unique_id=979336923]
@@ -7266,6 +7286,7 @@ speed_scale = 0.8
 script = ExtResource("8_7kano")
 smd_dpL = SubResource("Resource_b3w3n")
 smd_dpM = SubResource("Resource_t485y")
+smd_dpH = SubResource("Resource_hshs3")
 
 [node name="AIBehavior" type="Node" parent="." unique_id=895161870]
 script = ExtResource("7_t485y")
