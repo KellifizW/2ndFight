@@ -34,6 +34,7 @@
 [ext_resource type="Texture2D" uid="uid://bvpsv8mrcgt6g" path="res://assets/HD_dav/JLP.png" id="23_4trqy"]
 [ext_resource type="Texture2D" uid="uid://8tbt4ku1msm0" path="res://assets/HD_dav/wakeup.png" id="23_06pnv"]
 [ext_resource type="Texture2D" uid="uid://fxdpn0h8yn6" path="res://assets/HD_dav/JHK.png" id="23_eai6q"]
+[ext_resource type="Texture2D" uid="uid://djjriarta2e2c" path="res://assets/HD_dav/dpxxb.png" id="24_pvk1a"]
 [ext_resource type="Texture2D" uid="uid://v5vwaeigbpks" path="res://assets/HD_dav/powerkk1.png" id="24_tybn3"]
 [ext_resource type="Texture2D" uid="uid://bnq8pwwfn3lcs" path="res://assets/HD_dav/st_lp.png" id="26_0ranl"]
 [ext_resource type="Texture2D" uid="uid://b6xqjukmddofd" path="res://assets/HD_dav/walkB.png" id="28_npi1q"]
@@ -573,8 +574,16 @@ atlas = ExtResource("22_pvk1a")
 region = Rect2(682, 682, 682, 682)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_ijwll"]
-atlas = ExtResource("22_pvk1a")
-region = Rect2(1364, 682, 682, 682)
+atlas = ExtResource("24_pvk1a")
+region = Rect2(682, 682, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_nhqbl"]
+atlas = ExtResource("24_pvk1a")
+region = Rect2(0, 0, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8a81p"]
+atlas = ExtResource("24_pvk1a")
+region = Rect2(0, 682, 682, 682)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_lvewt"]
 atlas = ExtResource("22_13p4m")
@@ -1801,6 +1810,12 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_ijwll")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nhqbl")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8a81p")
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_lvewt")

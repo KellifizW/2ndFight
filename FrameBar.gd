@@ -88,7 +88,7 @@ const TRACKED_ANIMS := [
 	# Jump attacks
 	"jump_lp","jump_mp","jump_hp","jump_lk","jump_mk","jump_hk",
 	# Special moves
-	"powerkk","spnk","fireball","dp","super",
+	"powerkk","spnk","fireball","dpL","dpM","dpH","super",
 	# Movement
 	"Dash","Backdash","block","cr_block",
 	"Jump_F","Jump_B","Jump_V","hit","knockfly","layground","wakeup"
@@ -101,7 +101,7 @@ const ATTACK_ANIMS := [
 	# Jump attacks
 	"jump_lp","jump_mp","jump_hp","jump_lk","jump_mk","jump_hk",
 	# Special moves
-	"powerkk","spnk","fireball","dp","super"
+	"powerkk","spnk","fireball","dpL","dpM","dpH","super"
 ]
 const JUMP_ANIMS := ["Jump_F","Jump_B","Jump_V"]
 
@@ -398,8 +398,8 @@ func _get_state(anim_name: String, flags: Dictionary, on_floor: bool, pos: float
 			# Active 階段（call method 後）- 使用紅色（1）
 			return 1
 	
-	# 🟢 【修正】DP 只依據 hitshape disabled 軌道來判定 S/A/R
-	if anim_name == "dp":
+	# 🟢 【修正】DP (dpL/dpM/dpH) 只依據 hitshape disabled 軌道來判定 S/A/R
+	if anim_name in ["dpL", "dpM", "dpH"]:
 		var track_state := _get_attack_state_from_hitbox_track(anim_name, pos)
 		if track_state != -1:
 			return track_state
