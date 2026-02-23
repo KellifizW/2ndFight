@@ -449,7 +449,7 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 		if active_move_name in ["fireballL", "fireballM", "fireballH"]:
 			return active_move_name
 		if active_move_name in ["dpL", "dpM", "dpH"]:
-			return "dp"
+			return active_move_name  # 🔴 FIX: return the variant directly (dpM/dpH/dpL), not "dp"
 		if active_move_name in ["super", "powerkk", "dp", "spnk", "fireball"]:
 			return active_move_name
 

@@ -125,7 +125,8 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	# 🟢 【只在實際改變時打印】避免冗餘日誌（Start→Walk在啟動時會重複很多次）
 	if curr_state != target_state:
 		# 過濾掉遊戲啟動時的 Start→Walk 重複（只打印特殊招式和重要狀態轉換）
-		var is_special_relevant = target_state in ["dp", "powerkk", "super", "hdk", "spnk", "knockfly", "layground", "landing"] or curr_state in ["dp", "powerkk", "super", "hdk", "spnk", "knockfly", "layground", "landing"]
+		var _sp_states = ["dp", "dpL", "dpM", "dpH", "powerkk", "super", "hdk", "spnk", "fireball", "fireballL", "fireballM", "fireballH", "knockfly", "layground", "landing"]
+		var is_special_relevant = target_state in _sp_states or curr_state in _sp_states
 		if is_special_relevant:
 			# 🟢 去重：只打印新的狀態轉換（不是上一幀已經打過的相同轉換）
 			var transition_key = "%s→%s" % [curr_state, target_state]

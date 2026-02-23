@@ -12,11 +12,11 @@ enum AccelerationCurve {
 }
 
 # ============================================================
-# CORE IDENTIFIERS
+# CORE IDENTIFIERS  (由系統自動管理，一般不需修改)
 # ============================================================
-@export_group("基本設定")
-@export var move_id: String = ""
-@export var character_requirement: String = "*"  ## 角色限定："DAV", "DEN", 或 "*"（通用）
+@export_group("⚙️ 內部識別碼（不需手動修改）")
+@export var move_id: String = ""  ## 招式內部索引鍵（必須與動畫這一名稱一致，不应變更）
+@export var character_requirement: String = "*"  ## 角色限定（由 DAVMoveSet/DENMoveSet 自動套用，不需手改）
 
 # ============================================================
 # COMBAT STATS (Frame-based at 60 FPS)
@@ -40,8 +40,8 @@ enum AccelerationCurve {
 # TIMING AND MOVEMENT (Frame-based at 60 FPS)
 # ============================================================
 @export_group("時間與移動")
-@export var duration_frames: int = 0  ## 招式持續時間（邏輯幀數）。**設為0時自動使用動畫長度**
-@export var movement_duration_frames: int = 0  ## 移動持續時間（邏輯幀數）。0=跟隨duration_frames/動畫長度
+@export var duration_frames: int = 0  ## 招式持續時間（邏輯幀數 @ 60 FPS）。[b]★ 保持 0 = 自動同步動畫長度（推薦）[/b]
+@export var movement_duration_frames: int = 0  ## 角色移動持續幀數。0 = 與 duration_frames（或動畫長度）一致
 @export var move_distance: float = 0.0  ## 角色移動距離（像素）
 @export var trajectory_delay_frames: int = 0  ## ✅ 【新增】招式軌跡開始前的延遲時間（邏輯幀數），用於"蓄力後爆發"的招式
 

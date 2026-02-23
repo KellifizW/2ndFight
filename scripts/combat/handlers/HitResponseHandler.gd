@@ -169,8 +169,8 @@ func _get_hit_parameters(phase_data = null) -> Dictionary:
 		params.damage = active_move.damage
 		params.knockback = active_move.knockback
 		params.penetrable = active_move.penetrable
-		params.hitstun = active_move.hitstun_frames
-		params.blockstun = active_move.blockstun_frames
+		params.hitstun = active_move.hitstun
+		params.blockstun = active_move.blockstun
 		if phase_data != null:
 			params.damage = phase_data.damage if phase_data.damage != 0.0 else params.damage
 			params.hitstun = phase_data.hitstun if phase_data.hitstun != 0 else params.hitstun
@@ -178,7 +178,7 @@ func _get_hit_parameters(phase_data = null) -> Dictionary:
 			params.knockback = phase_data.knockback if phase_data.knockback != 0.0 else params.knockback
 		
 		# ──  特殊招式的特殊參數 ──
-		var move_name = active_move.move_id
+		var move_name = active_move.name
 		if move_name == "spnk":
 			# spnk 的傷害會根據動畫時間調整
 			var animation_player = parent_player.animation_player if "animation_player" in parent_player else null

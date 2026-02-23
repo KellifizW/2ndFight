@@ -489,17 +489,38 @@ func detect_special_move() -> String:
 	# Super (DAV only for now)
 	# TODO: Add super detection if needed
 	
-	# DP
-	var dp_can_use = can_use_special.call("dp") or can_use_special.call("dpL")
-	if DEBUG_DP and not dp_can_use:
-		var seat = parent.seat if parent and "seat" in parent else "?"
-		print("[DP_DEBUG] can_use_special('dp')=false | char=%s | seat=%s" % [character_id, seat])
+	# DP (check all possible variant keys: dp, dpL, dpM, dpH)
+	var dp_can_use = (can_use_special.call("dp") or can_use_special.call("dpL")
+		or can_use_special.call("dpM") or can_use_special.call("dpH"))
+	var _dp_avail_debug = "dp=%s dpL=%s dpM=%s dpH=%s" % [
+		can_use_special.call("dp"), can_use_special.call("dpL"),
+		can_use_special.call("dpM"), can_use_special.call("dpH")]
+	if not dp_can_use:
+		# 只在按下拳按鈕時輸出，避免每幀狂刷（用來確認 DP 是否因 key mismatch 被跳過）
+		var _cur_btns = input_history[current_history].raw_input & 0xFF
+		var _punch_mask = ButtonInputs.ST_LP | ButtonInputs.ST_MP | ButtonInputs.ST_HP
+		if (_cur_btns & _punch_mask) != 0 and input_history[current_history].duration <= INPUT_BUFFER:
+			print("[DP_AVAIL] char=%s dp_can_use=false → DP 檢查被跳過 | %s" % [character_id, _dp_avail_debug])
 	if dp_can_use and check_dp_input():
 		var strength = _get_punch_strength()
-		var dp_variant = ("dp" + strength) if can_use_special.call("dp" + strength) else "dp"
-		print("[DETECT_SPECIAL] DP detected → %s" % dp_variant)
-		detected_special_this_frame = dp_variant
-		return dp_variant
+		# 依優先順序選擇可用的 DP 變體：完全匹配 → 通用 → 任何可用
+		var dp_variant = ""
+		if can_use_special.call("dp" + strength):
+			dp_variant = "dp" + strength
+		elif can_use_special.call("dp"):
+			dp_variant = "dp"
+		elif can_use_special.call("dpM"):
+			dp_variant = "dpM"
+		elif can_use_special.call("dpH"):
+			dp_variant = "dpH"
+		elif can_use_special.call("dpL"):
+			dp_variant = "dpL"
+		if dp_variant == "":
+			print("[DETECT_SPECIAL] DP input matched but NO dp variant found! char=%s %s" % [character_id, _dp_avail_debug])
+		else:
+			print("[DETECT_SPECIAL] DP detected → %s (strength=%s | %s)" % [dp_variant, strength, _dp_avail_debug])
+			detected_special_this_frame = dp_variant
+			return dp_variant
 	
 	# 【新增】100p 多段連打（236+MK）- DAV only
 	if character_id == "DAV" and can_use_special.call("100p") and check_100p_input():
@@ -526,12 +547,28 @@ func detect_special_move() -> String:
 		return "hdk"
 	
 	# Fireball
-	if (can_use_special.call("fireball") or can_use_special.call("fireballL")) and check_fireball_input():
+	if (can_use_special.call("fireball") or can_use_special.call("fireballL")
+		or can_use_special.call("fireballM") or can_use_special.call("fireballH")) and check_fireball_input():
 		var strength = _get_punch_strength()
-		var fireball_variant = ("fireball" + strength) if can_use_special.call("fireball" + strength) else "fireball"
-		print("[DETECT_SPECIAL] Fireball detected → %s" % fireball_variant)
-		detected_special_this_frame = fireball_variant
-		return fireball_variant
+		# 依優先順序選擇可用的 Fireball 變體
+		var fireball_variant = ""
+		if can_use_special.call("fireball" + strength):
+			fireball_variant = "fireball" + strength
+		elif can_use_special.call("fireball"):
+			fireball_variant = "fireball"
+		elif can_use_special.call("fireballM"):
+			fireball_variant = "fireballM"
+		elif can_use_special.call("fireballL"):
+			fireball_variant = "fireballL"
+		elif can_use_special.call("fireballH"):
+			fireball_variant = "fireballH"
+		if fireball_variant != "":
+			# 【除錯】如果 DP 可用但仍然到達 Fireball，表示 check_dp_input() 返回 false
+			if dp_can_use:
+				print("[DETECT_SPECIAL] ⚠ Fireball detected but dp_can_use=true → check_dp_input() may have failed! (char=%s strength=%s)" % [character_id, strength])
+			print("[DETECT_SPECIAL] Fireball detected → %s (strength=%s)" % [fireball_variant, strength])
+			detected_special_this_frame = fireball_variant
+			return fireball_variant
 	
 	detected_special_this_frame = ""
 	return ""
