@@ -17,7 +17,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 config/name="2ndFight"
 run/main_scene="uid://c0j8o4o3jtun1"
 config/features=PackedStringArray("4.6", "Forward Plus")
-config/icon="uid://db3o0uagobj3k"
+config/icon="uid://b2flvbdt0uir3"
 
 [autoload]
 

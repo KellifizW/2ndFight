@@ -79,9 +79,9 @@ var back_speed: float = 240.0
 
 # ── 击飛物理 ──────────────────────────────
 @export_group("Knockfly Physics")
-@export var default_knockfly_gravity: float = 1900000.0
-@export var default_knockfly_vertical_speed: float = -400.0
-@export var default_knockfly_horizontal_speed: float = 6000.0
+@export var default_knockfly_gravity: float = 6000000.0
+@export var default_knockfly_vertical_speed: float = -1000.0
+@export var default_knockfly_horizontal_speed: float = 700.0
 @export var default_air_friction: float = 200.0
 @export var default_knockfly_duration: float = 0.4
 
