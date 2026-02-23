@@ -330,10 +330,10 @@ func _physics_process(delta: float) -> void:
 		
 		# 🟢 【THROW SYSTEM FIX】Skip pushbox during throw
 		var parent_in_throw = false
-		if "is_being_thrown" in parent and parent.is_being_thrown:
-			parent_in_throw = true  # Victim: being thrown
-		if "attack_type" in parent and (parent.attack_type == "throw_enter" or parent.attack_type == "throw_seq"):
-			parent_in_throw = true  # Attacker: executing throw
+		if "is_being_thrown" in parent and parent.is_being_thrown and not parent.is_knockfly:
+			parent_in_throw = true  # Victim: being thrown (skip only when not knocked fly)
+		if "attack_type" in parent and (parent.attack_type == "throw_enter" or parent.attack_type == "throw_seq") and not parent.is_knockfly:
+			parent_in_throw = true  # Attacker: executing throw (skip only when not knocked fly)
 		
 		if is_penetrable or parent.skip_pushbox or parent_in_throw:
 			continue
@@ -348,10 +348,10 @@ func _physics_process(delta: float) -> void:
 			
 			# 🟢 【THROW SYSTEM FIX】Skip pushbox during throw
 			var other_in_throw = false
-			if "is_being_thrown" in other and other.is_being_thrown:
-				other_in_throw = true  # Victim: being thrown
-			if "attack_type" in other and (other.attack_type == "throw_enter" or other.attack_type == "throw_seq"):
-				other_in_throw = true  # Attacker: executing throw
+			if "is_being_thrown" in other and other.is_being_thrown and not other.is_knockfly:
+				other_in_throw = true  # Victim: being thrown (skip only when not knocked fly)
+			if "attack_type" in other and (other.attack_type == "throw_enter" or other.attack_type == "throw_seq") and not other.is_knockfly:
+				other_in_throw = true  # Attacker: executing throw (skip only when not knocked fly)
 			
 			if other_is_penetrable or other.skip_pushbox or other_in_throw:
 				continue

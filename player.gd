@@ -227,6 +227,9 @@ func get_input() -> Dictionary:
 		return default_input.duplicate()
 	if is_attacking and attack_type in ["throw_enter", "throw_seq"]:
 		return default_input.duplicate()
+	# 被摔投期間禁止任何輸入（防止受害者在摔投期間生成攻擊）
+	if "is_being_thrown" in self and self.is_being_thrown:
+		return default_input.duplicate()
 	if is_ai_controlled:
 		var ai = $AIBehavior if has_node("AIBehavior") else null
 		if ai: return ai.get_ai_input()
@@ -318,6 +321,7 @@ func _physics_process(delta: float) -> void:
 		input_data.st_lk_pressed = false
 		input_data.st_mk_pressed = false
 		input_data.st_hk_pressed = false
+		input_data["throw_pressed"] = false  # 摔投不能從普通攻擊取消
 
 	# 🟢 【DP修正】特殊招式必須無條件呼叫 process_move，否則 timer 倒數無法進行
 	# DP 會跳起來，導致 is_valid_ground_state=false，如果檢查該條件就會跳過 process_move

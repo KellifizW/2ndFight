@@ -22,6 +22,7 @@ throw_damage = 10.0
 throw_launch_horizontal_speed = 1500.0
 pivot_offset_x = 100.0
 pivot_offset_y = 0.0
+throw_escape_knockback_distance = 100.0
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(90, 300)
@@ -6143,7 +6144,7 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 2
+frame = 1
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)

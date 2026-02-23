@@ -183,6 +183,30 @@ func check_grab_collision() -> Node:
 		# 找到有效目標
 		if debug_enabled:
 			print("[ThrowHandler] Valid throw target found: %s" % potential_target.name)
+		
+		# 【雙向摔投衝突檢測】—— Throw Escape
+		# 情況 A: 對手的 ThrowHandler 也在 STARTUP 階段（同幀处理）
+		# 情況 B: 對手的 InputBuffer 內有近期 throw 輸入（捣處理順序差異）
+		var target_throw_handler = _get_throw_handler(potential_target)
+		var target_also_threw: bool = false
+		
+		if target_throw_handler and target_throw_handler.current_phase == ThrowPhase.STARTUP:
+			target_also_threw = true
+		else:
+			# 檢查對手的 input buffer 是否在最近 8 物理幀內按了 throw
+			var throw_clash_window: int = 8  # ~67ms @120FPS —— 標準碰擋判定窗口
+			if potential_target.has_node("PlayerController"):
+				var opp_controller = potential_target.get_node("PlayerController")
+				var opp_buffer = opp_controller.input_buffer if "input_buffer" in opp_controller else null
+				if opp_buffer and opp_buffer.has_method("is_input_buffered_within"):
+					target_also_threw = opp_buffer.is_input_buffered_within("throw", throw_clash_window)
+		
+		if target_also_threw:
+			if debug_enabled:
+				print("[ThrowHandler] MUTUAL THROW detected! Triggering Throw Escape")
+			handle_mutual_throw_collision(potential_target)
+			return null  # 不抓取任何人，雙方觸發 throw escape
+		
 		return potential_target
 	
 	return null
@@ -564,6 +588,14 @@ func _handle_recovery_phase() -> void:
 ## 輔助函數
 ## ═══════════════════════════════════════════════════════════════════════════
 
+func _get_throw_handler(target: Node) -> ThrowHandler:
+	"""取得目標角色的 ThrowHandler"""
+	for child in target.get_children():
+		if child is ThrowHandler:
+			return child
+	return null
+
+
 func _get_throw_data() -> Dictionary:
 	"""獲取 ThrowData 資源數據"""
 	if player_node and player_node.has_method("get_throw_data"):
@@ -632,6 +664,18 @@ func reset_throw_state() -> void:
 	
 	_cleanup_opponent_state()
 	
+	# 【關鍵修復】確保清除攻擊者的攻擊狀態
+	# 原因： take_hit() 會將 attack_duration_timer 归零，導致計數器無法再自然減到 0 觸發 reset_attack_state()
+	# 結果： attack_type 永遠停在 "throw_seq"，PushManager 持續跳過攻擊者 pushbox
+	if player_node:
+		player_node.is_attacking = false
+		player_node.attack_type = "none"
+		if "attack_duration_timer" in player_node:
+			player_node.attack_duration_timer = 0
+		var cwh = player_node.get_node_or_null("CancelWindowHandler")
+		if cwh and cwh.has_method("reset"):
+			cwh.reset()
+	
 	if debug_enabled:
 		print("[ThrowHandler] State reset")
 
@@ -665,33 +709,94 @@ func on_animation_start_hold() -> void:
 			print("[ThrowHandler] HOLD phase started via animation event")
 
 ## ═══════════════════════════════════════════════════════════════════════════
-## 互相摔投衝突處理（雙方同時執行摔投時）
+## 互相摔投衝突處理（雙方同時執行摔投時）—— Throw Escape
 ## ═══════════════════════════════════════════════════════════════════════════
 
 func handle_mutual_throw_collision(opponent: Node) -> void:
 	"""
-	處理雙方同時執行摔投的衝突情況
-	- 不進入 throw_seq（保持 throw_enter）
-	- 雙方互相向後推開（施加速度）
+	處理雙方同時執行摔投的衝突（Throw Escape）
+	
+	觸發條件: 雙方的 ThrowHandler 都在 STARTUP 階段時
+	
+	效果:
+		- 播放 vfx_blk 特效於兩人中間
+		- 雙方出現 block knockback 後退移動
+		- 重置雙方摔投狀態，不造成傷害
 	"""
 	if not player_node or not world_node:
 		return
 	
-	# 推開速度（像素/秒 → 固定點單位）
-	var knockback_speed_pixels = 300.0  # 300 像素/秒 = 快速推開
-	var knockback_velocity = int(knockback_speed_pixels * world_node.SIMULATION_SCALE)
+	var throw_data = _get_throw_data()
+	var escape_frames = throw_data.get("throw_escape_knockback_frames", 20)
+	var escape_distance = throw_data.get("throw_escape_knockback_distance", 50.0)
+	var sim_scale = float(world_node.SIMULATION_SCALE)
 	
-	# 雙方朝向相反方向推開
-	var player_facing = player_node.facing_direction if "facing_direction" in player_node else 1.0
-	var opponent_facing = opponent.facing_direction if "facing_direction" in opponent else 1.0
-	
-	# 攻擊者向後推開（與自己朝向相反）
-	player_node.fixed_velocity.x = -knockback_velocity * int(player_facing)
-	
-	# 對手向後推開（與自己朝向相反）
-	opponent.fixed_velocity.x = -knockback_velocity * int(opponent_facing)
+	# 計算 block knockback 初始速度
+	var push_manager = player_node.get_tree().get_first_node_in_group("push_manager") if player_node else null
+	var initial_velocity: float
+	if push_manager:
+		initial_velocity = push_manager.calculate_required_knockback_velocity(
+			int(escape_distance * sim_scale), escape_frames
+		)
+	else:
+		initial_velocity = escape_distance * sim_scale * 4.0  # 後備方案
 	
 	if debug_enabled:
-		print("[THROW COLLISION] Mutual throw collision detected!")
-		print("  → %s pushed back: vel_x=%d (facing=%.1f)" % [player_node.name, player_node.fixed_velocity.x, player_facing])
-		print("  → %s pushed back: vel_x=%d (facing=%.1f)" % [opponent.name, opponent.fixed_velocity.x, opponent_facing])
+		print("[THROW ESCAPE] Mutual throw! escape_frames=%d distance=%.1fpx initial_vel=%.0f" % [escape_frames, escape_distance, initial_velocity])
+	
+	# ── 重置雙方 ThrowHandler 狀態 ──
+	reset_throw_state()
+	var opponent_throw_handler = _get_throw_handler(opponent)
+	if opponent_throw_handler:
+		opponent_throw_handler.reset_throw_state()
+	
+	# ── 重置雙方攻擊狀態 ──
+	player_node.is_attacking = false
+	player_node.attack_type = "none"
+	if "attack_duration_timer" in player_node:
+		player_node.attack_duration_timer = 0
+	var player_cwh = player_node.get_node_or_null("CancelWindowHandler")
+	if player_cwh and player_cwh.has_method("reset"):
+		player_cwh.reset()
+	
+	if "is_attacking" in opponent:
+		opponent.is_attacking = false
+		opponent.attack_type = "none"
+	if "attack_duration_timer" in opponent:
+		opponent.attack_duration_timer = 0
+	var opp_cwh = opponent.get_node_or_null("CancelWindowHandler")
+	if opp_cwh and opp_cwh.has_method("reset"):
+		opp_cwh.reset()
+	
+	# ── 清除 is_being_thrown 標記（防止邊界狀態） ──
+	if "is_being_thrown" in player_node:
+		player_node.is_being_thrown = false
+	if "is_being_thrown" in opponent:
+		opponent.is_being_thrown = false
+	
+	# ── 應用後退移動（使用 corner_push 系統，獨立於 blockstun）──
+	# 注意：不使用 block_knockback，因為 fighter.gd 在 blockstun_frames=0 時會立即清零
+	# corner_push 是獨立系統，不依賴 blockstun 即可持續生效
+	if "corner_push_frames" in player_node:
+		player_node.corner_push_frames = escape_frames
+		player_node.initial_corner_push_frames = escape_frames
+		player_node.corner_push_velocity = initial_velocity
+	
+	if "corner_push_frames" in opponent:
+		opponent.corner_push_frames = escape_frames
+		opponent.initial_corner_push_frames = escape_frames
+		opponent.corner_push_velocity = initial_velocity
+	
+	# ── 播放 vfx_blk 特效（在兩人中間） ──
+	# 注意：get_vfx_scene() 接受 "block" 非 "vfx_block"
+	var midpoint = (player_node.position + opponent.position) / 2.0
+	VFXImpact.spawn_vfx(world_node, "block", midpoint, player_node.facing_direction)
+	
+	# ── 重置雙方動畫到 idle ──
+	if player_node.animation_state:
+		player_node.animation_state.travel("idle")
+	if "animation_state" in opponent and opponent.animation_state:
+		opponent.animation_state.travel("idle")
+	
+	if debug_enabled:
+		print("[THROW ESCAPE] Done | %s → idle | %s → idle" % [player_node.name, opponent.name])

@@ -41,8 +41,10 @@ const LOGIC_FPS: int = 60  # 邏輯/顯示幀率（資源中的幀數基準）
 # ── 連打逃脫參數 ──
 @export_group("Escape Mechanism")
 @export var allow_escape: bool = true             # 是否允許逃脫
-@export var escape_window_end_frame: int = 15     # 逃脫窗口結束幀 @60FPS（從抓取開始計算）
-@export var escape_mash_threshold: int = 8        # 逃脫所需按鍵次數（連打檢測）
+@export var escape_window_end_frame: int = 15     # 逃脈窗口結束幀 @60FPS（從抓取開始計算）
+@export var escape_mash_threshold: int = 8        # 逃脈所需按鍵次數（連打檢測）
+@export var throw_escape_knockback_frames: int = 20       # Throw Escape 二者同時摄投時，各自的 block knockback 封數 (@120FPS 物理幀)
+@export var throw_escape_knockback_distance: float = 50.0 # Throw Escape block knockback 移動距離（像素）
 
 # ── 多段摔投支援（選配）──
 @export_group("Multi-Hit Throw (Optional)")
@@ -71,6 +73,8 @@ func get_throw_data() -> Dictionary:
 		"escape_window_end_frame": escape_window_end_frame,
 		"escape_mash_threshold": escape_mash_threshold,
 		"allow_escape": allow_escape,
+		"throw_escape_knockback_frames": throw_escape_knockback_frames,
+		"throw_escape_knockback_distance": throw_escape_knockback_distance,
 		"is_multi_hit": is_multi_hit,
 		"release_phases": release_phases,
 	}
