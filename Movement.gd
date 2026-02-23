@@ -288,6 +288,11 @@ func _physics_process(delta: float) -> void:
 			])
 	
 	_handle_blocking(input_dir, is_special_moving)
+	
+	# 【關鍵修復】著地處理必須在 dash 之前，以清除 dash 相關狀態
+	# 否則著地時的輸入會触發遗留的 pending_dash_dir
+	_handle_landing(input_data, floor_y, delta)
+	
 	_handle_dash(input_dir, scale_factor, is_special_moving)
 	_handle_walk(input_dir, scale_factor, is_special_moving)
 	_handle_jump(jump_pressed, input_dir, scale_factor, floor_y, is_special_moving)
@@ -295,8 +300,6 @@ func _physics_process(delta: float) -> void:
 	_handle_gravity(delta, move_set)
 	
 	fixed_position += Vector2i(roundi(fixed_velocity.x * delta), roundi(fixed_velocity.y * delta))
-	
-	_handle_landing(input_data, floor_y, delta)
 	
 	global_position = world.to_scaled_vector2(fixed_position) if world else Vector2(float(fixed_position.x) / 1000.0, float(fixed_position.y) / 1000.0)
 	

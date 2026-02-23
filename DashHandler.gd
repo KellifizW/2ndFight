@@ -9,10 +9,9 @@ func _init(movement: Node) -> void:
 	movement_node = movement
 
 func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
-	# 🔴 【除錯】記錄每幀的 dash 狀態
 	var seat = movement_node.seat if "seat" in movement_node else "?"
 	if debug_dash and Engine.get_physics_frames() % 30 == 0 and input_dir != 0:  # 每 30 幀輸出一次（0.25秒）
-		print("[DASH DEBUG] %s | input_dir=%d | neutral_timer=%d | pending_dir=%d | last_input=%d | conditions: on_floor=%s, attacking=%s, dashing=%s" % [
+		print("[DASH DEBUG] %s | input_dir=%d | neutral_timer=%.1f | pending_dir=%d | last_input=%d | conditions: on_floor=%s, attacking=%s, dashing=%s" % [
 			seat, input_dir, movement_node.neutral_timer, movement_node.pending_dash_dir, 
 			movement_node.last_input_dir, movement_node.is_on_floor(), movement_node.is_attacking, movement_node.is_dashing
 		])
@@ -22,9 +21,9 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 		if movement_node.neutral_timer > 0 and input_dir != 0 and movement_node.pending_dash_dir == input_dir:
 			# 🟢 double-tap 被檢出！
 			if debug_dash:
-				print("[DASH DETECTED] %s | neutral_timer=%d | input_dir=%d | pending_dir=%d | facing=%f | facing_check=%d" % [
-				seat, movement_node.neutral_timer, input_dir, movement_node.pending_dash_dir, 
-				movement_node.facing_direction, input_dir * int(movement_node.facing_direction)
+				print("[DASH DETECTED] %s | neutral_timer=%.1f | input_dir=%d | pending_dir=%d | facing=%.1f" % [
+					seat, movement_node.neutral_timer, input_dir, movement_node.pending_dash_dir, 
+					movement_node.facing_direction
 				])
 			if input_dir * movement_node.facing_direction > 0:
 				movement_node.is_dashing = true

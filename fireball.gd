@@ -324,14 +324,21 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 		animation_player.play("fireball/ball_impact")
 
 func _on_proximitybox_area_entered(area: Area2D) -> void:
-	if not is_active: return
+	if not is_active:
+		print("[Fireball PROXIMITY] ⚠️ REJECTED - not is_active (Seat=%s)" % ("?" if not fireball_owner else ("player_a" if fireball_owner.facing_direction > 0 else "player_b")))
+		return
 	
 	# 過濾自己，避免近距離格擋自己
 	if fireball_owner and area.get_parent() == fireball_owner:
+		print("[Fireball PROXIMITY] ✓ Self-filter passed (owner=%s)" % fireball_owner.name)
 		return
 	
 	if area.name == "Hurtbox" and area.get_parent().is_in_group("players"):
 		var target = area.get_parent()
+		print("[Fireball PROXIMITY BLOCK] TRIGGERED - Target=%s | is_holding_back=%s | is_crouch_blocking=%s | Owner=%s" % [
+			target.name, target.is_holding_back, target.is_crouch_blocking, fireball_owner.name if fireball_owner else "null"
+		])
+		
 		if target.is_holding_back or target.is_crouch_blocking:
 			# 進入穿透模式
 			is_active = false
@@ -376,4 +383,13 @@ func _on_animation_finished(anim_name: String) -> void:
 func _clear_owner_reference() -> void:
 	if fireball_owner and is_instance_valid(fireball_owner) and "active_fireball" in fireball_owner:
 		if fireball_owner.active_fireball == self:
+			print("[Fireball CLEARED] Reference cleared from %s (seat=%s)" % [
+				fireball_owner.name,
+				fireball_owner.seat if "seat" in fireball_owner else "?"
+			])
 			fireball_owner.active_fireball = null
+		else:
+			print("[Fireball CLEARED] ⚠️ active_fireball was different instance! Owner=%s, Current=%s" % [
+				fireball_owner.name,
+				fireball_owner.active_fireball.name if fireball_owner.active_fireball else "null"
+			])

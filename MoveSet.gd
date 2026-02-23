@@ -544,6 +544,13 @@ func stop_special_move() -> void:
 		# 已經著地，清除jumping狀態以防止多餘著地動畫
 		print("[STOP_MOVE_DEBUG] %s: CLEARED is_jumping (already on ground)" % seat_for_log)
 		parent.is_jumping = false
+		
+		# 【關鍵新增】當特殊招式（例如DP）著地時，也要清除dash狀態
+		# 否則會導致著地後的輸入誤觸發dash
+		parent.neutral_timer = 0.0
+		parent.pending_dash_dir = 0
+		parent.last_input_dir = 0
+		parent.landing_facing_lock = false
 	else:
 		# 沒有jump過的特殊招式（如火球），清零速度
 		if not parent.is_knockfly:
@@ -746,7 +753,27 @@ func _process_projectile_spawn(_delta: float, _world: Node) -> void:
 	pass
 
 func execute_fireball_spawn() -> void:
-	if not is_spmove or current_move_state.active_move == null or current_move_state.active_move.name not in ["fireball", "fireballL", "fireballM", "fireballH"]:
+	# 🔴 防護：檢查基本條件和激活狀態
+	if not is_spmove:
+		print("[Fireball DEBUG] ⚠️ execute_fireball_spawn called but is_spmove=false (Seat=%s)" % parent.seat)
+		return
+	
+	if current_move_state.active_move == null:
+		print("[Fireball DEBUG] ⚠️ execute_fireball_spawn called but active_move=null (Seat=%s)" % parent.seat)
+		return
+	
+	var active_move_name = current_move_state.active_move.name
+	if active_move_name not in ["fireball", "fireballL", "fireballM", "fireballH"]:
+		print("[Fireball DEBUG] ⚠️ execute_fireball_spawn called for non-fireball move: '%s' (Seat=%s)" % [active_move_name, parent.seat])
+		return
+	
+	# 🔴 關鍵防護：同一幀內只能生成一個火球（防止 Call Method 被觸發多次）
+	if parent.active_fireball != null and is_instance_valid(parent.active_fireball):
+		print("[Fireball DEBUG] ❌ DUPLICATE SPAWN BLOCKED - active_fireball already exists! (Seat=%s) Active: %s, Requested: %s" % [
+			parent.seat,
+			parent.active_fireball.special_move_id,
+			active_move_name
+		])
 		return
 	
 	# 使用預載和預熱的資源（零卡頓）
@@ -764,13 +791,10 @@ func execute_fireball_spawn() -> void:
 	fb.direction = parent.facing_direction
 	fb.owner_character_id = parent.character_id
 	fb.fireball_owner = parent
-	# 🟢 fireball 現在從 _get_fireball_params_from_moveset() 讀取所有參數（單一來源）
 	fb.global_position = parent.global_position + Vector2(fireball_x_offset * parent.facing_direction, fireball_y_offset)
-	# 讀取速度：優先使用 SpecialMoveData .tres（用戶在 Inspector 編輯的值）。
-	# 如果沒有 .tres，改用 move_library 內的備用値。
-	var active_move_name = current_move_state.active_move.name
+	
+	# 讀取速度和戰鬥屬性：優先使用 SpecialMoveData .tres
 	var smd = get_special_move_resource(active_move_name)
-	# 直接將全部戰鬥屬性寫入火球實例（移除運行時逆向查找進文鬪努）
 	if smd != null:
 		var ps: float = smd.get("projectile_speed")
 		fb.speed = ps if ps > 0.0 else 800.0
@@ -778,7 +802,9 @@ func execute_fireball_spawn() -> void:
 		fb.hit_hitstun = smd.get("hitstun_frames")
 		fb.hit_blockstun = smd.get("blockstun_frames")
 		fb.hit_knockback = smd.get("knockback")
-		print("[Fireball SPAWN] %s variant=%s speed=%.0f dmg=%.1f hitstun=%d blkstun=%d" % [parent.name, active_move_name, fb.speed, fb.hit_damage, fb.hit_hitstun, fb.hit_blockstun])
+		print("[Fireball SPAWN] %s variant=%s speed=%.0f dmg=%.1f hitstun=%d blkstun=%d (Seat=%s)" % [
+			parent.name, active_move_name, fb.speed, fb.hit_damage, fb.hit_hitstun, fb.hit_blockstun, parent.seat
+		])
 	else:
 		# Fallback: MoveData wrapper
 		var md = move_library.get(active_move_name, null)
@@ -788,15 +814,20 @@ func execute_fireball_spawn() -> void:
 			fb.hit_hitstun = md.hitstun
 			fb.hit_blockstun = md.blockstun
 			fb.hit_knockback = md.knockback
-			print("[Fireball SPAWN FALLBACK] %s variant=%s speed=%.0f dmg=%.1f hitstun=%d" % [parent.name, active_move_name, fb.speed, fb.hit_damage, fb.hit_hitstun])
+			print("[Fireball SPAWN FALLBACK] %s variant=%s speed=%.0f dmg=%.1f hitstun=%d (Seat=%s)" % [
+				parent.name, active_move_name, fb.speed, fb.hit_damage, fb.hit_hitstun, parent.seat
+			])
 		else:
-			push_error("[MoveSet] execute_fireball_spawn: no data for '%s'" % active_move_name)
-	# 讓 fireball.gd 從 .tres resource 讀取傷害/stun。
-	# special_move_id 設為 move_id 讓 fireball._get_fireball_params_from_moveset() 查找正確的 .tres
+			push_error("[MoveSet] execute_fireball_spawn: no data for '%s' (Seat=%s)" % [active_move_name, parent.seat])
+			fb.queue_free()
+			return
+	
 	fb.special_move_id = active_move_name
 	get_tree().current_scene.add_child(fb)
 	parent.active_fireball = fb
-	print("[MoveSet.execute_fireball_spawn] Fireball spawned for %s, variant=%s, speed=%.0f" % [parent.name, current_move_state.active_move.name, fb.speed])
+	print("[MoveSet.execute_fireball_spawn] ✅ Fireball created (Seat=%s) | variant=%s | owner=%s | speed=%.0f | pos=%.1f,%.1f" % [
+		parent.seat, active_move_name, parent.name, fb.speed, fb.global_position.x, fb.global_position.y
+	])
 
 func _process_jump(_delta: float, world: Node, move: MoveData) -> void:
 	# 🔴 FIX: stop decrementing once jump has fired — prevents timer running to -∞

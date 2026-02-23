@@ -143,13 +143,28 @@ func reset_special_state() -> void:
 
 # ── Fireball 生成方法（由動畫 Call Method 調用）──
 func _spawn_fireball() -> void:
-	# 🟢 【新增】通知 FrameBar call method 已被觸發
-	var frame_bar = get_tree().get_first_node_in_group("frame_bar_" + seat) if seat else null
+	# 🟢 【強化除錯】Call Method 觸發時加入詳細信息
+	var debug_seat = seat if seat else "unknown"
+	var anim_player = get_node_or_null("AnimationPlayer")
+	var current_anim = anim_player.current_animation if anim_player else "none"
+	
+	print("[_spawn_fireball CALLED] Seat=%s | Current animation='%s' | is_spmove=%s | active_move=%s | frame=%d" % [
+		debug_seat,
+		current_anim,
+		move_set.is_spmove if move_set else "?",
+		move_set.current_move_state.active_move.name if (move_set and move_set.current_move_state.active_move) else "null",
+		Engine.get_physics_frames()
+	])
+	
+	# 通知 FrameBar call method 已被觸發
+	var frame_bar = get_tree().get_first_node_in_group("frame_bar_" + debug_seat) if debug_seat else null
 	if frame_bar and frame_bar.has_method("on_fireball_call_method_triggered"):
 		frame_bar.on_fireball_call_method_triggered()
 	
 	if move_set and move_set.has_method("execute_fireball_spawn"):
 		move_set.execute_fireball_spawn()
+	else:
+		print("[_spawn_fireball] ⚠️ MoveSet not found or doesn't have execute_fireball_spawn! (Seat=%s)" % debug_seat)
 
 # ── 動畫重置分類（Phase 4 優化）──
 const GROUND_ATTACK_ANIMS = ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk",
