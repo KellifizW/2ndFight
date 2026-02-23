@@ -42,7 +42,7 @@ var committed_input: Dictionary = {}
 
 # Decision cooldown (simulates human thinking time)
 var decision_cooldown: float = 0.0
-const DECISION_INTERVAL: float = 0.25  # Re-evaluate every 15 frames at 60 FPS
+const DECISION_INTERVAL: float = 0.15  # Re-evaluate every 9 frames at 60 FPS (reduced from 0.25)
 
 @export var decision_interval_override: float = 0.0  # Allow tuning in Inspector; set to 0 to use DECISION_INTERVAL, >0 for custom, <0 for immediate updates
 
@@ -62,8 +62,8 @@ var current_adaptive_interval: float = INTERVAL_NORMAL
 # Action duration database (based on frame data)
 const ACTION_DURATIONS = {
 	# Movement - needs sustained execution to avoid twitching
-	"walk_forward": {"min": 0.4, "max": 0.7},
-	"walk_backward": {"min": 0.4, "max": 0.7},
+	"walk_forward": {"min": 0.3, "max": 0.5},  # 減少：從0.4-0.7改為0.3-0.5
+	"walk_backward": {"min": 0.3, "max": 0.5},  # 減少：從0.4-0.7改為0.3-0.5
 	"dash_forward": {"min": 0.35, "max": 0.35},
 	"backdash": {"min": 0.35, "max": 0.35},
 	
@@ -86,16 +86,23 @@ const ACTION_DURATIONS = {
 	
 	# Special moves - must complete full animation
 	"fireball": {"min": 0.8, "max": 0.8},
+	"fireballL": {"min": 0.8, "max": 0.8},  # 新增
+	"fireballM": {"min": 0.8, "max": 0.8},  # 新增
+	"fireballH": {"min": 0.8, "max": 0.8},  # 新增
 	"spm2": {"min": 0.8, "max": 0.8},
 	"powerkk": {"min": 0.9, "max": 0.9},
 	"spnk": {"min": 0.9, "max": 0.9},
 	"dp": {"min": 0.65, "max": 0.65},
+	"dpL": {"min": 0.65, "max": 0.65},  # 新增
+	"dpM": {"min": 0.65, "max": 0.65},  # 新增
+	"dpH": {"min": 0.65, "max": 0.65},  # 新增
+	"100p": {"min": 1.2, "max": 1.2},  # 新增：百裂拳多段連打
 	"hdk": {"min": 0.8, "max": 0.8},
 	"super": {"min": 1.5, "max": 1.5},
 	
 	# Defensive actions
-	"stand_block": {"min": 0.3, "max": 0.6},
-	"crouch_block": {"min": 0.3, "max": 0.6},
+	"stand_block": {"min": 0.2, "max": 0.4},  # 減少：從0.3-0.6改為0.2-0.4
+	"crouch_block": {"min": 0.2, "max": 0.4},  # 減少：從0.3-0.6改為0.2-0.4
 	
 	# Jumping
 	"jump_forward": {"min": 0.5, "max": 0.5},
@@ -516,6 +523,13 @@ func _action_to_input(action: String) -> Dictionary:
 			input.spm2_pressed = true
 			if debug_mode:
 				print("[AI._action_to_input] %s: Setting spm2_pressed=true for action '%s'" % [parent.name, action])
+		# 🔴 【新增】Fireball 變體 (L/M/H)
+		"fireballL", "fireballM", "fireballH":
+			if enable_move_restrictions and "fireball" in restricted_moves:
+				return _neutral_input()
+			input.spm2_pressed = true
+			if debug_mode:
+				print("[AI._action_to_input] %s: Setting spm2_pressed=true for fireball variant '%s'" % [parent.name, action])
 		"powerkk", "spm1":
 			if enable_move_restrictions and "powerkk" in restricted_moves:
 				if debug_mode:
@@ -530,12 +544,28 @@ func _action_to_input(action: String) -> Dictionary:
 			if enable_move_restrictions and "hdk" in restricted_moves:
 				return _neutral_input()
 			input.spm3_pressed = true
+		# 🔴 【新增】DP 變體 (L/M/H)
+		"dpL", "dpM", "dpH":
+			if enable_move_restrictions and "dp" in restricted_moves:
+				return _neutral_input()
+			input.dp_pressed = true
+			if debug_mode:
+				print("[AI._action_to_input] %s: Setting dp_pressed=true for DP variant '%s'" % [parent.name, action])
 		"dp":
 			if enable_move_restrictions and "dp" in restricted_moves:
 				if debug_mode:
 					print("[AI._action_to_input] WARNING: DP action reached input conversion despite being restricted!")
 				return _neutral_input()
 			input.dp_pressed = true
+		# 🔴 【新增】100p 多段必殺技
+		"100p":
+			if parent.character_id == "DAV":
+				input.super_pressed = true  # 使用super_pressed作為100p的輸入
+				if debug_mode:
+					print("[AI._action_to_input] %s: Setting super_pressed=true for 100p" % parent.name)
+			else:
+				# 非DAV角色不應該執行100p
+				return _neutral_input()
 		"super":
 			if enable_move_restrictions and "super" in restricted_moves:
 				return _neutral_input()

@@ -220,8 +220,24 @@ func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 	elif threat.level == ThreatAssessment.ThreatLevel.HIGH:
 		decision.priority = PRIORITY_SURVIVAL
 	elif threat.level == ThreatAssessment.ThreatLevel.MEDIUM:
+		# 🔴 【改進】對中等威脅增加跳躍躲避選項
+		if threat.source == "fireball" and randf() < 0.4:  # 40%機率跳過火球而非格擋
+			var jump_decision = Decision.new()
+			jump_decision.layer = DecisionLayer.SURVIVAL
+			jump_decision.action = "jump_neutral"
+			jump_decision.priority = PRIORITY_BLOCK + 2.0  # 略高於格擋
+			jump_decision.reason = "Threat: avoid fireball by jumping"
+			return jump_decision
 		decision.priority = PRIORITY_BLOCK
 	else:  # LOW
+		# 🔴 【改進】對低威脅（如遠程火球）增加跳躍躲避選項
+		if threat.source == "fireball" and randf() < 0.6:  # 60%機率跳過火球而非格擋
+			var jump_decision = Decision.new()
+			jump_decision.layer = DecisionLayer.SURVIVAL
+			jump_decision.action = "jump_neutral"
+			jump_decision.priority = 69.0  # 略高於普通攻擊
+			jump_decision.reason = "Threat: avoid fireball by jumping"
+			return jump_decision
 		# For LOW threats (distant fireballs), use tactical priority
 		decision.priority = 68.0  # Similar to normal attacks
 	
@@ -338,12 +354,21 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 	if distance > 250:
 		# Priority 1: Fireball (zoning) - only if not busy
 		if ai_player and ai_player.move_set and not ai_player.move_set.is_spmove and _can_use_special(ai_player, opponent):
-			var fb = Decision.new()
-			fb.layer = DecisionLayer.TACTICAL
-			fb.action = "fireball"
-			fb.priority = PRIORITY_FIREBALL + randf_range(-2.0, 3.0)
-			fb.reason = "Far range: zoning"
-			decisions.append(fb)
+			# 🔴 【改進】DAV 使用 fireballL/M/H 變體；DEN 使用通用 fireball
+			var fireball_variants = []
+			var char_id = ai_player.character_id if "character_id" in ai_player else ""
+			if char_id == "DAV":
+				fireball_variants = ["fireballL", "fireballM", "fireballH"]
+			else:
+				fireball_variants = ["fireball"]
+			
+			for fb_variant in fireball_variants:
+				var fb = Decision.new()
+				fb.layer = DecisionLayer.TACTICAL
+				fb.action = fb_variant
+				fb.priority = PRIORITY_FIREBALL + randf_range(-2.0, 3.0)
+				fb.reason = "Far range: zoning (%s)" % fb_variant
+				decisions.append(fb)
 		
 		# Priority 2: Dash forward (aggressive approach)
 		var dash = Decision.new()
@@ -387,13 +412,24 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		# Priority 1: Special moves (character-specific) - ADDED
 		var char_id = ai_player.character_id if "character_id" in ai_player else ""
 		if char_id == "DAV" and _can_use_special(ai_player, opponent):
-			# DP (dragon punch) - anti-air and pressure
-			var dp = Decision.new()
-			dp.layer = DecisionLayer.TACTICAL
-			dp.action = "dp"
-			dp.priority = _get_special_priority(opponent)
-			dp.reason = "Mid range: DP"
-			decisions.append(dp)
+			# 🔴 【改進】DP 變體 (L/M/H)
+			for dp_variant in ["dpL", "dpM", "dpH"]:
+				var dp = Decision.new()
+				dp.layer = DecisionLayer.TACTICAL
+				dp.action = dp_variant
+				dp.priority = _get_special_priority(opponent) + randf_range(-1.0, 1.0)
+				dp.reason = "Mid range: DP (%s)" % dp_variant
+				decisions.append(dp)
+			
+			# 🔴 【改進】Fireball 變體 (L/M/H) - 中遠距也可以用
+			for fb_variant in ["fireballL", "fireballM", "fireballH"]:
+				var fb = Decision.new()
+				fb.layer = DecisionLayer.TACTICAL
+				fb.action = fb_variant
+				fb.priority = PRIORITY_FIREBALL - 3.0 + randf_range(-1.0, 2.0)  # 稍低於 DP
+				fb.reason = "Mid range: fireball (%s)" % fb_variant
+				decisions.append(fb)
+			
 			# Power kick
 			var powerkk = Decision.new()
 			powerkk.layer = DecisionLayer.TACTICAL
@@ -559,18 +595,28 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		# Priority 2: Special moves (character-specific) - INCREASED PRIORITY
 		var char_id = ai_player.character_id if "character_id" in ai_player else ""
 		if char_id == "DAV" and _can_use_special(ai_player, opponent):
-			# DP (dragon punch)
-			var dp = Decision.new()
-			dp.layer = DecisionLayer.TACTICAL
-			dp.action = "dp"
-			dp.priority = _get_special_priority(opponent)
-			dp.reason = "Close range: DP"
-			decisions.append(dp)
+			# 🔴 【改進】DP 變體 (L/M/H)
+			for dp_variant in ["dpL", "dpM", "dpH"]:
+				var dp = Decision.new()
+				dp.layer = DecisionLayer.TACTICAL
+				dp.action = dp_variant
+				dp.priority = _get_special_priority(opponent) + randf_range(-1.0, 1.0)
+				dp.reason = "Close range: DP (%s)" % dp_variant
+				decisions.append(dp)
+			
+			# 🔴 【改進】100p (多段必殺技) - 優先級低於DP但高於普通攻擊
+			var super_punch = Decision.new()
+			super_punch.layer = DecisionLayer.TACTICAL
+			super_punch.action = "100p"
+			super_punch.priority = _get_special_priority(opponent) - 5.0 + randf_range(-2.0, 2.0)
+			super_punch.reason = "Close range: 100p multi-hit"
+			decisions.append(super_punch)
+			
 			# Power kick
 			var powerkk = Decision.new()
 			powerkk.layer = DecisionLayer.TACTICAL
 			powerkk.action = "powerkk"
-			powerkk.priority = _get_special_priority(opponent)
+			powerkk.priority = _get_special_priority(opponent) + randf_range(-1.0, 1.0)
 			powerkk.reason = "Close range: power kick"
 			decisions.append(powerkk)
 		elif char_id == "DEN" and _can_use_special(ai_player, opponent):
@@ -589,19 +635,19 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			hdk.reason = "Close range: hdk"
 			decisions.append(hdk)
 		
-		# Priority 2b: Throw - 破格擋的利器，近身必學
-		if distance < 90 and not ai_player.is_attacking and not ai_player.is_hit and not ai_player.is_knockfly:
+		# Priority 2b: Throw - 破格擋的利器，近身必學（優化以支持DEN）
+		if distance < 100 and not ai_player.is_attacking and not ai_player.is_hit and not ai_player.is_knockfly:
 			var throw_dec = Decision.new()
 			throw_dec.layer = DecisionLayer.TACTICAL
 			throw_dec.action = "throw"
 			if opponent.is_blocking:
 				# 對手正在格擋時摔投優先級大幅提升（摔投無視格擋）
-				throw_dec.priority = 76.0 + randf_range(-2.0, 3.0)
+				throw_dec.priority = 78.0 + randf_range(-1.0, 2.0)
 				throw_dec.reason = "Close range: throw beats block"
 			else:
-				# 中立時摔投優先級較低，讓普通攻擊和必殺技優先
-				throw_dec.priority = 62.0 + randf_range(-2.0, 2.0)
-				throw_dec.reason = "Close range: throw"
+				# 中立時摔投優先級適中，與普通攻擊競爭
+				throw_dec.priority = 66.0 + randf_range(-2.0, 2.0)
+				throw_dec.reason = "Close range: throw (both characters)"
 			decisions.append(throw_dec)
 		
 		# Priority 3: Medium-range normals (st_mp, st_mk, cr_mp) - 平衡優先級
