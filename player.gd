@@ -445,9 +445,9 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 
 	if move_set and move_set.is_spmove:
 		var active_move_name = move_set.get_active_move_name()
-		# For L/M/H variants, return the base animation name (shared animation)
+		# fireballL/M/H 各自播放獨立動畫（已在 dav.tscn 加入）
 		if active_move_name in ["fireballL", "fireballM", "fireballH"]:
-			return "fireball"
+			return active_move_name
 		if active_move_name in ["dpL", "dpM", "dpH"]:
 			return "dp"
 		if active_move_name in ["super", "powerkk", "dp", "spnk", "fireball"]:

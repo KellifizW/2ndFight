@@ -1,6 +1,12 @@
 extends Area2D
 
 var speed: float = 800.0          # 預設速度（DAV）
+# Combat values — set by MoveSet.execute_fireball_spawn() from .tres data
+# Using stored values avoids fragile runtime lookups at hit time
+var hit_damage: float = 10.0
+var hit_hitstun: int = 18
+var hit_blockstun: int = 10
+var hit_knockback: float = 80.0
 var direction: int = 1
 var is_active: bool = true
 var is_penetrating: bool = false  # 擊中後的穿透狀態
@@ -123,13 +129,23 @@ func _apply_data_from_moveset() -> void:
 	if not fireball_owner:
 		return
 	var move_set = fireball_owner.move_set if "move_set" in fireball_owner else null
-	if not move_set or not move_set.has_method("get_move_data_for_character"):
+	if not move_set:
 		return
-	var fireball_move = move_set.get_move_data_for_character(special_move_id, owner_character_id)
-	if fireball_move and fireball_move.projectile_speed > 0.0:
-		speed = fireball_move.projectile_speed
-	else:
-		push_warning("Fireball speed missing for character: %s, using default %.1f" % [owner_character_id, speed])
+	# 優先從 SpecialMoveData .tres 讀取（用戶在 Inspector 編輯的戰鬥值）
+	if move_set.has_method("get_special_move_resource"):
+		var smd: Resource = move_set.get_special_move_resource(special_move_id)
+		if smd != null:
+			var ps: float = smd.get("projectile_speed")
+			if ps > 0.0:
+				speed = ps
+			return
+	# Fallback: 使用 MoveData wrapper
+	if move_set.has_method("get_move_data_for_character"):
+		var fireball_move = move_set.get_move_data_for_character(special_move_id, owner_character_id)
+		if fireball_move and fireball_move.projectile_speed > 0.0:
+			speed = fireball_move.projectile_speed
+		else:
+			push_warning("Fireball speed missing for %s/%s, using default %.1f" % [owner_character_id, special_move_id, speed])
 
 func _get_fireball_params_from_moveset() -> Dictionary:
 	"""
@@ -153,12 +169,22 @@ func _get_fireball_params_from_moveset() -> Dictionary:
 	if not move_set.has_method("get_move_data_for_character"):
 		return params
 	
+	# 優先從 SpecialMoveData .tres 讀取（用戶在 Inspector 編輯的寫真數據）
+	if move_set.has_method("get_special_move_resource"):
+		var smd: Resource = move_set.get_special_move_resource(special_move_id)
+		if smd != null:
+			params["damage"] = smd.get("damage")
+			params["knockback"] = smd.get("knockback")
+			params["hitstun"] = smd.get("hitstun_frames")
+			params["blockstun"] = smd.get("blockstun_frames")
+			return params
+	# Fallback: 使用 MoveData wrapper
 	var fireball_move = move_set.get_move_data_for_character(special_move_id, owner_character_id)
 	if fireball_move:
 		params["damage"] = fireball_move.damage
 		params["knockback"] = fireball_move.knockback
-		params["hitstun"] = fireball_move.hitstun_frames
-		params["blockstun"] = fireball_move.blockstun_frames
+		params["hitstun"] = fireball_move.hitstun
+		params["blockstun"] = fireball_move.blockstun
 	
 	return params
 
@@ -218,12 +244,11 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 			push_warning("Warning: HitSoundPlayer not found in Fireball!")
 		
 		# 🟢 【重要】先呼叫 take_hit() 讓受擊動畫立即播放
-		# 🟢 從 MoveSet 讀取所有參數（單一來源）
-		var fb_params = _get_fireball_params_from_moveset()
-		var final_hitstun = fb_params["hitstun"]
-		var final_blockstun = fb_params["blockstun"]
-		var final_damage = fb_params["damage"]
-		var final_knockback = fb_params["knockback"]
+		# 戰鬥屬性已在 spawn 時直接寫入，不需運行時查找
+		var final_hitstun = hit_hitstun
+		var final_blockstun = hit_blockstun
+		var final_damage = hit_damage
+		var final_knockback = hit_knockback
 		var world = get_tree().get_first_node_in_group("world")
 		
 		# 🟢 【關鍵】禁用 target 的 hitbox 碰撞，避免 HitResponseHandler 重複調用 take_hit()

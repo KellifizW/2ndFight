@@ -135,21 +135,23 @@ func _initialize_move_library() -> void:
 	# 构建 move_library
 	for resource in resources_to_load:
 		if resource == null:
-			push_warning("MoveSet: Null resource in special_moves_data")
+			print("[MoveSet INIT] Skipping null resource")
 			continue
-		if not resource is SpecialMoveData:
-			push_warning("MoveSet: Resource is not SpecialMoveData: %s" % resource)
+		# Use property check instead of class type check (avoids SpecialMoveData class resolution issues)
+		var move_id_val = resource.get("move_id")
+		if move_id_val == null:
+			print("[MoveSet INIT] Skipping resource  no move_id property. Type: %s Path: %s" % [resource.get_class(), resource.resource_path])
 			continue
-		var move_id = resource.move_id
+		var move_id = str(move_id_val)
 		if move_id == "":
-			push_warning("MoveSet: SpecialMoveData missing move_id")
+			print("[MoveSet INIT] Skipping resource  move_id is empty. Path: %s" % resource.resource_path)
 			continue
 		if not move_library.has(move_id):
 			move_library[move_id] = []
 		move_library[move_id].append(resource)
-	
-	if startup_logs:
-		print("[MoveSet] Library initialized with %d move types: %s" % [move_library.size(), move_library.keys()])
+		print("[MoveSet INIT]  Loaded '%s' char=%s speed=%s dmg=%s" % [move_id, resource.get("character_requirement"), resource.get("projectile_speed"), resource.get("damage")])
+
+	print("[MoveSet] Library initialized with %d move types: %s" % [move_library.size(), move_library.keys()])
 
 func has_move_id(move_id: String) -> bool:
 	return move_library.has(move_id)
@@ -737,9 +739,28 @@ func execute_fireball_spawn() -> void:
 	fb.fireball_owner = parent
 	# 🟢 fireball 現在從 _get_fireball_params_from_moveset() 讀取所有參數（單一來源）
 	fb.global_position = parent.global_position + Vector2(fireball_x_offset * parent.facing_direction, fireball_y_offset)
+	# Look up combat stats from move_library (.tres SpecialMoveData)
+	var active_move_id = current_move_state.active_move.move_id
+	var smd = get_move_data_for_character(active_move_id, parent.character_id)
+	print("[Fireball SPAWN DEBUG] char=%s variant=%s smd_found=%s lib_keys=%s" % [parent.character_id, active_move_id, smd != null, str(move_library.keys())])
+	if smd != null:
+		var ps = smd.get("projectile_speed")
+		fb.speed = float(ps) if ps != null and float(ps) > 0.0 else 800.0
+		var dmg = smd.get("damage")
+		fb.hit_damage = float(dmg) if dmg != null else 10.0
+		var hs = smd.get("hitstun_frames")
+		fb.hit_hitstun = int(hs) if hs != null else 18
+		var bs = smd.get("blockstun_frames")
+		fb.hit_blockstun = int(bs) if bs != null else 10
+		var kb = smd.get("knockback")
+		fb.hit_knockback = float(kb) if kb != null else 80.0
+		print("[Fireball SPAWN] %s variant=%s speed=%.0f dmg=%.1f hitstun=%d blkstun=%d" % [parent.name, active_move_id, fb.speed, fb.hit_damage, fb.hit_hitstun, fb.hit_blockstun])
+	else:
+		print("[Fireball SPAWN WARNING] No smd for %s/%s  lib_keys=%s" % [parent.character_id, active_move_id, str(move_library.keys())])
+	fb.special_move_id = active_move_id
 	get_tree().current_scene.add_child(fb)
 	parent.active_fireball = fb
-	print("[MoveSet.execute_fireball_spawn] Fireball spawned for %s, params from MoveSet" % parent.name)
+	print("[MoveSet.execute_fireball_spawn] Done: %s variant=%s speed=%.0f dmg=%.1f" % [parent.name, active_move_id, fb.speed, fb.hit_damage])
 
 func _process_caster_jump(_delta: float, world: Node, move) -> void:
 	"""✅ 【新增】處理出招者跳躍系統（如升龍拳）"""
