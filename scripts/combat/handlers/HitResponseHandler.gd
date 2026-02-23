@@ -107,7 +107,7 @@ func handle_hitbox_collision(area: Area2D) -> void:
 	
 	# ── 播放音效 ──
 	var is_blocked: bool = target.is_blocking
-	_play_hit_sound(is_blocked)
+	_play_hit_sound(is_blocked, hit_params.damage)
 	
 	# ── 生成 VFX ──
 	var contact = _calculate_contact_point(area)
@@ -250,14 +250,20 @@ func _get_multi_hit_phase(active_move, target: Node, elapsed_frames: int):
 	multi_hit_targets[target_id] = record
 	return phase_data
 
-func _play_hit_sound(is_blocked: bool) -> void:
-	"""播放擊中/格擋音效"""
+func _play_hit_sound(is_blocked: bool, damage: float = 10.0) -> void:
+	"""播放擊中/格擋音效 - 根據傷害值選擇普通或強力音效"""
+	var is_heavy_hit = damage >= 8.0
+	
 	if is_blocked:
-		var block_sound = parent_player.get_node_or_null("BlockSoundPlayer")
+		# 格擋時：傷害 >= 8 播放 HeavyBlockSoundPlayer，否則播放 BlockSoundPlayer
+		var sound_player_name = "HeavyBlockSoundPlayer" if is_heavy_hit else "BlockSoundPlayer"
+		var block_sound = parent_player.get_node_or_null(sound_player_name)
 		if block_sound and block_sound.has_method("play"):
 			block_sound.play()
 	else:
-		var hit_sound = parent_player.get_node_or_null("HitSoundPlayer")
+		# 擊中時：傷害 >= 8 播放 HeavyHitSoundPlayer，否則播放 HitSoundPlayer
+		var sound_player_name = "HeavyHitSoundPlayer" if is_heavy_hit else "HitSoundPlayer"
+		var hit_sound = parent_player.get_node_or_null(sound_player_name)
 		if hit_sound and hit_sound.has_method("play"):
 			hit_sound.play()
 

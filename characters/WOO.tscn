@@ -14,6 +14,8 @@
 [ext_resource type="AudioStream" uid="uid://bekh5vxg0gcta" path="res://audio/hurt_grunt_p1.wav" id="12_sffaq"]
 [ext_resource type="AudioStream" uid="uid://dm1sdatl058bw" path="res://audio/powerkk_call.mp3" id="13_vn450"]
 [ext_resource type="AudioStream" uid="uid://c60iyk1374qu3" path="res://audio/fireball_call_p1.wav" id="14_wkibw"]
+[ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://audio/loud3.mp3" id="15_wkibw"]
+[ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://audio/heavyblock.mp3" id="16_wkibw"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_0e34t"]
 size = Vector2(90, 270)
@@ -3514,3 +3516,13 @@ volume_db = -5.0
 
 [node name="FireballCallPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("14_wkibw")
+[node name="HeavyHitSoundPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("15_wkibw")
+volume_db = 0.085
+pitch_scale = 0.91
+
+[node name="HeavyBlockSoundPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("16_wkibw")
+
+[node name="HeavyHurtGruntPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("12_sffaq")

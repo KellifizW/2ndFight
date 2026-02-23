@@ -6171,7 +6171,7 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 26
+frame = 1
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
@@ -6269,9 +6269,8 @@ pitch_scale = 0.95
 
 [node name="FireballCallPlayer" type="AudioStreamPlayer" parent="." unique_id=344132058]
 stream = ExtResource("14_qpqbf")
-pitch_scale = 0.95
 
-[node name="StrongHitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=401270843]
+[node name="HeavyHitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=401270843]
 stream = ExtResource("16_x0tr5")
 volume_db = 0.085
 pitch_scale = 0.91
@@ -6281,4 +6280,5 @@ stream = ExtResource("17_vym3m")
 
 [node name="HeavyHurtGruntPlayer" type="AudioStreamPlayer" parent="." unique_id=1204396113]
 stream = ExtResource("18_wv6ou")
-pitch_scale = 1.14
+volume_db = 1.763
+pitch_scale = 1.1

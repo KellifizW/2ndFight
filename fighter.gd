@@ -253,7 +253,15 @@ func take_hit(
 		is_blocking = false
 		block_type = "none"
 	
-	var hurt_grunt_player = $HurtGruntPlayer if has_node("HurtGruntPlayer") else null
+	# ── 播放受擊痛苦叫聲 - 根據傷害值選擇普通或強力叫聲 ──
+	var is_heavy_hit = damage >= 8.0
+	var hurt_player_name = "HeavyHurtGruntPlayer" if is_heavy_hit else "HurtGruntPlayer"
+	var hurt_grunt_player = null
+	if has_node(hurt_player_name):
+		hurt_grunt_player = get_node(hurt_player_name)
+	elif has_node("HurtGruntPlayer"):
+		# 回退到 HurtGruntPlayer
+		hurt_grunt_player = get_node("HurtGruntPlayer")
 	if hurt_grunt_player:
 		hurt_grunt_player.play()
 	
