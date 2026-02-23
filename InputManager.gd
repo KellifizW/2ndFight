@@ -524,7 +524,7 @@ func detect_special_move() -> String:
 	
 	# 【新增】100p 多段連打（236+MK）- DAV only
 	if character_id == "DAV" and can_use_special.call("100p") and check_100p_input():
-		print("[DETECT_SPECIAL] 100p detected!")
+		print("[DETECT_SPECIAL] 💥 100p detected! | Seat: %s | Buffer Check: can_use_special('100p')=true" % character_id if character_id == "DAV" else "NOT_DAV")
 		detected_special_this_frame = "100p"
 		return "100p"
 	

@@ -62,7 +62,9 @@ class MoveData:
 		p_knockfly_vertical_speed: float = 0.0,
 		p_knockfly_horizontal_speed: float = 0.0,
 		p_hitstun: int = 18,  # 🟢 新增: 預設 18
-		p_blockstun: int = 10  # 🟢 新增: 預設 10
+		p_blockstun: int = 10,  # 🟢 新增: 預設 10
+		p_is_multi_hit: bool = false,  # 🔴 新增: 多段hit支援
+		p_hit_phases: Array = []  # 🔴 新增: hit phases 數組
 	):
 		name = p_name
 		character_requirement = p_char
@@ -86,6 +88,8 @@ class MoveData:
 		knockfly_gravity = p_knockfly_gravity
 		knockfly_vertical_speed = p_knockfly_vertical_speed
 		knockfly_horizontal_speed = p_knockfly_horizontal_speed
+		is_multi_hit = p_is_multi_hit  # 🔴 新增
+		hit_phases = p_hit_phases  # 🔴 新增
 
 # ============================================================
 # RUNTIME STATE - Only track active move states
@@ -167,6 +171,24 @@ func _smd_to_move_data(res: Resource) -> MoveData:
 	const CURVE_NAMES = ["none", "accelerate", "decelerate", "three_phase"]
 	var curve_int: int = res.get("acceleration_curve") if "acceleration_curve" in res else 0
 	var curve_str: String = CURVE_NAMES[clamp(curve_int, 0, CURVE_NAMES.size() - 1)]
+	
+	# 🔴 讀取 hit_phases（多段招式）
+	var hit_phases = res.get("hit_phases") if "hit_phases" in res else []
+	var is_multi_hit = res.get("is_multi_hit") if "is_multi_hit" in res else false
+	if is_multi_hit and hit_phases.size() > 0:
+		print("[_smd_to_move_data] ✓ Multi-hit detected for '%s': %d phases loaded" % [mid, hit_phases.size()])
+		# 🔴 詳細診斷：顯示每個phase的內容
+		for i in hit_phases.size():
+			var hp = hit_phases[i]
+			if hp:
+				print("    [Phase%d] frame=%d, damage=%.1f, hitstun=%d, blockstun=%d, knockback=%.1f" % [
+					i, hp.frame, hp.damage, hp.hitstun, hp.blockstun, hp.knockback
+				])
+			else:
+				print("    [Phase%d] NULL!" % i)
+	elif is_multi_hit and hit_phases.size() == 0:
+		print("[_smd_to_move_data] ⚠️  Multi-hit flagged for '%s' but hit_phases is empty!" % mid)
+	
 	var md = MoveData.new(
 		mid,
 		res.get("character_requirement"),
@@ -190,7 +212,9 @@ func _smd_to_move_data(res: Resource) -> MoveData:
 		res.get("knockfly_vertical_speed") if "knockfly_vertical_speed" in res else 0.0,
 		res.get("knockfly_horizontal_speed") if "knockfly_horizontal_speed" in res else 0.0,
 		res.get("hitstun_frames") if "hitstun_frames" in res else 18,
-		res.get("blockstun_frames") if "blockstun_frames" in res else 10
+		res.get("blockstun_frames") if "blockstun_frames" in res else 10,
+		is_multi_hit,  # 🔴 傳遞 is_multi_hit
+		hit_phases  # 🔴 傳遞 hit_phases
 	)
 	if "projectile_speed" in res:
 		md.projectile_speed = res.get("projectile_speed")
@@ -260,6 +284,10 @@ func _start_special(move_name: String) -> void:
 	is_special_moving = true
 	is_spmove_animation_playing = true
 	
+	# 🔴 【關鍵】Reset multi-hit state for new move (clear old target records)
+	if parent and "hit_response_handler" in parent and parent.hit_response_handler:
+		parent.hit_response_handler.reset_multi_hit_state()
+	
 	current_move_state.active_move = move_data
 	# 那輯幀 * 2 = 物理幀數 (120 FPS)
 	# ★ 若為 0，自動使用動畫長度（叏應 duration_frames=0 設計）
@@ -295,12 +323,16 @@ func _start_special(move_name: String) -> void:
 	
 	# Calculate velocity
 	var world = get_tree().get_first_node_in_group("world")
+	
+	# 🔴 【關鍵修正】總是設置 total_duration，無論 move_distance 是否為 0
+	# 多段hit追蹤需要 total_duration 來計算 elapsed_frames
+	current_move_state.total_duration = float(duration_physics_frames)
+	
 	if world and move_data.move_distance > 0:
 		# duration_physics_frames 已處理過 0（即已替換為動畫長度）
 		var duration_seconds = duration_physics_frames / float(PHYSICS_FPS)  # 物理幀 -> 秒數
 		var base_speed = (move_data.move_distance / max(duration_seconds, 0.001)) * world.SIMULATION_SCALE * parent.facing_direction
 		current_move_state.initial_speed = base_speed
-		current_move_state.total_duration = float(duration_physics_frames)
 		
 		# Set initial velocity based on acceleration curve
 		if move_data.acceleration_curve == "accelerate":
@@ -314,7 +346,6 @@ func _start_special(move_name: String) -> void:
 	else:
 		parent.fixed_velocity = Vector2i.ZERO
 		current_move_state.initial_speed = 0.0
-		current_move_state.total_duration = 0.0
 	
 	# Play animation via AnimationTree state machine (same as normal attacks)
 	var seat_str = parent.seat if "seat" in parent else "?"
@@ -467,6 +498,14 @@ func start_fireballH() -> void:
 		print("[MoveSet] %s: Cannot start fireballH - active_fireball already exists" % parent.name)
 		return
 	_start_special("fireballH")
+
+func start_100p() -> void:
+	# 🔴 【新增】100p 多段連打 (DAV only)
+	print("[MoveSet.start_100p] ✓ 開始執行 100p 招式 | 座位: %s | character_id: %s" % [parent.seat, parent.character_id])
+	if parent.is_attacking or is_spmove:
+		print("[MoveSet.start_100p] ❌ Cannot start 100p - already attacking or in special move")
+		return
+	_start_special("100p")
 
 # === Freeze logic ===
 func freeze_game(duration: float) -> void:
@@ -721,6 +760,15 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 		start_fireballH()
 		return true
 	
+	# 🔴 【新增 100p 處理】Multi-hit punch (DAV only)
+	if input_data.get("100p_pressed", false) and parent.character_id == "DAV" and not parent.is_attacking and not is_spmove:
+		print("[MoveSet._handle_input] ✓ 100p_pressed detected! Calling start_100p() | Seat: %s" % parent.seat)
+		if controller and controller.has_method("consume_button_input"):
+			controller.consume_button_input("100p")  # Consume the special move buffer
+			controller.consume_button_input("st_mk")  # Also consume trigger button
+		start_100p()
+		return true
+	
 	if input_data.get("spm1_pressed", false) and not parent.is_attacking and not is_spmove:
 		# Consume appropriate buffered special move
 		if controller and controller.has_method("consume_button_input"):
@@ -908,6 +956,16 @@ func get_active_move_name() -> String:
 
 func is_move_active(move_name: String) -> bool:
 	return is_spmove and current_move_state.active_move and current_move_state.active_move.name == move_name
+
+# ============================================================
+# HELPER: Get elapsed frames for current move (for multi-hit timing)
+# ============================================================
+
+func get_active_move_elapsed_frames() -> int:
+	"""Return elapsed physics frames since move started (0 at start, increases over time)"""
+	if not is_spmove or current_move_state.total_duration <= 0:
+		return 0
+	return int(current_move_state.total_duration - current_move_state.timer)
 
 # ============================================================
 # HELPER: Move library queries (used by InputManager.can_use_special)

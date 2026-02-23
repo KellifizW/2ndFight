@@ -162,6 +162,13 @@ func get_input_data() -> Dictionary:
 		input_buffer.is_input_buffered("dpM") or
 		input_buffer.is_input_buffered("dpH"))
 	
+	# 🔴 【新增 100p 檢查】CRUCIAL: 100p must be checked and buffered
+	var move_100p_buffered = input_buffer.is_input_buffered("100p")
+	
+	# DEBUG: 每幀顯示 100p buffer 狀態
+	if move_100p_buffered:
+		print("[PlayerController Buffer] ✅ 100p FOUND in buffer! Setting 100p_pressed")
+	
 	# 如果 buffer 中有特殊招式，設置對應的標誌
 	if fireball_buffered:
 		spm2_pressed = true
@@ -187,6 +194,12 @@ func get_input_data() -> Dictionary:
 		st_lp_pressed = false
 		st_hp_pressed = false
 	
+	# 🔴 【新增】Handle 100p buffered input (DAV only, multi-hit punch)
+	if move_100p_buffered:
+		print("[PlayerController] 100p moving to spm3_pressed (or creating new flag for MoveSet handling)")
+		# Note: 100p needs special handling since it's not in spm1/spm2/spm3
+		st_mk_pressed = false  # Clear MK to prevent normal attack
+	
 	
 	# === 舊版輸入序列檢測（作為備用，但不應該再需要了）===
 	# 已經被 InputManager.detect_special_move() 和 buffer 系統取代
@@ -197,7 +210,7 @@ func get_input_data() -> Dictionary:
 		character_id = get_parent().character_id
 	
 	# 只有在 buffer 中沒有檢測到特殊招式時才執行舊邏輯（fallback）
-	if input_manager and not (fireball_buffered or fireballL_buffered or fireballM_buffered or fireballH_buffered or powerkk_buffered or spnk_buffered or hdk_buffered or dp_buffered):
+	if input_manager and not (fireball_buffered or fireballL_buffered or fireballM_buffered or fireballH_buffered or powerkk_buffered or spnk_buffered or hdk_buffered or dp_buffered or move_100p_buffered):
 		# DAV（原本 p1）的招式
 		if character_id == "DAV" and input_manager.check_powerkk_input():
 			spm1_pressed = true
@@ -267,7 +280,8 @@ func get_input_data() -> Dictionary:
 		"super_pressed": super_pressed,
 		"dp_pressed": dp_pressed,
 		"dash_pressed": dash_pressed,
-		"backdash_pressed": backdash_pressed
+		"backdash_pressed": backdash_pressed,
+		"100p_pressed": move_100p_buffered  # 🔴 【新增】 Return 100p flag to MoveSet
 	}
 
 # Helper method for player to consume inputs

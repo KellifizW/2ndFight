@@ -70,13 +70,28 @@ func handle_hitbox_collision(area: Area2D) -> void:
 	if not world:
 		return
 	
+	# 🔴 調試：顯示active_move的狀態
+	if active_move:
+		print("[HitResponseHandler] 碰撞檢測：move=%s, is_spmove=%s, is_multi_hit=%s, hit_phases.size()=%d" % [
+			active_move.name, move_set.is_spmove, active_move.is_multi_hit, active_move.hit_phases.size()
+		])
+	
 	# ── 多段招式：取得當前段數與參數 ──
 	var phase_data = null
-	if active_move and active_move.is_multi_hit and active_move.hit_phases.size() > 0:
-		var elapsed_frames = move_set.get_active_move_elapsed_frames() if move_set and move_set.has_method("get_active_move_elapsed_frames") else 0
-		phase_data = _get_multi_hit_phase(active_move, target, elapsed_frames)
-		if phase_data == null:
-			return
+	if active_move and active_move.is_multi_hit:
+		# 如果hit_phases為空，説明多段配置不完整，降級為非多段模式
+		if active_move.hit_phases.size() == 0:
+			print("[HitResponseHandler] ⚠️  %s is_multi_hit=true 但 hit_phases 為空，降級為非多段模式" % active_move.name)
+			active_move.is_multi_hit = false
+			# ✅ 繼續執行碰撞，使用基礎參數
+		else:
+			# ✅ hit_phases不為空，使用多段邏輯
+			var elapsed_frames = move_set.get_active_move_elapsed_frames() if move_set and move_set.has_method("get_active_move_elapsed_frames") else 0
+			phase_data = _get_multi_hit_phase(active_move, target, elapsed_frames)
+			if phase_data == null:
+				# 未達到hit_phase時間點，不碰撞
+				print("[HitResponseHandler] ⚠️  phase_data=null for multi-hit move '%s', elapsed_frames=%d, target=%s" % [active_move.name, elapsed_frames, target.name])
+				return
 	
 	# ── 獲取攻擊參數 ──
 	var hit_params = _get_hit_parameters(phase_data)
@@ -172,10 +187,11 @@ func _get_hit_parameters(phase_data = null) -> Dictionary:
 		params.hitstun = active_move.hitstun
 		params.blockstun = active_move.blockstun
 		if phase_data != null:
-			params.damage = phase_data.damage if phase_data.damage != 0.0 else params.damage
-			params.hitstun = phase_data.hitstun if phase_data.hitstun != 0 else params.hitstun
-			params.blockstun = phase_data.blockstun if phase_data.blockstun != 0 else params.blockstun
-			params.knockback = phase_data.knockback if phase_data.knockback != 0.0 else params.knockback
+			# 🔴 改進：phase中的參數優先，但如果為0則使用base參數
+			params.damage = phase_data.damage if phase_data.damage != 0.0 else active_move.damage
+			params.hitstun = phase_data.hitstun if phase_data.hitstun != 0 else active_move.hitstun  # 如果使用0則降級
+			params.blockstun = phase_data.blockstun if phase_data.blockstun != 0 else active_move.blockstun
+			params.knockback = phase_data.knockback if phase_data.knockback != 0.0 else active_move.knockback
 		
 		# ──  特殊招式的特殊參數 ──
 		var move_name = active_move.name
@@ -226,6 +242,10 @@ func _get_multi_hit_phase(active_move, target: Node, elapsed_frames: int):
 	var physics_fps = parent_player.PHYSICS_FPS if "PHYSICS_FPS" in parent_player else 120
 	var hit_index = -1
 	var phase_data = null
+	
+	# 🔴 詳細診斷
+	print("[_get_multi_hit_phase] Checking move=%s, elapsed_frames=%d (physics), target=%s" % [active_move.name, elapsed_frames, target.name])
+	
 	for i in active_move.hit_phases.size():
 		var phase = active_move.hit_phases[i]
 		if phase == null:
@@ -234,20 +254,34 @@ func _get_multi_hit_phase(active_move, target: Node, elapsed_frames: int):
 		if phase_frame < 0:
 			continue
 		var phase_physics = int(round(phase_frame * float(physics_fps) / 60.0))
+		print("    [Phase%d] frame(logic)=%d → phase_physics=%d (elapsed=%d, match=%s)" % [
+			i, phase_frame, phase_physics, elapsed_frames, elapsed_frames >= phase_physics
+		])
 		if elapsed_frames >= phase_physics:
 			hit_index = i
 			phase_data = phase
 	
 	if hit_index < 0:
+		print("[_get_multi_hit_phase] ❌ No matching phase found (elapsed_frames=%d too early)" % elapsed_frames)
+		return null
+	
+	# 🔴 【新增】檢查phase是否有有效數據（不能所有値都為0）
+	if phase_data != null and phase_data.damage == 0.0 and phase_data.hitstun == 0 and phase_data.knockback == 0.0:
+		print("[_get_multi_hit_phase] ⚠️  Phase%d 無效（所有値為0） frame=%d" % [hit_index, phase_data.frame])
 		return null
 	
 	var target_id = target.get_instance_id()
 	var record = multi_hit_targets.get(target_id, {"hit_index": -1, "last_hit_frame": -1})
+	print("[_get_multi_hit_phase] Target=%s (id=%d), current_hit_index=%d, previous_hit_index=%d" % [
+		target.name, target_id, hit_index, record["hit_index"]
+	])
 	if record["hit_index"] == hit_index:
+		print("[_get_multi_hit_phase] ⚠️  Already hit this target with phase%d, skipping" % hit_index)
 		return null
 	record["hit_index"] = hit_index
 	record["last_hit_frame"] = elapsed_frames
 	multi_hit_targets[target_id] = record
+	print("[_get_multi_hit_phase] ✅ Returning phase%d for target %s" % [hit_index, target.name])
 	return phase_data
 
 func _play_hit_sound(is_blocked: bool, damage: float = 10.0) -> void:

@@ -28,7 +28,7 @@ func _initialize_move_library() -> void:
 		move_library[_md.name] = _md
 	else:
 		move_library["spnk"] = MoveData.new(
-			"spnk", "DEN", 12.0, 280.0, 72.0, 250.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 23
+			"spnk", "DEN", 12.0, 280.0, 72.0, 250.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 23, false, []
 		)
 
 	_md = _load_smd(smd_hdk, "res://data/specials/den_hdk.tres")
@@ -36,7 +36,7 @@ func _initialize_move_library() -> void:
 		move_library[_md.name] = _md
 	else:
 		move_library["hdk"] = MoveData.new(
-			"hdk", "DEN", 3.0, 290.0, 66.0, 200.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 23
+			"hdk", "DEN", 3.0, 290.0, 66.0, 200.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 27, 23, false, []
 		)
 
 	_md = _load_smd(smd_fireball, "res://data/specials/den_fireball.tres")

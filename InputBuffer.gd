@@ -34,8 +34,11 @@ func record_input(action_name: String) -> void:
 	"""Record a button press into the buffer"""
 	if not buffered_inputs.has(action_name):
 		buffered_inputs[action_name] = BufferEntry.new(action_name, current_frame)
-		# Debug output (can be disabled in production)
-		# print("Buffer: Recorded %s at frame %d" % [action_name, current_frame])
+		# 🔴 Debug: Show special move buffering, especially 100p
+		if action_name in ["100p", "powerkk", "dp", "fireball"]:
+			print("[InputBuffer] 🟢 Recorded '%s' at frame %d (will expire at frame %d, buffer_frames=%d)" % [
+				action_name, current_frame, current_frame + BUFFER_FRAMES, BUFFER_FRAMES
+			])
 
 func is_input_buffered(action_name: String) -> bool:
 	"""Check if an input is currently buffered and not consumed"""
@@ -47,7 +50,15 @@ func is_input_buffered(action_name: String) -> bool:
 		return false
 	
 	var age = current_frame - entry.timestamp
-	return age <= BUFFER_FRAMES
+	var is_valid = age <= BUFFER_FRAMES
+	
+	# 🔴 Debug: Show special move buffering checks for 100p
+	if action_name in ["100p", "powerkk", "dp", "fireball"]:
+		print("[InputBuffer.is_buffered] Check '%s': age=%d/30, consumed=%s, valid=%s" % [
+			action_name, age, entry.consumed, is_valid
+		])
+	
+	return is_valid
 
 func is_input_buffered_within(action_name: String, window_frames: int) -> bool:
 	"""Check if an input is buffered and within a custom window (in frames)."""
