@@ -32,10 +32,10 @@ metadata/_custom_type_script = "uid://c4qqdmb1sci8y"
 size = Vector2(90, 270)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_x536s"]
-size = Vector2(30, 60)
+size = Vector2(70, 270)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_md12c"]
-size = Vector2(80, 20)
+size = Vector2(70, 200)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3pafw"]
 size = Vector2(130, 40)
@@ -3038,7 +3038,7 @@ tracks/8/path = NodePath("AnimatedSprite2D:frame")
 tracks/8/interp = 1
 tracks/8/loop_wrap = true
 tracks/8/keys = {
-"times": PackedFloat32Array(0, 0.016666666, 0.03333333, 0.049999997, 0.06666666, 0.08333334, 0.099999994, 0.13333334, 0.25, 0.28333333, 0.31666666, 0.36666667, 0.41666666, 0.51666665, 0.6666667, 0.75),
+"times": PackedFloat32Array(0, 0.016666666, 0.03333333, 0.049999997, 0.06666666, 0.08333334, 0.099999994, 0.13333334, 0.25, 0.28333333, 0.31666666, 0.36666667, 0.41666666, 0.48333332, 0.6666667, 0.75),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 6]
@@ -7156,39 +7156,53 @@ alpha_curve = SubResource("CurveTexture_vhfda")
 [sub_resource type="Resource" id="Resource_b3w3n"]
 script = ExtResource("9_0wmxw")
 damage = 8.0
+knockback = 100.0
+hitstun_frames = 24
+blockstun_frames = 14
 knockfly_force_enable = true
 knockfly_gravity = 6000000.0
-knockfly_vertical_speed = -1600.0
-knockfly_horizontal_speed = 3000.0
+knockfly_vertical_speed = -1900.0
+knockfly_horizontal_speed = 1000.0
+move_distance = 20.0
 caster_jump_enabled = true
 caster_jump_delay_frames = 8
-caster_jump_vertical_speed = -1600.0
+caster_jump_vertical_speed = -1500.0
 caster_jump_gravity = 6000000.0
+is_projectile = true
+sound_type = "fireball"
+penetrable = true
+projectile_speed = 800.0
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
 [sub_resource type="Resource" id="Resource_t485y"]
 script = ExtResource("9_0wmxw")
 damage = 10.0
+hitstun_frames = 39
+blockstun_frames = 23
 knockfly_force_enable = true
 knockfly_gravity = 6000000.0
 knockfly_vertical_speed = -2200.0
+knockfly_horizontal_speed = 500.0
+duration_frames = 56
+move_distance = 60.0
 caster_jump_enabled = true
 caster_jump_delay_frames = 8
-caster_jump_vertical_speed = -2100.0
+caster_jump_vertical_speed = -1800.0
 caster_jump_gravity = 6000000.0
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
 [sub_resource type="Resource" id="Resource_hshs3"]
 script = ExtResource("9_0wmxw")
-damage = 10.0
+damage = 11.0
 knockfly_force_enable = true
-knockfly_gravity = 6000000.0
-knockfly_vertical_speed = -2200.0
+knockfly_gravity = 9000000.0
+knockfly_vertical_speed = -3300.0
 knockfly_horizontal_speed = 200.0
+move_distance = 120.0
 caster_jump_enabled = true
 caster_jump_delay_frames = 8
-caster_jump_vertical_speed = -2200.0
-caster_jump_gravity = 6000000.0
+caster_jump_vertical_speed = -2600.0
+caster_jump_gravity = 8500000.0
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
 [sub_resource type="Resource" id="Resource_sbsnw"]

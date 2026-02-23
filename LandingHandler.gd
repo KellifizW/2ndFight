@@ -32,13 +32,24 @@ func handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
 	
 	# 【業界標準】檢查是否在特殊招式期間
 	if is_spmove_active:
-		# 【重要】在特殊招式期間：
-		# ✅ 重置位置和速度（防止穿過地面）
-		# ❌ 但NOT觸發landing動畫（animation由extended move animation包含）
-		print("[LANDING_DETECTED_DURING_SPMOVE] %s | move=%s | pos_y=%d floor_y=%d | vel_y=%d | is_jumping=%s" % [
-			seat, active_move, movement_node.fixed_position.y, floor_y, movement_node.fixed_velocity.y, movement_node.is_jumping
+		# 【除錯】詳細記錄觸發條件，幫助診斷誤觸發
+		print("[LANDING_DETECTED_DURING_SPMOVE] %s | move=%s | pos_y=%d floor_y=%d | vel_y=%d | is_jumping=%s | conditions: airborne=%s falling=%s reached_floor=%s delay_passed=%s not_just_jumped=%s" % [
+			seat, active_move, movement_node.fixed_position.y, floor_y, movement_node.fixed_velocity.y, movement_node.is_jumping,
+			is_airborne, is_falling, reached_floor, jump_delay_passed, not_just_jumped
 		])
 		
+		# 【防護】如果速度向上（vel_y < 0），是因為PushManager推擠導致vel_y=0的誤觸發，不應重置
+		# 注意：此時vel_y=0是因為PushManager在hitstop期間持續把位置snap回地面，
+		# 導致重力累積使速度趨近0——實際上角色應該要上升，不應被當作著地處理
+		if movement_node.fixed_velocity.y < 0:
+			print("[LANDING_SPMOVE_GUARD] %s | vel_y=%d < 0，角色正在上升，跳過著地重置（防止DP跳躍被中斷）" % [
+				seat, movement_node.fixed_velocity.y
+			])
+			return  # ← 不重置，讓角色繼續上升
+		
+		# 【重要】在特殊招式期間真正著地時：
+		# ✅ 重置位置和速度（防止穿過地面）
+		# ❌ 但NOT觸發landing動畫（animation由extended move animation包含）
 		movement_node.fixed_position.y = floor_y
 		movement_node.fixed_velocity.y = 0
 		movement_node.is_jumping = false
