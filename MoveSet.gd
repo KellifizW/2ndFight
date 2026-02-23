@@ -359,11 +359,14 @@ func _start_special(move_name: String) -> void:
 	if move_data.is_freeze:
 		freeze_game(super_freeze_time)
 	
-	# Play sound
-	var sound_player = parent.get_node_or_null("FireballCallPlayer" if move_data.is_projectile else "SpecialCallPlayer")
+	# Play sound based on sound_type
+	var sound_node_name: String = move_data.sound_type  # 使用招式指定的音效節點名稱
+	var sound_player = parent.get_node_or_null(sound_node_name)
 	if sound_player:
 		sound_player.volume_db = 0.0
 		sound_player.play()
+	else:
+		push_warning("[MoveSet] 無法找到音效節點: %s（招式: %s，sound_type: %s）" % [sound_node_name, move_name, move_data.sound_type])
 	
 	print("[MoveSet] ✅ Started %s! Char: %s, Duration: %.3f, Seat: %s" % [move_name, character_id, current_move_state.timer, seat_str])
 

@@ -7165,7 +7165,7 @@ caster_jump_delay_frames = 8
 caster_jump_vertical_speed = -1500.0
 caster_jump_gravity = 6000000.0
 is_projectile = true
-sound_type = "fireball"
+sound_type = "dpCallPlayer"
 penetrable = true
 projectile_speed = 800.0
 metadata/_custom_type_script = "uid://tld6w015ripa"
@@ -7200,6 +7200,7 @@ caster_jump_enabled = true
 caster_jump_delay_frames = 8
 caster_jump_vertical_speed = -2600.0
 caster_jump_gravity = 8500000.0
+sound_type = "dpCallPlayer"
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
 [sub_resource type="Resource" id="Resource_sbsnw"]
