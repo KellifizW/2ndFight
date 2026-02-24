@@ -249,6 +249,15 @@ func get_input() -> Dictionary:
 		var data = player_controller.get_input_data()
 		data.super_pressed = Input.is_key_pressed(KEY_P)
 		data.merge(special_input_data, true)
+		
+		# 【NEW】Check for throw interrupt: if throw buffered while attacking regular move, cancel it
+		# This handles the case where throw is detected AFTER st_lk started in the same frame
+		if data.get("throw_pressed", false) and is_attacking and attack_type not in ["throw_enter", "throw_seq"]:
+			print("[THROW INTERRUPT] Frame=%d Seat=%s | Throw detected while attacking '%s', will interrupt" % [
+				Engine.get_physics_frames(), seat, attack_type
+			])
+			# Don't return yet - let Player decide in attack logic
+		
 		return data
 	return default_input.duplicate()
 
@@ -354,6 +363,14 @@ func _physics_process(delta: float) -> void:
 
 	# ── 地面攻擊執行（使用 AttackExecutor Handler）──
 	var has_ground_attack_input := _has_attack_input(input_data)
+	
+	# 【DEBUG】詳細追蹤attack input與throw狀態
+	if input_data.get("throw_pressed", false) or input_data.get("st_lp_pressed", false) or input_data.get("st_lk_pressed", false):
+		print("[PLAYER ATTACK LOGIC] Frame=%d Seat=%s | " % [Engine.get_physics_frames(), seat] +
+			"throw_pressed=%s, st_lp=%s, st_lk=%s, has_ground_attack_input=%s | is_valid_ground_state=%s, is_landing=%s" % [
+				input_data.get("throw_pressed", false), input_data.get("st_lp_pressed", false), input_data.get("st_lk_pressed", false),
+				has_ground_attack_input, is_valid_ground_state, is_landing
+			])
 
 	# 【著地攻擊取消】著地動畫可被攻擊指令取消（強制2幀後）
 	if has_ground_attack_input and is_landing and _landing_forced_frames >= 2:
@@ -366,11 +383,24 @@ func _physics_process(delta: float) -> void:
 
 	if has_ground_attack_input and is_valid_ground_state:
 		force_update_facing_direction()
+		# 【DEBUG】在呼叫 AttackExecutor 前記錄狀態
+		if input_data.get("throw_pressed", false) or input_data.get("st_lp_pressed", false) or input_data.get("st_lk_pressed", false):
+			print("[CALLING ATTACK_EXECUTOR] Frame=%d Seat=%s | is_crouching=%s, throw_pressed=%s" % [
+				Engine.get_physics_frames(), seat, is_crouching, input_data.get("throw_pressed", false)
+			])
 		if attack_executor and attack_executor.try_execute_ground_attack(input_data, is_crouching):
 			# 攻擊已執行，只有在沒有攻擊移動激活時才清零速度
 			var has_active_movement = attack_movement_handler and attack_movement_handler.is_active()
 			if not is_push_back and not has_active_movement:
 				fixed_velocity.x = 0
+	
+	# 【NEW】Throw can interrupt normal attacks (check separately)
+	elif input_data.get("throw_pressed", false) and not is_crouching and is_attacking and attack_type not in ["throw_enter", "throw_seq"]:
+		print("[THROW INTERRUPT EXECUTION] Frame=%d Seat=%s | Interrupting '%s' with throw" % [
+			Engine.get_physics_frames(), seat, attack_type
+		])
+		if attack_executor:
+			attack_executor.try_execute_ground_attack(input_data, is_crouching)
 
 	# ── 空中攻擊執行（使用 AttackExecutor Handler）──
 	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked and not is_layground

@@ -14,6 +14,12 @@ var last_input_dir: int = 0
 var double_tap_timer: float = 0.0
 const DOUBLE_TAP_TIME: float = 0.3  # 雙擊時間窗口（秒），與 Movement 原設定一致
 
+# 【NEW】Throw detection with lenient timing window
+const THROW_DETECTION_WINDOW: int = 3  # 3 frames @ 120 FPS = 25ms window
+var throw_lp_frame: int = -1  # Frame when LP was pressed (-1 = not pressed)
+var throw_lk_frame: int = -1  # Frame when LK was pressed (-1 = not pressed)
+var current_physics_frame: int = 0  # Track current frame for throw window
+
 func _ready() -> void:
 	# Initialize input buffer
 	input_buffer = InputBuffer.new()
@@ -27,20 +33,64 @@ func _physics_process(_delta: float) -> void:
 	
 	# Record button presses into buffer
 	var suffix = "_p2" if player_seat == "player_b" else ""
+	current_physics_frame = Engine.get_physics_frames()
 	
-	# 【重要】LP+LK 同時 → throw，否則逐個記錄
+	# 【重要】LP+LK 同時/近似 → throw，否則逐個記錄
 	var _atk_btns := ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk"]
 	var _just := {}
 	for btn in _atk_btns:
 		_just[btn] = Input.is_action_just_pressed(btn + suffix)
 	
-	if _just["st_lp"] and _just["st_lk"]:
+	# 【NEW】Track LP/LK presses for throw window detection
+	var lp_just = _just["st_lp"]
+	var lk_just = _just["st_lk"]
+	
+	if lp_just:
+		throw_lp_frame = current_physics_frame
+		print("[THROW TRACKING] LP pressed at frame=%d" % throw_lp_frame)
+	if lk_just:
+		throw_lk_frame = current_physics_frame
+		print("[THROW TRACKING] LK pressed at frame=%d" % throw_lk_frame)
+	
+	# 【NEW】Check if LP and LK are within throw window (both pressed within 3 frames)
+	var throw_detected = false
+	if throw_lp_frame >= 0 and throw_lk_frame >= 0:
+		var frame_diff = abs(throw_lp_frame - throw_lk_frame)
+		if frame_diff <= THROW_DETECTION_WINDOW:
+			throw_detected = true
+			print("[THROW DETECTED] 🎯 LP(frame=%d) + LK(frame=%d) | diff=%d frames (within window=%d)" % [
+				throw_lp_frame, throw_lk_frame, frame_diff, THROW_DETECTION_WINDOW
+			])
+			# Reset tracking after throwing
+			throw_lp_frame = -1
+			throw_lk_frame = -1
+	
+	# 【DEBUG】Show tracking state
+	if lp_just or lk_just:
+		print("[INPUT DEBUG] Frame=%d Seat=%s | st_lp_just=%s(tracked_at=%d) st_lk_just=%s(tracked_at=%d) | throw_detected=%s" % [
+			current_physics_frame, player_seat,
+			lp_just, throw_lp_frame, lk_just, throw_lk_frame, throw_detected
+		])
+	
+	if throw_detected:
 		input_buffer.record_input("throw")
-		print("[INPUT] Throw detected: st_lp + st_lk pressed simultaneously")
+		print("[INPUT THROW DETECTED] ✅ Frame=%d Seat=%s | LP + LK within %d-frame window → 'throw' buffered" % [
+			current_physics_frame, player_seat, THROW_DETECTION_WINDOW
+		])
 	else:
 		for btn in _atk_btns:
 			if _just[btn]:
 				input_buffer.record_input(btn)
+				if lp_just or lk_just:  # 【DEBUG】Show individual button recorded
+					print("[INPUT SEPARATE] Frame=%d Seat=%s | Individual '%s' recorded (throw not detected)" % [
+						current_physics_frame, player_seat, btn
+					])
+	
+	# 【NEW】Don't let old tracking data persist: reset if too old (10-frame window)
+	if throw_lp_frame >= 0 and current_physics_frame - throw_lp_frame > 10:
+		throw_lp_frame = -1
+	if throw_lk_frame >= 0 and current_physics_frame - throw_lk_frame > 10:
+		throw_lk_frame = -1
 	if Input.is_action_just_pressed("jump" + suffix):
 		input_buffer.record_input("jump")
 	if Input.is_action_just_pressed("spmove1" + suffix):
@@ -129,6 +179,12 @@ func get_input_data() -> Dictionary:
 	var st_mk_pressed = input_buffer.is_input_buffered("st_mk")
 	var st_hk_pressed = input_buffer.is_input_buffered("st_hk")
 	var throw_pressed = input_buffer.is_input_buffered("throw")
+	
+	# 【DEBUG】顯示當前 buffer 中的按鍵狀態
+	if st_lp_pressed or st_lk_pressed or throw_pressed:
+		print("[BUFFER STATUS] Frame=%d Seat=%s | LP_buffered=%s LK_buffered=%s THROW_buffered=%s" % [
+			Engine.get_physics_frames(), player_seat, st_lp_pressed, st_lk_pressed, throw_pressed
+		])
 	var spm1_pressed  = input_buffer.is_input_buffered("spmove1")
 	var spm2_pressed  = input_buffer.is_input_buffered("spmove2")
 	var spm3_pressed  = input_buffer.is_input_buffered("spmove3")
@@ -214,6 +270,12 @@ func get_input_data() -> Dictionary:
 		"st_lk"    if st_lk_pressed else
 		"none"
 	)
+	
+	# 【DEBUG】詳細顯示攻擊優先級決策
+	if attack_type != "none" and (throw_pressed or st_lp_pressed or st_lk_pressed):
+		print("[ATTACK PRIORITY] Frame=%d Seat=%s | throw_pressed=%s st_lp=%s st_lk=%s | SELECTED: '%s'" % [
+			Engine.get_physics_frames(), player_seat, throw_pressed, st_lp_pressed, st_lk_pressed, attack_type
+		])
 	
 
 	
