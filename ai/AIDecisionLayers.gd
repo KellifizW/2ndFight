@@ -64,6 +64,7 @@ var threat_system: ThreatAssessment
 var frame_data: FrameDataManager
 var combo_system: AIComboSystem
 var space_control: SpaceControl
+var hitbox_cache: HitboxCache = null  # 【新增】投擲框碰撞檢測
 
 # Move restrictions (set by AIBehavior)
 var restricted_moves: Array[String] = []
@@ -93,6 +94,17 @@ func _get_unrestricted_alternative(primary_move: String, alternatives: Array[Str
 	
 	# If all alternatives are restricted, return the least-priority one (last in alternatives)
 	return alternatives[-1] if alternatives.size() > 0 else "stand_block"
+
+func _ready() -> void:
+	"""Initialize HitboxCache reference"""
+	call_deferred("_init_hitbox_cache")
+
+func _init_hitbox_cache() -> void:
+	"""初始化 HitboxCache 引用"""
+	hitbox_cache = get_tree().get_first_node_in_group("hitbox_cache")
+	
+	if not hitbox_cache:
+		push_warning("[AIDecisionLayers] HitboxCache 未找到，投擲決策將使用後備距離")
 
 func _process(delta: float) -> void:
 	"""Update cache and cooldown timers"""
@@ -169,6 +181,30 @@ func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
 	# 排序並返回最高優先級決策
 	decisions.sort_custom(func(a, b): return a.priority > b.priority)
 	var best_decision = decisions[0]
+	
+	# 【DEBUG】 決策排序和選擇追蹤（只記錄 throw、special move 或每 60 幀一次）
+	var is_throw_involved = best_decision.action == "throw" or decisions.any(func(d): return d.action == "throw")
+	if is_throw_involved or best_decision.action in SPECIAL_MOVE_ACTIONS or Engine.get_physics_frames() % 60 == 0:
+		print("[DECISION LAYER FINAL] Frame=%d Seat=%s | Selected: '%s' (%.1f) | reason: '%s'" % [
+			Engine.get_physics_frames(),
+			ai_player.seat if "seat" in ai_player else "?",
+			best_decision.action,
+			best_decision.priority,
+			best_decision.reason
+		])
+		
+		# 如果 throw 在決策列表中但沒被選中，說明優先級問題
+		if is_throw_involved and best_decision.action != "throw":
+			var throw_decisions = decisions.filter(func(d): return d.action == "throw")
+			if throw_decisions.size() > 0:
+				var throw_priority = throw_decisions[0].priority
+				print("[THROW NOT SELECTED] Frame=%d | throw_priority=%.1f < selected_priority=%.1f | reason: '%s'" % [
+					Engine.get_physics_frames(),
+					throw_priority,
+					best_decision.priority,
+					best_decision.reason
+				])
+	
 	_cache_decision(best_decision)
 	return best_decision
 
@@ -318,20 +354,76 @@ func _can_use_special(ai_player: Player, opponent: Player) -> bool:
 		return false
 	# 必殺技冷卻中，不允許再次使用
 	if special_cooldown_timer > 0:
+		if Engine.get_physics_frames() % 30 == 0:
+			print("[_can_use_special] cooldown_timer=%.2f > 0 → BLOCK SPECIAL" % special_cooldown_timer)
 		return false
 	# 懲罰窗口：永遠允許
 	if opponent.is_hit or opponent.is_knockfly:
 		return true
-	if frame_data.is_in_recovery(opponent):
+	if frame_data and frame_data.is_in_recovery(opponent):
 		return true
 	# 中立狀態下允許：只要 AI 玩家自己不在攻擊/受傷/被擊飛/空中的狀態
-	if not ai_player.is_attacking and not ai_player.is_hit and not ai_player.is_knockfly and ai_player.is_on_floor():
-		return true
-	return false
+	var is_attacking = ai_player.is_attacking
+	var is_hit = ai_player.is_hit
+	var is_knockfly = ai_player.is_knockfly
+	var is_on_floor = ai_player.is_on_floor()
+	var can_use = not is_attacking and not is_hit and not is_knockfly and is_on_floor
+	
+	if Engine.get_physics_frames() % 30 == 0:
+		print("[_can_use_special] attacking=%s hit=%s knockfly=%s on_floor=%s → %s" % [
+			is_attacking, is_hit, is_knockfly, is_on_floor, can_use
+		])
+	
+	return can_use
 
 func _is_punish_opportunity(opponent: Player) -> bool:
 	"""對手是否處於可懲罰狀態（被擊中、被擊飛、或在恢復動作）"""
 	return opponent.is_hit or opponent.is_knockfly or frame_data.is_in_recovery(opponent)
+
+# 【新增】輔助函數：檢查攻擊是否在有效範圍內（使用 HitboxCache）
+func _is_attack_in_range(ai_player: Player, opponent: Player, attack_name: String) -> bool:
+	"""
+	使用 HitboxCache 檢查攻擊是否能到達對手
+	
+	參數：
+	- ai_player: AI 玩家
+	- opponent: 對手
+	- attack_name: 攻擊名稱 (e.g., "st_mp", "cr_lk")
+	
+	返回：
+	- true: 攻擊能到達對手
+	- false: 攻擊距離不足
+	"""
+	if not hitbox_cache or not hitbox_cache.is_initialized:
+		# HitboxCache 未初始化，使用後備：沒有距離限制
+		return true
+	
+	var distance = abs(ai_player.global_position.x - opponent.global_position.x)
+	var ai_facing = ai_player.facing_direction if "facing_direction" in ai_player else 1.0
+	
+	# 使用 HitboxCache 檢查 hitbox 碰撞
+	var has_collision = hitbox_cache.check_hitbox_collision(
+		ai_player.global_position,
+		ai_player.character_id,
+		attack_name,
+		opponent.global_position,
+		opponent.character_id,
+		ai_facing
+	)
+	
+	if debug_attack_range:
+		var ai_id = ai_player.character_id if "character_id" in ai_player else "?"
+		if Engine.get_physics_frames() % 60 == 0:
+			print("[HITBOX RANGE CHECK] Frame=%d | attack=%s | dist=%.1f | collision=%s" % [
+				Engine.get_physics_frames(),
+				attack_name,
+				distance,
+				has_collision
+			])
+	
+	return has_collision
+
+@export var debug_attack_range: bool = false  # 【新增】調試標誌
 
 func _get_special_priority(opponent: Player) -> float:
 	"""取得必殺技優先級：懲罰時高於普通攻擊，中立時低於普通攻擊"""
@@ -353,7 +445,16 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 	# ============================================================
 	if distance > 250:
 		# Priority 1: Fireball (zoning) - only if not busy
-		if ai_player and ai_player.move_set and not ai_player.move_set.is_spmove and _can_use_special(ai_player, opponent):
+		var can_special = _can_use_special(ai_player, opponent)
+		var has_move_set = ai_player and ai_player.move_set and not ai_player.move_set.is_spmove
+		
+		if Engine.get_physics_frames() % 30 == 0:
+			print("[TACTICAL LAYER] Frame=%d | dist=%.0f | can_special=%s move_set=%s restricted=%s" % [
+				Engine.get_physics_frames(), distance, can_special, has_move_set, 
+				"fireball" in restricted_moves
+			])
+		
+		if has_move_set and can_special and "fireball" not in restricted_moves:
 			# 🔴 【改進】DAV 使用 fireballL/M/H 變體；DEN 使用通用 fireball
 			var fireball_variants = []
 			var char_id = ai_player.character_id if "character_id" in ai_player else ""
@@ -453,97 +554,109 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			hdk.reason = "Mid range: hdk"
 			decisions.append(hdk)
 		
-		# Priority 2: st_mk poke (平衡優先級)
-		var poke = Decision.new()
-		poke.layer = DecisionLayer.TACTICAL
-		poke.action = "st_mk"
-		poke.priority = PRIORITY_NORMAL_HIGH + randf_range(-1.0, 3.0)  # 67 + (-1 to 3) = 66-70
-		poke.reason = "Mid range: poke"
-		decisions.append(poke)
+		# Priority 2: st_mk poke (平衡優先級) - 【修復】使用 HitboxCache 驗證
+		if _is_attack_in_range(ai_player, opponent, "st_mk"):
+			var poke = Decision.new()
+			poke.layer = DecisionLayer.TACTICAL
+			poke.action = "st_mk"
+			poke.priority = PRIORITY_NORMAL_HIGH + randf_range(-1.0, 3.0)
+			poke.reason = "Mid range: poke (verified)"
+			decisions.append(poke)
 		
-		# Priority 3: st_mp quick attack (平衡優先級)
-		var mp_poke = Decision.new()
-		mp_poke.layer = DecisionLayer.TACTICAL
-		mp_poke.action = "st_mp"
-		mp_poke.priority = PRIORITY_NORMAL_MID + randf_range(-1.0, 3.0)  # 67 + (-1 to 3) = 66-70
-		mp_poke.reason = "Mid range: quick poke"
-		decisions.append(mp_poke)
+		# Priority 3: st_mp quick attack (平衡優先級) - 【修復】使用 HitboxCache 驗證
+		if _is_attack_in_range(ai_player, opponent, "st_mp"):
+			var mp_poke = Decision.new()
+			mp_poke.layer = DecisionLayer.TACTICAL
+			mp_poke.action = "st_mp"
+			mp_poke.priority = PRIORITY_NORMAL_MID + randf_range(-1.0, 3.0)
+			mp_poke.reason = "Mid range: quick poke (verified)"
+			decisions.append(mp_poke)
 		
-		# Priority 4: Light attacks (faster startup, lower damage) - 提升優先級
-		var st_lp = Decision.new()
-		st_lp.layer = DecisionLayer.TACTICAL
-		st_lp.action = "st_lp"
-		st_lp.priority = PRIORITY_NORMAL_MID + randf_range(-1.0, 3.0)  # 67 + (-1 to 3) = 66-70
-		st_lp.reason = "Mid range: quick light punch"
-		decisions.append(st_lp)
+		# Priority 4: Light attacks (faster startup, lower damage) - 【修復】使用 HitboxCache 驗證
+		if _is_attack_in_range(ai_player, opponent, "st_lp"):
+			var st_lp = Decision.new()
+			st_lp.layer = DecisionLayer.TACTICAL
+			st_lp.action = "st_lp"
+			st_lp.priority = PRIORITY_NORMAL_MID + randf_range(-1.0, 3.0)
+			st_lp.reason = "Mid range: quick light punch (verified)"
+			decisions.append(st_lp)
 		
-		var st_lk = Decision.new()
-		st_lk.layer = DecisionLayer.TACTICAL
-		st_lk.action = "st_lk"
-		st_lk.priority = PRIORITY_NORMAL_LOW + randf_range(-1.0, 3.0)  # 67 + (-1 to 3) = 66-70
-		st_lk.reason = "Mid range: light kick"
-		decisions.append(st_lk)
+		if _is_attack_in_range(ai_player, opponent, "st_lk"):
+			var st_lk = Decision.new()
+			st_lk.layer = DecisionLayer.TACTICAL
+			st_lk.action = "st_lk"
+			st_lk.priority = PRIORITY_NORMAL_LOW + randf_range(-1.0, 3.0)
+			st_lk.reason = "Mid range: light kick (verified)"
+			decisions.append(st_lk)
 		
-		# Priority 5: cr_mk low poke (平衡優先級)
-		var crouch_poke = Decision.new()
-		crouch_poke.layer = DecisionLayer.TACTICAL
-		crouch_poke.action = "cr_mk"
-		crouch_poke.priority = PRIORITY_CROUCH + randf_range(-1.0, 3.0)  # 67 + (-1 to 3) = 66-70
-		crouch_poke.reason = "Mid range: low poke"
-		decisions.append(crouch_poke)
+		# Priority 5: cr_mk low poke (平衡優先級) - 【修復】使用 HitboxCache 驗證
+		if _is_attack_in_range(ai_player, opponent, "cr_mk"):
+			var crouch_poke = Decision.new()
+			crouch_poke.layer = DecisionLayer.TACTICAL
+			crouch_poke.action = "cr_mk"
+			crouch_poke.priority = PRIORITY_CROUCH + randf_range(-1.0, 3.0)
+			crouch_poke.reason = "Mid range: low poke (verified)"
+			decisions.append(crouch_poke)
 		
-		# Priority 6: cr_mp close low attack (平衡優先級)
+		# Priority 6: cr_mp close low attack (平衡優先級) - 【修復】使用 HitboxCache 驗證
 		if distance < 150:
-			var cr_mp_poke = Decision.new()
-			cr_mp_poke.layer = DecisionLayer.TACTICAL
-			cr_mp_poke.action = "cr_mp"
-			cr_mp_poke.priority = PRIORITY_CROUCH + randf_range(-1.0, 3.0)  # 67 + (-1 to 3) = 66-70
-			cr_mp_poke.reason = "Mid range: cr_mp"
-			decisions.append(cr_mp_poke)
+			if _is_attack_in_range(ai_player, opponent, "cr_mp"):
+				var cr_mp_poke = Decision.new()
+				cr_mp_poke.layer = DecisionLayer.TACTICAL
+				cr_mp_poke.action = "cr_mp"
+				cr_mp_poke.priority = PRIORITY_CROUCH + randf_range(-1.0, 3.0)
+				cr_mp_poke.reason = "Mid range: cr_mp (verified)"
+				decisions.append(cr_mp_poke)
 			
-			# Light crouch attacks - 提升優先級
-			var cr_lp = Decision.new()
-			cr_lp.layer = DecisionLayer.TACTICAL
-			cr_lp.action = "cr_lp"
-			cr_lp.priority = PRIORITY_CROUCH + randf_range(-1.0, 3.0)  # 67 + (-1 to 3) = 66-70
-			cr_lp.reason = "Mid range: cr_lp"
-			decisions.append(cr_lp)
+			# Light crouch attacks - 【修復】使用 HitboxCache 驗證
+			if _is_attack_in_range(ai_player, opponent, "cr_lp"):
+				var cr_lp = Decision.new()
+				cr_lp.layer = DecisionLayer.TACTICAL
+				cr_lp.action = "cr_lp"
+				cr_lp.priority = PRIORITY_CROUCH + randf_range(-1.0, 3.0)
+				cr_lp.reason = "Mid range: cr_lp (verified)"
+				decisions.append(cr_lp)
 			
-			var cr_lk = Decision.new()
-			cr_lk.layer = DecisionLayer.TACTICAL
-			cr_lk.action = "cr_lk"
-			cr_lk.priority = PRIORITY_CROUCH + randf_range(-1.0, 3.0)  # 67 + (-1 to 3) = 66-70
-			cr_lk.reason = "Mid range: cr_lk"
-			decisions.append(cr_lk)
+			if _is_attack_in_range(ai_player, opponent, "cr_lk"):
+				var cr_lk = Decision.new()
+				cr_lk.layer = DecisionLayer.TACTICAL
+				cr_lk.action = "cr_lk"
+				cr_lk.priority = PRIORITY_CROUCH + randf_range(-1.0, 3.0)
+				cr_lk.reason = "Mid range: cr_lk (verified)"
+				decisions.append(cr_lk)
 		
-		# Priority 7: Heavy attacks (slower startup, higher damage) - 提升至與輕攻擊相同範圍
-		var st_hp = Decision.new()
-		st_hp.layer = DecisionLayer.TACTICAL
-		st_hp.action = "st_hp"
-		st_hp.priority = PRIORITY_NORMAL_HIGH + randf_range(-1.0, 4.0)  # 67 + (-1 to 4) = 66-71
-		st_hp.reason = "Mid range: heavy punch"
-		decisions.append(st_hp)
+		# Priority 7: Heavy attacks (slower startup, higher damage) - 【修復】使用 HitboxCache 驗證
+		if _is_attack_in_range(ai_player, opponent, "st_hp"):
+			var st_hp = Decision.new()
+			st_hp.layer = DecisionLayer.TACTICAL
+			st_hp.action = "st_hp"
+			st_hp.priority = PRIORITY_NORMAL_HIGH + randf_range(-1.0, 4.0)
+			st_hp.reason = "Mid range: heavy punch (verified)"
+			decisions.append(st_hp)
 		
-		var st_hk = Decision.new()
-		st_hk.layer = DecisionLayer.TACTICAL
-		st_hk.action = "st_hk"
-		st_hk.priority = PRIORITY_NORMAL_HIGH + randf_range(-1.0, 4.0)  # 67 + (-1 to 4) = 66-71
-		st_hk.reason = "Mid range: heavy kick"
-		decisions.append(st_hk)
+		if _is_attack_in_range(ai_player, opponent, "st_hk"):
+			var st_hk = Decision.new()
+			st_hk.layer = DecisionLayer.TACTICAL
+			st_hk.action = "st_hk"
+			st_hk.priority = PRIORITY_NORMAL_HIGH + randf_range(-1.0, 4.0)
+			st_hk.reason = "Mid range: heavy kick (verified)"
+			decisions.append(st_hk)
 		
-		var cr_hp = Decision.new()
-		cr_hp.layer = DecisionLayer.TACTICAL
-		cr_hp.action = "cr_hp"
-		cr_hp.priority = PRIORITY_CROUCH + randf_range(-1.0, 4.0)  # 67 + (-1 to 4) = 66-71
-		cr_hp.reason = "Mid range: cr_hp"
-		decisions.append(cr_hp)
+		if _is_attack_in_range(ai_player, opponent, "cr_hp"):
+			var cr_hp = Decision.new()
+			cr_hp.layer = DecisionLayer.TACTICAL
+			cr_hp.action = "cr_hp"
+			cr_hp.priority = PRIORITY_CROUCH + randf_range(-1.0, 4.0)
+			cr_hp.reason = "Mid range: cr_hp (verified)"
+			decisions.append(cr_hp)
 		
-		var cr_hk = Decision.new()
-		cr_hk.layer = DecisionLayer.TACTICAL
-		cr_hk.action = "cr_hk"
-		cr_hk.priority = PRIORITY_CROUCH + randf_range(-1.0, 4.0)  # 67 + (-1 to 4) = 66-71
-		cr_hk.reason = "Mid range: cr_hk"
-		decisions.append(cr_hk)
+		if _is_attack_in_range(ai_player, opponent, "cr_hk"):
+			var cr_hk = Decision.new()
+			cr_hk.layer = DecisionLayer.TACTICAL
+			cr_hk.action = "cr_hk"
+			cr_hk.priority = PRIORITY_CROUCH + randf_range(-1.0, 4.0)
+			cr_hk.reason = "Mid range: cr_hk (verified)"
+			decisions.append(cr_hk)
 		
 		# Priority 8: Jump attack (occasional)
 		if distance > 120 and distance < 200:
@@ -635,130 +748,171 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 			hdk.reason = "Close range: hdk"
 			decisions.append(hdk)
 		
-		# Priority 2b: Throw - 破格擋的利器，近身必學（優化以支持DEN）
-		if distance < 100 and not ai_player.is_attacking and not ai_player.is_hit and not ai_player.is_knockfly:
+		# Priority 2b: Throw - 破格擋的利器，近身必學
+		# 【修復】使用真實投擲框範圍 (HitboxCache) 來判斷
+		var throw_hitbox_collision = false
+		var throw_range = 100.0
+		
+		if hitbox_cache and hitbox_cache.is_initialized:
+			# 使用真實投擲框碰撞檢測
+			throw_range = hitbox_cache.get_throw_range(ai_player.character_id)
+			var ai_facing = ai_player.facing_direction if "facing_direction" in ai_player else 1.0
+			throw_hitbox_collision = hitbox_cache.check_throw_collision(
+				ai_player.global_position,
+				ai_player.character_id,
+				opponent.global_position,
+				opponent.character_id,
+				ai_facing
+			)
+		else:
+			# 後備：使用硬編碼距離 (100 像素)
+			throw_hitbox_collision = distance < 100
+		
+		var throw_eligible = throw_hitbox_collision and not ai_player.is_attacking and not ai_player.is_hit and not ai_player.is_knockfly
+		if throw_eligible:
+			var throw_dec = Decision.new()
+			throw_dec.layer = DecisionLayer.TACTICAL
+			throw_dec.action = "throw"
+			throw_dec.priority = 71.0 + randf_range(-1.0, 1.0)  # 70-72，確保在普通攻擊（~67）之上
+			throw_dec.reason = "Close range: throw (real hitbox collision)"
+			decisions.append(throw_dec)
+		
+		# Priority 3: 【修復】站立攻擊 - 使用 HitboxCache 驗證距離
+		if _is_attack_in_range(ai_player, opponent, "st_hp"):
+			var st_hp = Decision.new()
+			st_hp.layer = DecisionLayer.TACTICAL
+			st_hp.action = "st_hp"
+			st_hp.priority = PRIORITY_NORMAL_HIGH + randf_range(-1.0, 4.0)
+			st_hp.reason = "Close range: st_hp (verified by hitbox)"
+			decisions.append(st_hp)
+		
+		if _is_attack_in_range(ai_player, opponent, "st_mk"):
+			var st_mk = Decision.new()
+			st_mk.layer = DecisionLayer.TACTICAL
+			st_mk.action = "st_mk"
+			st_mk.priority = PRIORITY_NORMAL_HIGH + randf_range(-1.0, 3.0)
+			st_mk.reason = "Close range: st_mk (verified by hitbox)"
+			decisions.append(st_mk)
+		
+		if _is_attack_in_range(ai_player, opponent, "st_mp"):
+			var st_mp = Decision.new()
+			st_mp.layer = DecisionLayer.TACTICAL
+			st_mp.action = "st_mp"
+			st_mp.priority = PRIORITY_NORMAL_MID + randf_range(-1.0, 3.0)
+			st_mp.reason = "Close range: st_mp (verified by hitbox)"
+			decisions.append(st_mp)
+		
+		if _is_attack_in_range(ai_player, opponent, "st_lp"):
+			var st_lp = Decision.new()
+			st_lp.layer = DecisionLayer.TACTICAL
+			st_lp.action = "st_lp"
+			st_lp.priority = PRIORITY_NORMAL_MID + randf_range(-1.0, 3.0)
+			st_lp.reason = "Close range: st_lp (verified by hitbox)"
+			decisions.append(st_lp)
+		
+		if _is_attack_in_range(ai_player, opponent, "st_hk"):
+			var st_hk = Decision.new()
+			st_hk.layer = DecisionLayer.TACTICAL
+			st_hk.action = "st_hk"
+			st_hk.priority = PRIORITY_NORMAL_HIGH + randf_range(-1.0, 4.0)
+			st_hk.reason = "Close range: st_hk (verified by hitbox)"
+			decisions.append(st_hk)
+		
+		if _is_attack_in_range(ai_player, opponent, "st_lk"):
+			var st_lk = Decision.new()
+			st_lk.layer = DecisionLayer.TACTICAL
+			st_lk.action = "st_lk"
+			st_lk.priority = PRIORITY_NORMAL_LOW + randf_range(-1.0, 3.0)
+			st_lk.reason = "Close range: st_lk (verified by hitbox)"
+			decisions.append(st_lk)
+		
+		# Priority 4: 【修復】蹲下攻擊 - 使用 HitboxCache 驗證距離
+		if _is_attack_in_range(ai_player, opponent, "cr_hp"):
+			var cr_hp = Decision.new()
+			cr_hp.layer = DecisionLayer.TACTICAL
+			cr_hp.action = "cr_hp"
+			cr_hp.priority = PRIORITY_CROUCH + randf_range(-1.0, 4.0)
+			cr_hp.reason = "Close range: cr_hp (verified by hitbox)"
+			decisions.append(cr_hp)
+		
+		if _is_attack_in_range(ai_player, opponent, "cr_mk"):
+			var cr_mk = Decision.new()
+			cr_mk.layer = DecisionLayer.TACTICAL
+			cr_mk.action = "cr_mk"
+			cr_mk.priority = PRIORITY_CROUCH + randf_range(-1.0, 3.0)
+			cr_mk.reason = "Close range: cr_mk (verified by hitbox)"
+			decisions.append(cr_mk)
+		
+		if _is_attack_in_range(ai_player, opponent, "cr_mp"):
+			var cr_mp = Decision.new()
+			cr_mp.layer = DecisionLayer.TACTICAL
+			cr_mp.action = "cr_mp"
+			cr_mp.priority = PRIORITY_CROUCH + randf_range(-1.0, 3.0)
+			cr_mp.reason = "Close range: cr_mp (verified by hitbox)"
+			decisions.append(cr_mp)
+		
+		if _is_attack_in_range(ai_player, opponent, "cr_lp"):
+			var cr_lp = Decision.new()
+			cr_lp.layer = DecisionLayer.TACTICAL
+			cr_lp.action = "cr_lp"
+			cr_lp.priority = PRIORITY_CROUCH + randf_range(-1.0, 3.0)
+			cr_lp.reason = "Close range: cr_lp (verified by hitbox)"
+			decisions.append(cr_lp)
+		
+		if _is_attack_in_range(ai_player, opponent, "cr_hk"):
+			var cr_hk = Decision.new()
+			cr_hk.layer = DecisionLayer.TACTICAL
+			cr_hk.action = "cr_hk"
+			cr_hk.priority = PRIORITY_CROUCH + randf_range(-1.0, 4.0)
+			cr_hk.reason = "Close range: cr_hk (verified by hitbox)"
+			decisions.append(cr_hk)
+		
+		if _is_attack_in_range(ai_player, opponent, "cr_lk"):
+			var cr_lk = Decision.new()
+			cr_lk.layer = DecisionLayer.TACTICAL
+			cr_lk.action = "cr_lk"
+			cr_lk.priority = PRIORITY_CROUCH + randf_range(-1.0, 3.0)
+			cr_lk.reason = "Close range: cr_lk (verified by hitbox)"
+			decisions.append(cr_lk)
+		
+		# Priority 5: Continue attacking or defensive
+		var approach = Decision.new()
+		approach.layer = DecisionLayer.TACTICAL
+		approach.action = "dash_forward"
+		approach.priority = PRIORITY_APPROACH
+		approach.reason = "Close range: press advantage"
+		decisions.append(approach)
+		
+		# Priority 6: Defensive block (LOWEST priority)
+		var block = Decision.new()
+		block.layer = DecisionLayer.TACTICAL
+		block.action = "stand_block"
+		block.priority = PRIORITY_OBSERVE + randf_range(-2.0, 3.0)
+		block.reason = "Close range: defense"
+		decisions.append(block)
+		
+		if throw_eligible:
 			var throw_dec = Decision.new()
 			throw_dec.layer = DecisionLayer.TACTICAL
 			throw_dec.action = "throw"
 			if opponent.is_blocking:
 				# 對手正在格擋時摔投優先級大幅提升（摔投無視格擋）
-				throw_dec.priority = 78.0 + randf_range(-1.0, 2.0)
-				throw_dec.reason = "Close range: throw beats block"
+				throw_dec.priority = 79.0 + randf_range(-1.0, 1.0)
+				throw_dec.reason = "Close range: throw beats block (real hitbox)"
 			else:
-				# 中立時摔投優先級適中，與普通攻擊競爭
-				throw_dec.priority = 66.0 + randf_range(-2.0, 2.0)
-				throw_dec.reason = "Close range: throw (both characters)"
+				# 【修復】優先級提升至 70，確保優先於普通攻擊（~67）
+				throw_dec.priority = 71.0 + randf_range(-1.0, 1.0)
+				throw_dec.reason = "Close range: throw (real hitbox collision)"
+			
+			# 【DEBUG】throw 被加入決策
+			print("[TACTICAL THROW ADDED] Frame=%d Seat=%s | priority=%.1f reason='%s' | throw_range=%.1f" % [
+				Engine.get_physics_frames(),
+				ai_player.seat if "seat" in ai_player else "?",
+				throw_dec.priority,
+				throw_dec.reason,
+				throw_range
+			])
 			decisions.append(throw_dec)
-		
-		# Priority 3: Medium-range normals (st_mp, st_mk, cr_mp) - 平衡優先級
-		var close_rand = randf_range(-2.0, 3.0)  # 中攻击范围
-		
-		# st_mp (fast close attack)
-		var mp = Decision.new()
-		mp.layer = DecisionLayer.TACTICAL
-		mp.action = "st_mp"
-		mp.priority = PRIORITY_NORMAL_MID + close_rand  # 67 + (-2 to 3) = 65-70
-		mp.reason = "Close range: st_mp"
-		decisions.append(mp)
-		
-		# st_mk
-		var mk = Decision.new()
-		mk.layer = DecisionLayer.TACTICAL
-		mk.action = "st_mk"
-		mk.priority = PRIORITY_NORMAL_HIGH + randf_range(-2.0, 3.0)  # 67 + (-2 to 3) = 65-70
-		mk.reason = "Close range: st_mk"
-		decisions.append(mk)
-		
-		# cr_mp (very close low attack)
-		var cr_mp = Decision.new()
-		cr_mp.layer = DecisionLayer.TACTICAL
-		cr_mp.action = "cr_mp"
-		cr_mp.priority = PRIORITY_CROUCH + randf_range(-2.0, 3.0)  # 67 + (-2 to 3) = 65-70
-		cr_mp.reason = "Close range: cr_mp"
-		decisions.append(cr_mp)
-		
-		# cr_mk (low poke)
-		var cr_mk = Decision.new()
-		cr_mk.layer = DecisionLayer.TACTICAL
-		cr_mk.action = "cr_mk"
-		cr_mk.priority = PRIORITY_NORMAL_LOW + randf_range(-2.0, 3.0)  # 67 + (-2 to 3) = 65-70
-		cr_mk.reason = "Close range: cr_mk"
-		decisions.append(cr_mk)
-		
-		# Priority 4: Light attacks (faster startup, good for combos) - 提升優先級（近身适合轻攻击）
-		var st_lp = Decision.new()
-		st_lp.layer = DecisionLayer.TACTICAL
-		st_lp.action = "st_lp"
-		st_lp.priority = PRIORITY_NORMAL_MID + randf_range(-1.0, 4.0)  # 67 + (-1 to 4) = 66-71
-		st_lp.reason = "Close range: quick light punch"
-		decisions.append(st_lp)
-		
-		var st_lk = Decision.new()
-		st_lk.layer = DecisionLayer.TACTICAL
-		st_lk.action = "st_lk"
-		st_lk.priority = PRIORITY_NORMAL_LOW + randf_range(-1.0, 4.0)  # 67 + (-1 to 4) = 66-71
-		st_lk.reason = "Close range: light kick"
-		decisions.append(st_lk)
-		
-		var cr_lp = Decision.new()
-		cr_lp.layer = DecisionLayer.TACTICAL
-		cr_lp.action = "cr_lp"
-		cr_lp.priority = PRIORITY_CROUCH + randf_range(-1.0, 4.0)  # 67 + (-1 to 4) = 66-71
-		cr_lp.reason = "Close range: cr_lp"
-		decisions.append(cr_lp)
-		
-		var cr_lk = Decision.new()
-		cr_lk.layer = DecisionLayer.TACTICAL
-		cr_lk.action = "cr_lk"
-		cr_lk.priority = PRIORITY_CROUCH + randf_range(-1.0, 4.0)  # 67 + (-1 to 4) = 66-71
-		cr_lk.reason = "Close range: cr_lk"
-		decisions.append(cr_lk)
-		
-		# Priority 5: Heavy attacks (slower startup, higher damage) - 提升至與輕攻擊相同範圍
-		var st_hp = Decision.new()
-		st_hp.layer = DecisionLayer.TACTICAL
-		st_hp.action = "st_hp"
-		st_hp.priority = PRIORITY_NORMAL_HIGH + randf_range(-1.0, 4.0)  # 67 + (-1 to 4) = 66-71
-		st_hp.reason = "Close range: heavy punch"
-		decisions.append(st_hp)
-		
-		var st_hk = Decision.new()
-		st_hk.layer = DecisionLayer.TACTICAL
-		st_hk.action = "st_hk"
-		st_hk.priority = PRIORITY_NORMAL_HIGH + randf_range(-1.0, 4.0)  # 67 + (-1 to 4) = 66-71
-		st_hk.reason = "Close range: heavy kick"
-		decisions.append(st_hk)
-		
-		var cr_hp = Decision.new()
-		cr_hp.layer = DecisionLayer.TACTICAL
-		cr_hp.action = "cr_hp"
-		cr_hp.priority = PRIORITY_CROUCH + randf_range(-1.0, 4.0)  # 67 + (-1 to 4) = 66-71
-		cr_hp.reason = "Close range: cr_hp"
-		decisions.append(cr_hp)
-		
-		var cr_hk = Decision.new()
-		cr_hk.layer = DecisionLayer.TACTICAL
-		cr_hk.action = "cr_hk"
-		cr_hk.priority = PRIORITY_CROUCH + randf_range(-1.0, 4.0)  # 67 + (-1 to 4) = 66-71
-		cr_hk.reason = "Close range: cr_hk"
-		decisions.append(cr_hk)
-		
-		# Priority 6: Jump escape (when cornered or pressured)
-		if distance < 60:
-			var jump_escape = Decision.new()
-			jump_escape.layer = DecisionLayer.TACTICAL
-			jump_escape.action = "jump_backward"
-			jump_escape.priority = PRIORITY_RETREAT + randf_range(-2.0, 3.0)
-			jump_escape.reason = "Close range: jump escape"
-			decisions.append(jump_escape)
-		
-		# Priority 7: Tactical retreat (lowest)
-		var retreat = Decision.new()
-		retreat.layer = DecisionLayer.TACTICAL
-		retreat.action = "backdash"
-		retreat.priority = PRIORITY_RETREAT
-		retreat.reason = "Close range: retreat"
-		decisions.append(retreat)
 	
 	return decisions
 

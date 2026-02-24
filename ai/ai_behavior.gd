@@ -39,10 +39,11 @@ const SPECIAL_MOVE_ACTIONS = ["fireball", "spm2", "powerkk", "spnk", "hdk", "dp"
 var current_committed_action: String = ""
 var commitment_timer: float = 0.0
 var committed_input: Dictionary = {}
+var commitment_one_time_sent: bool = false  # 【FIX】追蹤是否已發送過單幀命令（throw/special moves）
 
 # Decision cooldown (simulates human thinking time)
 var decision_cooldown: float = 0.0
-const DECISION_INTERVAL: float = 0.15  # Re-evaluate every 9 frames at 60 FPS (reduced from 0.25)
+const DECISION_INTERVAL: float = 0.033  # 【FIX】 Re-evaluate every 2 frames (~33ms at 60 FPS) - reduced from 0.08 for responsiveness
 
 @export var decision_interval_override: float = 0.0  # Allow tuning in Inspector; set to 0 to use DECISION_INTERVAL, >0 for custom, <0 for immediate updates
 
@@ -52,62 +53,40 @@ const DECISION_INTERVAL: float = 0.15  # Re-evaluate every 9 frames at 60 FPS (r
 # 根據威脅等級動態調整決策速度，提高性能 5-8%
 @export var enable_adaptive_interval: bool = true
 
-const INTERVAL_CRITICAL: float = 0.1   # 反應快速以應對危險
-const INTERVAL_HIGH: float = 0.15      # 正常反應
-const INTERVAL_NORMAL: float = 0.25    # 放鬆的思考
-const INTERVAL_SAFE: float = 0.3       # 非常放鬆
+const INTERVAL_CRITICAL: float = 0.016  # 【FIX】反應快速以應對危險 (~1 frame)
+const INTERVAL_HIGH: float = 0.033      # 【FIX】正常反應 (~2 frames)
+const INTERVAL_NORMAL: float = 0.05     # 【FIX】放鬆的思考 (~3 frames)
+const INTERVAL_SAFE: float = 0.067      # 【FIX】非常放鬆 (~4 frames)
 
 var current_adaptive_interval: float = INTERVAL_NORMAL
 
-# Action duration database (based on frame data)
-const ACTION_DURATIONS = {
+# ============================================================
+# DYNAMIC ANIMATION DURATION SYSTEM
+# ============================================================
+# 從AnimationPlayer動態加載時長，避免硬編碼不同步問題
+# 單一真理來源：.tscn 檔中的AnimationPlayer
+var animation_durations: Dictionary = {}  # Dynamically loaded from AnimationPlayer
+
+# Fallback durations for actions not in AnimationPlayer (movement, blocks, etc.)
+# These are used if animation isn't found, providing conservative estimates
+const ACTION_DURATIONS_FALLBACK = {
 	# Movement - needs sustained execution to avoid twitching
-	"walk_forward": {"min": 0.3, "max": 0.5},  # 減少：從0.4-0.7改為0.3-0.5
-	"walk_backward": {"min": 0.3, "max": 0.5},  # 減少：從0.4-0.7改為0.3-0.5
+	"walk_forward": {"min": 0.15, "max": 0.3},
+	"walk_backward": {"min": 0.15, "max": 0.3},
 	"dash_forward": {"min": 0.35, "max": 0.35},
 	"backdash": {"min": 0.35, "max": 0.35},
 	
-	# Normal attacks - based on startup + active + recovery frames
-	"st_lp": {"min": 0.25, "max": 0.25},
-	"st_mp": {"min": 0.35, "max": 0.35},
-	"st_hp": {"min": 0.55, "max": 0.55},
-	"st_lk": {"min": 0.30, "max": 0.30},
-	"st_mk": {"min": 0.45, "max": 0.45},
-	"st_hk": {"min": 0.60, "max": 0.60},
-	"cr_lp": {"min": 0.20, "max": 0.20},
-	"cr_mp": {"min": 0.30, "max": 0.30},
-	"cr_hp": {"min": 0.45, "max": 0.45},
-	"cr_lk": {"min": 0.25, "max": 0.25},
-	"cr_mk": {"min": 0.40, "max": 0.40},
-	"cr_hk": {"min": 0.50, "max": 0.50},
-	
-	# Throw
-	"throw": {"min": 0.7, "max": 0.7},
-	
-	# Special moves - must complete full animation
-	"fireball": {"min": 0.8, "max": 0.8},
-	"fireballL": {"min": 0.8, "max": 0.8},  # 新增
-	"fireballM": {"min": 0.8, "max": 0.8},  # 新增
-	"fireballH": {"min": 0.8, "max": 0.8},  # 新增
-	"spm2": {"min": 0.8, "max": 0.8},
-	"powerkk": {"min": 0.9, "max": 0.9},
-	"spnk": {"min": 0.9, "max": 0.9},
-	"dp": {"min": 0.65, "max": 0.65},
-	"dpL": {"min": 0.65, "max": 0.65},  # 新增
-	"dpM": {"min": 0.65, "max": 0.65},  # 新增
-	"dpH": {"min": 0.65, "max": 0.65},  # 新增
-	"100p": {"min": 1.2, "max": 1.2},  # 新增：百裂拳多段連打
-	"hdk": {"min": 0.8, "max": 0.8},
-	"super": {"min": 1.5, "max": 1.5},
-	
 	# Defensive actions
-	"stand_block": {"min": 0.2, "max": 0.4},  # 減少：從0.3-0.6改為0.2-0.4
-	"crouch_block": {"min": 0.2, "max": 0.4},  # 減少：從0.3-0.6改為0.2-0.4
+	"stand_block": {"min": 0.2, "max": 0.4},
+	"crouch_block": {"min": 0.2, "max": 0.4},
 	
 	# Jumping
 	"jump_forward": {"min": 0.5, "max": 0.5},
 	"jump_backward": {"min": 0.5, "max": 0.5},
 	"jump_neutral": {"min": 0.5, "max": 0.5},
+	
+	# Generic fallback if animation name not found
+	"default": {"min": 0.3, "max": 0.3},
 }
 
 # 對手搜尋計時器
@@ -145,8 +124,12 @@ func _ready() -> void:
 		push_warning("Warning: AIBehavior parent not found")
 		return
 	
+	# 【FIX】Load animation durations from player's AnimationPlayer (single source of truth)
+	_load_animation_durations_from_player()
+	
 	_init_subsystems()
 	opponent_search_timer = 0.1
+	decision_cooldown = 0.0  # 【FIX】立即進行第一次決策評估，不要延遲
 	
 	if debug_mode and startup_logs:
 		print("[AI] AIBehavior initialized for %s" % parent.name)
@@ -177,6 +160,60 @@ func _init_subsystems() -> void:
 	
 	# Move restrictions initialized by CPUController
 
+func _load_animation_durations_from_player() -> void:
+	"""
+	【動態加載系統】從角色的AnimationPlayer讀取所有動畫時長
+	- 避免硬編碼導致的不同步問題
+	- 單一真理來源：.tscn 檔中的AnimationPlayer
+	- 自動化：新增動畫無需修改此代碼
+	"""
+	if not parent or not "animation_player" in parent:
+		if debug_mode:
+			print("[AI DynLoad] ⚠️ Parent has no animation_player, using fallback durations")
+		return
+	
+	var anim_player = parent.animation_player
+	if not anim_player:
+		if debug_mode:
+			print("[AI DynLoad] ⚠️ animation_player is null, using fallback durations")
+		return
+	
+	# 遍歷所有動畫並記錄其時長
+	for anim_name in anim_player.get_animation_list():
+		var anim = anim_player.get_animation(anim_name)
+		if anim:
+			animation_durations[anim_name] = anim.length
+			if debug_mode and startup_logs:
+				print("[AI DynLoad] ✓ %s: %.3fs (120fps physics timer: %d frames)" % [
+					anim_name, 
+					anim.length,
+					int(round(anim.length * 120))
+				])
+	
+	if debug_mode and startup_logs:
+		print("[AI DynLoad] ✅ Loaded %d animations from %s" % [animation_durations.size(), parent.character_data.short_id if parent.character_data else "Unknown"])
+
+func get_action_duration(action: String) -> float:
+	"""
+	【智能查詢】取得動作時長，優先級由高到低：
+	1. 從AnimationPlayer動態加載的實時值
+	2. 備用硬編碼值（用於非動畫動作如移動/防守）
+	3. 預設 0.3 秒（最後保障）
+	"""
+	# 【優先】使用動態加載的動畫時長
+	if action in animation_durations:
+		return animation_durations[action]
+	
+	# 【備用】使用硬編碼備用值（非動畫動作）
+	if action in ACTION_DURATIONS_FALLBACK:
+		var data = ACTION_DURATIONS_FALLBACK[action]
+		return randf_range(data["min"], data["max"])
+	
+	# 【保障】默認返回 0.3 秒
+	if debug_mode:
+		push_warning("[AI] Unknown action duration: '%s', using 0.3s default" % action)
+	return 0.3
+
 func _process(delta: float) -> void:
 	# Track delta for commitment system
 	_last_delta = delta
@@ -186,6 +223,12 @@ func _process(delta: float) -> void:
 		if opponent_search_timer <= 0:
 			find_opponent()
 			opponent_search_timer = 0.5
+			# 【DEBUG】每次搜尋後顯示是否找到對手
+			if Engine.get_physics_frames() % 30 == 0:
+				print("[AI._process] Frame=%d | opponent search result: %s" % [
+					Engine.get_physics_frames(),
+					opponent.name if opponent else "NOT FOUND"
+				])
 
 func set_ai_enabled(enabled: bool) -> void:
 	ai_enabled = enabled
@@ -228,10 +271,37 @@ func find_opponent() -> void:
 
 func get_ai_input() -> Dictionary:
 	"""Main entry point - Industry standard implementation"""
+	var current_frame = Engine.get_physics_frames()
+	var seat = parent.seat if parent and "seat" in parent else "?"
+	
+	# 【DEBUG】顯示初始狀態（每秒一次）
+	if current_frame % 120 == 0:
+		if not ai_enabled:
+			print("[AI] Frame=%d Seat=%s | ⚠️ AI DISABLED" % [current_frame, seat])
+		if not parent:
+			print("[AI] Frame=%d | ⚠️ NO PARENT" % current_frame)
+		if not opponent:
+			print("[AI] Frame=%d Seat=%s | 🔍 Searching for opponent..." % [current_frame, seat])
+	
 	if not ai_enabled or not opponent or not parent:
 		return _neutral_input()
 	
 	var delta = _last_delta  # Use tracked delta from _process
+	
+	# 【DEBUG】每30幀顯示一次AI完整狀態摘要（0.25秒）
+	if current_frame % 30 == 0 and current_frame > 0:
+		var state_str = ""
+		if commitment_timer > 0:
+			state_str = "🔄 EXECUTING '%s' (%.2fs)" % [current_committed_action, commitment_timer]
+		elif decision_cooldown > 0:
+			state_str = "⏳ COOLDOWN (%.2fs)" % decision_cooldown
+		else:
+			state_str = "🤔 EVALUATING NEW DECISION"
+		var distance = abs(parent.global_position.x - opponent.global_position.x)
+		print("[AI SUMMARY] Frame=%d Seat=%s | %s | dist=%.0f opp=%s" % [
+			current_frame, seat, state_str, distance, 
+			opponent.attack_type if opponent.is_attacking else ("blocking" if opponent.is_blocking else "idle")
+		])
 	
 	# ============================================================
 	# LAYER 0: EMERGENCY BLOCK OVERRIDE (Highest Priority)
@@ -283,12 +353,34 @@ func get_ai_input() -> Dictionary:
 		var imminent_contact = _is_attack_in_block_range(opponent)
 		# 火球威脅（LOW 及以上）也應中斷承諾動作，讓 AI 評估格擋
 		var has_fireball_threat = threat != null and threat.source == "fireball" and threat.level >= ThreatAssessment.ThreatLevel.LOW
+		
+		# 🔴 【新增】 Tactical situation interrupt: If committed to approach (dash/walk) but entered throw range
+		# Re-evaluate instead of blindly continuing approach
+		var distance = abs(parent.global_position.x - opponent.global_position.x)
+		var should_check_throw = current_committed_action in ["dash_forward", "walk_forward", "backdash", "walk_backward"]
+		var entered_throw_range = should_check_throw and distance < 120.0  # Throw range
+		
+		if Engine.get_physics_frames() % 60 == 0 and should_check_throw:
+			print("[AI COMMIT CHECK] Frame=%d | action='%s' | dist=%.0f | throw_range=%s | opp_attacking=%s" % [
+				Engine.get_physics_frames(), current_committed_action, distance, entered_throw_range, opponent.is_attacking if opponent else "?"
+			])
+		
 		if (threat and threat.level >= ThreatAssessment.ThreatLevel.MEDIUM) or imminent_contact or has_fireball_threat:
 			if current_committed_action in ["dash_forward", "backdash"]:
 				_cancel_dash_state()
 			if current_committed_action not in ["stand_block", "crouch_block"]:
 				commitment_timer = 0.0
 				committed_input = {}
+		elif entered_throw_range and opponent and not opponent.is_attacking:
+			# 【DEBUG】當進入投擲範圍但對手未攻擊時，中斷承諾以重新評估
+			if Engine.get_physics_frames() % 30 == 0:
+				print("[AI INTERRUPT] Frame=%d Seat=%s | Committed to '%s' but entered throw range (dist=%.0f) → Re-evaluating" % [
+					Engine.get_physics_frames(), seat, current_committed_action, distance
+				])
+			commitment_timer = 0.0
+			committed_input = {}
+			decision_cooldown = 0.0  # 【FIX】Also clear cooldown to allow immediate re-evaluation
+			current_committed_action = ""
 		else:
 			# Release block commitment once blockstun ends to allow punish
 			if current_committed_action in ["stand_block", "crouch_block"] and parent and not parent.is_blocking:
@@ -302,12 +394,35 @@ func get_ai_input() -> Dictionary:
 				commitment_timer -= delta
 				if debug_mode and Engine.get_physics_frames() % 60 == 0:
 					print("[AI] Committed: %s (%.2fs remaining)" % [current_committed_action, commitment_timer])
-				return committed_input
+				
+				# 🔴 【FIX】Special moves and throws need different handling:
+				# - throw: One-time button press (send once, then clear)
+				# - special moves: Keep input active for full duration (fireball, dp, etc. need animation time)
+				# - dashes/walks: Continuous input (keep direction active)
+				var output = committed_input.duplicate()
+				
+				# Only use one-time send for throw (which is instantaneous)
+				if current_committed_action == "throw":
+					if not commitment_one_time_sent:
+						commitment_one_time_sent = true
+					else:
+						# After first frame, clear throw_pressed
+						output["throw_pressed"] = false
+				# Special moves: keep ALL input active (spm2_pressed, dp_pressed, motion, etc.)
+				elif current_committed_action in SPECIAL_MOVE_ACTIONS + ["fireballL", "fireballM", "fireballH", "dpL", "dpM", "dpH"]:
+					# Keep the special move input active for full commitment duration
+					# Don't clear spm2_pressed, dp_pressed, etc.
+					pass  # output remains as committed_input
+				# Other actions (dash, walk, block): also keep input active
+				# This ensures smooth execution for multi-frame actions
+				
+				return output
 	
 	# 承諾動作剛剛自然結束：清除舊輸入，避免持續走路/重複按鍵
 	if current_committed_action != "" and commitment_timer <= 0.0:
 		committed_input = _neutral_input()
 		current_committed_action = ""
+		commitment_one_time_sent = false  # 【FIX】重置單次命令標記
 		decision_cooldown = 0.0  # 立即重新評估下一個動作
 
 	# ============================================================
@@ -329,13 +444,54 @@ func get_ai_input() -> Dictionary:
 	# Don't re-evaluate every frame - simulates human reaction time
 	if decision_cooldown > 0:
 		decision_cooldown -= delta
+		# 【DEBUG】每15幀顯示一次決策冷卻狀態（0.125秒）
+		if Engine.get_physics_frames() % 15 == 0:
+			var threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
+			var threat_str = "NONE"
+			if threat:
+				var threat_levels = ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+				threat_str = threat_levels[min(threat.level, 4)] if threat.level >= 0 else "NONE"
+			var distance = abs(parent.global_position.x - opponent.global_position.x)
+			print("[AI COOLDOWN] Frame=%d Seat=%s | ⏳ %.2fs remaining | action='%s' | threat=%s | dist=%.0f" % [
+				Engine.get_physics_frames(), seat, decision_cooldown, current_committed_action, threat_str, distance
+			])
 		return committed_input if committed_input.size() > 0 else _neutral_input()
 	
 	# ============================================================
 	# LAYER 4: NEW DECISION
 	# ============================================================
 	# Only reached every DECISION_INTERVAL seconds
+	# 【DEBUG】新決策評估開始 - 顯示威脅評估
+	var threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
+	var threat_str = "NONE"
+	if threat:
+		var threat_levels = ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+		threat_str = threat_levels[min(threat.level, 4)] if threat.level >= 0 else "NONE"
+		if threat.source != "":
+			threat_str += " (" + threat.source + ")"
+	
+	var distance = abs(parent.global_position.x - opponent.global_position.x)
+	var opp_state = ""
+	if opponent:
+		if opponent.is_attacking:
+			opp_state = "ATTACKING"
+		elif opponent.is_blocking:
+			opp_state = "BLOCKING"
+		elif opponent.is_knockfly:
+			opp_state = "KNOCKFLY"
+		else:
+			opp_state = "IDLE"
+	
+	print("[AI EVAL] Frame=%d Seat=%s | 🎯 Evaluating... | opponent=%s(%s) | dist=%.0f | threat=%s" % [
+		Engine.get_physics_frames(), seat, opponent.name if opponent else "none", opp_state, distance, threat_str
+	])
+	
 	var decision = decision_layers.get_best_decision(parent, opponent)
+	
+	# 【DEBUG】決策結果輸出
+	print("[AI DECISION] Frame=%d Seat=%s | ✅ Selected: '%s' (priority: %.1f) | reason: %s" % [
+		Engine.get_physics_frames(), seat, decision.action, decision.priority, decision.reason
+	])
 	if debug_block_trace and opponent and opponent.is_attacking:
 		var attack_frame = opponent.attack_start_frame if "attack_start_frame" in opponent else Engine.get_physics_frames()
 		var attack_type = opponent.attack_type if "attack_type" in opponent else "st_mp"
@@ -368,9 +524,7 @@ func get_ai_input() -> Dictionary:
 		active_interval = decision_interval_override
 	elif decision_interval_override == 0:
 		if enable_adaptive_interval:
-			# 獲取威脅信息以調整間隔
-			var threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
-			var distance = abs(parent.global_position.x - opponent.global_position.x)
+			# 獲取威脅信息以調整間隔（重用已聲明的threat變數）
 			if threat:
 				_adjust_decision_interval(threat.level, distance)
 				active_interval = current_adaptive_interval
@@ -388,9 +542,7 @@ func get_ai_input() -> Dictionary:
 	# 增強的調試輸出
 	# ============================================================
 	if debug_mode and verbose_decision_logs and not debug_block_trace:
-		# 獲取威脅信息
-		var threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
-		
+		# 獲取威脅信息（重用已聲明的threat變數）
 		if threat:
 			var threat_level_str = ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"][threat.level]
 			print("\n[AI DECISION] %s" % parent.name)
@@ -441,26 +593,66 @@ func _commit_action(action: String, duration: float) -> Dictionary:
 	current_committed_action = action
 	commitment_timer = duration
 	committed_input = _action_to_input(action)
+	commitment_one_time_sent = false  # 【FIX】重置單次命令標記，確保新承諾時能正確發送
 	
-	if debug_mode:
-		print("[AI] NEW DECISION: '%s' locked for %.2fs (priority-based)" % [action, duration])
+	# 【DEBUG】顯示承諾什麼動作（不受debug_mode限制）
+	var special_keys = ["throw_pressed", "spm1_pressed", "spm2_pressed", "spm3_pressed", "dp_pressed"]
+	var special_input = ""
+	for key in special_keys:
+		if committed_input.get(key, false):
+			special_input = key.replace("_pressed", "")
+			break
+	
+	var movement = ""
+	if committed_input.get("input_dir", 0) != 0:
+		movement = "→" if committed_input.get("input_dir", 0) > 0 else "←"
+	if committed_input.get("crouch_pressed", false):
+		movement += "↓"
+	
+	var action_icon = ""
+	if action in ["st_lp", "st_mp", "st_hp", "cr_lp", "cr_mp", "cr_hp"]:
+		action_icon = "👊"
+	elif action in ["st_lk", "st_mk", "st_hk", "cr_lk", "cr_mk", "cr_hk"]:
+		action_icon = "🦵"
+	elif action == "throw":
+		action_icon = "🔗"
+	elif action in ["fireball", "fireballL", "fireballM", "fireballH"]:
+		action_icon = "🔥"
+	elif action in ["dp", "dpL", "dpM", "dpH"]:
+		action_icon = "⬆️"
+	elif action in ["powerkk", "spnk"]:
+		action_icon = "💥"
+	elif "dash" in action:
+		action_icon = "🚀"
+	elif "walk" in action:
+		action_icon = "🚶"
+	elif "block" in action:
+		action_icon = "🛡️"
+	
+	print("[AI COMMIT] Frame=%d Seat=%s | %s %s (%.2fs)" % [
+		Engine.get_physics_frames(),
+		parent.seat if "seat" in parent else "?",
+		action_icon,
+		action,
+		duration
+	])
 	
 	return committed_input
 
 func _get_action_duration(action: String) -> float:
 	"""
-	Get minimum duration for an action based on frame data
-	Uses variable duration for movement to add unpredictability
+	【智能查詢】獲取動作承諾時長：
+	1. 從AnimationPlayer動態加載的值（st_hk, st_mp 等攻擊）
+	2. 備用硬編碼值（移動、防守等非動畫動作）
+	3. 預設 0.3 秒
+	
+	使用變量時長增加不可預測性（特別是移動動作）
 	"""
 	if action.begins_with("combo_"):
 		return 1.5  # Combos are always protected for full duration
 	
-	if action in ACTION_DURATIONS:
-		var data = ACTION_DURATIONS[action]
-		return randf_range(data["min"], data["max"])
-	
-	# Default fallback
-	return 0.3
+	# 【動態優先】查詢動畫時長或備用值
+	return get_action_duration(action)
 
 func _action_to_input(action: String) -> Dictionary:
 	"""將動作轉換為輸入字典"""
@@ -513,6 +705,11 @@ func _action_to_input(action: String) -> Dictionary:
 			input.st_hk_pressed = true
 		"throw":
 			input.throw_pressed = true
+			if debug_mode:
+				print("[AI._action_to_input] Frame=%d Seat=%s | Setting throw_pressed=true" % [
+					Engine.get_physics_frames(),
+					parent.seat if parent and "seat" in parent else "?"
+				])
 		"fireball", "spm2":
 			# ⚠️ 檢查：不應該到達這裡（應該被決策層過濾）
 			if enable_move_restrictions and "fireball" in restricted_moves:
@@ -521,6 +718,7 @@ func _action_to_input(action: String) -> Dictionary:
 				# 返回中立輸入，不執行
 				return _neutral_input()
 			input.spm2_pressed = true
+			input["ai_special_variant"] = "fireball"  # Store variant for MoveSet
 			if debug_mode:
 				print("[AI._action_to_input] %s: Setting spm2_pressed=true for action '%s'" % [parent.name, action])
 		# 🔴 【新增】Fireball 變體 (L/M/H)
@@ -528,27 +726,32 @@ func _action_to_input(action: String) -> Dictionary:
 			if enable_move_restrictions and "fireball" in restricted_moves:
 				return _neutral_input()
 			input.spm2_pressed = true
+			input["ai_special_variant"] = action  # Store the specific variant (fireballL, fireballM, fireballH)
 			if debug_mode:
-				print("[AI._action_to_input] %s: Setting spm2_pressed=true for fireball variant '%s'" % [parent.name, action])
+				print("[AI._action_to_input] %s: Setting spm2_pressed=true for variant '%s'" % [parent.name, action])
 		"powerkk", "spm1":
 			if enable_move_restrictions and "powerkk" in restricted_moves:
 				if debug_mode:
 					print("[AI._action_to_input] WARNING: Powerkk action reached input conversion despite being restricted!")
 				return _neutral_input()
 			input.spm1_pressed = true
+			input["ai_special_variant"] = action  # Store variant
 		"spnk":
 			if enable_move_restrictions and "spnk" in restricted_moves:
 				return _neutral_input()
 			input.spm1_pressed = true
+			input["ai_special_variant"] = action
 		"hdk":
 			if enable_move_restrictions and "hdk" in restricted_moves:
 				return _neutral_input()
 			input.spm3_pressed = true
+			input["ai_special_variant"] = action
 		# 🔴 【新增】DP 變體 (L/M/H)
 		"dpL", "dpM", "dpH":
 			if enable_move_restrictions and "dp" in restricted_moves:
 				return _neutral_input()
 			input.dp_pressed = true
+			input["ai_special_variant"] = action
 			if debug_mode:
 				print("[AI._action_to_input] %s: Setting dp_pressed=true for DP variant '%s'" % [parent.name, action])
 		"dp":
@@ -557,10 +760,12 @@ func _action_to_input(action: String) -> Dictionary:
 					print("[AI._action_to_input] WARNING: DP action reached input conversion despite being restricted!")
 				return _neutral_input()
 			input.dp_pressed = true
+			input["ai_special_variant"] = "dp"
 		# 🔴 【新增】100p 多段必殺技
 		"100p":
 			if parent.character_id == "DAV":
 				input.super_pressed = true  # 使用super_pressed作為100p的輸入
+				input["ai_special_variant"] = "100p"
 				if debug_mode:
 					print("[AI._action_to_input] %s: Setting super_pressed=true for 100p" % parent.name)
 			else:
@@ -570,6 +775,7 @@ func _action_to_input(action: String) -> Dictionary:
 			if enable_move_restrictions and "super" in restricted_moves:
 				return _neutral_input()
 			input.super_pressed = true
+			input["ai_special_variant"] = "super"
 		"dash_forward":
 			input.dash_pressed = true
 			input.input_dir = int(relative_dir)
@@ -636,6 +842,44 @@ func _cancel_dash_state() -> void:
 		parent.dash_initial_speed = 0.0
 	if "dash_total_time" in parent:
 		parent.dash_total_time = 0.0
+
+# ============================================================
+# SPECIAL MOVE COMMITMENT CLEARING (Combat Deduplication)
+# ============================================================
+func clear_special_move_commitment() -> void:
+	"""
+	【FIX】當特殊招式動畫完成時由 MoveSet 呼叫
+	清除 AI 的特殊招式承諾，防止無限重複發射（如 fireball）
+	
+	根本原因：
+	- AI commitment_timer 是為「決策時長」而設計（e.g., 0.8秒）
+	- 但特殊招式的動畫比 commitment 短（e.g., 0.783秒）
+	- 動畫完成後，commitment 仍在運行，導致 get_ai_input() 繼續返回 spm2_pressed=true
+	- 結果：同一特殊招式無限重複執行
+	
+	解決方案：
+	- 當 MoveSet.stop_special_move() 呼叫此方法時，
+	  立即清除 commitment 和所有特殊招式輸入
+	- 強制 AI 重新評估下一個決策
+	"""
+	if not ai_enabled or not parent:
+		return
+	
+	var current_frame = Engine.get_physics_frames()
+	var seat = parent.seat if "seat" in parent else "?"
+	
+	# 只清除特殊招式相關的承諾（防止誤清除其他承諾如投擲）
+	if current_committed_action in SPECIAL_MOVE_ACTIONS + ["fireballL", "fireballM", "fireballH", "dpL", "dpM", "dpH", "super"]:
+		print("[AI FIX - CLEAR SPECIAL MOVE] Frame=%d Seat=%s | Clearing commitment for '%s'" % [
+			current_frame, seat, current_committed_action
+		])
+		
+		# 清除所有特殊招式輸入（防止重複）
+		commitment_timer = 0.0
+		committed_input = _neutral_input()
+		current_committed_action = ""
+		commitment_one_time_sent = false
+		decision_cooldown = 0.0  # 立即重新評估，允許下一個決策
 
 func _is_attack_in_block_range(target: Player) -> bool:
 	if not target or not target.is_attacking or not parent:

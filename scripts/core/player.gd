@@ -41,6 +41,14 @@ var character_id: String:
 # Fireball 管理：追蹤當前活躍的 fireball 實例（同一時間只能有一個）
 var active_fireball: Node = null
 
+# ── 攻擊重複執行防護 (Attack Repetition Prevention) ──
+# 【FIX】業界標準：防止同一攻擊在相鄰幀中重複執行
+# 根本原因：reset_attack_state() 後，同一幀仍可被重新觸發
+# 解決方案：鎖定上一次執行的攻擊，在新動畫完全開始前拒絕重複
+var last_executed_attack: String = ""  # Track which attack was just executed (e.g., "st_hp")
+var last_executed_attack_frame: int = -999  # Frame when it was executed
+var attack_execution_lock_frames: int = 2  # Minimum frames between same attack re-execution
+
 # ── 狀態旗標 ─────────────────────
 var current_mode: String = "ground_stand"
 var attack_type: String = "none"
@@ -64,6 +72,11 @@ var special_input_data: Dictionary = {
 
 # ── 重置函式 ─────────────────────
 func reset_attack_state() -> void:
+	# 【FIX】記錄上次執行的攻擊及其幀數，用於防止同幀重複執行
+	if attack_type != "none" and attack_type != "":
+		last_executed_attack = attack_type
+		last_executed_attack_frame = Engine.get_physics_frames()
+	
 	is_attacking = false
 	attack_type = "none"
 	attack_duration_timer = 0
@@ -344,12 +357,29 @@ func _physics_process(delta: float) -> void:
 	# 🟢 【DP修正】特殊招式必須無條件呼叫 process_move，否則 timer 倒數無法進行
 	# DP 會跳起來，導致 is_valid_ground_state=false，如果檢查該條件就會跳過 process_move
 	# 結果：timer 永遠不倒數，動畫無法自然完成，導致狀態永遠鎖定
+	
+	# DEBUG: Log AI special move input reception
+	var has_special_input = input_data.get("spm2_pressed", false) or input_data.get("spm1_pressed", false) or input_data.get("dp_pressed", false)
+	if is_ai_controlled and Engine.get_physics_frames() % 30 == 0 and has_special_input:
+		print("[Player INPUT] Frame=%d Seat=%s spm2=%s spm1=%s dp=%s ground_state=%s" % [
+			Engine.get_physics_frames(), seat, 
+			input_data.get("spm2_pressed", false),
+			input_data.get("spm1_pressed", false),
+			input_data.get("dp_pressed", false),
+			is_valid_ground_state
+		])
+	
 	if move_set and move_set.is_spmove:
 		# 特殊招式中：無條件呼叫 process_move
+		if is_ai_controlled and Engine.get_physics_frames() % 30 == 0 and has_special_input:
+			print("[Player PROCESS_MOVE] Frame=%d Seat=%s calling process_move(delta, input_data, true)" % [Engine.get_physics_frames(), seat])
 		if move_set.process_move(delta, input_data, true):
 			return
-	elif move_set and move_set.process_move(delta, input_data, is_valid_ground_state):
-		return
+	elif move_set:
+		if is_ai_controlled and Engine.get_physics_frames() % 30 == 0 and has_special_input:
+			print("[Player PROCESS_MOVE] Frame=%d Seat=%s calling process_move(delta, input_data, %s)" % [Engine.get_physics_frames(), seat, is_valid_ground_state])
+		if move_set.process_move(delta, input_data, is_valid_ground_state):
+			return
 
 	# 檢查取消窗口是否開啟
 	var is_cancel_open = cancel_window_handler and cancel_window_handler.is_window_open
@@ -678,6 +708,20 @@ func force_update_facing_direction() -> void:
 func _execute_attack(attack_name: String) -> void:
 	"""統一的攻擊執行函式，處理傷害設置、狀態變更和移動啟動"""
 	print("[EXECUTE_ATTACK] attack_name: ", attack_name, " | Seat: ", seat)
+	
+	# 【FIX】攻擊去重防護：防止同一攻擊在相鄰幀中重複執行（業界標準）
+	# 根本原因：reset_attack_state()後同一幀可能再次觸發相同按鍵
+	# 如果上一幀剛剛執行了這個攻擊，拒絕這一幀的重複執行
+	var current_frame = Engine.get_physics_frames()
+	var frames_since_last_exec = current_frame - last_executed_attack_frame
+	var is_same_attack_repeat = (last_executed_attack == attack_name and frames_since_last_exec < attack_execution_lock_frames)
+	
+	if is_same_attack_repeat:
+		print("[ATTACK DEDUP] Rejecting '%s' - executed %d frames ago (lock=%d) | Seat: %s" % [
+			attack_name, frames_since_last_exec, attack_execution_lock_frames, seat
+		])
+		return  # 拒絕執行，直到鎖定期結束
+	
 	var is_throw_attack = attack_name in ["throw_enter", "throw_seq"]
 	if not is_throw_attack and not attack_name in ATTACK_TABLE:
 		print("[EXECUTE_ATTACK] NOT in ATTACK_TABLE")

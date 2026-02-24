@@ -1,19 +1,19 @@
-[gd_scene load_steps=99 format=3 uid="uid://dajuv35ogv4m3"]
+[gd_scene format=3 uid="uid://dajuv35ogv4m3"]
 
 [ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://scripts/core/player.gd" id="1_k12x1"]
 [ext_resource type="Resource" uid="uid://dsdxakjhgv04k" path="res://data/p1_attack_data.tres" id="2_eqooi"]
 [ext_resource type="SpriteFrames" uid="uid://d4nr7ttwrmfi8" path="res://assets/sprite_frames/WOO.tres" id="3_k12x1"]
-[ext_resource type="Texture2D" uid="uid://kj6eh6bjncpt" path="res://assets/Davis2.png" id="4_n8wgw"]
-[ext_resource type="Texture2D" uid="uid://dtrspm0lofn8v" path="res://assets/texture/smoke/smoke_01.png" id="5_pnykl"]
+[ext_resource type="Texture2D" uid="uid://b6poq4uxqguy5" path="res://assets/Davis2.png" id="4_n8wgw"]
+[ext_resource type="Texture2D" uid="uid://bf08spa3gkec5" path="res://assets/texture/smoke/smoke_01.png" id="5_pnykl"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://scripts/combat/movesets/MoveSet.gd" id="6_mpuaf"]
-[ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai_behavior.gd" id="7_nbdmm"]
+[ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_nbdmm"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_o64jn"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://scripts/input/InputManager.gd" id="9_pid0y"]
-[ext_resource type="AudioStream" uid="uid://d3skwgptqbjp7" path="res://assets/audio/heavy_hit_sound.wav" id="10_6t1g5"]
-[ext_resource type="AudioStream" uid="uid://q8jvh4li7qsx" path="res://assets/audio/block_sound.wav" id="11_061tp"]
-[ext_resource type="AudioStream" uid="uid://bekh5vxg0gcta" path="res://assets/audio/hurt_grunt_p1.wav" id="12_sffaq"]
-[ext_resource type="AudioStream" uid="uid://dm1sdatl058bw" path="res://assets/audio/powerkk_call.mp3" id="13_vn450"]
-[ext_resource type="AudioStream" uid="uid://c60iyk1374qu3" path="res://assets/audio/fireball_call_p1.wav" id="14_wkibw"]
+[ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://assets/audio/heavy_hit_sound.wav" id="10_6t1g5"]
+[ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://assets/audio/block_sound.wav" id="11_061tp"]
+[ext_resource type="AudioStream" uid="uid://chhkw2i6yrqqj" path="res://assets/audio/hurt_grunt_p1.wav" id="12_sffaq"]
+[ext_resource type="AudioStream" uid="uid://b1h32xlp7um3u" path="res://assets/audio/powerkk_call.mp3" id="13_vn450"]
+[ext_resource type="AudioStream" uid="uid://bhgx3a8oi1nxg" path="res://assets/audio/fireball_call_p1.wav" id="14_wkibw"]
 [ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://assets/audio/loud3.mp3" id="15_wkibw"]
 [ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="16_wkibw"]
 
@@ -3407,35 +3407,33 @@ scale_min = 0.29999998
 scale_max = 0.39999998
 alpha_curve = SubResource("CurveTexture_6flp4")
 
-[node name="WOO" type="CharacterBody2D"]
+[node name="WOO" type="CharacterBody2D" unique_id=809306713]
 collision_mask = 0
 script = ExtResource("1_k12x1")
 attack_data = ExtResource("2_eqooi")
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=873538317]
 scale = Vector2(0.51, 0.51)
 sprite_frames = ExtResource("3_k12x1")
 animation = &"Reset"
 offset = Vector2(0, -50)
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=387881833]
 visible = false
 texture = ExtResource("4_n8wgw")
 offset = Vector2(0, -3)
 hframes = 10
 vframes = 19
 
-[node name="Pushbox" type="CollisionShape2D" parent="."]
+[node name="Pushbox" type="CollisionShape2D" parent="." unique_id=198451176]
 position = Vector2(0, -5)
 shape = SubResource("RectangleShape2D_0e34t")
 debug_color = Color(0, 0.6431373, 0.30980393, 0.08235294)
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
-libraries = {
-&"": SubResource("AnimationLibrary_46qut")
-}
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=2082017494]
+libraries/ = SubResource("AnimationLibrary_46qut")
 
-[node name="AnimationTree" type="AnimationTree" parent="."]
+[node name="AnimationTree" type="AnimationTree" parent="." unique_id=1661557338]
 tree_root = SubResource("AnimationNodeStateMachine_mbed6")
 advance_expression_base_node = NodePath("..")
 anim_player = NodePath("../AnimationPlayer")
@@ -3444,35 +3442,35 @@ parameters/conditions/Dash = false
 parameters/conditions/cr_down = false
 parameters/Walk/blend_position = -0.1618452
 
-[node name="Hitbox" type="Area2D" parent="."]
+[node name="Hitbox" type="Area2D" parent="." unique_id=899898313]
 collision_layer = 4
 collision_mask = 2
 
-[node name="HitShape" type="CollisionShape2D" parent="Hitbox"]
+[node name="HitShape" type="CollisionShape2D" parent="Hitbox" unique_id=1749999779]
 position = Vector2(15, -15)
 debug_color = Color(0.050980393, 0.63529414, 0.41568628, 0)
 
-[node name="Hurtbox" type="Area2D" parent="."]
+[node name="Hurtbox" type="Area2D" parent="." unique_id=21710873]
 collision_mask = 72
 
-[node name="HurtShape" type="CollisionShape2D" parent="Hurtbox"]
+[node name="HurtShape" type="CollisionShape2D" parent="Hurtbox" unique_id=312766676]
 position = Vector2(10, -5)
 shape = SubResource("RectangleShape2D_kcguo")
 debug_color = Color(0, 0.6, 0.69803923, 0.03529412)
 
-[node name="AttackHurtShape" type="CollisionShape2D" parent="Hurtbox"]
+[node name="AttackHurtShape" type="CollisionShape2D" parent="Hurtbox" unique_id=897187861]
 position = Vector2(65, -70)
 debug_color = Color(0.9878623, 0.092036285, 0.1464591, 0.41960785)
 
-[node name="Proximitybox" type="Area2D" parent="."]
+[node name="Proximitybox" type="Area2D" parent="." unique_id=1934530394]
 collision_layer = 64
 collision_mask = 0
 
-[node name="ProxShape" type="CollisionShape2D" parent="Proximitybox"]
+[node name="ProxShape" type="CollisionShape2D" parent="Proximitybox" unique_id=1457268009]
 position = Vector2(50, 0)
 debug_color = Color(0.62189, 0.533606, 0, 0.42)
 
-[node name="groundsmoke" type="GPUParticles2D" parent="."]
+[node name="groundsmoke" type="GPUParticles2D" parent="." unique_id=1574716696]
 z_index = -1
 position = Vector2(0, 140)
 emitting = false
@@ -3484,45 +3482,53 @@ explosiveness = 0.9
 fixed_fps = 60
 process_material = SubResource("ParticleProcessMaterial_6w4w0")
 
-[node name="MoveSet" type="Node" parent="."]
+[node name="MoveSet" type="Node" parent="." unique_id=865844842]
 script = ExtResource("6_mpuaf")
-is_spnk_penetrable = false
 
-[node name="AIBehavior" type="Node" parent="."]
+[node name="AIBehavior" type="Node" parent="." unique_id=914807502]
 script = ExtResource("7_nbdmm")
+ai_enabled = null
+ai_difficulty = null
+debug_mode = null
+debug_block_trace = null
+startup_logs = null
+verbose_decision_logs = null
+decision_interval_override = null
+enable_adaptive_interval = null
 
-[node name="PlayerController" type="Node" parent="."]
+[node name="PlayerController" type="Node" parent="." unique_id=506367708]
 script = ExtResource("8_o64jn")
 
-[node name="InputManager" type="Node" parent="."]
+[node name="InputManager" type="Node" parent="." unique_id=202410027]
 script = ExtResource("9_pid0y")
 
-[node name="HitSoundPlayer" type="AudioStreamPlayer" parent="."]
+[node name="HitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1506171807]
 stream = ExtResource("10_6t1g5")
 pitch_scale = 0.8
 
-[node name="BlockSoundPlayer" type="AudioStreamPlayer" parent="."]
+[node name="BlockSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=259775119]
 stream = ExtResource("11_061tp")
 pitch_scale = 1.1
 
-[node name="HurtGruntPlayer" type="AudioStreamPlayer" parent="."]
+[node name="HurtGruntPlayer" type="AudioStreamPlayer" parent="." unique_id=358371568]
 stream = ExtResource("12_sffaq")
 volume_db = -5.0
 pitch_scale = 1.13
 
-[node name="SpecialCallPlayer" type="AudioStreamPlayer" parent="."]
+[node name="SpecialCallPlayer" type="AudioStreamPlayer" parent="." unique_id=1318737305]
 stream = ExtResource("13_vn450")
 volume_db = -5.0
 
-[node name="FireballCallPlayer" type="AudioStreamPlayer" parent="."]
+[node name="FireballCallPlayer" type="AudioStreamPlayer" parent="." unique_id=1458184082]
 stream = ExtResource("14_wkibw")
-[node name="HeavyHitSoundPlayer" type="AudioStreamPlayer" parent="."]
+
+[node name="HeavyHitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=942591714]
 stream = ExtResource("15_wkibw")
 volume_db = 0.085
 pitch_scale = 0.91
 
-[node name="HeavyBlockSoundPlayer" type="AudioStreamPlayer" parent="."]
+[node name="HeavyBlockSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=76667026]
 stream = ExtResource("16_wkibw")
 
-[node name="HeavyHurtGruntPlayer" type="AudioStreamPlayer" parent="."]
+[node name="HeavyHurtGruntPlayer" type="AudioStreamPlayer" parent="." unique_id=13766152]
 stream = ExtResource("12_sffaq")

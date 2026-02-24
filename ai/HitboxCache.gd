@@ -182,6 +182,74 @@ func _scan_hurtbox(player: Node, character_id: String) -> void:
 	if debug_mode:
 		print("  ✅ Hurtbox: size=%s, pos=%s" % [hurtbox_data.size, hurtbox_data.position])
 
+func _scan_throw_hitboxes(player: Node, character_id: String, animation_player: AnimationPlayer) -> void:
+	"""【新增】掃描投擲框數據（ThrowBox）"""
+	# 支援 throw_enter 動畫的 ThrowBox 掃描
+	var throw_box = player.get_node_or_null("ThrowBox/ThrowHit")
+	
+	if not throw_box:
+		if debug_mode:
+			print("  ⚠️ 未找到 ThrowBox/ThrowHit 節點")
+		return
+	
+	# 嘗試掃描 throw_enter 動畫
+	var throw_enter_anim = animation_player.get_animation("throw_enter")
+	if not throw_enter_anim:
+		if debug_mode:
+			print("  ⚠️ 未找到 throw_enter 動畫")
+		return
+	
+	var track_count = throw_enter_anim.get_track_count()
+	var throw_size: Vector2 = Vector2.ZERO
+	var throw_position: Vector2 = Vector2.ZERO
+	var found_throw_box = false
+	
+	# 查詢 throw_enter 動畫中的 ThrowBox 軌道
+	for track_idx in range(track_count):
+		var track_path = throw_enter_anim.track_get_path(track_idx)
+		var path_string = str(track_path)
+		
+		# 查找 ThrowBox/ThrowHit:shape:size
+		if "ThrowBox/ThrowHit" in path_string and "shape:size" in path_string:
+			var key_count = throw_enter_anim.track_get_key_count(track_idx)
+			if key_count > 0:
+				for key_idx in range(key_count):
+					var value = throw_enter_anim.track_get_key_value(track_idx, key_idx)
+					if value != null and value is Vector2 and value != Vector2.ZERO:
+						throw_size = value
+						found_throw_box = true
+						break
+		
+		# 查找 ThrowBox/ThrowHit:position
+		if "ThrowBox/ThrowHit" in path_string and ":position" in path_string and "shape" not in path_string:
+			var key_count = throw_enter_anim.track_get_key_count(track_idx)
+			if key_count > 0:
+				for key_idx in range(key_count):
+					var value = throw_enter_anim.track_get_key_value(track_idx, key_idx)
+					if value != null and value is Vector2:
+						throw_position = value
+						break
+	
+	# 如果動畫中找不到，嘗試直接讀取 CollisionShape2D
+	if not found_throw_box and throw_box is CollisionShape2D and throw_box.shape:
+		if throw_box.shape is RectangleShape2D:
+			throw_size = throw_box.shape.size * throw_box.scale
+			throw_position = throw_box.position
+			found_throw_box = true
+	
+	if found_throw_box:
+		var hitbox_data = HitboxData.new()
+		hitbox_data.size = throw_size
+		hitbox_data.position = throw_position
+		hitbox_data.attack_name = "throw_enter"
+		hitbox_data.character_id = character_id
+		
+		var cache_key = "%s:throw_enter" % character_id
+		hitbox_cache[cache_key] = hitbox_data
+		
+		if debug_mode:
+			print("  ✅ throw_enter: size=%s, pos=%s (throw_hit_range)" % [throw_size, throw_position])
+
 func _scan_hitboxes(player: Node, character_id: String) -> void:
 	"""掃描 Hitbox 數據（從 AnimationPlayer 讀取不同攻擊的 Hitbox）"""
 	var animation_player = player.get_node_or_null("AnimationPlayer")
@@ -206,6 +274,9 @@ func _scan_hitboxes(player: Node, character_id: String) -> void:
 	for attack_name in attack_animations:
 		if attack_name in animations:
 			_scan_attack_hitbox(player, character_id, attack_name, animation_player, hitbox_node)
+	
+	# 【新增】掃描投擲框（ThrowBox）
+	_scan_throw_hitboxes(player, character_id, animation_player)
 	
 	if debug_mode:
 		print("  📊 共掃描 %d 個攻擊動畫的 Hitbox 數據" % attack_animations.size())
@@ -358,6 +429,27 @@ func get_attack_range(character_id: String, attack_name: String) -> float:
 	var max_reach = abs(hitbox_center) + hitbox_half_width
 	
 	return max_reach
+
+func get_throw_range(character_id: String) -> float:
+	"""【新增】獲取投擲框的有效範圍（從角色中心到 ThrowBox 最遠端的距離）"""
+	var throw_hitbox = get_hitbox_data(character_id, "throw_enter")
+	
+	# 計算從角色中心到 ThrowBox 最遠端的距離
+	var throw_center = throw_hitbox.position.x
+	var throw_half_width = throw_hitbox.size.x / 2.0
+	var max_reach = abs(throw_center) + throw_half_width
+	
+	return max_reach
+
+func check_throw_collision(
+	attacker_pos: Vector2,
+	attacker_char_id: String,
+	target_pos: Vector2,
+	target_char_id: String,
+	attacker_facing: float = 1.0
+) -> bool:
+	"""【新增】檢查投擲框是否與對手的 Hurtbox 碰撞"""
+	return check_hitbox_collision(attacker_pos, attacker_char_id, "throw_enter", target_pos, target_char_id, attacker_facing)
 
 # ============================================================
 # 調試工具

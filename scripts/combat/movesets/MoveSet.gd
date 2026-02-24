@@ -440,15 +440,33 @@ func start_dp() -> void:
 	print("[START_DP] Using variant '%s' (requested strength=%s)" % [chosen, strength])
 	_start_special(chosen)
 
+func start_dp_variant(variant: String) -> void:
+	"""Start a specific DP variant directly (for AI direct requests)"""
+	if not move_library.has(variant):
+		push_error("MoveSet.start_dp_variant: variant '%s' not found in move_library" % variant)
+		return
+	print("[START_DP_VARIANT] Starting '%s' (AI direct request)" % variant)
+	_start_special(variant)
+
 func start_hdk() -> void:
 	_start_special("hdk")
 
 func start_fireball() -> void:
+	var _frame = Engine.get_physics_frames()
+	var _seat = parent.seat if "seat" in parent else "?"
+	
+	# 【DEBUG】記錄進入 start_fireball 時的狀態
+	print("[start_fireball ENTRY] Frame=%d Seat=%s | is_attacking=%s is_spmove=%s" % [
+		_frame, _seat, parent.is_attacking, is_spmove
+	])
+	
 	if parent.is_attacking or is_spmove:
-		print("[MoveSet] %s: Cannot start fireball - is_attacking=%s, is_spmove=%s" % [parent.name, parent.is_attacking, is_spmove])
+		print("[start_fireball BLOCKED] Frame=%d Seat=%s | Cannot start - is_attacking=%s is_spmove=%s" % [
+			_frame, _seat, parent.is_attacking, is_spmove
+		])
 		return
 	if parent.active_fireball != null and is_instance_valid(parent.active_fireball):
-		print("[MoveSet] %s: Cannot start fireball - active_fireball already exists" % parent.name)
+		print("[start_fireball BLOCKED] Frame=%d Seat=%s | Cannot start - active_fireball already exists" % [_frame, _seat])
 		return
 	# 🔴 FIX: select the correct fireball variant for this character
 	# (DAV uses fireballL/M/H; DEN uses generic "fireball")
@@ -472,7 +490,7 @@ func start_fireball() -> void:
 		push_error("MoveSet.start_fireball: no fireball variant found for char=%s | library=%s" % [
 			parent.character_id if parent else "?", str(move_library.keys())])
 		return
-	print("[MoveSet] %s: Starting fireball (AI=%s) → variant=%s" % [parent.name, parent.is_ai_controlled, chosen])
+	print("[start_fireball SUCCESS] Frame=%d Seat=%s | Starting variant=%s" % [_frame, _seat, chosen])
 	_start_special(chosen)
 
 func start_fireball_variant(variant: String) -> void:
@@ -513,6 +531,15 @@ func stop_special_move() -> void:
 	var move_name = current_move_state.active_move.name if current_move_state.active_move else "UNKNOWN"
 	var seat_str = parent.seat if "seat" in parent else "?"
 	print("[STOP_MOVE] '%s' | Seat: %s" % [move_name, seat_str])
+	
+	# 【FIX】當特殊招式完成時，清除AI的特殊招式輸入（防止重複發射火球等）
+	# 根本原因：AI commitment於特殊招式的「決策時長」，但動畫會先結束
+	# 當動畫完成後，get_ai_input()仍返回spm2_pressed=true，導致重新發射
+	# 解決方案：強制清除commitment和輸入，讓AI重新評估
+	var ai_behavior = parent.get_node_or_null("AIBehavior") if parent else null
+	if ai_behavior and ai_behavior.has_method("clear_special_move_commitment"):
+		ai_behavior.clear_special_move_commitment()
+		print("[STOP_MOVE AI FIX] Cleared AI special move commitment for '%s' (Seat: %s)" % [move_name, seat_str])
 	
 	is_spmove = false
 	is_special_moving = false
@@ -594,8 +621,24 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		if is_spmove: stop_special_move()
 		return false
 	
-	if not is_valid_state:
-		# Removed verbose logging - this is normal behavior during action commitment
+	# 🔴 【FIX】Special move input should NOT be blocked by landing lock
+	# Landing lock (is_landing=true) is primarily to prevent normal attacks during landing
+	# But special moves (spm2_pressed, dp_pressed, spm1_pressed, super_pressed) should still be allowed
+	# Check if there's any special move input that should bypass landing lock
+	var has_special_move_input = (input_data.get("spm2_pressed", false) or 
+								   input_data.get("spm1_pressed", false) or 
+								   input_data.get("spm3_pressed", false) or 
+								   input_data.get("dp_pressed", false) or 
+								   input_data.get("super_pressed", false))
+	
+	var can_process_special_input = has_special_move_input and parent.is_on_floor()
+	
+	if not is_valid_state and not can_process_special_input:
+		# DEBUG: Track why input is rejected (for AI)
+		if parent.is_ai_controlled and Engine.get_physics_frames() % 30 == 0 and has_special_move_input:
+			print("[MoveSet.process_move REJECT] Frame=%d | is_valid_state=%s can_process_special=%s on_floor=%s" % [
+				Engine.get_physics_frames(), is_valid_state, can_process_special_input, parent.is_on_floor()
+			])
 		return false
 	
 	# Input triggers
@@ -678,6 +721,58 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 	var controller = parent.get_node_or_null("PlayerController")
 	
+	# 🔴 【新增】Check for AI-specific special move variant request
+	# This allows AI to directly request fireballL/M/H, dpL/M/H, etc. without motion input detection
+	var ai_variant = input_data.get("ai_special_variant", "")
+	if ai_variant != "":
+		if ai_variant.begins_with("fireball"):
+			# AI requesting specific fireball variant (L/M/H)
+			if not parent.is_attacking and not is_spmove:
+				if controller:
+					controller.consume_button_input("fireball")
+					controller.consume_button_input("st_mp")
+				start_fireball_variant(ai_variant)
+				return true
+		elif ai_variant.begins_with("dp"):
+			# AI requesting specific DP variant (L/M/H)
+			if not parent.is_attacking and not is_spmove:
+				if controller:
+					for dp_key in ["dp", "dpL", "dpM", "dpH"]:
+						controller.consume_button_input(dp_key)
+					controller.consume_button_input("st_lp")
+					controller.consume_button_input("st_mp")
+					controller.consume_button_input("st_hp")
+				start_dp_variant(ai_variant)
+				return true
+		elif ai_variant == "powerkk":
+			if not parent.is_attacking and not is_spmove:
+				if controller:
+					controller.consume_button_input("powerkk")
+					controller.consume_button_input("st_mp")
+				start_powerkk()
+				return true
+		elif ai_variant == "100p":
+			if parent.character_id == "DAV" and not parent.is_attacking and not is_spmove:
+				if controller:
+					controller.consume_button_input("100p")
+					controller.consume_button_input("st_mk")
+				start_100p()
+				return true
+		elif ai_variant == "spnk":
+			if not parent.is_attacking and not is_spmove:
+				if controller:
+					controller.consume_button_input("spnk")
+					controller.consume_button_input("st_mk")
+				start_spnk()
+				return true
+		elif ai_variant == "hdk":
+			if not parent.is_attacking and not is_spmove:
+				if controller:
+					controller.consume_button_input("hdk")
+					controller.consume_button_input("st_mk")
+				start_hdk()
+				return true
+	
 	if input_data.get("super_pressed", false) and not parent.is_attacking and not is_spmove:
 		# Consume the buffered input
 		if controller and controller.has_method("consume_button_input"):
@@ -697,8 +792,10 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 		return true
 	
 	if input_data.get("spm2_pressed", false) and not parent.is_attacking and not is_spmove:
-		if parent.is_ai_controlled:
-			print("[MoveSet._handle_input] %s spm2_pressed detected (AI=true)" % parent.name)
+		# 【DEBUG】詳細追蹤 spm2 執行
+		print("[MoveSet._handle_input] Frame=%d | %s spm2_pressed=true → start_fireball()" % [
+			Engine.get_physics_frames(), parent.name
+		])
 		# Consume buffered fireball (detected by motion input)
 		if controller and controller.has_method("consume_button_input"):
 			controller.consume_button_input("fireball")  # Consume the special move buffer

@@ -53,25 +53,36 @@ func try_execute_ground_attack(input_data: Dictionary, is_crouching: bool) -> bo
 		bool: 如果執行了攻擊返回 true，否則返回 false
 	"""
 	var throw_pressed = input_data.get("throw_pressed", false)
-	# 【DEBUG】詳細追蹤摔投執行條件
+	# 【DEBUG】詳細追蹤摔投執行條件 - 所有 AI 相關信息
 	if throw_pressed or (input_data.get("st_lp_pressed", false) and input_data.get("st_lk_pressed", false)):
-		print("[ATTACK_EXECUTOR] Frame=%d | throw_pressed=%s, is_crouching=%s, is_attacking=%s | Seat=%s" % [
-			Engine.get_physics_frames(), throw_pressed, is_crouching, parent_player.is_attacking if parent_player else "?", 
-			parent_player.seat if parent_player else "?"
+		var parent_seat = parent_player.seat if parent_player and "seat" in parent_player else "?"
+		var parent_is_ai = parent_player.is_ai_controlled if parent_player else false
+		print("[ATTACK_EXECUTOR] Frame=%d Seat=%s is_ai=%s | throw_pressed=%s, is_crouching=%s, is_attacking=%s | attack_type=%s" % [
+			Engine.get_physics_frames(),
+			parent_seat,
+			parent_is_ai,
+			throw_pressed,
+			is_crouching,
+			parent_player.is_attacking if parent_player else "?",
+			parent_player.attack_type if parent_player else "?"
 		])
 	
 	if throw_pressed and not is_crouching:
 		# 【FIXED】Throw CAN interrupt normal attacks (cancel capability)
 		# Only reject throw if throw_enter/throw_seq is already executing
 		if parent_player and parent_player.is_attacking and parent_player.attack_type in ["throw_enter", "throw_seq"]:
-			print("[THROW BLOCKED] Frame=%d | Already executing throw (attack_type=%s), cannot throw again" % [
-				Engine.get_physics_frames(), parent_player.attack_type if parent_player else "?"
+			print("[THROW BLOCKED] Frame=%d Seat=%s | Already executing throw (attack_type=%s), cannot throw again" % [
+				Engine.get_physics_frames(),
+				parent_player.seat if parent_player and "seat" in parent_player else "?",
+				parent_player.attack_type if parent_player else "?"
 			])
 			return false
 		# Consume and execute throw (interrupts normal attacks)
 		_consume_throw_inputs()
-		print("[EXECUTE THROW] Frame=%d | Executing 'throw_enter' (interrupts attack_type=%s)" % [
-			Engine.get_physics_frames(), parent_player.attack_type if parent_player else "none"
+		print("[EXECUTE THROW] Frame=%d Seat=%s | ✅ Executing 'throw_enter' (was attacking: %s)" % [
+			Engine.get_physics_frames(),
+			parent_player.seat if parent_player and "seat" in parent_player else "?",
+			parent_player.attack_type if parent_player else "none"
 		])
 		_execute_attack("throw_enter")
 		return true

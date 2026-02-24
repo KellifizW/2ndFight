@@ -290,10 +290,50 @@ func _physics_process(delta: float) -> void:
 	blocking_handler.handle_blocking(input_dir, is_special_moving)
 	
 	# 【關鍵修復】著地處理必須在 dash 之前，以清除 dash 相關狀態
-	# 否則著地時的輸入會触發遗留的 pending_dash_dir
+	# 否則著地時的輸入會触發遺留的 pending_dash_dir
 	landing_handler.handle_landing(input_data, floor_y, delta)
 	
-	dash_handler.handle_dash(input_dir, scale_factor, is_special_moving)
+	# 🔴 【FIX】Check for AI direct dash request (dash_pressed flag)
+	# AI cannot simulate complex double-tap pattern, so we allow direct trigger
+	var has_dash_pressed = input_data.get("dash_pressed", false)
+	var has_backdash_pressed = input_data.get("backdash_pressed", false)
+	
+	if has_dash_pressed and is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and not is_crouching:
+		# AI wants to dash forward
+		if input_dir * facing_direction > 0:
+			# Same direction as facing - forward dash
+			is_dashing = true
+			dash_timer = int(round(dash_time * 120.0))
+			dash_total_time = dash_timer
+			dash_initial_speed = dash_speed * scale_factor * input_dir
+			fixed_velocity.x = int(dash_initial_speed)
+			if groundsmoke:
+				groundsmoke.scale.x = facing_direction
+				groundsmoke.restart()
+		else:
+			# Opposite direction - backdash
+			is_backdashing = true
+			dash_timer = int(round(backdash_time * 120.0))
+			dash_total_time = dash_timer
+			dash_initial_speed = backdash_speed * scale_factor * input_dir
+			fixed_velocity.x = int(dash_initial_speed)
+			if groundsmoke:
+				groundsmoke.scale.x = facing_direction
+				groundsmoke.restart()
+	elif has_backdash_pressed and is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground):
+		# AI wants to backdash
+		is_backdashing = true
+		dash_timer = int(round(backdash_time * 120.0))
+		dash_total_time = dash_timer
+		dash_initial_speed = backdash_speed * scale_factor * (-int(facing_direction))
+		fixed_velocity.x = int(dash_initial_speed)
+		if groundsmoke:
+			groundsmoke.scale.x = facing_direction
+			groundsmoke.restart()
+	else:
+		# Normal double-tap dash detection
+		dash_handler.handle_dash(input_dir, scale_factor, is_special_moving)
+	
 	walk_handler.handle_walk(input_dir, scale_factor, is_special_moving)
 	jump_handler.handle_jump(jump_pressed, input_dir, scale_factor, floor_y, is_special_moving)
 	knockfly_handler.handle_knockfly_layground(delta, floor_y)

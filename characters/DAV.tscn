@@ -6644,7 +6644,7 @@ tracks/1/loop_wrap = true
 tracks/1/keys = {
 "times": PackedFloat32Array(0, 0.049999997, 0.23333333),
 "transitions": PackedFloat32Array(1, 1, 1),
-"update": 0,
+"update": 1,
 "values": [0, 1, 2]
 }
 tracks/2/type = "value"
@@ -6654,10 +6654,10 @@ tracks/2/path = NodePath("AnimatedSprite2D:offset")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0, 0.049999997, 0.23333333),
-"transitions": PackedFloat32Array(1, 1, 1),
-"update": 0,
-"values": [Vector2(40, 0), Vector2(50, 0), Vector2(70, 0)]
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0, 0)]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
@@ -6693,7 +6693,7 @@ tracks/5/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [Vector2(80, 0)]
+"values": [Vector2(50, 0)]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
@@ -7410,7 +7410,9 @@ debug_color = Color(0.62352943, 0.53333336, 0, 0.09803922)
 [node name="ThrowBox" type="Area2D" parent="." unique_id=2118661949]
 
 [node name="ThrowHit" type="CollisionShape2D" parent="ThrowBox" unique_id=382300240]
+position = Vector2(50, 0)
 shape = SubResource("RectangleShape2D_vhfda")
+disabled = true
 debug_color = Color(1, 0.45490196, 0.8509804, 0.05490196)
 
 [node name="ThrowHurt" type="CollisionShape2D" parent="ThrowBox" unique_id=2013794485]

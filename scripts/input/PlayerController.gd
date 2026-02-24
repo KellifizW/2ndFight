@@ -73,6 +73,15 @@ func _physics_process(_delta: float) -> void:
 		])
 	
 	if throw_detected:
+		# 【NEW】立即中斷st_lp/st_lk動畫（1F內優先級最高）
+		var player = player_node as Player
+		if player and player.is_attacking and player.attack_type in ["st_lp", "st_lk"]:
+			print("[THROW INTERRUPT IMMEDIATE] Frame=%d | 打斷 '%s' → 執行 throw (diff <= %dF)" % [
+				current_physics_frame, player.attack_type, THROW_DETECTION_WINDOW
+			])
+			# 強制停止當前攻擊
+			player.stop_attack_for_throw()
+		
 		input_buffer.record_input("throw")
 		print("[INPUT THROW DETECTED] ✅ Frame=%d Seat=%s | LP + LK within %d-frame window → 'throw' buffered" % [
 			current_physics_frame, player_seat, THROW_DETECTION_WINDOW
