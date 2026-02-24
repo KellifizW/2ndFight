@@ -24,7 +24,7 @@ var world: Node = null
 var multi_hit_targets: Dictionary = {}  # {target_id: {hit_index: int, last_hit_frame: int}}
 
 # ── VFX 系統 ──
-const VFXImpact = preload("res://vfx_impact.gd")
+const VFXImpact = preload("res://scripts/vfx/vfx_impact.gd")
 
 func _init(player: Node) -> void:
 	parent_player = player

@@ -1,0 +1,120 @@
+[gd_scene format=3 uid="uid://b3fnkau3l2ucr"]
+
+[ext_resource type="Script" uid="uid://dowb57vy1aew4" path="res://scripts/vfx/vfx_impact.gd" id="1_xm6gv"]
+[ext_resource type="Texture2D" uid="uid://dm52t6xjph1us" path="res://assets/texture/21.png" id="2_ivt7l"]
+[ext_resource type="Texture2D" uid="uid://bmjae6pnph2g8" path="res://assets/T_VFX_simple_ss.png" id="3_ivt7l"]
+[ext_resource type="Material" uid="uid://dt1my7vcgxo5d" path="res://assets/vfx/vfx_blk_smallspit.tres" id="4_ivt7l"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_yhyjq"]
+blend_mode = 1
+
+[sub_resource type="Curve" id="Curve_7crm8"]
+_data = [Vector2(0, 0.5226562), 0.0, -0.5226562, 0, 1, Vector2(1, 0), -0.5226562, 0.0, 1, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_xm6gv"]
+curve = SubResource("Curve_7crm8")
+
+[sub_resource type="Curve" id="Curve_ivt7l"]
+_data = [Vector2(0, 0), 0.0, 1.0, 0, 1, Vector2(1, 1), 1.0, 0.0, 1, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_srr75"]
+curve = SubResource("Curve_ivt7l")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_himcj"]
+particle_flag_disable_z = true
+radial_velocity_min = -2.2351742e-05
+radial_velocity_max = -2.2351742e-05
+gravity = Vector3(0, 0, 0)
+scale_min = 0.39999998
+scale_max = 0.39999998
+scale_curve = SubResource("CurveTexture_srr75")
+color = Color(1.0846056, 1.9264952, 3.601, 0.536)
+alpha_curve = SubResource("CurveTexture_xm6gv")
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_srr75"]
+blend_mode = 1
+
+[sub_resource type="Curve" id="Curve_xm6gv"]
+_data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_ivt7l"]
+curve = SubResource("Curve_xm6gv")
+
+[sub_resource type="Curve" id="Curve_srr75"]
+_limits = [-200.0, 200.0, 0.0, 1.0]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_5881g"]
+curve = SubResource("Curve_srr75")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_5881g"]
+particle_flag_disable_z = true
+spread = 180.0
+initial_velocity_min = 100.0
+initial_velocity_max = 100.0
+gravity = Vector3(0, 0, 0)
+radial_accel_min = -82.19
+radial_accel_max = -51.370003
+radial_accel_curve = SubResource("CurveTexture_5881g")
+scale_min = 0.099999994
+scale_max = 0.5
+color = Color(0.74, 1.488, 2.117, 1)
+alpha_curve = SubResource("CurveTexture_ivt7l")
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_5881g"]
+blend_mode = 1
+light_mode = 1
+
+[sub_resource type="Environment" id="Environment_5881g"]
+background_mode = 3
+glow_enabled = true
+
+[node name="vfx_blk" type="Node2D" unique_id=1627246972]
+script = ExtResource("1_xm6gv")
+
+[node name="exp" type="GPUParticles2D" parent="." unique_id=1432162047]
+modulate = Color(1.4369954, 1.4369954, 1.4369954, 1)
+material = SubResource("CanvasItemMaterial_yhyjq")
+scale = Vector2(0.6, 1)
+emitting = false
+amount = 1
+texture = ExtResource("2_ivt7l")
+lifetime = 1.5
+one_shot = true
+speed_scale = 10.0
+explosiveness = 1.0
+fixed_fps = 60
+process_material = SubResource("ParticleProcessMaterial_himcj")
+
+[node name="ringexp" type="GPUParticles2D" parent="." unique_id=639646709]
+material = SubResource("CanvasItemMaterial_srr75")
+scale = Vector2(0.5, 1)
+emitting = false
+amount = 100
+texture = ExtResource("3_ivt7l")
+lifetime = 1.5
+one_shot = true
+speed_scale = 7.0
+explosiveness = 0.9
+randomness = 1.0
+process_material = SubResource("ParticleProcessMaterial_5881g")
+
+[node name="spit" type="GPUParticles2D" parent="." unique_id=1504379873]
+modulate = Color(1.3945211, 1.3945211, 1.3945211, 1)
+material = SubResource("CanvasItemMaterial_5881g")
+emitting = false
+amount = 80
+texture = ExtResource("3_ivt7l")
+lifetime = 0.2
+one_shot = true
+speed_scale = 1.5
+explosiveness = 0.6
+fixed_fps = 60
+process_material = ExtResource("4_ivt7l")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=957552466]
+environment = SubResource("Environment_5881g")

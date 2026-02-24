@@ -1,26 +1,26 @@
 [gd_scene format=3 uid="uid://c1t3ukbrnos3c"]
 
-[ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://player.gd" id="1_vhfda"]
+[ext_resource type="Script" uid="uid://b6t2edbjm6oyg" path="res://scripts/core/player.gd" id="1_vhfda"]
 [ext_resource type="Resource" uid="uid://dsdxakjhgv04k" path="res://data/p1_attack_data.tres" id="2_rnech"]
 [ext_resource type="Script" uid="uid://c4qqdmb1sci8y" path="res://data/ThrowData.gd" id="3_0wmxw"]
-[ext_resource type="SpriteFrames" uid="uid://dgdawo56n6mld" path="res://P2Tres/player1.tres" id="3_jd35s"]
+[ext_resource type="SpriteFrames" uid="uid://dgdawo56n6mld" path="res://assets/sprite_frames/player1.tres" id="3_jd35s"]
 [ext_resource type="Texture2D" uid="uid://b6poq4uxqguy5" path="res://assets/Davis2.png" id="4_0wmxw"]
 [ext_resource type="Texture2D" uid="uid://bf08spa3gkec5" path="res://assets/texture/smoke/smoke_01.png" id="5_7kano"]
-[ext_resource type="PackedScene" uid="uid://c6auncdpwmjdd" path="res://assets/fireball/spawnfire.tscn" id="6_rnech"]
+[ext_resource type="PackedScene" uid="uid://c6auncdpwmjdd" path="res://scenes/vfx/spawnfire.tscn" id="6_rnech"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_t485y"]
-[ext_resource type="Script" uid="uid://fkgk8qof7034" path="res://DAVMoveSet.gd" id="8_7kano"]
-[ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://PlayerController.gd" id="8_hshs3"]
+[ext_resource type="Script" uid="uid://fkgk8qof7034" path="res://scripts/combat/movesets/DAVMoveSet.gd" id="8_7kano"]
+[ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_hshs3"]
 [ext_resource type="Script" uid="uid://tld6w015ripa" path="res://data/SpecialMoveData.gd" id="9_0wmxw"]
-[ext_resource type="Script" uid="uid://cdns34piysikv" path="res://InputManager.gd" id="9_sbsnw"]
+[ext_resource type="Script" uid="uid://cdns34piysikv" path="res://scripts/input/InputManager.gd" id="9_sbsnw"]
 [ext_resource type="Script" uid="uid://um826wha4t60" path="res://data/HitPhaseData.gd" id="10_7kano"]
-[ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://audio/heavy_hit_sound.wav" id="10_xvg5s"]
-[ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://audio/block_sound.wav" id="11_knhnm"]
-[ext_resource type="AudioStream" uid="uid://b1h32xlp7um3u" path="res://audio/powerkk_call.mp3" id="13_2tjih"]
-[ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://audio/loud3.mp3" id="14_7kano"]
-[ext_resource type="AudioStream" uid="uid://bhgx3a8oi1nxg" path="res://audio/fireball_call_p1.wav" id="14_smpwk"]
-[ext_resource type="AudioStream" uid="uid://chhkw2i6yrqqj" path="res://audio/hurt_grunt_p1.wav" id="17_t485y"]
-[ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://audio/heavyblock.mp3" id="20_hshs3"]
-[ext_resource type="AudioStream" uid="uid://dyb7uascyla1g" path="res://audio/dp.mp3" id="21_hshs3"]
+[ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://assets/audio/heavy_hit_sound.wav" id="10_xvg5s"]
+[ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://assets/audio/block_sound.wav" id="11_knhnm"]
+[ext_resource type="AudioStream" uid="uid://b1h32xlp7um3u" path="res://assets/audio/powerkk_call.mp3" id="13_2tjih"]
+[ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://assets/audio/loud3.mp3" id="14_7kano"]
+[ext_resource type="AudioStream" uid="uid://bhgx3a8oi1nxg" path="res://assets/audio/fireball_call_p1.wav" id="14_smpwk"]
+[ext_resource type="AudioStream" uid="uid://chhkw2i6yrqqj" path="res://assets/audio/hurt_grunt_p1.wav" id="17_t485y"]
+[ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="20_hshs3"]
+[ext_resource type="AudioStream" uid="uid://dyb7uascyla1g" path="res://assets/audio/dp.mp3" id="21_hshs3"]
 
 [sub_resource type="Resource" id="Resource_7kano"]
 script = ExtResource("3_0wmxw")
@@ -38,7 +38,7 @@ size = Vector2(90, 270)
 size = Vector2(30, 60)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_md12c"]
-size = Vector2(40, 20)
+size = Vector2(80, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3pafw"]
 size = Vector2(130, 40)
@@ -7192,6 +7192,23 @@ caster_jump_gravity = 8500000.0
 sound_type = "dpCallPlayer"
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
+[sub_resource type="Resource" id="Resource_smpwk"]
+script = ExtResource("9_0wmxw")
+knockback = 30.0
+is_projectile = true
+sound_type = "FireballCallPlayer"
+metadata/_custom_type_script = "uid://tld6w015ripa"
+
+[sub_resource type="Resource" id="Resource_nf08n"]
+script = ExtResource("9_0wmxw")
+sound_type = "FireballCallPlayer"
+metadata/_custom_type_script = "uid://tld6w015ripa"
+
+[sub_resource type="Resource" id="Resource_61jl7"]
+script = ExtResource("9_0wmxw")
+sound_type = "FireballCallPlayer"
+metadata/_custom_type_script = "uid://tld6w015ripa"
+
 [sub_resource type="Resource" id="Resource_xvg5s"]
 script = ExtResource("10_7kano")
 frame = 10
@@ -7337,6 +7354,9 @@ script = ExtResource("8_7kano")
 smd_dpL = SubResource("Resource_b3w3n")
 smd_dpM = SubResource("Resource_t485y")
 smd_dpH = SubResource("Resource_hshs3")
+smd_fireballL = SubResource("Resource_smpwk")
+smd_fireballM = SubResource("Resource_nf08n")
+smd_fireballH = SubResource("Resource_61jl7")
 smd_100p = SubResource("Resource_sbsnw")
 
 [node name="AIBehavior" type="Node" parent="." unique_id=895161870]
@@ -7351,7 +7371,7 @@ script = ExtResource("9_sbsnw")
 [node name="HeavyHitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=602693454]
 stream = ExtResource("14_7kano")
 volume_db = 0.085
-pitch_scale = 0.91
+pitch_scale = 1.07
 
 [node name="HitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1749128527]
 stream = ExtResource("10_xvg5s")
