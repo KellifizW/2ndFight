@@ -512,23 +512,7 @@ func stop_special_move() -> void:
 	
 	var move_name = current_move_state.active_move.name if current_move_state.active_move else "UNKNOWN"
 	var seat_str = parent.seat if "seat" in parent else "?"
-	var call_stack = get_stack()  # 获取调用栈
-	var caller = ""
-	if call_stack.size() > 1:
-		caller = "%s:%d" % [call_stack[1].source, call_stack[1].line]  # 顯示行號以定位直接呼叫者
-	
-	# 检查此时parent是否处于knockfly或其他状态
-	var parent_state = ""
-	if "is_knockfly" in parent:
-		parent_state += "knockfly=%s " % parent.is_knockfly
-	if "is_hit" in parent:
-		parent_state += "is_hit=%s " % parent.is_hit
-	if "is_jumping" in parent:
-		parent_state += "jumping=%s " % parent.is_jumping
-	if "fixed_velocity" in parent:
-		parent_state += "vel.y=%d" % parent.fixed_velocity.y
-	
-	print("[STOP_MOVE] 🛑 '%s' | Seat: %s | Caller: %s | Parent state: %s" % [move_name, seat_str, caller, parent_state])
+	print("[STOP_MOVE] '%s' | Seat: %s" % [move_name, seat_str])
 	
 	is_spmove = false
 	is_special_moving = false

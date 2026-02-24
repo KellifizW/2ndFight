@@ -19,6 +19,7 @@ class_name HitResponseHandler extends Node
 # ── 引用 ──
 var parent_player: Node = null
 var world: Node = null
+var slow_mo_controller: Node = null  # cached in _ready()
 
 # ── 多段招式追蹤 ──
 var multi_hit_targets: Dictionary = {}  # {target_id: {hit_index: int, last_hit_frame: int}}
@@ -31,6 +32,8 @@ func _init(player: Node) -> void:
 
 func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
+	if world and world.has_node("SlowMoController"):
+		slow_mo_controller = world.get_node("SlowMoController")
 
 func process_multi_hit_overlaps() -> void:
 	"""多段連打專用：每幀輪詢重疊的 Hurtbox，避免只靠 area_entered 漏段"""
@@ -116,9 +119,8 @@ func handle_hitbox_collision(area: Area2D) -> void:
 	
 	# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（Slow-mo）
 	# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中，而不是在啟動時
-	var slowmo = world.get_node_or_null("SlowMoController")
-	if slowmo:
-		slowmo.request_hit_freeze()
+	if slow_mo_controller:
+		slow_mo_controller.request_hit_freeze()
 	
 	# ── 播放音效 ──
 	var is_blocked: bool = target.is_blocking
@@ -207,31 +209,24 @@ func _get_hit_parameters(phase_data = null) -> Dictionary:
 		var phase_force_knockfly = phase_data.force_knockfly if phase_data != null else false
 		if phase_force_knockfly:
 			params.force_knockfly = true
-			params.knockfly_params = {
-				"gravity": phase_data.knockfly_gravity if phase_data != null else active_move.knockfly_gravity,
-				"vertical_speed": phase_data.knockfly_vertical_speed if phase_data != null else active_move.knockfly_vertical_speed,
-				"horizontal_speed": phase_data.knockfly_horizontal_speed if phase_data != null else active_move.knockfly_horizontal_speed,
-				"duration": params.hitstun / 60.0
-			}
+			params.knockfly_params = _make_knockfly_params(phase_data if phase_data != null else active_move, params.hitstun)
 		elif active_move.knockfly_force_enable:
 			params.force_knockfly = true
-			params.knockfly_params = {
-				"gravity": active_move.knockfly_gravity,
-				"vertical_speed": active_move.knockfly_vertical_speed,
-				"horizontal_speed": active_move.knockfly_horizontal_speed,
-				"duration": params.hitstun / 60.0
-			}
-		# 向後兼容：如果沒有設置 knockfly_force_enable，但有設置 knockfly 參數，則也啟用 knfly
+			params.knockfly_params = _make_knockfly_params(active_move, params.hitstun)
+		# 向後兢容：如果沒有設置 knockfly_force_enable，但有設置 knockfly 參數，則也啟用 knfly
 		elif active_move.knockfly_gravity != 0.0 or active_move.knockfly_vertical_speed != 0.0 or active_move.knockfly_horizontal_speed != 0.0:
 			params.force_knockfly = true
-			params.knockfly_params = {
-				"gravity": active_move.knockfly_gravity,
-				"vertical_speed": active_move.knockfly_vertical_speed,
-				"horizontal_speed": active_move.knockfly_horizontal_speed,
-				"duration": params.hitstun / 60.0
-			}
+			params.knockfly_params = _make_knockfly_params(active_move, params.hitstun)
 	
 	return params
+
+func _make_knockfly_params(source: Object, hitstun: int) -> Dictionary:
+	return {
+		"gravity": source.knockfly_gravity,
+		"vertical_speed": source.knockfly_vertical_speed,
+		"horizontal_speed": source.knockfly_horizontal_speed,
+		"duration": hitstun / 60.0
+	}
 
 func reset_multi_hit_state() -> void:
 	multi_hit_targets.clear()
