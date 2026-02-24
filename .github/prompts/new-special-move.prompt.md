@@ -19,7 +19,7 @@ I want to add a new special move. Follow the data-driven pattern in `data/specia
 
 1. **Read an existing special** — read a `.tres` file in `data/specials/` and `SpecialMoveData.gd` for structure
 2. **Create `data/specials/[name].tres`** — fill all SpecialMoveData fields
-3. **Add to MoveSet resources** — add path to `DAVMoveSet.gd` or `DENMoveSet.gd` SPECIAL_MOVE_RESOURCES array
+3. **Add to MoveSet resources** — add the `.tres` path to `_initialize_move_library()` in `scripts/combat/movesets/DAVMoveSet.gd` (for Dav) or `scripts/combat/movesets/DENMoveSet.gd` (for Den), using the `_load_smd()` pattern already there
 4. **Add input detection** — add sequence constant in `InputManager.gd` (use absolute direction encoding)
 5. **Add input sequence resource** — in `data/specials/inputs/` if using resource-based sequences
 6. **Create animation** — note startup / active / recovery frames (design at 60 FPS baseline)

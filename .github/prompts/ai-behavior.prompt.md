@@ -25,13 +25,13 @@ Describe the behavior:
 - `ai/ThreatAssessment.gd` — incoming threat detection
 - `ai/AIComboSystem.gd` — pre-defined combo chains
 - `ai/SpaceControl.gd` — zone/distance preferences
-- `ai/MOVE_RESTRICTIONS_GUIDE.md` — per-character move restrictions
+- `docs/ai/MOVE_RESTRICTIONS_GUIDE.md` — per-character move restrictions
 
 ## Implementation Rules
 - Change ONE decision layer at a time — test before touching the next
 - Action commitment system prevents spam — do NOT remove it
 - Move restrictions enforce character identity — do NOT remove them
-- Use `MOVE_RESTRICTIONS_GUIDE.md` before adding new moves to AI repertoire
+- Use `docs/ai/MOVE_RESTRICTIONS_GUIDE.md` before adding new moves to AI repertoire
 
 ## Verification Protocol
 1. Toggle AI on: **C** key (Player A) or **V** key (Player B)

@@ -56,18 +56,27 @@ Movement.gd delegates to **11 specialized handlers** (root-level files):
 **When modifying movement/combat**: Edit the appropriate handler, not Movement.gd or Player.gd directly. Each handler is self-contained with clear responsibilities.
 
 #### 3. Data-Driven Move System
-**All attacks/specials use resource-based data** (see [MOVESET_REFACTORING_SUMMARY.md](MOVESET_REFACTORING_SUMMARY.md)):
+**All attacks/specials use resource-based data** (see [docs/MOVESET_REFACTORING_SUMMARY.md](docs/MOVESET_REFACTORING_SUMMARY.md)):
 
 ```gdscript
 // MoveSet.gd - Loads special moves from .tres resource files
 const SPECIAL_MOVE_RESOURCES: Array[String] = [
+    // DAV specials
+    "res://data/specials/dav_fireball.tres",
+    "res://data/specials/dav_fireballL.tres",
+    "res://data/specials/dav_fireballM.tres",
+    "res://data/specials/dav_fireballH.tres",
+    "res://data/specials/dav_dp.tres",
+    "res://data/specials/dav_dpL.tres",
+    "res://data/specials/dav_dpM.tres",
+    "res://data/specials/dav_dpH.tres",
     "res://data/specials/dav_powerkk.tres",
     "res://data/specials/dav_super.tres",
-    "res://data/specials/dav_dp.tres",
+    "res://data/specials/dav_100p.tres",
+    // DEN specials
+    "res://data/specials/den_fireball.tres",
     "res://data/specials/den_spnk.tres",
     "res://data/specials/den_hdk.tres",
-    "res://data/specials/dav_fireball.tres",
-    "res://data/specials/den_fireball.tres"
 ]
 
 // Normal attacks: AttackData/*.tres resources (data/ folder)
@@ -104,7 +113,7 @@ Input.is_action_just_pressed("st_mp" + suffix)
 ```
 
 #### 5. Input Buffer System
-**30-frame input buffer** for lenient execution (see [INPUT_BUFFER_IMPLEMENTATION.md](INPUT_BUFFER_IMPLEMENTATION.md)):
+**30-frame input buffer** for lenient execution (see [docs/INPUT_BUFFER_IMPLEMENTATION.md](docs/INPUT_BUFFER_IMPLEMENTATION.md)):
 ```gdscript
 // PlayerController records inputs
 input_buffer.record_input("st_mp")
@@ -152,7 +161,9 @@ class InputRegistry:
 | `Movement.gd` | Base physics, handler orchestration |
 | `Fighter.gd` | Hitstun/blockstun (frame-based), damage system, hit stop integration |
 | `Player.gd` | Attack execution, combo logic, AI integration |
-| `MoveSet.gd` | Special moves library (loads .tres resources from data/specials/) |
+| `scripts/combat/movesets/MoveSet.gd` | Special moves base class, move_library registry |
+| `scripts/combat/movesets/DAVMoveSet.gd` | DAV-specific special moves, Inspector-exported smd_* fields |
+| `scripts/combat/movesets/DENMoveSet.gd` | DEN-specific special moves, Inspector-exported smd_* fields |
 | `PlayerController.gd` | Input handling, buffer management, seat system |
 | `InputManager.gd` | Motion input detection (240-frame history, charge tracking) |
 | `InputBuffer.gd` | 30-frame input buffer implementation (0.25s at 120 FPS) |
@@ -309,20 +320,22 @@ if input_manager.detect_fireball(input_history):
 
 ---
 
-**Enhanced input system with charge tracking and history compression (inspired by Sakuga-Engine)**
-- Special moves now use input buffer (30 frames at 120 FPS) for lenient execution
-- InputHistoryDisplayIcon UI component with icon graphics (arrow/circle/punch/kick)
-- Direction display shows actual key presses (not relative to facing)
-- Frame count capped at 99, displayed first without "f" suffix
-- Input buffer system (30 frames, 0.25s at 120 FPS, see INPUT_BUFFER_IMPLEMENTATION.md)
-- Input history tracking (240 frames, ~2 seconds at 120 FPS)
-- Movement handler refactoring (11 handlers, see REFACTORING_SUMMARY.md)
-- Data-driven moveset (SpecialMoveData resources in data/specials/, see MOVESET_REFACTORING_SUMMARY.md)
-- Frame-based hitstun/blockstun (replaced delta timers)
-- Seat-based player system (replaced numeric player_id)
-- Hit stop system with timing debugger
-- HitboxCache for performance optimization
-- ResourcePreloadManager for VFX preloading
+## Documentation Navigation
+
+All documentation lives under `docs/`. Start at the index when researching any system:
+
+- **[docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md)** — Master navigation hub (start here for any task)
+- **[docs/GUIDES/](docs/GUIDES/)** — How-to guides (adding attacks, hitboxes, special moves, throw system)
+- **[docs/systems/](docs/systems/)** — Completed system deep-dives (knockback, frame advantage, gravity, hit stop)
+- **[docs/debugging/](docs/debugging/)** — Debugging tools and diagnostics
+- **[docs/ai/](docs/ai/)** — AI system docs (move restrictions, testing guide)
+
+**Quick task lookup** (from DOCUMENTATION_INDEX.md):
+- Add normal attack → [docs/guides/HITBOX_SYSTEM.md](docs/guides/HITBOX_SYSTEM.md) + [docs/guides/ATTACK_MOVEMENT.md](docs/guides/ATTACK_MOVEMENT.md)
+- Add special move → [docs/guides/ADDING_SPECIAL_MOVE_GUIDE.md](docs/guides/ADDING_SPECIAL_MOVE_GUIDE.md)
+- Add throw → [docs/guides/throwdata_guide.md](docs/guides/throwdata_guide.md)
+- Debug frame advantage → [docs/systems/FRAME_ADVANTAGE.md](docs/systems/FRAME_ADVANTAGE.md)
+- Fix AI behavior → [docs/AI_SYSTEM_README.md](docs/AI_SYSTEM_README.md)
 
 ---
 
@@ -344,6 +357,7 @@ Start your chat message with one of these modes for targeted behavior. Inspired 
 **Game-specific prompt files** in `.github/prompts/`:
 - `new-attack.prompt.md` — Add a new normal attack end-to-end
 - `new-special-move.prompt.md` — Add a new special move with resource + input detection
+- `new-throw.prompt.md` — Add or modify a character throw (ThrowData resource system)
 - `ai-behavior.prompt.md` — Modify or debug AI decision behavior
 
 Open any `.prompt.md` file and click **"Run in Copilot Chat"** (or use `@workspace /prompt new-attack`) to invoke.
@@ -475,7 +489,7 @@ When you find important constraints during work:
 - AI decision thresholds that cause spam behavior
 - Input buffer edge cases
 
-Add these to relevant system documentation (GUIDES/, SYSTEMS/, DEBUGGING/).
+Add these to relevant system documentation (docs/guides/, docs/systems/, docs/debugging/).
 
 ## Communication Guidelines
 
@@ -579,7 +593,7 @@ If you encounter:
 3. **Check frame logs**: Enable debug output for that system
 4. **Reduce case**: Simplest scenario that fails
 5. **Fix root cause**: Usually in handler logic or resource data
-6. **Add prevention**: Update relevant SYSTEMS/ doc with gotcha
+6. **Add prevention**: Update relevant docs/systems/ doc with gotcha
 7. **Verify**: Test original repro scenario + edge cases
 
 ### 3. Safe Fallbacks
@@ -657,7 +671,7 @@ When modifying AI:
 - Test for 60+ seconds to verify move variety
 - Check decision layer balance (not stuck in one layer)
 - Verify action commitment prevents spam
-- Ensure character move restrictions work (ai/MOVE_RESTRICTIONS_GUIDE.md)
+- Ensure character move restrictions work (docs/ai/MOVE_RESTRICTIONS_GUIDE.md)
 
 ### 7. GDScript Code Quality Checklist
 
@@ -711,8 +725,8 @@ A change is done when:
 - ✅ Decision layers functioning
 
 **Documentation Criteria**:
-- ✅ If adding new system: update relevant GUIDES/ or SYSTEMS/ doc
-- ✅ If fixing complex bug: add note to SYSTEMS/ doc's gotchas section
+- ✅ If adding new system: update relevant docs/guides/ or docs/systems/ doc
+- ✅ If fixing complex bug: add note to docs/systems/ doc's gotchas section
 
 ## Quick Reference: Verification Checklist
 
