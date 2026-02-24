@@ -1,3 +1,33 @@
 {
-    "godotTools.editorPath.godot4": "c:\\Users\\t-way\\Desktop\\Godot.exe"
+    "godotTools.editorPath.godot4": "c:\\Users\\t-way\\Desktop\\Godot.exe",
+
+    // ── GitHub Copilot ───────────────────────────────────────────────────────
+    // Enable .github/copilot-instructions.md and per-file *.instructions.md
+    "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+    // Enable .github/prompts/*.prompt.md as reusable chat prompts
+    "chat.promptFilesLocations": {
+        ".github/prompts": true
+    },
+    // Keep inline completions active for GDScript
+    "github.copilot.enable": {
+        "*": true,
+        "gdscript": true,
+        "plaintext": false,
+        "markdown": true
+    },
+    // Copilot Chat: auto-attach relevant files when editing
+    "github.copilot.chat.editor.temporalContext.enabled": true,
+
+    // ── Editor ───────────────────────────────────────────────────────────────
+    // GDScript tab width (matches Godot editor default)
+    "[gdscript]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": false,
+        "editor.rulers": [100]
+    },
+    // Show breadcrumbs to navigate handler hierarchy quickly
+    "breadcrumbs.enabled": true,
+    // Highlight matching brackets — helpful when reading nested GDScript
+    "editor.bracketPairColorization.enabled": true,
+    "editor.guides.bracketPairs": "active"
 }

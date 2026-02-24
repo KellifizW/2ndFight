@@ -328,6 +328,39 @@ if input_manager.detect_fireball(input_history):
 
 # AI Agent Workflow Guidelines
 
+## Copilot Context Modes
+
+Start your chat message with one of these modes for targeted behavior. Inspired by `everything-claude-code` context switching.
+
+| Mode | Start message with | AI behavior |
+|------|--------------------|-------------|
+| **Implement** | (default) | Write code, follow handler boundaries, use fixed-point math |
+| **Plan:** | `Plan: <task>` | List affected files/systems, no code yet — see `.github/prompts/plan.prompt.md` |
+| **Debug:** | `Debug: <symptom>` | Diagnose root cause first, minimal repro — see `.github/prompts/debug.prompt.md` |
+| **Review:** | `Review: <file/change>` | Audit fixed-point discipline, handler boundaries — see `.github/prompts/review.prompt.md` |
+| **Research:** | `Research: <question>` | Explore without committing, compare approaches, report findings |
+| **Frame:** | `Frame: <attack>` | Verify frame data across animation, physics, logic — see `.github/prompts/frame-data.prompt.md` |
+
+**Game-specific prompt files** in `.github/prompts/`:
+- `new-attack.prompt.md` — Add a new normal attack end-to-end
+- `new-special-move.prompt.md` — Add a new special move with resource + input detection
+- `ai-behavior.prompt.md` — Modify or debug AI decision behavior
+
+Open any `.prompt.md` file and click **"Run in Copilot Chat"** (or use `@workspace /prompt new-attack`) to invoke.
+
+## Session Management
+
+Analogous to `/clear` and `/compact` in Claude Code CLI.
+
+| When | Action |
+|------|--------|
+| Starting an **unrelated task** | Start a new Copilot Chat |
+| Context growing stale (long debug session) | Start new chat, paste key findings as first message |
+| After **completing a milestone** | Start new chat for next milestone |
+| **Mid-implementation** | ⚠️ Do NOT start new chat — you'll lose variable names, file paths, in-flight state |
+
+**Keep one chat per logical task.** Don't mix "add new attack" with "fix AI behavior" in the same session.
+
 ## Operating Principles (Non-Negotiable)
 
 When working on this codebase:
@@ -402,6 +435,18 @@ A gameplay change is done when:
 - ✅ Animation plays correctly for both characters
 - ✅ Hitbox activation aligns with visual animation
 - ✅ AnimationTree transitions work (no stuck states)
+
+### 5. Multi-Perspective Analysis
+
+For complex architectural decisions (new input system, AI overhaul, physics changes), explicitly request multiple viewpoints by asking:
+
+> "Analyze [X] from these perspectives:
+> 1. Frame determinism impact (fixed-point, 120 FPS)
+> 2. Performance at 120 FPS physics tick
+> 3. Handler boundary cleanliness
+> 4. Input buffer interaction"
+
+This surfaces hidden tradeoffs that single-angle analysis misses.
 
 ## Task Management
 
@@ -613,6 +658,36 @@ When modifying AI:
 - Check decision layer balance (not stuck in one layer)
 - Verify action commitment prevents spam
 - Ensure character move restrictions work (ai/MOVE_RESTRICTIONS_GUIDE.md)
+
+### 7. GDScript Code Quality Checklist
+
+Before marking any file edit complete:
+
+**Structure**
+- [ ] Handler file < 400 lines — extract to new handler if larger
+- [ ] Functions < 50 lines — extract helpers if longer
+- [ ] No magic numbers — use constants from `world.gd` / `Fighter.gd`
+- [ ] No hardcoded player_id — use `player_seat` (`"player_a"` / `"player_b"`)
+
+**Physics Discipline**
+- [ ] All position/velocity uses `Vector2i` (not `Vector2`)
+- [ ] Pixel values multiplied by `SIMULATION_SCALE` (1000)
+- [ ] No `float` arithmetic for physics-critical values
+- [ ] Large velocity values clamped before assignment (overflow guard)
+
+**Timing Discipline**
+- [ ] Durations use frame counters, not `delta` timers
+- [ ] Logic frames → physics frames conversion applied (× 2)
+- [ ] Hit stop state respected (`is_in_hitstop` checked before decrement)
+
+**Input / Buffer**
+- [ ] `consume_button_input()` called after every attack execution
+- [ ] Motion input AND button buffer consumed atomically for specials
+
+**Animation**
+- [ ] Hitboxes activated via animation timeline events, not code timers
+- [ ] All animation conditions reset before transitioning
+- [ ] Callback registered in `player_anim_resets` dictionary
 
 ## Definition of Done (Fighting Game)
 
