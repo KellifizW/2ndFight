@@ -295,8 +295,9 @@ func _physics_process(delta: float) -> void:
 	
 	# 🔴 【FIX】Check for AI direct dash request (dash_pressed flag)
 	# AI cannot simulate complex double-tap pattern, so we allow direct trigger
-	var has_dash_pressed = input_data.get("dash_pressed", false)
-	var has_backdash_pressed = input_data.get("backdash_pressed", false)
+	# 【關鍵】Only use dash_pressed/backdash_pressed for AI - human players use dash_handler's double-tap detection
+	var has_dash_pressed = (player and player.is_ai_controlled and input_data.get("dash_pressed", false))
+	var has_backdash_pressed = (player and player.is_ai_controlled and input_data.get("backdash_pressed", false))
 	
 	if has_dash_pressed and is_on_floor() and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and not is_crouching:
 		# AI wants to dash forward

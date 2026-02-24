@@ -672,6 +672,12 @@ func stop_attack() -> void:
 	update_facing_direction()
 	_update_animation_state(0, false)
 
+## 為摔投中斷特別設計的停止攻擊函式
+func stop_attack_for_throw() -> void:
+	# 【THROW INTERRUPT】停止當前攻擊以準備摔投
+	# 用於摔投偵測時立即中斷st_lp/st_lk等攻擊
+	stop_attack()
+
 func get_facing_multiplier() -> float:
 	return super.get_facing_multiplier()
 
