@@ -11,26 +11,12 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @export var throw_data: ThrowData
 @export var startup_logs: bool = false
 
-@onready var ATTACK_TABLE: Dictionary = {
-	"st_lp": attack_data.st_lp,
-	"st_mp": attack_data.st_mp,
-	"st_hp": attack_data.st_hp,
-	"st_lk": attack_data.st_lk,
-	"st_mk": attack_data.st_mk,
-	"st_hk": attack_data.st_hk,
-	"cr_lp": attack_data.cr_lp,
-	"cr_mp": attack_data.cr_mp,
-	"cr_hp": attack_data.cr_hp,
-	"cr_lk": attack_data.cr_lk,
-	"cr_mk": attack_data.cr_mk,
-	"cr_hk": attack_data.cr_hk,
-	"jump_lp": attack_data.jump_lp,
-	"jump_mp": attack_data.jump_mp,
-	"jump_hp": attack_data.jump_hp,
-	"jump_lk": attack_data.jump_lk,
-	"jump_mk": attack_data.jump_mk,
-	"jump_hk": attack_data.jump_hk,
-}.duplicate(true)
+var ATTACK_TABLE: Dictionary = {}
+const _ATTACK_NAMES: Array = [
+	"st_lp","st_mp","st_hp","st_lk","st_mk","st_hk",
+	"cr_lp","cr_mp","cr_hp","cr_lk","cr_mk","cr_hk",
+	"jump_lp","jump_mp","jump_hp","jump_lk","jump_mk","jump_hk",
+]
 
 @export var powerkk_blockstun: float = 0.3833
 
@@ -113,10 +99,7 @@ func reset_air_state() -> void:
 		self.is_air_attacking = false
 		self.has_air_attacked = false
 		var input_data = get_input()
-		if (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed
-			or input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed
-			or input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed
-			or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed):
+		if _has_any_input(input_data):
 			self.is_landing = false
 			self._update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 		else:
@@ -175,7 +158,21 @@ const SPECIAL_ANIMS = ["fireball", "powerkk", "spnk", "dp", "hdk",
 					   "fireballL", "fireballM", "fireballH",
 					   "dpL", "dpM", "dpH"]
 
+# ── 輸入輔助函數（取代 3 處重複的 6-button OR 檢查）──────────────────────────
+static func _has_any_input(d: Dictionary) -> bool:
+	return d.input_dir != 0 or d.crouch_pressed or d.jump_pressed \
+		or d.st_lp_pressed or d.st_mp_pressed or d.st_hp_pressed \
+		or d.st_lk_pressed or d.st_mk_pressed or d.st_hk_pressed \
+		or d.spm1_pressed or d.spm2_pressed or d.dp_pressed
+
+static func _has_attack_input(d: Dictionary) -> bool:
+	return d.st_lp_pressed or d.st_mp_pressed or d.st_hp_pressed \
+		or d.st_lk_pressed or d.st_mk_pressed or d.st_hk_pressed \
+		or d.get("throw_pressed", false)
+
 func _ready() -> void:
+	for a in _ATTACK_NAMES:
+		ATTACK_TABLE[a] = attack_data.get_attack(a)
 	super._ready()
 	world = get_tree().get_first_node_in_group("world")
 	if has_node("Hitbox"):
@@ -289,10 +286,7 @@ func _physics_process(delta: float) -> void:
 		is_air_attacking = false
 		is_attacking = false
 		var air_input_data = get_input()
-		if not (air_input_data.input_dir != 0 or air_input_data.crouch_pressed or air_input_data.jump_pressed \
-			or air_input_data.st_lp_pressed or air_input_data.st_mp_pressed or air_input_data.st_hp_pressed \
-			or air_input_data.st_lk_pressed or air_input_data.st_mk_pressed or air_input_data.st_hk_pressed \
-			or air_input_data.spm1_pressed or air_input_data.spm2_pressed or air_input_data.dp_pressed):
+		if not _has_any_input(air_input_data):
 			is_landing = true
 			# 轉換 landing_duration（秒）為幀數 @120 FPS (PHYSICS_FPS)
 			landing_lock_timer = int(round(landing_duration * 120)) if "landing_duration" in self else 24
@@ -359,11 +353,7 @@ func _physics_process(delta: float) -> void:
 		input_data.st_hk_pressed = false
 
 	# ── 地面攻擊執行（使用 AttackExecutor Handler）──
-	var has_ground_attack_input = (
-		input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed or
-		input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed or
-		input_data.get("throw_pressed", false)
-	)
+	var has_ground_attack_input := _has_attack_input(input_data)
 
 	# 【著地攻擊取消】著地動畫可被攻擊指令取消（強制2幀後）
 	if has_ground_attack_input and is_landing and _landing_forced_frames >= 2:
@@ -558,10 +548,7 @@ func _reset_jump_state() -> void:
 	if is_on_floor():
 		is_jumping = false
 		var input_data = get_input()
-		if (input_data.input_dir != 0 or input_data.crouch_pressed or input_data.jump_pressed
-			or input_data.st_lp_pressed or input_data.st_mp_pressed or input_data.st_hp_pressed
-			or input_data.st_lk_pressed or input_data.st_mk_pressed or input_data.st_hk_pressed
-			or input_data.spm1_pressed or input_data.spm2_pressed or input_data.dp_pressed):
+		if _has_any_input(input_data):
 			is_landing = false
 			landing_facing_lock = false
 			update_facing_direction()

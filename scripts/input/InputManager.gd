@@ -175,75 +175,35 @@ func insert_to_history(raw_input: int):
 	# Update charge buffers
 	_update_charge_buffers()
 
+# 6 entry lookup replaces 8-case match block（面向左時鏡像方向）
+# key = 絕對方向，value = 鏡像後方向；未列出的方向（DOWN/UP/NEUTRAL）不需轉換
+const _MIRROR_DIR: Dictionary = {2: 4, 3: 5, 4: 2, 5: 3, 7: 8, 8: 7}
+
 func get_relative_direction(absolute_dir: int) -> int:
-	"""
-	將絕對方向轉換為相對方向（用於招式檢測）
-	absolute_dir: 絕對方向（FORWARD=右, BACK=左）
-	返回: 相對方向（FORWARD=前, BACK=後，根據 input_side）
-	"""
-	if input_side < 0:  # 面向左（需要鏡像）
-		match absolute_dir:
-			DirectionalInputs.FORWARD:  # 絕對右 → 相對後
-				return DirectionalInputs.BACK
-			DirectionalInputs.BACK:  # 絕對左 → 相對前
-				return DirectionalInputs.FORWARD
-			DirectionalInputs.DOWN_FORWARD:  # 絕對下右 → 相對下後
-				return DirectionalInputs.DOWN_BACK
-			DirectionalInputs.DOWN_BACK:  # 絕對下左 → 相對下前
-				return DirectionalInputs.DOWN_FORWARD
-			DirectionalInputs.UP_FORWARD:  # 絕對上右 → 相對上後
-				return DirectionalInputs.UP_BACK
-			DirectionalInputs.UP_BACK:  # 絕對上左 → 相對上前
-				return DirectionalInputs.UP_FORWARD
-	# input_side > 0（面向右）或其他方向不需要轉換
-	return absolute_dir
-	
-	# Update charge buffers
-	_update_charge_buffers()
+	if input_side >= 0:
+		return absolute_dir
+	return _MIRROR_DIR.get(absolute_dir, absolute_dir)
 
 # ============================================================
 # CHARGE SYSTEM (inspired by Sakuga-Engine)
 # Automatically tracks how long directional/button inputs are held
 # ============================================================
+# Returns updated charge value: accumulates in one direction, resets on reversal
+func _update_single_charge(current: int, neg_flag: bool, pos_flag: bool) -> int:
+	if neg_flag: return 0 if current > 0 else current - 1
+	elif pos_flag: return 0 if current < 0 else current + 1
+	return 0
+
 func _update_charge_buffers() -> void:
 	var curr = input_history[current_history]
-	
-	# Horizontal charge
-	var left_pressed = (curr.raw_input >> 8) in [DirectionalInputs.BACK, DirectionalInputs.DOWN_BACK]
-	var right_pressed = (curr.raw_input >> 8) in [DirectionalInputs.FORWARD, DirectionalInputs.DOWN_FORWARD]
-	
-	if left_pressed:
-		if curr.h_charge > 0:
-			curr.h_charge = 0  # Reset if direction changed
-		curr.h_charge -= 1
-	elif right_pressed:
-		if curr.h_charge < 0:
-			curr.h_charge = 0
-		curr.h_charge += 1
-	else:
-		curr.h_charge = 0  # Reset when neutral
-	
-	# Vertical charge
-	var down_pressed = (curr.raw_input >> 8) in [DirectionalInputs.DOWN, DirectionalInputs.DOWN_BACK, DirectionalInputs.DOWN_FORWARD]
-	var up_pressed = (curr.raw_input >> 8) in [DirectionalInputs.UP, DirectionalInputs.UP_BACK, DirectionalInputs.UP_FORWARD]
-	
-	if down_pressed:
-		if curr.v_charge > 0:
-			curr.v_charge = 0
-		curr.v_charge -= 1
-	elif up_pressed:
-		if curr.v_charge < 0:
-			curr.v_charge = 0
-		curr.v_charge += 1
-	else:
-		curr.v_charge = 0
-	
-	# Button charge (any button held)
-	var any_button = (curr.raw_input & 0xFF) != ButtonInputs.NONE
-	if any_button:
-		curr.b_charge += 1
-	else:
-		curr.b_charge = 0
+	var dir: int = curr.raw_input >> 8
+	curr.h_charge = _update_single_charge(curr.h_charge,
+		dir in [DirectionalInputs.BACK, DirectionalInputs.DOWN_BACK],
+		dir in [DirectionalInputs.FORWARD, DirectionalInputs.DOWN_FORWARD])
+	curr.v_charge = _update_single_charge(curr.v_charge,
+		dir in [DirectionalInputs.DOWN, DirectionalInputs.DOWN_BACK, DirectionalInputs.DOWN_FORWARD],
+		dir in [DirectionalInputs.UP, DirectionalInputs.UP_BACK, DirectionalInputs.UP_FORWARD])
+	curr.b_charge = curr.b_charge + 1 if (curr.raw_input & 0xFF) != ButtonInputs.NONE else 0
 
 func _load_special_input_sequences() -> void:
 	special_input_registry.clear()
@@ -275,17 +235,14 @@ func _build_motion_from_sequence(sequence: SpecialInputSequence) -> Dictionary:
 func _get_motion_for(move_id: String) -> Dictionary:
 	return special_input_registry.get(move_id, {})
 		
-func check_fireball_input() -> bool:
-	return check_motion(_get_motion_for("fireball"))
+# Single entry point — replaces the 4 identical one-liner wrappers above
+func check_motion_for(move_id: String) -> bool:
+	return check_motion(_get_motion_for(move_id))
 
-func check_powerkk_input() -> bool:
-	return check_motion(_get_motion_for("powerkk"))
-
-func check_spnk_input() -> bool:
-	return check_motion(_get_motion_for("spnk"))
-
-func check_hdk_input() -> bool:
-	return check_motion(_get_motion_for("hdk"))
+func check_fireball_input() -> bool: return check_motion_for("fireball")
+func check_powerkk_input() -> bool:  return check_motion_for("powerkk")
+func check_spnk_input()    -> bool:  return check_motion_for("spnk")
+func check_hdk_input()     -> bool:  return check_motion_for("hdk")
 
 func check_dp_input() -> bool:
 	var motion = _get_motion_for("dp")
@@ -369,11 +326,7 @@ func _check_motion_debug(motion: Dictionary, move_id: String) -> void:
 		else:
 			print("[DP_DEBUG]   seq[%d] ❌ no match" % si)
 
-func check_100p_input() -> bool:
-	var motion = _get_motion_for("100p")
-	if motion.is_empty():
-		return false
-	return check_motion(motion)
+func check_100p_input() -> bool: return check_motion_for("100p")
 
 func check_motion(motion: Dictionary) -> bool:
 	if motion.is_empty():

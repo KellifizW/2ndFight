@@ -28,32 +28,19 @@ func _physics_process(_delta: float) -> void:
 	# Record button presses into buffer
 	var suffix = "_p2" if player_seat == "player_b" else ""
 	
-	# Record all button presses
-	var st_lp_just = Input.is_action_just_pressed("st_lp" + suffix)
-	var st_mp_just = Input.is_action_just_pressed("st_mp" + suffix)
-	var st_hp_just = Input.is_action_just_pressed("st_hp" + suffix)
-	var st_lk_just = Input.is_action_just_pressed("st_lk" + suffix)
-	var st_mk_just = Input.is_action_just_pressed("st_mk" + suffix)
-	var st_hk_just = Input.is_action_just_pressed("st_hk" + suffix)
+	# 【重要】LP+LK 同時 → throw，否則逐個記錄
+	var _atk_btns := ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk"]
+	var _just := {}
+	for btn in _atk_btns:
+		_just[btn] = Input.is_action_just_pressed(btn + suffix)
 	
-	# 【重要】同時按下 st_lp + st_lk 時，只記錄 throw，不記錄單獨的按鈕
-	if st_lp_just and st_lk_just:
+	if _just["st_lp"] and _just["st_lk"]:
 		input_buffer.record_input("throw")
 		print("[INPUT] Throw detected: st_lp + st_lk pressed simultaneously")
 	else:
-		# 僅在沒有同時按下時才記錄單獨的按鈕
-		if st_lp_just:
-			input_buffer.record_input("st_lp")
-		if st_mp_just:
-			input_buffer.record_input("st_mp")
-		if st_hp_just:
-			input_buffer.record_input("st_hp")
-		if st_lk_just:
-			input_buffer.record_input("st_lk")
-		if st_mk_just:
-			input_buffer.record_input("st_mk")
-		if st_hk_just:
-			input_buffer.record_input("st_hk")
+		for btn in _atk_btns:
+			if _just[btn]:
+				input_buffer.record_input(btn)
 	if Input.is_action_just_pressed("jump" + suffix):
 		input_buffer.record_input("jump")
 	if Input.is_action_just_pressed("spmove1" + suffix):
@@ -201,36 +188,7 @@ func get_input_data() -> Dictionary:
 		st_mk_pressed = false  # Clear MK to prevent normal attack
 	
 	
-	# === 舊版輸入序列檢測（作為備用，但不應該再需要了）===
-	# 已經被 InputManager.detect_special_move() 和 buffer 系統取代
-	# 保留這些代碼以防萬一，但在正常情況下不會執行到
-	var input_manager = get_parent().get_node("InputManager") if get_parent().has_node("InputManager") else null
-	var character_id: String = "UNKNOWN"
-	if get_parent() and "character_id" in get_parent():
-		character_id = get_parent().character_id
-	
-	# 只有在 buffer 中沒有檢測到特殊招式時才執行舊邏輯（fallback）
-	if input_manager and not (fireball_buffered or fireballL_buffered or fireballM_buffered or fireballH_buffered or powerkk_buffered or spnk_buffered or hdk_buffered or dp_buffered or move_100p_buffered):
-		# DAV（原本 p1）的招式
-		if character_id == "DAV" and input_manager.check_powerkk_input():
-			spm1_pressed = true
-			st_mp_pressed = false
-		if character_id == "DAV" and input_manager.check_dp_input():
-			dp_pressed = true
-			st_mp_pressed = false
-		
-		# DEN（原本 p2）的招式
-		if character_id == "DEN" and input_manager.check_hdk_input():
-			spm3_pressed = true
-			st_mk_pressed = false
-		if character_id == "DEN" and input_manager.check_spnk_input():
-			spm1_pressed = true
-			st_mk_pressed = false
-		
-		# 通用招式
-		if input_manager.check_fireball_input():
-			spm2_pressed = true
-			st_mp_pressed = false
+	var character_id: String = get_parent().character_id if get_parent() and "character_id" in get_parent() else "UNKNOWN"
 	
 	# DAV 的 spmove3 快捷鍵觸發 DP
 	if character_id == "DAV" and spm3_pressed:

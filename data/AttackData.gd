@@ -128,46 +128,19 @@ const LOGIC_FPS: int = 60  # 邏輯/顯示幀率（資源中的幀數基準）
 @export var jump_hk_knockback: float = 70.0
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 🟢 便利函數：自動轉換幀數 → 秒數（用於舊代碼兼容）
+# 🟢 單一入口：取代 18 個獨立的 Dictionary getter 屬性
+# jump_* 攻擊不含 movement 鍵（保持原有合約）
 # ═══════════════════════════════════════════════════════════════════════════
-func frames_to_seconds(frames: int) -> float:
-	"""將邏輯幀數轉換為秒數 @60FPS"""
-	return float(frames) / float(LOGIC_FPS)
+func get_attack(attack_name: String) -> Dictionary:
+	var d := {
+		"damage":    get(attack_name + "_damage"),
+		"hitstun":   get(attack_name + "_hitstun_frames"),
+		"blockstun": get(attack_name + "_blockstun_frames"),
+		"knockback": get(attack_name + "_knockback"),
+	}
+	if not attack_name.begins_with("jump_"):
+		d["movement"] = get(attack_name + "_movement")
+	return d
 
-# Dictionary accessors for code compatibility
-var st_lp: Dictionary:
-	get: return { "damage": st_lp_damage, "hitstun": st_lp_hitstun_frames, "blockstun": st_lp_blockstun_frames, "knockback": st_lp_knockback, "movement": st_lp_movement }
-var st_mp: Dictionary:
-	get: return { "damage": st_mp_damage, "hitstun": st_mp_hitstun_frames, "blockstun": st_mp_blockstun_frames, "knockback": st_mp_knockback, "movement": st_mp_movement }
-var st_hp: Dictionary:
-	get: return { "damage": st_hp_damage, "hitstun": st_hp_hitstun_frames, "blockstun": st_hp_blockstun_frames, "knockback": st_hp_knockback, "movement": st_hp_movement }
-var st_lk: Dictionary:
-	get: return { "damage": st_lk_damage, "hitstun": st_lk_hitstun_frames, "blockstun": st_lk_blockstun_frames, "knockback": st_lk_knockback, "movement": st_lk_movement }
-var st_mk: Dictionary:
-	get: return { "damage": st_mk_damage, "hitstun": st_mk_hitstun_frames, "blockstun": st_mk_blockstun_frames, "knockback": st_mk_knockback, "movement": st_mk_movement }
-var st_hk: Dictionary:
-	get: return { "damage": st_hk_damage, "hitstun": st_hk_hitstun_frames, "blockstun": st_hk_blockstun_frames, "knockback": st_hk_knockback, "movement": st_hk_movement }
-var cr_lp: Dictionary:
-	get: return { "damage": cr_lp_damage, "hitstun": cr_lp_hitstun_frames, "blockstun": cr_lp_blockstun_frames, "knockback": cr_lp_knockback, "movement": cr_lp_movement }
-var cr_mp: Dictionary:
-	get: return { "damage": cr_mp_damage, "hitstun": cr_mp_hitstun_frames, "blockstun": cr_mp_blockstun_frames, "knockback": cr_mp_knockback, "movement": cr_mp_movement }
-var cr_hp: Dictionary:
-	get: return { "damage": cr_hp_damage, "hitstun": cr_hp_hitstun_frames, "blockstun": cr_hp_blockstun_frames, "knockback": cr_hp_knockback, "movement": cr_hp_movement }
-var cr_lk: Dictionary:
-	get: return { "damage": cr_lk_damage, "hitstun": cr_lk_hitstun_frames, "blockstun": cr_lk_blockstun_frames, "knockback": cr_lk_knockback, "movement": cr_lk_movement }
-var cr_mk: Dictionary:
-	get: return { "damage": cr_mk_damage, "hitstun": cr_mk_hitstun_frames, "blockstun": cr_mk_blockstun_frames, "knockback": cr_mk_knockback, "movement": cr_mk_movement }
-var cr_hk: Dictionary:
-	get: return { "damage": cr_hk_damage, "hitstun": cr_hk_hitstun_frames, "blockstun": cr_hk_blockstun_frames, "knockback": cr_hk_knockback, "movement": cr_hk_movement }
-var jump_lp: Dictionary:
-	get: return { "damage": jump_lp_damage, "hitstun": jump_lp_hitstun_frames, "blockstun": jump_lp_blockstun_frames, "knockback": jump_lp_knockback }
-var jump_mp: Dictionary:
-	get: return { "damage": jump_mp_damage, "hitstun": jump_mp_hitstun_frames, "blockstun": jump_mp_blockstun_frames, "knockback": jump_mp_knockback }
-var jump_hp: Dictionary:
-	get: return { "damage": jump_hp_damage, "hitstun": jump_hp_hitstun_frames, "blockstun": jump_hp_blockstun_frames, "knockback": jump_hp_knockback }
-var jump_lk: Dictionary:
-	get: return { "damage": jump_lk_damage, "hitstun": jump_lk_hitstun_frames, "blockstun": jump_lk_blockstun_frames, "knockback": jump_lk_knockback }
-var jump_mk: Dictionary:
-	get: return { "damage": jump_mk_damage, "hitstun": jump_mk_hitstun_frames, "blockstun": jump_mk_blockstun_frames, "knockback": jump_mk_knockback }
-var jump_hk: Dictionary:
-	get: return { "damage": jump_hk_damage, "hitstun": jump_hk_hitstun_frames, "blockstun": jump_hk_blockstun_frames, "knockback": jump_hk_knockback }
+func frames_to_seconds(frames: int) -> float:
+	return float(frames) / float(LOGIC_FPS)

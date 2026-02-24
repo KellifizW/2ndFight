@@ -14,6 +14,8 @@ func _enter_tree() -> void:
 
 # 🟢 【新增】Hit Stop 時機調試器（用於診斷連段時機問題）
 var hitstop_debugger: HitStopTimingDebugger = null
+var push_manager: Node = null       # cached in _ready()
+var slow_mo_controller: Node = null  # cached in _ready()
 
 var is_being_pushed: bool = false
 var current_damage: float = 0.0
@@ -67,10 +69,12 @@ func _ready() -> void:
 	
 	add_to_group("players")
 	
+	# 🟢 緩存常用節點
+	push_manager = get_tree().get_first_node_in_group("push_manager") if get_tree() else null
 	# 🟢 連接 SlowMoController 信號，在 hit stop 完成後啟動 hitstun/knockback/blockstun
 	if world and world.has_node("SlowMoController"):
-		var slowmo_controller = world.get_node("SlowMoController")
-		slowmo_controller.hit_slowmo_finished.connect(_on_hit_slowmo_finished)
+		slow_mo_controller = world.get_node("SlowMoController")
+		slow_mo_controller.hit_slowmo_finished.connect(_on_hit_slowmo_finished)
 	
 	# 🟢 【新增】獲取場景中的 HitStopTimingDebugger（如果存在）
 	if world and world.has_node("HitStopTimingDebugger"):
@@ -84,8 +88,7 @@ func _physics_process(delta: float) -> void:
 	# 🟢 【調試】監控 DP 期間的垂直速度變化
 	# （已移除 DP debug 列印）
 	# 🟢 【修正】檢查是否在 hit stop 期間，如果是則暫停所有幀數遞減
-	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
-	var is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo
+	var is_in_hitstop = slow_mo_controller and slow_mo_controller.is_hit_slowmo
 	
 	# 🟢 Hit stop 期間，完全跳過幀數遞減邏輯
 	if is_in_hitstop:
@@ -165,6 +168,12 @@ func _physics_process(delta: float) -> void:
 func post_physics_process(_delta: float) -> void:
 	pass
 
+func _calc_knockback_velocity(push_distance: float, frames: int) -> float:
+	if push_manager:
+		return push_manager.calculate_required_knockback_velocity(
+			int(push_distance * world.SIMULATION_SCALE), frames, name)
+	return push_distance * world.SIMULATION_SCALE * 4.0
+
 # ── 【關鍵修復】take_hit：hitstun & blockstun 都使用固定幀數，並改用新版掉血方式──
 func take_hit(
 	hitstun_duration: int = 18,
@@ -225,17 +234,7 @@ func take_hit(
 			var push_distance = knockback_distance if knockback_distance > 0 else block_push_distance
 			
 			# 🟢 使用反推函數計算所需的初始速度，確保實際距離 = push_distance
-			var push_manager = get_tree().get_first_node_in_group("push_manager") if get_tree() else null
-			if push_manager:
-				var target_distance_units = int(push_distance * world.SIMULATION_SCALE)
-				block_push_initial_velocity = push_manager.calculate_required_knockback_velocity(
-					target_distance_units,
-					physics_blockstun,
-					name  # 🟢 傳入角色名稱用於調試
-				)
-			else:
-				# 後備方案：使用舊的係數
-				block_push_initial_velocity = push_distance * world.SIMULATION_SCALE * 4.0
+			block_push_initial_velocity = _calc_knockback_velocity(push_distance, physics_blockstun)
 			
 			block_knockback_frames = physics_blockstun  # Block knockback 持續時間 = blockstun 時間
 			initial_block_knockback_frames = physics_blockstun  # 保存初始幀數用於衰減計算
@@ -335,8 +334,7 @@ func take_hit(
 		var hitstun_seconds = hit_frames / float(PHYSICS_FPS)
 		
 		# 🟢 檢查是否有 hit stop 正在進行
-		var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
-		if slowmo_controller and slowmo_controller.is_hit_slowmo:
+		if slow_mo_controller and slow_mo_controller.is_hit_slowmo:
 			# Hit stop 正在進行 → 延遲設置 hitstun/knockback/blockstun，等待 hit stop 完成
 			print("[HITSTUN DELAYED] %s - Hit stop 進行中，延遲設置 hitstun/knockback/blockstun" % name)
 			waiting_for_hit_stop_end = true
@@ -358,22 +356,8 @@ func take_hit(
 			# 計算 knockback 速度（必須在設置 pending_hit_params 之前）
 			if not skip_push:
 				var push_distance = knockback_distance if knockback_distance > 0 else hit_push_distance
-				
 				# 🟢 使用反推函數計算所需的初始速度，確保實際距離 = push_distance
-				var push_manager = get_tree().get_first_node_in_group("push_manager") if get_tree() else null
-				if push_manager:
-					var target_distance_units = int(push_distance * world.SIMULATION_SCALE)
-					var knockback_velocity = push_manager.calculate_required_knockback_velocity(
-						target_distance_units,
-						hit_frames,
-						name  # 🟢 傳入角色名稱用於調試
-					)
-					pending_hit_params["hit_push_initial_velocity"] = knockback_velocity
-				else:
-					# 後備方案：使用舊的係數
-					var knockback_velocity = push_distance * world.SIMULATION_SCALE * 4.0
-					pending_hit_params["hit_push_initial_velocity"] = knockback_velocity
-					print("[HIT KNOCKBACK WARNING] PushManager 未找到，使用後備係數")
+				pending_hit_params["hit_push_initial_velocity"] = _calc_knockback_velocity(push_distance, hit_frames)
 		else:
 			# Hit stop 未進行或已完成 → 立即設置 hitstun/knockback/blockstun
 			hitstun_frames = hit_frames
@@ -415,19 +399,7 @@ func take_hit(
 			knockback_start_time = 0.0  # 重置時間戳，讓 PushManager 重新記錄
 			
 			# 🟢 使用反推函數計算所需的初始速度，確保實際距離 = push_distance
-			var push_manager = get_tree().get_first_node_in_group("push_manager") if get_tree() else null
-			if push_manager:
-				var target_distance_units = int(push_distance * world.SIMULATION_SCALE)
-				hit_push_initial_velocity = push_manager.calculate_required_knockback_velocity(
-					target_distance_units,
-					hit_frames,
-					name  # 🟢 傳入角色名稱用於調試
-				)
-			else:
-				# 後備方案：使用舊的係數
-				hit_push_initial_velocity = push_distance * world.SIMULATION_SCALE * 4.0
-				print("[HIT KNOCKBACK WARNING] PushManager 未找到，使用後備係數")
-			
+			hit_push_initial_velocity = _calc_knockback_velocity(push_distance, hit_frames)
 			# 🟢 如果不在等待 hit stop 結束，才立即啟動 knockback
 			if not waiting_for_hit_stop_end:
 				# 立即啟動 knockback（無延遲）

@@ -276,7 +276,7 @@ func _physics_process(delta: float) -> void:
 			is_crouch_transition_played = false
 	was_crouching_last_frame = (is_on_floor() and crouch_pressed and not is_blocking)
 	
-	_handle_timers(delta)
+	timer_handler.handle_timers(delta)
 	
 	# 【遊戲速度監視】每 120 物理幀輸出一次時間檢查點
 	if get_physics_process_delta_time() > 0:
@@ -287,17 +287,17 @@ func _physics_process(delta: float) -> void:
 				expected_time, frame_time, 1.0 / max(frame_time, 0.0001)
 			])
 	
-	_handle_blocking(input_dir, is_special_moving)
+	blocking_handler.handle_blocking(input_dir, is_special_moving)
 	
 	# 【關鍵修復】著地處理必須在 dash 之前，以清除 dash 相關狀態
 	# 否則著地時的輸入會触發遗留的 pending_dash_dir
-	_handle_landing(input_data, floor_y, delta)
+	landing_handler.handle_landing(input_data, floor_y, delta)
 	
-	_handle_dash(input_dir, scale_factor, is_special_moving)
-	_handle_walk(input_dir, scale_factor, is_special_moving)
-	_handle_jump(jump_pressed, input_dir, scale_factor, floor_y, is_special_moving)
-	_handle_knockfly_layground(delta, floor_y)
-	_handle_gravity(delta, move_set)
+	dash_handler.handle_dash(input_dir, scale_factor, is_special_moving)
+	walk_handler.handle_walk(input_dir, scale_factor, is_special_moving)
+	jump_handler.handle_jump(jump_pressed, input_dir, scale_factor, floor_y, is_special_moving)
+	knockfly_handler.handle_knockfly_layground(delta, floor_y)
+	gravity_handler.handle_gravity(delta, move_set)
 	
 	fixed_position += Vector2i(roundi(fixed_velocity.x * delta), roundi(fixed_velocity.y * delta))
 	
@@ -327,30 +327,6 @@ func _physics_process(delta: float) -> void:
 		_update_animation_state(input_dir, crouch_pressed)
 	
 	post_physics_process(delta)
-
-func _handle_timers(delta: float) -> void:
-	timer_handler.handle_timers(delta)
-
-func _handle_blocking(input_dir: int, is_special_moving: bool) -> void:
-	blocking_handler.handle_blocking(input_dir, is_special_moving)
-
-func _handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
-	dash_handler.handle_dash(input_dir, scale_factor, is_special_moving)
-
-func _handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
-	walk_handler.handle_walk(input_dir, scale_factor, is_special_moving)
-
-func _handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor_y: int, is_special_moving: bool) -> void:
-	jump_handler.handle_jump(jump_pressed, input_dir, scale_factor, floor_y, is_special_moving)
-
-func _handle_knockfly_layground(delta: float, floor_y: int) -> void:
-	knockfly_handler.handle_knockfly_layground(delta, floor_y)
-
-func _handle_gravity(delta: float, move_set) -> void:
-	gravity_handler.handle_gravity(delta, move_set)
-
-func _handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
-	landing_handler.handle_landing(input_data, floor_y, delta)
 
 func _on_animation_player_finished(anim_name: String) -> void:
 	if anim_name in anim_resets:

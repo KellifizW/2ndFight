@@ -475,29 +475,12 @@ func start_fireball() -> void:
 	print("[MoveSet] %s: Starting fireball (AI=%s) → variant=%s" % [parent.name, parent.is_ai_controlled, chosen])
 	_start_special(chosen)
 
-func start_fireballL() -> void:
-	if parent.is_attacking or is_spmove:
-		return
+func start_fireball_variant(variant: String) -> void:
+	if parent.is_attacking or is_spmove: return
 	if parent.active_fireball != null and is_instance_valid(parent.active_fireball):
-		print("[MoveSet] %s: Cannot start fireballL - active_fireball already exists" % parent.name)
+		print("[MoveSet] %s: Cannot start %s - active_fireball already exists" % [parent.name, variant])
 		return
-	_start_special("fireballL")
-
-func start_fireballM() -> void:
-	if parent.is_attacking or is_spmove:
-		return
-	if parent.active_fireball != null and is_instance_valid(parent.active_fireball):
-		print("[MoveSet] %s: Cannot start fireballM - active_fireball already exists" % parent.name)
-		return
-	_start_special("fireballM")
-
-func start_fireballH() -> void:
-	if parent.is_attacking or is_spmove:
-		return
-	if parent.active_fireball != null and is_instance_valid(parent.active_fireball):
-		print("[MoveSet] %s: Cannot start fireballH - active_fireball already exists" % parent.name)
-		return
-	_start_special("fireballH")
+	_start_special(variant)
 
 func start_100p() -> void:
 	# 🔴 【新增】100p 多段連打 (DAV only)
@@ -739,26 +722,14 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 		start_fireball()
 		return true
 
-	if input_data.get("fireballL_pressed", false) and not parent.is_attacking and not is_spmove:
-		if controller and controller.has_method("consume_button_input"):
-			controller.consume_button_input("fireballL")
-			controller.consume_button_input("st_lp")
-		start_fireballL()
-		return true
-
-	if input_data.get("fireballM_pressed", false) and not parent.is_attacking and not is_spmove:
-		if controller and controller.has_method("consume_button_input"):
-			controller.consume_button_input("fireballM")
-			controller.consume_button_input("st_mp")
-		start_fireballM()
-		return true
-
-	if input_data.get("fireballH_pressed", false) and not parent.is_attacking and not is_spmove:
-		if controller and controller.has_method("consume_button_input"):
-			controller.consume_button_input("fireballH")
-			controller.consume_button_input("st_hp")
-		start_fireballH()
-		return true
+	var _fireball_btns := {"L": "st_lp", "M": "st_mp", "H": "st_hp"}
+	for v in ["L", "M", "H"]:
+		if input_data.get("fireball%s_pressed" % v, false) and not parent.is_attacking and not is_spmove:
+			if controller and controller.has_method("consume_button_input"):
+				controller.consume_button_input("fireball" + v)
+				controller.consume_button_input(_fireball_btns[v])
+			start_fireball_variant("fireball" + v)
+			return true
 	
 	# 🔴 【新增 100p 處理】Multi-hit punch (DAV only)
 	if input_data.get("100p_pressed", false) and parent.character_id == "DAV" and not parent.is_attacking and not is_spmove:
