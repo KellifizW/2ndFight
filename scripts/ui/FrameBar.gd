@@ -388,7 +388,10 @@ func _calc_frame(anim_name: String, pos: float, timer_driven: bool, knockfly_cha
 	# 🟢 【修改】跳躍使用 jump_frame_count（已按物理幀計算）
 	if anim_name in JUMP_ANIMS:
 		return int(jump_frame_count / 2.0) + 1  # 按60FPS轉換幀
-	return min(int(pos * DISPLAY_FPS) + 1, total_frames)
+	# 🟢 【修正】攻擊動畫的上限 = current_attack_expected_frames（而非 total_frames）
+	# 避免 pos 恰好到達動畫末尾時（int(end_pos*60)+1 超出預期幀數）產生多餘的格
+	var frame_cap: int = current_attack_expected_frames if (anim_name in ATTACK_ANIMS and current_attack_expected_frames > 0) else total_frames
+	return min(int(pos * DISPLAY_FPS) + 1, frame_cap)
 
 func _get_state(anim_name: String, flags: Dictionary, on_floor: bool, pos: float) -> int:
 	if anim_name in ["block", "cr_block"] and blockstun_active_frames > 0:
@@ -419,7 +422,14 @@ func _get_state(anim_name: String, flags: Dictionary, on_floor: bool, pos: float
 			return track_state
 
 	if anim_name in ATTACK_ANIMS:
-		# 🟢 【修正】只檢查 hitbox_shape 是否存在且 enabled，不檢查 shape 屬性
+		# 🟢 【修正】優先使用動畫軌道判斷 S/A/R（確定性，不受物理/渲染幀時機影響，消除 ±1F 抖動）
+		# dpL/dpM/dpH 已在上方的專用分支處理，其餘攻擊也同樣走軌道路徑
+		var track_state := _get_attack_state_from_hitbox_track(anim_name, pos)
+		if track_state != -1:
+			if track_state == 1 and not was_active:
+				was_active = true
+			return track_state
+		# Fallback：無 disabled 軌道時（舊邏輯）改用 live hitbox 狀態
 		if not hitbox_shape or hitbox_shape.disabled:
 			return 0 if not was_active else 2
 		else:
@@ -642,18 +652,12 @@ func update_frame_count_label(anim_name: String) -> void:
 			# Call method 尚未觸發
 			text += "S:0 A:%d R:0 (等待 call method...)" % frame_data.size()
 	elif anim_name in ATTACK_ANIMS:
-		# 🟢 【修正】S 顯示值 = counts.S + 1（當有 Active 幀時）
-		# 原因：frame_data 是 0-indexed，但顯示是 1-indexed。
-		# "4F startup" 的格鬥遊戲慣例 = 第一個 Active 幀在顯示第4格。
-		# counts.S = 3 個 Startup 格（0-indexed），加 1 = 4（1-indexed Active 起始幀號）
-		var s_display = counts.S + (1 if counts.A > 0 else 0)
-		# 🟢 【修正】Total 優先使用動畫預期幀數，避免因最後一個渲染幀未被捕捉而少一格
-		var display_frames: int
-		if current_attack_expected_frames > 0:
-			display_frames = current_attack_expected_frames
-		else:
-			display_frames = frame_data.size()
-		text += "S:%d A:%d R:%d Total:%dF" % [s_display, counts.A, counts.R, display_frames]
+		# 格鬥遊戲慣例：Hit = 第一個 active 幀的幀號（第幾幀打到人）
+		# Total = (Hit-1) + A + R = 純 startup + active + recovery = 實際動畫幀數
+		# e.g. 5 格純 startup → Hit:6 A:2 R:17 → Total:(6-1)+2+17 = 24F
+		var hit_frame: int = counts.S + (1 if counts.A > 0 else 0)
+		var display_frames: int = (hit_frame - 1) + counts.A + counts.R
+		text += "Hit:%d A:%d R:%d Total:%dF" % [hit_frame, counts.A, counts.R, display_frames]
 	else:
 		text += "%dF" % frame_data.size()
 	frame_count_label.text = text

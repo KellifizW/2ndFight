@@ -5435,12 +5435,13 @@ tracks/13/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_woueq"]
-size = Vector2(145, 40)
+size = Vector2(80, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_bjfdx"]
-size = Vector2(172, 52)
+size = Vector2(155, 110)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_hfcs4"]
+size = Vector2(250, 80)
 
 [sub_resource type="Animation" id="Animation_hshs3"]
 resource_name = "st_hk"
@@ -7336,10 +7337,8 @@ animation = &"Reset"
 visible = false
 scale = Vector2(1e-05, 1e-05)
 texture = ExtResource("4_0wmxw")
-offset = Vector2(0, -3)
 hframes = 10
 vframes = 19
-frame = 15
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=1779273482]
 position = Vector2(0, 10)
