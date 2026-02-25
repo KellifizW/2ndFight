@@ -298,11 +298,23 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 		blockstun_active_frames = 0
 	
 	current_frame = _calc_frame(anim_name, pos, timer_driven, knockfly_chain)
-	_ensure_size(current_frame + 1)
+	# 🟢 【修正】current_frame 現在是 1-indexed；資料寫入 frame_data[current_frame - 1]
+	_ensure_size(current_frame)
 	
 	var state := _get_state(anim_name, flags, on_floor, pos)
 	if state != -1:
-		frame_data[current_frame] = state
+		frame_data[current_frame - 1] = state
+	
+	# 🟢 【除錯】每幀記錄 FrameBar 狀態（攻擊動畫 / timer 驅動）
+	if anim_name in ATTACK_ANIMS or timer_driven:
+		const STATE_NAMES := {0: "S(Startup)", 1: "A(Active)", 2: "R(Recovery)",
+			4: "B(Block)", 5: "J(Jump)", 6: "H(Hit)", 7: "K(Knockfly)",
+			8: "W(White)", 9: "L(Layground)", 10: "WK(Wakeup)"}
+		var state_label: String = STATE_NAMES.get(state, "?("+str(state)+")")
+		var raw_pos_frame: int = int(pos * DISPLAY_FPS)
+		print("[FRAMEBAR RECORD] %s | anim='%s' pos=%.4f raw_pos_frame=%d → current_frame=%d state=%s | frame_data.size=%d" % [
+			target_player.name, anim_name, pos, raw_pos_frame, current_frame, state_label, frame_data.size()
+		])
 	
 	if timer_driven or knockfly_chain or block_hit_chain_active:
 		# 🟢 【修正】只在每個物理幀增加一次 display_frame_counter（防止渲染幀率導致快速遞增）
@@ -337,7 +349,8 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 					target_player.name, old_counter, display_frame_counter, anim_name, state, timer_driven
 				])
 	
-	value = min(current_frame + 1, total_frames)
+	# 🟢 【修正】current_frame 已是 1-indexed，不需再 +1
+	value = min(current_frame, total_frames)
 	queue_redraw()
 	update_frame_count_label(anim_name)
 
@@ -367,14 +380,15 @@ func _ensure_size(min_size: int) -> void:
 		frame_data.resize(min_size)
 
 func _calc_frame(anim_name: String, pos: float, timer_driven: bool, knockfly_chain: bool) -> int:
+	# 🟢 【修正】所有分支加 +1，使 current_frame 改為 1-indexed（動畫第0格 → 顯示第1格）
 	if timer_driven or knockfly_chain or block_hit_chain_active:
-		return int(display_frame_counter / 2.0)
+		return int(display_frame_counter / 2.0) + 1
 	if is_jump_attack_active:
-		return min(jump_to_attack_offset + int(pos * DISPLAY_FPS), total_frames - 1)
+		return min(jump_to_attack_offset + int(pos * DISPLAY_FPS) + 1, total_frames)
 	# 🟢 【修改】跳躍使用 jump_frame_count（已按物理幀計算）
 	if anim_name in JUMP_ANIMS:
-		return int(jump_frame_count / 2.0)  # 按60FPS轉換幀
-	return min(int(pos * DISPLAY_FPS), total_frames - 1)
+		return int(jump_frame_count / 2.0) + 1  # 按60FPS轉換幀
+	return min(int(pos * DISPLAY_FPS) + 1, total_frames)
 
 func _get_state(anim_name: String, flags: Dictionary, on_floor: bool, pos: float) -> int:
 	if anim_name in ["block", "cr_block"] and blockstun_active_frames > 0:
@@ -628,13 +642,18 @@ func update_frame_count_label(anim_name: String) -> void:
 			# Call method 尚未觸發
 			text += "S:0 A:%d R:0 (等待 call method...)" % frame_data.size()
 	elif anim_name in ATTACK_ANIMS:
-		# 🟢 【修復】對於攻擊動畫，限制顯示幀數不超過期望值
-		# frame_data.size() 可能因為 pos 乘以 DISPLAY_FPS 而偏大
-		# 但實際應顯示的是根據動畫實際長度計算的値
-		var display_frames = frame_data.size()
+		# 🟢 【修正】S 顯示值 = counts.S + 1（當有 Active 幀時）
+		# 原因：frame_data 是 0-indexed，但顯示是 1-indexed。
+		# "4F startup" 的格鬥遊戲慣例 = 第一個 Active 幀在顯示第4格。
+		# counts.S = 3 個 Startup 格（0-indexed），加 1 = 4（1-indexed Active 起始幀號）
+		var s_display = counts.S + (1 if counts.A > 0 else 0)
+		# 🟢 【修正】Total 優先使用動畫預期幀數，避免因最後一個渲染幀未被捕捉而少一格
+		var display_frames: int
 		if current_attack_expected_frames > 0:
-			display_frames = min(frame_data.size(), current_attack_expected_frames)
-		text += "S:%d A:%d R:%d Total:%dF" % [counts.S, counts.A, counts.R, display_frames]
+			display_frames = current_attack_expected_frames
+		else:
+			display_frames = frame_data.size()
+		text += "S:%d A:%d R:%d Total:%dF" % [s_display, counts.A, counts.R, display_frames]
 	else:
 		text += "%dF" % frame_data.size()
 	frame_count_label.text = text

@@ -47,7 +47,9 @@ var active_fireball: Node = null
 # 解決方案：鎖定上一次執行的攻擊，在新動畫完全開始前拒絕重複
 var last_executed_attack: String = ""  # Track which attack was just executed (e.g., "st_hp")
 var last_executed_attack_frame: int = -999  # Frame when it was executed
-var attack_execution_lock_frames: int = 2  # Minimum frames between same attack re-execution
+# 【修復】鎖定改為 1 物理幀（只防止真正的同幀重複執行）
+# 原為 2 造成可感知的鎖定間隔（玩家進行快速連按時有明顯頓感）
+var attack_execution_lock_frames: int = 1  # Minimum frames between same attack re-execution
 
 # ── 狀態旗標 ─────────────────────
 var current_mode: String = "ground_stand"
@@ -74,6 +76,11 @@ var special_input_data: Dictionary = {
 func reset_attack_state() -> void:
 	# 【FIX】記錄上次執行的攻擊及其幀數，用於防止同幀重複執行
 	if attack_type != "none" and attack_type != "":
+		var frames_elapsed = Engine.get_physics_frames() - last_executed_attack_frame
+		print("[RESET_ATTACK] F=%d Seat=%s | '%s' ended | elapsed since exec: %d physF = %.1f logicF | attack_duration_timer=%d" % [
+			Engine.get_physics_frames(), seat, attack_type,
+			frames_elapsed, frames_elapsed / 2.0, attack_duration_timer
+		])
 		last_executed_attack = attack_type
 		last_executed_attack_frame = Engine.get_physics_frames()
 	
@@ -345,7 +352,16 @@ func _physics_process(delta: float) -> void:
 			stop_attack()
 
 	# 在取消判定之後才清空按鈕輸入，避免影響特殊招檢測
+	# 【DEBUG ATTACK LOCK】追蹤攻擊輸入清除的原因
+	var _has_any_atk_input_pre_block = _has_attack_input(input_data)
 	if is_attacking and animation_state.get_current_node() in ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk", "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk"]:
+		if _has_any_atk_input_pre_block and not is_ai_controlled:
+			var frames_held = Engine.get_physics_frames() - last_executed_attack_frame
+			print("[LOCK_TRACE:IS_ATTACKING] F=%d Seat=%s | is_attacking=true anim_node='%s' attack_type='%s' | Input cleared (lock_frame=%d, held=%d physF=%.1f logicF)" % [
+				Engine.get_physics_frames(), seat,
+				animation_state.get_current_node(), attack_type,
+				last_executed_attack_frame, frames_held, frames_held / 2.0
+			])
 		input_data.st_lp_pressed = false
 		input_data.st_mp_pressed = false
 		input_data.st_hp_pressed = false
@@ -383,7 +399,14 @@ func _physics_process(delta: float) -> void:
 
 	# 檢查取消窗口是否開啟
 	var is_cancel_open = cancel_window_handler and cancel_window_handler.is_window_open
+	var _has_any_atk_input_post_block = _has_attack_input(input_data)
 	if is_cancel_open:
+		if _has_any_atk_input_post_block and not is_ai_controlled:
+			var frames_held = Engine.get_physics_frames() - last_executed_attack_frame
+			print("[LOCK_TRACE:CANCEL_OPEN] F=%d Seat=%s | cancel_window OPEN | attack_type='%s' | Input cleared (lock_frame=%d, held=%d physF=%.1f logicF)" % [
+				Engine.get_physics_frames(), seat, attack_type,
+				last_executed_attack_frame, frames_held, frames_held / 2.0
+			])
 		input_data.st_lp_pressed = false
 		input_data.st_mp_pressed = false
 		input_data.st_hp_pressed = false
@@ -394,13 +417,23 @@ func _physics_process(delta: float) -> void:
 	# ── 地面攻擊執行（使用 AttackExecutor Handler）──
 	var has_ground_attack_input := _has_attack_input(input_data)
 	
-	# 【DEBUG】詳細追蹤attack input與throw狀態
-	if input_data.get("throw_pressed", false) or input_data.get("st_lp_pressed", false) or input_data.get("st_lk_pressed", false):
-		print("[PLAYER ATTACK LOGIC] Frame=%d Seat=%s | " % [Engine.get_physics_frames(), seat] +
-			"throw_pressed=%s, st_lp=%s, st_lk=%s, has_ground_attack_input=%s | is_valid_ground_state=%s, is_landing=%s" % [
-				input_data.get("throw_pressed", false), input_data.get("st_lp_pressed", false), input_data.get("st_lk_pressed", false),
-				has_ground_attack_input, is_valid_ground_state, is_landing
-			])
+	# 【DEBUG LOCK TRACE】當輸入通過所有清除保護後，追蹤最終狀態
+	if not is_ai_controlled and (input_data.get("st_lp_pressed", false) or input_data.get("st_mp_pressed", false) or input_data.get("st_hp_pressed", false) or input_data.get("st_lk_pressed", false) or input_data.get("st_mk_pressed", false) or input_data.get("st_hk_pressed", false) or input_data.get("throw_pressed", false)):
+		var frames_held = Engine.get_physics_frames() - last_executed_attack_frame
+		print("[LOCK_TRACE:REACHED_EXEC] F=%d Seat=%s | st_lp=%s is_valid=%s is_attacking=%s anim='%s' | since_last: %d physF=%.1f logicF" % [
+			Engine.get_physics_frames(), seat,
+			input_data.get("st_lp_pressed", false), is_valid_ground_state, is_attacking,
+			animation_state.get_current_node() if animation_state else "N/A",
+			frames_held, frames_held / 2.0
+		])
+	elif not is_ai_controlled and has_ground_attack_input and not is_valid_ground_state:
+		var frames_held2 = Engine.get_physics_frames() - last_executed_attack_frame
+		var land_timer_val = landing_lock_timer if "landing_lock_timer" in self else -1.0
+		print("[LOCK_TRACE:INVALID_STATE] F=%d Seat=%s | Input blocked by is_valid_ground_state=false | is_attacking=%s is_dashing=%s is_landing=%s land_timer=%.3f | since_last: %d physF=%.1f logicF" % [
+			Engine.get_physics_frames(), seat,
+			is_attacking, is_dashing, is_landing, land_timer_val,
+			frames_held2, frames_held2 / 2.0
+		])
 
 	# 【著地攻擊取消】著地動畫可被攻擊指令取消（強制2幀後）
 	if has_ground_attack_input and is_landing and _landing_forced_frames >= 2:
@@ -413,11 +446,6 @@ func _physics_process(delta: float) -> void:
 
 	if has_ground_attack_input and is_valid_ground_state:
 		force_update_facing_direction()
-		# 【DEBUG】在呼叫 AttackExecutor 前記錄狀態
-		if input_data.get("throw_pressed", false) or input_data.get("st_lp_pressed", false) or input_data.get("st_lk_pressed", false):
-			print("[CALLING ATTACK_EXECUTOR] Frame=%d Seat=%s | is_crouching=%s, throw_pressed=%s" % [
-				Engine.get_physics_frames(), seat, is_crouching, input_data.get("throw_pressed", false)
-			])
 		if attack_executor and attack_executor.try_execute_ground_attack(input_data, is_crouching):
 			# 攻擊已執行，只有在沒有攻擊移動激活時才清零速度
 			var has_active_movement = attack_movement_handler and attack_movement_handler.is_active()
@@ -565,7 +593,8 @@ func _on_animation_player_finished(anim_name: String) -> void:
 	"""動畫完成回調（Phase 4 優化：使用分類判斷）"""
 	var seat_str = seat if seat else "?"
 	var is_special_move = move_set and move_set.has_move_id(move_set.get_active_move_name()) if move_set else false
-	print("[✓ ANIM_FINISHED] '%s' | Seat: %s | is_spmove=%s | is_attacking=%s" % [anim_name, seat_str, is_special_move, is_attacking])
+	var frames_since_last = Engine.get_physics_frames() - last_executed_attack_frame
+	print("[✓ ANIM_FINISHED] '%s' | Seat: %s | F=%d | is_spmove=%s | is_attacking=%s | since_last=%d physF(%.1f logicF)" % [anim_name, seat_str, Engine.get_physics_frames(), is_special_move, is_attacking, frames_since_last, frames_since_last / 2.0])
 	
 	# 地面攻擊重置
 	if anim_name in GROUND_ATTACK_ANIMS:
@@ -723,8 +752,10 @@ func _execute_attack(attack_name: String) -> void:
 	var is_same_attack_repeat = (last_executed_attack == attack_name and frames_since_last_exec < attack_execution_lock_frames)
 	
 	if is_same_attack_repeat:
-		print("[ATTACK DEDUP] Rejecting '%s' - executed %d frames ago (lock=%d) | Seat: %s" % [
-			attack_name, frames_since_last_exec, attack_execution_lock_frames, seat
+		print("[LOCK_TRACE:DEDUP] F=%d Seat=%s | Rejecting '%s' - last exec %d physF ago (%.1f logicF), lock=%d physF (%.1f logicF)" % [
+			current_frame, seat, attack_name,
+			frames_since_last_exec, frames_since_last_exec / 2.0,
+			attack_execution_lock_frames, attack_execution_lock_frames / 2.0
 		])
 		return  # 拒絕執行，直到鎖定期結束
 	
