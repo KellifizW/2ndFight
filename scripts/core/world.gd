@@ -142,6 +142,16 @@ func _ready() -> void:
 	if startup_logs:
 		print("[WORLD] ✓ HitStopTimingDebugger 已初始化 (詳細日誌: %s)" % hitstop_debug.detailed_logging)
 	
+	# 🟢 【新增】初始化輸入歷史調試器
+	# ============================================================
+	var InputHistoryDebuggerScript = preload("res://scripts/debug/InputHistoryDebugger.gd")
+	var input_history_debugger = InputHistoryDebuggerScript.new()
+	input_history_debugger.name = "InputHistoryDebugger"
+	input_history_debugger.enabled = true  # 設為 false 可禁用調試輸出
+	add_child(input_history_debugger)
+	if startup_logs:
+		print("[WORLD] ✓ InputHistoryDebugger 已初始化 - 監控輸入歷史顯示狀態")
+	
 	# 關鍵修正：優先從選角畫面讀取角色（SelectedCharacters 是 Autoload 全局單例）
 	if SelectedCharacters.p1_character != null and SelectedCharacters.p2_character != null:
 		player_a_character = SelectedCharacters.p1_character

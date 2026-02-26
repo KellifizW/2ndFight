@@ -78,8 +78,8 @@ func update_input():
 	
 	# 改用 seat 判斷輸入後綴與特殊招式可用性
 	var suffix = "_p2" if parent.seat == "player_b" else ""
-	var is_dav = parent.character_id == "DAV"   # DAV 擁有 powerkk、dp、fireball
-	var is_den = parent.character_id == "DEN"   # DEN 擁有 spnk、hdk、fireball
+	# var _is_dav = parent.character_id == "DAV"   # DAV 擁有 powerkk、dp、fireball
+	# var _is_den = parent.character_id == "DEN"   # DEN 擁有 spnk、hdk、fireball
 	
 	# 初始化輸入數據
 	var input_data = {}
@@ -168,6 +168,8 @@ func insert_to_history(raw_input: int):
 		input_history[current_history].h_charge = input_history[previous_index].h_charge
 		input_history[current_history].v_charge = input_history[previous_index].v_charge
 		input_history[current_history].b_charge = input_history[previous_index].b_charge
+		
+		# 🔍 調試已禁用以避免格式化錯誤
 	else:
 		# Same input - just increment duration
 		input_history[current_history].duration += 1
@@ -207,22 +209,16 @@ func _update_charge_buffers() -> void:
 
 func _load_special_input_sequences() -> void:
 	special_input_registry.clear()
-	print("[InputManager] Loading special input sequences...")
 	for path in SPECIAL_INPUT_RESOURCES:
 		var resource = load(path)
 		if resource == null:
-			push_warning("InputManager: Failed to load input sequence: %s" % path)
 			continue
 		if not resource is SpecialInputSequence:
-			push_warning("InputManager: Resource is not SpecialInputSequence: %s" % path)
 			continue
 		var sequence_id = resource.sequence_id
 		if sequence_id == "":
-			push_warning("InputManager: Input sequence missing sequence_id: %s" % path)
 			continue
 		special_input_registry[sequence_id] = _build_motion_from_sequence(resource)
-		print("[InputManager] ✓ Loaded: %s (from %s)" % [sequence_id, path.get_file()])
-	print("[InputManager] Registry:", special_input_registry.keys())
 
 func _build_motion_from_sequence(sequence: SpecialInputSequence) -> Dictionary:
 	return {

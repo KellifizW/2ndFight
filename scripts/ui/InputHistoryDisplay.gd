@@ -6,6 +6,7 @@ extends VBoxContainer
 
 @export var max_history_elements: int = 10
 @export var show_frame_count: bool = true
+@export var debug_mode: bool = true  # 啟用調試日誌
 @export_enum("Player A", "Player B") var track_player: String = "Player A"
 
 var history_elements: Array[InputHistoryElement] = []
@@ -116,9 +117,9 @@ func _find_player():
 	if player_to_track:
 		input_manager = player_to_track.get_node_or_null("InputManager")
 		if input_manager:
-			print("[InputHistoryDisplay] 成功連接到 %s 的 InputManager" % player_to_track.name)
+			print("[InputHistoryDisplay] 成功連接到 " + player_to_track.name + " 的 InputManager")
 		else:
-			print("[InputHistoryDisplay] 警告：玩家 %s 沒有 InputManager" % player_to_track.name)
+			print("[InputHistoryDisplay] 警告：玩家 " + player_to_track.name + " 沒有 InputManager")
 	else:
 		print("[InputHistoryDisplay] 警告：找不到玩家")
 
@@ -168,6 +169,19 @@ func set_player(player: Player):
 		input_manager = player.get_node_or_null("InputManager")
 
 func clear():
-	for element in history_elements:
-		element.clear()
-		element.container.visible = false
+	"""已禁用：不清除輸入歷史，確保歷史記錄永遠保留"""
+	# 🔴 打印堆棧跟蹤，查看誰在調用此方法
+	if debug_mode:
+		var separator = ""
+		for i in range(60):
+			separator += "="
+		
+		print("\n" + separator)
+		print("[☠️ CLEAR() CALLED - InputHistoryDisplay ☠️]")
+		print("=== 調用堆棧跟蹤 ===")
+		print_stack()
+		print("[track_player] " + track_player)
+		var track_name: String = str(player_to_track.name) if player_to_track else "null"
+		print("[player_to_track] " + track_name)
+		print(separator + "\n")
+	pass  # 空操作 - 任何調用此方法的代碼都不會清除輸入歷史

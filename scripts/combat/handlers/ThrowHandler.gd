@@ -240,7 +240,18 @@ func lock_opponent(opponent: Node) -> void:
 	
 	# 清空對手輸入緩衝
 	if opponent.has_node("PlayerController") and opponent.get_node("PlayerController").has_method("clear_input_buffer"):
+		print("[🔴 ThrowHandler] Clearing opponent's input_buffer at frame %d | opponent: %s" % [
+			Engine.get_physics_frames(), opponent.name
+		])
 		opponent.get_node("PlayerController").input_buffer.clear()
+		print("[ThrowHandler] Input buffer cleared. Calling input display clear() if it exists...")
+		# 檢查是否有輸入歷史顯示並嘗試調用clear
+		var input_display = get_tree().root.find_child("InputHistoryDisplayIcon", true, false)
+		if input_display:
+			print("[⚠️ ThrowHandler] Found InputHistoryDisplayIcon - NOT calling clear() to preserve history")
+			# 【改動】不調用clear() 以保留歷史
+			# input_display.call("clear")
+		
 	
 	# 計算位置偏移（從 ThrowData 獲取）
 	var throw_data = _get_throw_data()
