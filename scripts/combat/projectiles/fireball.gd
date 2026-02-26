@@ -266,8 +266,11 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 			if slowmo_controller:
 				slowmo_controller.request_hit_freeze()
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
+		# 🟢 【重要】檢查目標是否已經在 hitstun 中（用於連擊計算）
+		var was_in_stun = target.hitstun_frames > 0 if "hitstun_frames" in target else false
 		if target.has_signal("hit_detected"):
-			target.hit_detected.emit(name, final_blockstun, is_blocked)
+			# 傳遞 4 個參數：target名稱、hitstun幀數、是否格擋、是否已在硬直中
+			target.hit_detected.emit(target.name, final_hitstun, is_blocked, was_in_stun)
 		
 		# VFX
 		var vfx_position = (global_position + area.global_position) / 2.0

@@ -124,7 +124,9 @@ func _ready() -> void:
 		push_warning("Warning: AIBehavior parent not found")
 		return
 	
-	# 【FIX】Load animation durations from player's AnimationPlayer (single source of truth)
+	# 【FIX】Defer animation loading to first frame - Parent's animation_player not ready in _ready()
+	# Godot execution order: Parent's children _ready() called before parent's _ready()
+	await get_tree().process_frame
 	_load_animation_durations_from_player()
 	
 	_init_subsystems()
@@ -167,22 +169,29 @@ func _load_animation_durations_from_player() -> void:
 	- 單一真理來源：.tscn 檔中的AnimationPlayer
 	- 自動化：新增動畫無需修改此代碼
 	"""
-	if not parent or not "animation_player" in parent:
-		if debug_mode:
-			print("[AI DynLoad] ⚠️ Parent has no animation_player, using fallback durations")
+	if not parent:
+		push_warning("[AI DynLoad] ❌ Parent is null!")
+		return
+	
+	if not "animation_player" in parent:
+		push_warning("[AI DynLoad] ❌ Parent has no animation_player property!")
 		return
 	
 	var anim_player = parent.animation_player
 	if not anim_player:
-		if debug_mode:
-			print("[AI DynLoad] ⚠️ animation_player is null, using fallback durations")
+		push_warning("[AI DynLoad] ❌ animation_player is null, anime list cannot be loaded!")
 		return
 	
 	# 遍歷所有動畫並記錄其時長
-	for anim_name in anim_player.get_animation_list():
+	var anim_list = anim_player.get_animation_list()
+	print("[AI DynLoad] ✅ AnimationPlayer found! Loading %d animations..." % anim_list.size())
+	
+	var loaded_count = 0
+	for anim_name in anim_list:
 		var anim = anim_player.get_animation(anim_name)
 		if anim:
 			animation_durations[anim_name] = anim.length
+			loaded_count += 1
 			if debug_mode and startup_logs:
 				print("[AI DynLoad] ✓ %s: %.3fs (120fps physics timer: %d frames)" % [
 					anim_name, 
@@ -190,8 +199,8 @@ func _load_animation_durations_from_player() -> void:
 					int(round(anim.length * 120))
 				])
 	
-	if debug_mode and startup_logs:
-		print("[AI DynLoad] ✅ Loaded %d animations from %s" % [animation_durations.size(), parent.character_data.short_id if parent.character_data else "Unknown"])
+	var char_id = parent.character_data.short_id if parent.character_data else "Unknown"
+	print("[AI DynLoad] ✅ Successfully loaded %d animations from %s" % [loaded_count, char_id])
 
 func get_action_duration(action: String) -> float:
 	"""
@@ -208,6 +217,15 @@ func get_action_duration(action: String) -> float:
 	if action in ACTION_DURATIONS_FALLBACK:
 		var data = ACTION_DURATIONS_FALLBACK[action]
 		return randf_range(data["min"], data["max"])
+	
+	# 【備用】如果是攻擊動作但未找到, 使用較長的預設 (0.65s)
+	# 因為大多數攻擊動畫長度在 0.5-0.8 秒之間
+	if action in ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk",
+				  "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk",
+				  "jump_lp", "jump_mp", "jump_hp", "jump_lk", "jump_mk", "jump_hk"]:
+		if animation_durations.is_empty():
+			push_warning("[AI] WARNING: animation_durations is empty for attack '%s', using 0.65s fallback" % action)
+		return 0.65  # Better fallback for attacks
 	
 	# 【保障】默認返回 0.3 秒
 	if debug_mode:
@@ -282,6 +300,26 @@ func get_ai_input() -> Dictionary:
 			print("[AI] Frame=%d | ⚠️ NO PARENT" % current_frame)
 		if not opponent:
 			print("[AI] Frame=%d Seat=%s | 🔍 Searching for opponent..." % [current_frame, seat])
+	
+	# ============================================================
+	# HEALTH CHECK: STOP ALL ACTIONS IF ANY CHARACTER IS DEFEATED
+	# ============================================================
+	# When any player's health reaches 0 or below, AI stops all actions and calculations
+	if parent and "healthbar" in parent and parent.healthbar:
+		if parent.healthbar.current_health <= 0:
+			if debug_mode and current_frame % 120 == 0:
+				print("[AI] Frame=%d Seat=%s | 💀 AI SELF DEFEATED (health=%.1f) - Stopping all actions" % [
+					current_frame, seat, parent.healthbar.current_health
+				])
+			return _neutral_input()
+	
+	if opponent and "healthbar" in opponent and opponent.healthbar:
+		if opponent.healthbar.current_health <= 0:
+			if debug_mode and current_frame % 120 == 0:
+				print("[AI] Frame=%d Seat=%s | 💀 OPPONENT DEFEATED (health=%.1f) - Stopping all actions" % [
+					current_frame, seat, opponent.healthbar.current_health
+				])
+			return _neutral_input()
 	
 	if not ai_enabled or not opponent or not parent:
 		return _neutral_input()

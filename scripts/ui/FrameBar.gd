@@ -305,8 +305,8 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 	if state != -1:
 		frame_data[current_frame - 1] = state
 	
-	# 🟢 【除錯】每幀記錄 FrameBar 狀態（攻擊動畫 / timer 驅動）
-	if anim_name in ATTACK_ANIMS or timer_driven:
+	# 🟢 【除錯】每幀記錄 FrameBar 狀態（攻擊動畫 / timer 驅動，但不含 layground）
+	if (anim_name in ATTACK_ANIMS or timer_driven) and anim_name != "layground":
 		const STATE_NAMES := {0: "S(Startup)", 1: "A(Active)", 2: "R(Recovery)",
 			4: "B(Block)", 5: "J(Jump)", 6: "H(Hit)", 7: "K(Knockfly)",
 			8: "W(White)", 9: "L(Layground)", 10: "WK(Wakeup)"}
