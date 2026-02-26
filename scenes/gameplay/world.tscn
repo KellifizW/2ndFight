@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://scripts/core/world.gd" id="1_aqk2v"]
-[ext_resource type="Texture2D" uid="uid://bgcxk40jbx143" path="res://assets/stage.png" id="1_fj7yv"]
+[ext_resource type="Texture2D" uid="uid://dgde4231ic5cc" path="res://assets/stage.png" id="1_fj7yv"]
 [ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://scenes/gameplay/FollowCamera.tscn" id="3_gbfbk"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://scenes/ui/healthbar.tscn" id="4_036b0"]
-[ext_resource type="FontFile" uid="uid://dqxxky5sx8p1t" path="res://assets/fonts/RZ Musashi.ttf" id="6_bc84e"]
+[ext_resource type="FontFile" uid="uid://cj4hyo1deaafb" path="res://assets/fonts/RZ Musashi.ttf" id="6_bc84e"]
 [ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://ai/cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://scripts/core/slow_mo_controller.gd" id="7_pkg7o"]
@@ -12,7 +12,7 @@
 [ext_resource type="Script" uid="uid://cydy3y7rrkibl" path="res://scripts/core/PushManager.gd" id="9_ioo17"]
 [ext_resource type="FontFile" uid="uid://cjo5rtwoiiaa4" path="res://assets/fonts/Super Wonder.ttf" id="10_qx3nc"]
 [ext_resource type="Script" uid="uid://difd2h2ijxtjl" path="res://scripts/debug/InputBufferDebug.gd" id="12_cbp6q"]
-[ext_resource type="AudioStream" uid="uid://en36hpohcwig" path="res://assets/audio/bgm.mp3" id="12_k3n1d"]
+[ext_resource type="AudioStream" uid="uid://brk2dcuhf5ypg" path="res://assets/audio/bgm.mp3" id="12_k3n1d"]
 [ext_resource type="Script" uid="uid://4ckupm30y5q3" path="res://scripts/ui/HitboxDebugDisplay.gd" id="13_26xuy"]
 [ext_resource type="Resource" uid="uid://b8qgdymiybxrq" path="res://characters/DAV.character.tres" id="15_26xuy"]
 [ext_resource type="PackedScene" uid="uid://cqrn1wwdo20e6" path="res://scenes/ui/InputHistoryDisplayIcon.tscn" id="15_wukud"]
@@ -283,7 +283,7 @@ script = ExtResource("7_pkg7o")
 
 [node name="PushManager" type="Node" parent="." unique_id=921268698]
 script = ExtResource("9_ioo17")
-jump_push_multiplier = 0.0
+debug_air_pushbox = true
 knockback_deceleration_mode = 2
 
 [node name="ControlHistory" type="Node" parent="." unique_id=800036317]
