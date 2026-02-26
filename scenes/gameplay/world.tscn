@@ -1,23 +1,22 @@
 [gd_scene format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://scripts/core/world.gd" id="1_aqk2v"]
-[ext_resource type="Texture2D" uid="uid://dgde4231ic5cc" path="res://assets/stage.png" id="1_fj7yv"]
-[ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://FollowCamera.tscn" id="3_gbfbk"]
-[ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://healthbar/healthbar.tscn" id="4_036b0"]
-[ext_resource type="FontFile" uid="uid://cj4hyo1deaafb" path="res://assets/fonts/RZ Musashi.ttf" id="6_bc84e"]
+[ext_resource type="Texture2D" uid="uid://bgcxk40jbx143" path="res://assets/stage.png" id="1_fj7yv"]
+[ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://scenes/gameplay/FollowCamera.tscn" id="3_gbfbk"]
+[ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://scenes/ui/healthbar.tscn" id="4_036b0"]
+[ext_resource type="FontFile" uid="uid://dqxxky5sx8p1t" path="res://assets/fonts/RZ Musashi.ttf" id="6_bc84e"]
 [ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://ai/cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://scripts/core/slow_mo_controller.gd" id="7_pkg7o"]
 [ext_resource type="PackedScene" uid="uid://dsnvnd8yxiin5" path="res://scenes/ui/FrameBar.tscn" id="7_wse8f"]
-[ext_resource type="FontFile" uid="uid://drt5it72nn35m" path="res://assets/fonts/SF_font_file.tres" id="9_hiqwa"]
 [ext_resource type="Script" uid="uid://cydy3y7rrkibl" path="res://scripts/core/PushManager.gd" id="9_ioo17"]
-[ext_resource type="FontFile" uid="uid://crtydv7n04mfj" path="res://assets/fonts/GAMERA__.TTF" id="10_wukud"]
-[ext_resource type="Script" uid="uid://difd2h2ijxtjl" path="res://InputBufferDebug.gd" id="12_cbp6q"]
-[ext_resource type="AudioStream" uid="uid://brk2dcuhf5ypg" path="res://assets/audio/bgm.mp3" id="12_k3n1d"]
-[ext_resource type="Script" uid="uid://4ckupm30y5q3" path="res://ui/HitboxDebugDisplay.gd" id="13_26xuy"]
+[ext_resource type="FontFile" uid="uid://cjo5rtwoiiaa4" path="res://assets/fonts/Super Wonder.ttf" id="10_qx3nc"]
+[ext_resource type="Script" uid="uid://difd2h2ijxtjl" path="res://scripts/debug/InputBufferDebug.gd" id="12_cbp6q"]
+[ext_resource type="AudioStream" uid="uid://en36hpohcwig" path="res://assets/audio/bgm.mp3" id="12_k3n1d"]
+[ext_resource type="Script" uid="uid://4ckupm30y5q3" path="res://scripts/ui/HitboxDebugDisplay.gd" id="13_26xuy"]
 [ext_resource type="Resource" uid="uid://b8qgdymiybxrq" path="res://characters/DAV.character.tres" id="15_26xuy"]
-[ext_resource type="PackedScene" uid="uid://cqrn1wwdo20e6" path="res://ui/InputHistoryDisplayIcon.tscn" id="15_wukud"]
-[ext_resource type="PackedScene" uid="uid://c5l4a1b0wwbtl" path="res://assets/ingameUI/countdown_timer.tscn" id="16_2u3nc"]
+[ext_resource type="PackedScene" uid="uid://cqrn1wwdo20e6" path="res://scenes/ui/InputHistoryDisplayIcon.tscn" id="15_wukud"]
+[ext_resource type="PackedScene" uid="uid://c5l4a1b0wwbtl" path="res://scenes/ui/countdown_timer.tscn" id="16_2u3nc"]
 [ext_resource type="Resource" uid="uid://bnbes5q0352er" path="res://characters/DEN.character.tres" id="17_bc84e"]
 [ext_resource type="Shader" uid="uid://di8lua7wssr65" path="res://assets/shaders/shadow.gdshader" id="17_cbp6q"]
 [ext_resource type="SpriteFrames" uid="uid://dgdawo56n6mld" path="res://assets/sprite_frames/player1.tres" id="18_26xuy"]
@@ -89,9 +88,9 @@ anchor_top = 0.72
 anchor_right = 0.129
 anchor_bottom = 0.72
 offset_left = -25.919998
-offset_top = -46.800003
-offset_right = 74.08
-offset_bottom = -23.800003
+offset_top = -189.79999
+offset_right = 171.08002
+offset_bottom = -129.79999
 grow_vertical = 0
 pivot_offset = Vector2(20, 10)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
@@ -170,22 +169,27 @@ offset_bottom = 15.160027
 scale = Vector2(0.85, 0.85)
 
 [node name="P1AdvantageLabel" type="Label" parent="UI" unique_id=1864556228]
-offset_top = 30.0
-offset_right = 171.0
-offset_bottom = 58.0
-theme_override_fonts/font = ExtResource("10_wukud")
+offset_top = 80.0
+offset_right = 251.0
+offset_bottom = 113.0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_fonts/font = ExtResource("10_qx3nc")
+theme_override_font_sizes/font_size = 36
 text = "P1 Advantage: 0.000"
 
 [node name="P2AdvantageLabel" type="Label" parent="UI" unique_id=552810702]
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -180.0
-offset_top = 30.0
-offset_bottom = 58.0
+offset_left = -287.0
+offset_top = 80.0
+offset_bottom = 117.0
 grow_horizontal = 0
-theme_override_fonts/font = ExtResource("9_hiqwa")
-theme_override_font_sizes/font_size = 20
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_y = 3
+theme_override_fonts/font = ExtResource("10_qx3nc")
+theme_override_font_sizes/font_size = 36
 text = "P2 Advantage: 0.000"
 
 [node name="FrameBarP1" parent="UI" unique_id=1294222970 instance=ExtResource("7_wse8f")]
@@ -203,9 +207,9 @@ grow_horizontal = 0
 pivot_offset = Vector2(0, 0)
 
 [node name="PositionLabel" type="Label" parent="UI" unique_id=901885280]
-offset_top = 80.0
+offset_top = 131.0
 offset_right = 100.0
-offset_bottom = 130.0
+offset_bottom = 181.0
 
 [node name="InputBufferDebug" type="Label" parent="UI" unique_id=1939266475]
 anchors_preset = 2

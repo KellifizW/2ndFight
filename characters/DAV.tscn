@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://c4qqdmb1sci8y" path="res://data/ThrowData.gd" id="3_0wmxw"]
 [ext_resource type="SpriteFrames" uid="uid://dgdawo56n6mld" path="res://assets/sprite_frames/player1.tres" id="3_jd35s"]
 [ext_resource type="Texture2D" uid="uid://b6poq4uxqguy5" path="res://assets/Davis2.png" id="4_0wmxw"]
-[ext_resource type="Texture2D" uid="uid://bf08spa3gkec5" path="res://assets/texture/smoke/smoke_01.png" id="5_7kano"]
+[ext_resource type="Texture2D" uid="uid://dtrspm0lofn8v" path="res://assets/texture/smoke/smoke_01.png" id="5_7kano"]
 [ext_resource type="PackedScene" uid="uid://c6auncdpwmjdd" path="res://scenes/vfx/spawnfire.tscn" id="6_rnech"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_t485y"]
 [ext_resource type="Script" uid="uid://fkgk8qof7034" path="res://scripts/combat/movesets/DAVMoveSet.gd" id="8_7kano"]
@@ -13,14 +13,14 @@
 [ext_resource type="Script" uid="uid://tld6w015ripa" path="res://data/SpecialMoveData.gd" id="9_0wmxw"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://scripts/input/InputManager.gd" id="9_sbsnw"]
 [ext_resource type="Script" uid="uid://um826wha4t60" path="res://data/HitPhaseData.gd" id="10_7kano"]
-[ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://assets/audio/heavy_hit_sound.wav" id="10_xvg5s"]
-[ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://assets/audio/block_sound.wav" id="11_knhnm"]
-[ext_resource type="AudioStream" uid="uid://b1h32xlp7um3u" path="res://assets/audio/powerkk_call.mp3" id="13_2tjih"]
-[ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://assets/audio/loud3.mp3" id="14_7kano"]
-[ext_resource type="AudioStream" uid="uid://bhgx3a8oi1nxg" path="res://assets/audio/fireball_call_p1.wav" id="14_smpwk"]
-[ext_resource type="AudioStream" uid="uid://chhkw2i6yrqqj" path="res://assets/audio/hurt_grunt_p1.wav" id="17_t485y"]
-[ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="20_hshs3"]
-[ext_resource type="AudioStream" uid="uid://dyb7uascyla1g" path="res://assets/audio/dp.mp3" id="21_hshs3"]
+[ext_resource type="AudioStream" uid="uid://donxd3nqn4jt2" path="res://assets/audio/heavy_hit_sound.wav" id="10_xvg5s"]
+[ext_resource type="AudioStream" uid="uid://dbe6n06qwaw2i" path="res://assets/audio/block_sound.wav" id="11_knhnm"]
+[ext_resource type="AudioStream" uid="uid://bxlmatohwkn4l" path="res://assets/audio/powerkk_call.mp3" id="13_2tjih"]
+[ext_resource type="AudioStream" uid="uid://chf6ovrhyejma" path="res://assets/audio/loud3.mp3" id="14_7kano"]
+[ext_resource type="AudioStream" uid="uid://drhqr2x37xtuj" path="res://assets/audio/fireball_call_p1.wav" id="14_smpwk"]
+[ext_resource type="AudioStream" uid="uid://g3rf7nob7jv3" path="res://assets/audio/hurt_grunt_p1.wav" id="17_t485y"]
+[ext_resource type="AudioStream" uid="uid://bdoof7d18fx5a" path="res://assets/audio/heavyblock.mp3" id="20_hshs3"]
+[ext_resource type="AudioStream" uid="uid://3tjj0fcbnm31" path="res://assets/audio/dp.mp3" id="21_hshs3"]
 
 [sub_resource type="Resource" id="Resource_7kano"]
 script = ExtResource("3_0wmxw")
@@ -35,7 +35,7 @@ metadata/_custom_type_script = "uid://c4qqdmb1sci8y"
 size = Vector2(90, 270)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_x536s"]
-size = Vector2(140, 50)
+size = Vector2(30, 60)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_md12c"]
 size = Vector2(80, 20)
@@ -211,7 +211,7 @@ size = Vector2(120, 290)
 size = Vector2(100, 290)
 
 [sub_resource type="Animation" id="Animation_3ch2m"]
-length = 0.1
+length = 0.001
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
@@ -414,7 +414,7 @@ tracks/16/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [Vector2(0.49, 0.49)]
+"values": [Vector2(0.5, 0.5)]
 }
 tracks/17/type = "value"
 tracks/17/imported = false
@@ -5108,7 +5108,7 @@ tracks/9/keys = {
 }
 
 [sub_resource type="Animation" id="Animation_yev3d"]
-length = 0.7
+length = 0.9
 loop_mode = 1
 step = 0.1
 tracks/0/type = "value"
@@ -5157,7 +5157,7 @@ tracks/3/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [Vector2(0.51, 0.51)]
+"values": [Vector2(0.5, 0.5)]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -5166,10 +5166,10 @@ tracks/4/path = NodePath("AnimatedSprite2D:frame")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
-"times": PackedFloat32Array(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
-"update": 0,
-"values": [0, 1, 2, 3, 4, 5, 6]
+"times": PackedFloat32Array(0, 0.2, 0.3, 0.5, 0.7),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
+"update": 1,
+"values": [0, 1, 2, 3, 4]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
@@ -5223,7 +5223,7 @@ tracks/2/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [Vector2(0.51, 0.51)]
+"values": [Vector2(0.5, 0.5)]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
@@ -5246,7 +5246,7 @@ tracks/4/loop_wrap = true
 tracks/4/keys = {
 "times": PackedFloat32Array(0, 0.2, 0.4, 0.6, 0.8, 1, 1.2),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
-"update": 0,
+"update": 1,
 "values": [0, 1, 2, 3, 4, 5, 6]
 }
 tracks/5/type = "value"
@@ -7329,7 +7329,7 @@ attack_data = ExtResource("2_rnech")
 throw_data = SubResource("Resource_7kano")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1649500777]
-scale = Vector2(0.49, 0.49)
+scale = Vector2(0.5, 0.5)
 sprite_frames = ExtResource("3_jd35s")
 animation = &"Reset"
 
