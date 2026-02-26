@@ -225,6 +225,7 @@ func _cache_decision(decision: Decision) -> void:
 
 func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 	var threat = threat_system.evaluate_threats(ai_player, opponent)
+	var frame_count = Engine.get_physics_frames()
 	
 	# React to any threat level (including LOW for fireballs)
 	if threat.level == ThreatAssessment.ThreatLevel.NONE:
@@ -238,6 +239,7 @@ func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 				emergency.action = threat_system.get_defense_for_attack(attack_type) if threat_system else "stand_block"
 				emergency.priority = PRIORITY_SURVIVAL
 				emergency.reason = "Emergency block: " + attack_type
+				print("[AI JUMP DECISION] Frame=%d | EMERGENCY BLOCK: %s (dist=%.1f)" % [frame_count, emergency.action, distance])
 				return emergency
 		return null
 	
@@ -248,33 +250,51 @@ func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 		decision.action = "stand_block"
 		decision.reason = "Threat: %s (special gated)" % threat.source
 		decision.priority = PRIORITY_SURVIVAL
+		print("[AI JUMP DECISION] Frame=%d | GATED: %s → block (special unavailable) | threat=%s" % [frame_count, threat.recommended_response, threat.source])
 		return decision
 	
 	# Adjust priority based on threat level
 	if threat.level == ThreatAssessment.ThreatLevel.CRITICAL:
 		decision.priority = PRIORITY_CRITICAL
+		if frame_count % 5 == 0:  # 只在每5幀輸出日志（CRITICAL需要更及時）
+			print("[AI JUMP DECISION] Frame=%d | CRITICAL threat | action=%s | frames_until_hit=%d | distance=%.1f" % [
+				frame_count, decision.action, threat.frames_until_hit, 
+				abs(ai_player.global_position.x - opponent.global_position.x)
+			])
 	elif threat.level == ThreatAssessment.ThreatLevel.HIGH:
 		decision.priority = PRIORITY_SURVIVAL
+		if frame_count % 10 == 0:  # 只在每10幀輸出日志
+			print("[AI JUMP DECISION] Frame=%d | HIGH threat | action=%s | frames_until_hit=%d | source=%s" % [
+				frame_count, decision.action, threat.frames_until_hit, threat.source
+			])
 	elif threat.level == ThreatAssessment.ThreatLevel.MEDIUM:
 		# 🔴 【改進】對中等威脅增加跳躍躲避選項
-		if threat.source == "fireball" and randf() < 0.4:  # 40%機率跳過火球而非格擋
+		if threat.source == "fireball" and randf() < 0.5:  # 【改進】50%機率（改from 40%）跳過火球而非格擋
 			var jump_decision = Decision.new()
 			jump_decision.layer = DecisionLayer.SURVIVAL
-			jump_decision.action = "jump_neutral"
-			jump_decision.priority = PRIORITY_BLOCK + 2.0  # 略高於格擋
+			jump_decision.action = "jump_forward"  # 【改進】改用jump_forward增加對手距離
+			jump_decision.priority = PRIORITY_BLOCK + 3.0  # 略高於格擋
 			jump_decision.reason = "Threat: avoid fireball by jumping"
+			if frame_count % 10 == 0:  # 只在每10幀輸出日志
+				print("[AI JUMP DECISION] Frame=%d | MEDIUM threat → JUMP (50%% chg) | distance=%.1f | frames_until_hit=%d" % [
+					frame_count, abs(ai_player.global_position.x - opponent.global_position.x), threat.frames_until_hit
+				])
 			return jump_decision
 		decision.priority = PRIORITY_BLOCK
 	else:  # LOW
-		# 🔴 【改進】對低威脅（如遠程火球）增加跳躍躲避選項
-		if threat.source == "fireball" and randf() < 0.6:  # 60%機率跳過火球而非格擋
+		# 【改進】對低威脅火球：100% JUMP（移除60%隨機檢查）
+		if threat.source == "fireball":
 			var jump_decision = Decision.new()
 			jump_decision.layer = DecisionLayer.SURVIVAL
 			jump_decision.action = "jump_neutral"
-			jump_decision.priority = 69.0  # 略高於普通攻擊
+			jump_decision.priority = 85.0  # 【改進】提高至85.0（確保擊敗其他選項）
 			jump_decision.reason = "Threat: avoid fireball by jumping"
+			if frame_count % 10 == 0:  # 只在每10幀輸出日志
+				print("[AI JUMP DECISION] Frame=%d | LOW threat → 100%% JUMP | distance=%.1f | frames_until_hit=%d" % [
+					frame_count, abs(ai_player.global_position.x - opponent.global_position.x), threat.frames_until_hit
+				])
 			return jump_decision
-		# For LOW threats (distant fireballs), use tactical priority
+		# For LOW threats (non-fireball), use tactical priority
 		decision.priority = 68.0  # Similar to normal attacks
 	
 	decision.reason = "Threat: " + threat.source

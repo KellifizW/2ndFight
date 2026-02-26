@@ -16,7 +16,6 @@ const FPS_RATIO: float = float(PHYSICS_FPS) / float(LOGIC_FPS)  # 2.0
 
 func _ready() -> void:
 	add_to_group("frame_counter")
-	print("[FrameCounter] ✓ 幀計數器已初始化，開始於幀 0 (120 FPS 物理幀，自動轉換為 60 FPS 邏輯幀)")
 
 func _physics_process(_delta: float) -> void:
 	# 只在非暫停時遞增
@@ -60,19 +59,16 @@ func seconds_to_logic_frames(seconds: float) -> int:
 func pause() -> void:
 	if not is_paused:
 		is_paused = true
-		print("[FrameCounter] ⏸ 幀計數器已暫停（當前幀 %d 物理幀 / %d 邏輯幀）" % [global_frame, get_current_logic_frame()])
 
 ## 恢復計數器
 func resume() -> void:
 	if is_paused:
 		is_paused = false
-		print("[FrameCounter] ▶ 幀計數器已恢復（當前幀 %d 物理幀 / %d 邏輯幀）" % [global_frame, get_current_logic_frame()])
 
 ## 重置計數器（新遊戲/重新開始）
 func reset() -> void:
 	global_frame = 0
 	is_paused = false
-	print("[FrameCounter] 🔄 幀計數器已重置")
 
 ## 檢查是否超過指定幀數（物理幀）
 func has_elapsed_frames(start_frame: int, duration: int) -> bool:

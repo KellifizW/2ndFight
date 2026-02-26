@@ -2,6 +2,7 @@ extends ProgressBar
 
 const DISPLAY_FPS: int = 60
 @export var startup_logs: bool = false
+@export var debug_frame_records: bool = true  # 是否顯示 [FRAMEBAR RECORD] 日誌
 
 # ── 變數宣告 ─────────────────────
 var target_player: Node = null      # 要追蹤的玩家（FrameBar 所屬玩家）
@@ -142,8 +143,7 @@ func initialize(target: Node, opponent: Node = null) -> void:
 	if target.has_meta("player_seat"):
 		var seat = target.get_meta("player_seat")
 		add_to_group("frame_bar_" + seat)
-		if startup_logs:
-			print("[FRAMEBAR] 已註冊到 group: frame_bar_%s" % seat)
+
 	
 	if playback and not animation_tree.animation_finished.is_connected(_on_animation_finished):
 		animation_tree.animation_finished.connect(_on_animation_finished)
@@ -157,17 +157,7 @@ func _process(delta: float) -> void:
 	var world = get_tree().get_first_node_in_group("world")
 	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
 	_is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo
-	
-	# 🟢 【新增】Hit stop 狀態變化檢測與調試
-	if _is_in_hitstop and not _last_hitstop_state:
-		print("[FRAMEBAR] %s - Hit stop 開始，暫停幀數計算" % target_player.name)
-		_last_hitstop_state = true
-	elif not _is_in_hitstop and _last_hitstop_state:
-		print("[FRAMEBAR] %s - Hit stop 結束，恢復幀數計算（暫停了 %d 次更新）" % [
-			target_player.name, _hitstop_paused_counter
-		])
-		_hitstop_paused_counter = 0
-		_last_hitstop_state = false
+
 	
 	# 🟢 【修正】Hit stop 期間跳過幀數更新，但仍保持視覺更新
 	if _is_in_hitstop:
@@ -183,18 +173,12 @@ func _process(delta: float) -> void:
 			_initial_hitstun_frames = cur_frames  # 🟢 【新增】記錄初始值
 			var display_frames: int = int(round(cur_frames / 2.0))
 			var real_seconds: float = cur_frames / float(Engine.physics_ticks_per_second)
-			print("[HITSTUN] %s 進入 hitstun → %d 物理幀 (%d 顯示幀 / %.3f秒)" % [
-				target_player.name, cur_frames, display_frames, real_seconds
-			])
 			_hitstun_start_logged = true
 		elif cur_frames <= 0 and _hitstun_start_logged:
 			# 🟢 【修正】使用初始值計算總耗時
 			var hitstun_total_frames = _initial_hitstun_frames
 			var display_frames: int = int(round(hitstun_total_frames / 2.0))
 			var real_seconds: float = hitstun_total_frames / float(Engine.physics_ticks_per_second)
-			print("[HITSTUN] %s hitstun 結束，共 %d 物理幀 (%d 顯示幀 / %.3f秒)" % [
-				target_player.name, hitstun_total_frames, display_frames, real_seconds
-			])
 			_hitstun_start_logged = false
 		_last_hitstun_frames = cur_frames
 	
@@ -264,12 +248,8 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 		if "hitstun_frames" in target_player:
 			var hitstun_physics_frames = target_player.hitstun_frames
 			expected_stun_frames = int(hitstun_physics_frames / 2.0)  # 轉換為邏輯幀
-			print("[FRAMEBAR] %s - 進入 hit 動畫，重置 display_frame_counter，預期 hitstun: %d 邏輯幀 (%d 物理幀)" % [
-				target_player.name, expected_stun_frames, hitstun_physics_frames
-			])
 		else:
 			expected_stun_frames = 0
-			print("[FRAMEBAR] %s - 進入 hit 動畫，重置 display_frame_counter 為 0" % target_player.name)
 	
 	_handle_block_hit_chain(flags)
 	
@@ -305,16 +285,13 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 	if state != -1:
 		frame_data[current_frame - 1] = state
 	
-	# 🟢 【除錯】每幀記錄 FrameBar 狀態（攻擊動畫 / timer 驅動，但不含 layground）
-	if (anim_name in ATTACK_ANIMS or timer_driven) and anim_name != "layground":
+	# 🟢 【除錯】每幀記錄 FrameBar 狀態（攻擊動畫 / timer 驅動）
+	if (anim_name in ATTACK_ANIMS or timer_driven) and debug_frame_records:
 		const STATE_NAMES := {0: "S(Startup)", 1: "A(Active)", 2: "R(Recovery)",
 			4: "B(Block)", 5: "J(Jump)", 6: "H(Hit)", 7: "K(Knockfly)",
 			8: "W(White)", 9: "L(Layground)", 10: "WK(Wakeup)"}
 		var state_label: String = STATE_NAMES.get(state, "?("+str(state)+")")
 		var raw_pos_frame: int = int(pos * DISPLAY_FPS)
-		print("[FRAMEBAR RECORD] %s | anim='%s' pos=%.4f raw_pos_frame=%d → current_frame=%d state=%s | frame_data.size=%d" % [
-			target_player.name, anim_name, pos, raw_pos_frame, current_frame, state_label, frame_data.size()
-		])
 	
 	if timer_driven or knockfly_chain or block_hit_chain_active:
 		# 🟢 【修正】只在每個物理幀增加一次 display_frame_counter（防止渲染幀率導致快速遞增）
@@ -342,12 +319,6 @@ func _process_tracked(anim_name: String, pos: float, flags: Dictionary, timer_dr
 			if should_increment:
 				display_frame_counter += 1
 				_last_physics_frame = current_physics_frame
-			
-			# 🟢 【新增】調試信息：重要的幀數遞增（僅在關鍵狀態變化時輸出）
-			if old_counter == 0 or (flags.hit and old_counter % 10 == 0) or (flags.blocking and old_counter % 10 == 0):
-				print("[FRAMEBAR COUNTER] %s - display_frame_counter: %d → %d (anim: %s, state: %d, timer_driven: %s)" % [
-					target_player.name, old_counter, display_frame_counter, anim_name, state, timer_driven
-				])
 	
 	# 🟢 【修正】current_frame 已是 1-indexed，不需再 +1
 	value = min(current_frame, total_frames)
@@ -521,8 +492,6 @@ func _start_new_animation(anim_name: String) -> void:
 		reset_delay_timer = 0.0
 	else:
 		# 🟢 【修改】保存前一個狀態到歷史，而不是直接清空
-		if frame_data.size() > 0 and anim_name in ATTACK_ANIMS:
-			print("[FRAMEBAR NEW ANIM] %s - saving old '%s' to history | frame_data.size()=%d" % [target_player.name, last_animation, frame_data.size()])
 		
 		if frame_data.size() > 0:
 			history_frame_data.clear()
@@ -545,7 +514,6 @@ func _start_new_animation(anim_name: String) -> void:
 			if target_player.animation_player.has_animation(anim_name):
 				var anim_length = target_player.animation_player.get_animation(anim_name).length
 				current_attack_expected_frames = int(round(anim_length * 60))
-				print("[FRAMEBAR NEW ANIM START] %s - starting '%s' animation | expected: %dF | display_frame_counter reset to 0" % [target_player.name, anim_name, current_attack_expected_frames])
 			else:
 				current_attack_expected_frames = 0
 		else:
@@ -557,13 +525,11 @@ func _start_new_animation(anim_name: String) -> void:
 		fireball_tracking_active = true
 		fireball_call_method_triggered = false
 		fireball_startup_frame_count = 0
-		print("[FRAMEBAR] %s - 開始追蹤 fireball 動畫，舊資料已保存到歷史" % target_player.name)
+
 	else:
 		# 當離開 fireball 動畫時，停止追蹤但保持顯示
 		if fireball_tracking_active and anim_name != last_animation:
-			print("[FRAMEBAR] %s - 結束 fireball 追蹤 (Startup:%d)，進度條將保持顯示" % [
-				target_player.name, fireball_startup_frame_count
-			])
+
 			fireball_tracking_active = false
 			fireball_call_method_triggered = false
 	
@@ -610,9 +576,6 @@ func on_fireball_call_method_triggered() -> void:
 	if fireball_tracking_active and not fireball_call_method_triggered:
 		fireball_call_method_triggered = true
 		fireball_startup_frame_count = current_frame
-		print("[FRAMEBAR FIREBALL] %s - Call method 已觸發！Startup 幀數: %d" % [
-			target_player.name, fireball_startup_frame_count
-		])
 
 func update_frame_count_label(anim_name: String) -> void:
 	if not frame_count_label: return
@@ -673,13 +636,6 @@ func _on_animation_finished(anim_name: String) -> void:
 		# 🟢 【新增】加鎖防止動畫完成後記錄多餘的幀
 		animation_finished_locking = true
 		# 保持顯示，直到下一個新狀態開始
-		print("[FRAMEBAR ATTACK FINISH] %s - animation '%s' finished | display_frame_counter=%d (@120FPS) → %dF (@60FPS) | frame_data.size()=%d" % [
-			target_player.name, anim_name, display_frame_counter, int(display_frame_counter / 2.0), frame_data.size()
-		])
-		if "attack_duration_timer" in target_player:
-			print("[FRAMEBAR ATTACK FINISH DETAIL] attack_duration_timer: %d | Expected: %d" % [
-				target_player.attack_duration_timer, display_frame_counter
-			])
 	
 	if anim_name == "wakeup" and knockfly_chain_active:
 		knockfly_chain_completed = true

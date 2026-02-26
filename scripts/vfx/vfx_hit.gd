@@ -9,10 +9,8 @@ func _ready():
 		particles_1.emitting = true
 	if particles_2:
 		particles_2.emitting = true
-	print("Debug: VFX_hit initialized, particles emitting: %s, %s" % [particles_1.emitting, particles_2.emitting])
 
 func _process(_delta):
 	# 檢查兩個粒子系統是否都停止播放
 	if not particles_1.emitting and not particles_2.emitting:
 		queue_free()
-		print("Debug: VFX_hit particles finished, freeing node at position %s" % global_position)

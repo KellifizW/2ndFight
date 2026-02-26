@@ -328,20 +328,10 @@ func _calculate_hit_advantage() -> void:
 		if "hitstun_frames" in target_player and target_player.hitstun_frames > 0:
 			# ✅ 兩個都是物理幀，直接相加（無轉換誤差）
 			target_recover_frame = hit_frame + target_player.hitstun_frames
-			print("[ADVANTAGE CALC] Target 恢復時間計算：")
-			print("  - 被擊幀: %d 物理幀" % hit_frame)
-			print("  - hitstun_frames: %d 物理幀 (來自 Fighter.gd 已轉換值)" % target_player.hitstun_frames)
-			print("  - 目標恢復幀: %d 物理幀" % target_recover_frame)
-		else:
-			# 備用方案（不應到達）
-			var fallback_hitstun = int(hitstun_frames * frame_counter.FPS_RATIO) if hitstun_frames > 0 else 26
-			target_recover_frame = hit_frame + fallback_hitstun
-			print("[ADVANTAGE CALC] Target 恢復時間計算（備用）：")
-			print("  - 被擊幀: %d 物理幀" % hit_frame)
-			print("  - hitstun_frames (備用): %d 物理幀" % fallback_hitstun)
-			print("  - 目標恢復幀: %d 物理幀" % target_recover_frame)
-	
-	# 🟢 【第2步】計算攻擊者恢復時間（使用攻擊開始幀 + 完整時長）
+	else:
+		# 備用方案（不應到達）
+		var fallback_hitstun = int(hitstun_frames * frame_counter.FPS_RATIO) if hitstun_frames > 0 else 26
+		target_recover_frame = hit_frame + fallback_hitstun
 	if attacker_recover_frame == -1 and is_instance_valid(attacker):
 		# 🟢 【修復】使用攻擊開始幀 + 完整動畫時長（而非「當前幀 + 剩餘timer」）
 		# 根本原因：hit stop 期間會凍結 FrameCounter，導致「當前幀 + timer」計算出錯
@@ -350,18 +340,14 @@ func _calculate_hit_advantage() -> void:
 		if "attack_start_frame" in attacker and attack_start_frame != -1 and attack_duration_frames > 0:
 			# ✅ 最精確方式：attack_start_frame + 完整動畫時長（不受 hit stop 影響）
 			attacker_recover_frame = attack_start_frame + attack_duration_frames
-			print("[ADVANTAGE CALC] Attacker 恢復時間計算（基於動畫時長）：")
-			print("  - 攻擊開始幀: %d 物理幀" % attack_start_frame)
-			print("  - 攻擊完整時長: %d 物理幀" % attack_duration_frames)
-			print("  - 攻擊恢復幀: %d 物理幀 (%d + %d)" % [attacker_recover_frame, attack_start_frame, attack_duration_frames])
+
 		elif "is_attacking" in attacker and not attacker.is_attacking:
 			# 備用：攻擊已結束，記錄當前幀
 			attacker_recover_frame = frame_counter.get_current_frame()
-			print("[ADVANTAGE CALC] Attacker 恢復時間計算（攻擊已結束）：")
-			print("  - 攻擊恢復幀: %d 物理幀" % attacker_recover_frame)
+
 		else:
 			# 備用：未知狀態
-			print("[ADVANTAGE CALC] ⚠ Attacker：無法確定恢復幀（缺少攻擊數據）")
+			pass
 	
 	# 🟢 【第3步】計算優勢（都確認恢復時）
 	if attacker_recover_frame != -1 and target_recover_frame != -1 and not advantage_calculated:
@@ -376,23 +362,7 @@ func _calculate_hit_advantage() -> void:
 		# 秒數計算（基於邏輯幀）
 		var advantage_seconds = frame_counter.logic_frames_to_seconds(logic_advantage_frames)
 		
-		# 詳細除錯輸出
-		print("[ADVANTAGE CALC] ════════════════════════════════════════")
-		print("[ADVANTAGE CALC] 最終優勢計算結果：")
-		print("  - Attacker 恢復幀: %d 物理幀 (%.1f 邏輯幀)" % [attacker_recover_frame, float(attacker_recover_frame) / frame_counter.FPS_RATIO])
-		print("  - Target 恢復幀: %d 物理幀 (%.1f 邏輯幀)" % [target_recover_frame, float(target_recover_frame) / frame_counter.FPS_RATIO])
-		print("  - 物理幀差異: %d (120 FPS)" % physics_advantage_frames)
-		print("  - 邏輯幀差異: %d (60 FPS) [%d / 2.0 = %.2f → 向下舍入為 %d]" % [
-			logic_advantage_frames, physics_advantage_frames, float(physics_advantage_frames) / 2.0, logic_advantage_frames
-		])
-		print("  - 秒數優勢: %.6f 秒 (%d / 60.0)" % [advantage_seconds, logic_advantage_frames])
-		print("[ADVANTAGE CALC] ════════════════════════════════════════")
-		
 		_update_advantage_labels(attacker, logic_advantage_frames, false, advantage_seconds)
-		advantage_calculated = true
-		print("[HIT ADVANTAGE] ✓ 優勢計算完成 - %s: %dF (%.6f秒)" % [
-			attacker.name, logic_advantage_frames, advantage_seconds
-		])
 
 func _calculate_block_advantage() -> void:
 	var valid = is_instance_valid(block_attacker) and is_instance_valid(blocker)
@@ -425,9 +395,6 @@ func _calculate_block_advantage() -> void:
 		var advantage_seconds = frame_counter.logic_frames_to_seconds(logic_advantage_frames)  # ✅ 基於 60 FPS 計算秒數
 		_update_advantage_labels(block_attacker, logic_advantage_frames, true, advantage_seconds)
 		block_advantage_calculated = true
-		print("[BLOCK ADVANTAGE] ✓ 優勢計算完成 - %s: %dF (%.6f秒) - 精確幀級計算 (物理幀: %d → 邏輯幀: %d)" % [
-			block_attacker.name, logic_advantage_frames, advantage_seconds, physics_advantage_frames, logic_advantage_frames
-		])
 
 func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_block: bool = false, real_seconds: float = 0.0) -> void:
 	# 計算各玩家的優勢幀數
@@ -526,13 +493,6 @@ func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_blo
 		advantage_sec_str = "0.000s"
 	
 	var attacker_name = attacker_node.name if attacker_node else StringName("Unknown")
-	print("[ADVANTAGE] %s → %s 的優勢：%sF (%s) → P1: %s / P2: %s" % [
-		type,
-		attacker_name,
-		advantage_str,
-		advantage_sec_str,
-		a_text, b_text
-	])
 
 func to_scaled_vector2(vector: Vector2i) -> Vector2:
 	return Vector2(float(vector.x) / SIMULATION_SCALE, float(vector.y) / SIMULATION_SCALE)
@@ -745,7 +705,6 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 	
 	if not is_blocked:
 		hit_label.text = "Hits: " + target + " was hit!"
-		print("Debug: %s was hit at %s ms, stun_duration=%s" % [target, hit_time_ms, stun_duration])
 		
 		if was_in_stun and combo_target == target and current_combo > 0:
 			current_combo += 1
@@ -778,9 +737,6 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 			else:
 				# 備用：轉換信號的 stun_duration（邏輯幀）→ 物理幀
 				hitstun_frames = int(stun_duration * frame_counter.FPS_RATIO)
-				print("[HIT DETECTION] 備用計算 - hitstun_frames = %d 物理幀 (%.1f 邏輯幀 × 2.0)" % [
-					hitstun_frames, stun_duration
-				])
 			
 			# 🟢 【修復】記錄攻擊的完整持續時間（物理幀）
 			# 用於在 _calculate_hit_advantage() 中準確計算恢復時間
@@ -791,14 +747,7 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 				if anim_player and anim_player.has_animation(attack_type):
 					var anim_length = anim_player.get_animation(attack_type).length
 					attack_duration_frames = int(round(anim_length * frame_counter.PHYSICS_FPS))
-					print("[HIT DETECTION] 攻擊時長: %.3f 秒 = %d 邏輯幀 = %d 物理幀 (%s)" % [
-						anim_length, int(round(anim_length * 60)), attack_duration_frames, attack_type
-					])
-			
-			print("[HIT DETECTION] 被擊幀數: %d 物理幀 (%.1f 邏輯幀) | 攻擊開始幀: %d | 攻擊時長: %d 物理幀" % [
-				hit_frame, hit_frame / frame_counter.FPS_RATIO,
-				attack_start_frame, attack_duration_frames
-			])
+
 		
 		attacker_recover_frame = -1
 		target_recover_frame = -1
@@ -827,7 +776,6 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 	
 	var attacker_name: String = str(attacker.name) if attacker else "none"
 	var target_name: String = str(target_player.name) if target_player else "none"
-	print("Debug: Hit detected at %s ms, attacker=%s, target=%s" % [hit_time_ms, attacker_name, target_name])
 
 func _on_block_detected(target: String, block_type: String) -> void:
 	var block_time_ms = Time.get_ticks_msec()

@@ -344,6 +344,18 @@ func _physics_process(delta: float) -> void:
 	
 	global_position = world.to_scaled_vector2(fixed_position) if world else Vector2(float(fixed_position.x) / 1000.0, float(fixed_position.y) / 1000.0)
 	
+	# 【新增調試】跳躍軌跡追蹤
+	if is_jumping and Engine.get_physics_frames() % 5 == 0:
+		var seat_name = player.seat if player and "seat" in player else "?"
+		print("[JUMP TRAJECTORY] Frame=%d | Seat=%s | Y=%d | Vel.y=%d | jump_delay_timer=%d | on_floor=%s" % [
+			Engine.get_physics_frames(),
+			seat_name,
+			fixed_position.y,
+			fixed_velocity.y,
+			jump_delay_timer,
+			is_on_floor()
+		])
+	
 	if just_jumped and fixed_velocity.y > 0:
 		just_jumped = false
 	
@@ -415,13 +427,11 @@ func _on_hurtbox_area_entered(area: Area2D) -> void:
 	# 檢測對手玩家的 Proximitybox
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = true
-		print("[PROXIMITY] %s: 對手玩家進入proximity range" % player_seat)
 		return
 	
 	# 檢測 fireball 的 proximity area (Layer 8 = 128)
 	if area.collision_layer & 128:  # Layer 8 檢測
 		is_opponent_proximity = true
-		print("[PROXIMITY] %s: Fireball proximity 進入 (layer=%d, name=%s)" % [player_seat, area.collision_layer, area.name])
 		return
 
 func _on_hurtbox_area_exited(area: Area2D) -> void:
@@ -431,14 +441,12 @@ func _on_hurtbox_area_exited(area: Area2D) -> void:
 	if area.name == "Proximitybox" and area.get_parent().is_in_group("players") and area.get_parent() != self:
 		is_opponent_proximity = false
 		is_proximity_blocking = false
-		print("[PROXIMITY] %s: 對手玩家離開proximity range" % player_seat)
 		return
 	
 	# 檢測 fireball 的 proximity area 離開 (Layer 8 = 128)
 	if area.collision_layer & 128:
 		is_opponent_proximity = false
 		is_proximity_blocking = false
-		print("[PROXIMITY] %s: Fireball proximity 離開 (layer=%d, name=%s)" % [player_seat, area.collision_layer, area.name])
 		return
 
 func _set_facing(new_facing: float) -> void:

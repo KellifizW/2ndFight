@@ -60,14 +60,6 @@ func init_vfx(pos: Vector2, facing: float) -> void:
 			
 			particles.restart()
 			particles.emitting = true
-	
-	print("Debug: %s VFX spawned at %s (facing: %s) with %d particles at %s ms" % [
-		"Block" if "blk" in get_scene_file_path() else "Hit",
-		global_position,
-		facing_direction,
-		get_children().filter(func(c): return c is GPUParticles2D).size(),
-		Time.get_ticks_msec()
-	])
 
 func _process(_delta):
 	var all_finished = true
@@ -78,4 +70,3 @@ func _process(_delta):
 	
 	if all_finished and get_child_count() > 0:
 		queue_free()
-		print("Debug: VFX_impact all particles finished, freeing node at %s" % global_position)

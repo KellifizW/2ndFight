@@ -214,6 +214,28 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 		var proj_direction = proj.get("direction") if "direction" in proj else 1
 		var relative_dir = sign(ai_player.global_position.x - proj.global_position.x)
 		
+		# 【新增詳細日誌】Fireball 檢測信息
+		var frame_count = Engine.get_physics_frames()
+		if frame_count % 5 == 0:  # 每5幀打印一次，避免日誌過度
+			print("[FIREBALL THREAT] Frame=%d | Detect=%s | Dir=%.0f(proj) vs %.0f(rel) | Dist=%.1f | Speed=%.1f | ETA=%.2fs(%d frames)" % [
+				frame_count,
+				"✓" if proj_direction == relative_dir else "✗",
+				proj_direction,
+				relative_dir,
+				distance,
+				actual_speed,
+				distance / actual_speed if actual_speed > 0 else 0,
+				frames_to_impact
+			])
+			print("  📍 Fireball Pos: (%.1f, %.1f) | AI Pos: (%.1f, %.1f) | Y差: %.1f" % [
+				proj.global_position.x,
+				proj.global_position.y,
+				ai_player.global_position.x,
+				ai_player.global_position.y,
+				abs(proj.global_position.y - ai_player.global_position.y)
+			])
+			print("  🎯 Velocity: %s | Speed: %.1f (from proj)" % [velocity, speed_value])
+		
 		# 如果火球不是朝向AI玩家，跳過
 		if proj_direction != relative_dir:
 			continue
@@ -222,11 +244,19 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 			threat.frames_until_hit = frames_to_impact
 			threat.source = "fireball"
 			
+			# 【優化日誌】只在威胁等级改变时输出
+			var old_response = threat.recommended_response
+			var y_diff = abs(proj.global_position.y - ai_player.global_position.y)
+			
 			# 根據距離和時間選擇最佳應對策略
 			if frames_to_impact < 15:  # 非常接近（<0.25秒）
 				threat.level = ThreatLevel.CRITICAL
 				# 近距離：格擋是最安全的選擇
 				threat.recommended_response = "stand_block"
+				if frame_count % 5 == 0:  # CRITICAL每5幀輸出一次
+					print("[FIREBALL THREAT EVAL] Frame=%d | CRITICAL(<%dF) | Dist=%.1f Y=%.1f | Response: %s" % [
+						frame_count, frames_to_impact, distance, y_diff, threat.recommended_response
+					])
 			
 			elif frames_to_impact < 30:  # 接近（0.25-0.5秒）
 				threat.level = ThreatLevel.HIGH
@@ -239,6 +269,10 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 				else:
 					# 較遠：向前跳躍接近
 					threat.recommended_response = "jump_forward"
+				if frame_count % 10 == 0:  # HIGH每10幀輸出一次
+					print("[FIREBALL THREAT EVAL] Frame=%d | HIGH(%dF) | Dist=%.1f Y=%.1f | Response: %s" % [
+						frame_count, frames_to_impact, distance, y_diff, threat.recommended_response
+					])
 			
 			elif frames_to_impact < 50:  # 中等距離（0.5-0.83秒）
 				threat.level = ThreatLevel.MEDIUM
@@ -252,18 +286,19 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 						threat.recommended_response = "fireball" if randf() > 0.4 else "jump_forward"
 					else:
 						threat.recommended_response = "jump_forward"
+				if frame_count % 10 == 0:  # MEDIUM每10幀輸出一次
+					print("[FIREBALL THREAT EVAL] Frame=%d | MEDIUM(%dF) | Dist=%.1f Y=%.1f | Response: %s" % [
+						frame_count, frames_to_impact, distance, y_diff, threat.recommended_response
+					])
 			
 			else:  # 遠距離（>0.83秒）
 				threat.level = ThreatLevel.LOW
-				if distance > 300:
-					# 超遠距離：發波對抗或向前移動
-					if ai_player and ai_player.move_set and not ai_player.move_set.is_spmove:
-						threat.recommended_response = "fireball" if randf() > 0.5 else "dash_forward"
-					else:
-						threat.recommended_response = "dash_forward"
-				else:
-					# 一般遠距離：跳躍接近
-					threat.recommended_response = "jump_forward"
+				# 【修正】低威脅火球改為ALWAYS jump，不再隨機dash
+				threat.recommended_response = "jump_neutral"
+				if frame_count % 10 == 0:  # LOW每10幀輸出一次
+					print("[FIREBALL THREAT EVAL] Frame=%d | LOW(%.1fs) | Dist=%.1f Y=%.1f | Response: %s" % [
+						frame_count, frames_to_impact/60.0, distance, y_diff, threat.recommended_response
+					])
 	
 	return threat
 

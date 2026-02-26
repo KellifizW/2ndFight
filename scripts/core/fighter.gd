@@ -104,7 +104,6 @@ func _physics_process(delta: float) -> void:
 		
 		is_hit = true
 		if hitstun_frames <= 0:
-			print("[FIXED-FRAME HITSTUN END] %s 完全結束！" % name)
 			# 如果不是在空中受擊狀態，才清除 is_hit
 			if not is_air_hit_backjump:
 				is_hit = false
@@ -362,13 +361,9 @@ func take_hit(
 			# Hit stop 未進行或已完成 → 立即設置 hitstun/knockback/blockstun
 			hitstun_frames = hit_frames
 			initial_hitstun = hitstun_seconds
-			print("[DEBUG] hitstun_frames 被設置為: %d (hit_frames=%d, physics_hitstun=%d, 邏輯幀輸入=%d)" % [hitstun_frames, hit_frames, physics_hitstun, hitstun_duration])
 		
 		# hit_timer = hitstun時間，確保knockback完整執行
 		hit_timer = hitstun_seconds
-		print("[HITSTUN START] %s 進入受擊，%d 物理幀 (%.3f秒)，hit_timer=%.3fs @ %.3fs" % [
-			name, hit_frames, hitstun_seconds, hit_timer, Time.get_ticks_msec() / 1000.0
-		])
 		
 		if not is_on_floor():
 			# 空中普通攻擊：強制使用後跳邏輯，垂直速度為正常跳躍的 0.7 倍

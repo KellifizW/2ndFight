@@ -90,7 +90,7 @@ func request_hit_freeze():
 	# 退出慢動作（0.01秒，真實時間）
 	tween.tween_property(Engine, "time_scale", normal_time_scale, hit_slowmo_exit_time)
 	tween.tween_callback(_on_hit_slowmo_finished)
-	print("Debug: Hit slowmo triggered, set time_scale=%s instantly, sustaining for %s seconds, then transitioning to %s over %s seconds (real time)" % [hit_slowmo_time_scale, hit_slowmo_time, normal_time_scale, hit_slowmo_exit_time])
+
 
 # 進入慢動作的動畫（手動切換）
 func enter_slowmo_animation():
@@ -145,13 +145,10 @@ func _on_hit_slowmo_finished():
 	
 	# 除錯：計算並打印真實持續時間（秒）
 	var duration_sec = (Time.get_ticks_msec() - hit_start_time) / 1000.0
-	print("Debug: Hit slowmo duration: %s seconds" % duration_sec)
-	print("Debug: Hit slowmo finished, is_hit_slowmo=%s, time_scale=%s" % [is_hit_slowmo, Engine.time_scale])
 	# 🟢 發送信號通知所有 Fighter，hit stop 已完成，可以開始 hitstun/knockback/blockstun
 	emit_signal("hit_slowmo_finished")
 	if pending_slowmo_request:
 		pending_slowmo_request = false
-		print("Debug: Starting deferred slowmo after hit stop")
 		enter_slowmo_animation()
 # 手動切換慢動作開關（用於測試或手動控制）
 func toggle_slowmo():
@@ -199,6 +196,6 @@ func _sync_player_animations(speed_scale: float) -> void:
 				continue
 			
 			if speed_scale < 1.0:
-				print("[SLOWMO SYNC] %s 動畫減速：%.3f" % [player.name, speed_scale])
+				pass
 			else:
-				print("[SLOWMO SYNC] %s 動畫恢復：%.3f" % [player.name, speed_scale])
+				pass

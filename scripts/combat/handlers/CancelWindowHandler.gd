@@ -22,28 +22,24 @@ func _ready() -> void:
 func open_window(allowed_moves: Array = []) -> void:
 	"""準備取消窗口（由動畫軌道調用，等待擊中確認）"""
 	pending_targets = allowed_moves.duplicate()
-	print("[CancelWindowHandler] %s 準備取消窗口（等待擊中確認），允許: %s" % [
-		parent_player.attack_type if parent_player else "UNKNOWN",
-		allowed_moves
-	])
 
 func close_window() -> void:
 	"""關閉取消窗口（由動畫軌道調用）"""
 	is_window_open = false
 	allowed_targets = []
 	# 保留 pending_targets，因為擊中確認可能在窗口關閉後才觸發（slowmo延遲）
-	print("[CancelWindowHandler] 取消窗口關閉（pending targets 保留給擊中確認）")
+	# 取消窗口關閉
 
 func on_hit_confirm() -> void:
 	"""擊中確認取消（Hit-Confirm Cancel）：只有在擊中對手時才真正開啟取消窗口"""
 	if pending_targets.size() > 0:
 		is_window_open = true
 		allowed_targets = pending_targets.duplicate()
-		print("[CancelWindowHandler] ✓ 擊中確認！開啟取消窗口，允許: %s" % allowed_targets)
+		pass
 		# 使用後立即清空，避免重複觸發
 		pending_targets = []
 	else:
-		print("[CancelWindowHandler] ✗ 擊中但無待開啟的取消窗口（pending_targets 為空）")
+		pass
 
 func check_cancel(input_move: String, current_attack: String) -> bool:
 	"""
@@ -57,13 +53,11 @@ func check_cancel(input_move: String, current_attack: String) -> bool:
 		return false
 	
 	if input_move in allowed_targets:
-		print("[CancelWindowHandler] ✓ 取消 %s → %s" % [current_attack, input_move])
+		pass
 		cancel_triggered.emit(current_attack, input_move)
 		return true
 	else:
-		print("[CancelWindowHandler] ✗ %s 不能取消成 %s（允許: %s）" % [
-			current_attack, input_move, allowed_targets
-		])
+		pass
 		return false
 
 func reset() -> void:

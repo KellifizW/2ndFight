@@ -195,6 +195,7 @@ text = "P2 Advantage: 0.000"
 [node name="FrameBarP1" parent="UI" unique_id=1294222970 instance=ExtResource("7_wse8f")]
 offset_right = 360.0
 offset_bottom = 20.0
+debug_frame_records = false
 
 [node name="FrameBarP2" parent="UI" unique_id=1518191509 instance=ExtResource("7_wse8f")]
 anchors_preset = 1
@@ -205,6 +206,7 @@ offset_right = -19.998901
 offset_bottom = 20.0
 grow_horizontal = 0
 pivot_offset = Vector2(0, 0)
+debug_frame_records = false
 
 [node name="PositionLabel" type="Label" parent="UI" unique_id=901885280]
 offset_top = 131.0
@@ -283,7 +285,6 @@ script = ExtResource("7_pkg7o")
 
 [node name="PushManager" type="Node" parent="." unique_id=921268698]
 script = ExtResource("9_ioo17")
-debug_air_pushbox = true
 knockback_deceleration_mode = 2
 
 [node name="ControlHistory" type="Node" parent="." unique_id=800036317]

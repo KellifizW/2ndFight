@@ -823,12 +823,31 @@ func _action_to_input(action: String) -> Dictionary:
 		"jump_forward":
 			input.jump_pressed = true
 			input.input_dir = int(relative_dir)
+			if debug_mode:
+				var frame_count = Engine.get_physics_frames()
+				var dist = abs(parent.global_position.x - opponent.global_position.x) if opponent else 0
+				print("[AI ACTION→INPUT] Frame=%d | jump_forward | dir=%d | dist=%.1f | opponent_y=%.1f | self_y=%.1f" % [
+					frame_count, int(relative_dir), dist, 
+					opponent.global_position.y if opponent else 0,
+					parent.global_position.y
+				])
 		"jump_backward":
 			input.jump_pressed = true
 			input.input_dir = -int(relative_dir)
+			if debug_mode:
+				var frame_count = Engine.get_physics_frames()
+				print("[AI ACTION→INPUT] Frame=%d | jump_backward | dir=%d" % [frame_count, -int(relative_dir)])
 		"jump_neutral":
 			input.jump_pressed = true
 			input.input_dir = 0
+			if debug_mode:
+				var frame_count = Engine.get_physics_frames()
+				var dist = abs(parent.global_position.x - opponent.global_position.x) if opponent else 0
+				print("[AI ACTION→INPUT] Frame=%d | jump_neutral | dist=%.1f | opponent_y=%.1f | self_y=%.1f" % [
+					frame_count, dist,
+					opponent.global_position.y if opponent else 0,
+					parent.global_position.y
+				])
 		"walk_forward":
 			input.input_dir = int(relative_dir)
 		"walk_backward":

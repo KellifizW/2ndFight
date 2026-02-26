@@ -29,32 +29,23 @@ func start_movement(attack_name: String, attack_table: Dictionary) -> void:
 	"""啟動攻擊移動（由攻擊執行時呼叫）"""
 	# 【修正】throw 不在 ATTACK_TABLE 中，特殊處理（throw 通常沒有自定義移動）
 	if attack_name == "throw_enter" or attack_name == "throw_seq":
-		print("[AttackMovementHandler] %s 是摔投攻擊，跳過自定義移動" % attack_name)
 		return
 	
 	if not attack_name in attack_table:
-		print("[AttackMovementHandler] %s 不在 ATTACK_TABLE 中" % attack_name)
 		return
 	
 	var attack_dict = attack_table[attack_name]
 	if not "movement" in attack_dict or attack_dict.movement == null:
-		print("[AttackMovementHandler] %s 沒有設定 movement 屬性" % attack_name)
 		return
 	
 	var movement_resource = attack_dict.movement
 	
 	# 檢查 movement 是否啟用
 	if not movement_resource.enabled:
-		print("[AttackMovementHandler] %s 的 movement 未啟用 (enabled=false)" % attack_name)
 		return
 	
 	# 檢查基本參數
 	if movement_resource.distance <= 0.0 or movement_resource.duration <= 0.0:
-		print("[AttackMovementHandler] %s 的 movement 參數無效 (distance=%.1f, duration=%.2f)" % [
-			attack_name,
-			movement_resource.distance,
-			movement_resource.duration
-		])
 		return
 	
 	active_movement = movement_resource
@@ -64,15 +55,6 @@ func start_movement(attack_name: String, attack_table: Dictionary) -> void:
 	# 🔴 【關鍵修復】轉換為幀數：執行於 120 FPS 物理上下文，所以應乘以 120 而非 60
 	movement_duration_frames = int(round(active_movement.duration * 120.0))
 	movement_start_delay_frames = int(round(active_movement.start_delay * 120.0))
-	
-	print("[AttackMovementHandler] ✓ 啟動 %s 移動：distance=%.1f, duration=%.2f (%d frames), curve=%d, enabled=%s" % [
-		attack_name,
-		active_movement.distance,
-		active_movement.duration,
-		movement_duration_frames,
-		active_movement.curve_type,
-		active_movement.enabled
-	])
 
 func process_movement(_delta: float) -> void:
 	"""每幀更新攻擊移動（在 _physics_process 中調用）"""
@@ -94,7 +76,6 @@ func process_movement(_delta: float) -> void:
 	# 檢查是否超過持續時間
 	if effective_frames >= movement_duration_frames:
 		is_movement_active = false
-		print("[AttackMovementHandler] ✓ 移動完成")
 		return
 	
 	# 計算移動方向
@@ -117,15 +98,6 @@ func process_movement(_delta: float) -> void:
 	
 	# 轉換為固定點速度
 	parent_player.fixed_velocity.x = int(current_speed * world.SIMULATION_SCALE)
-	
-	# 調試輸出（每 10 幀輸出一次）
-	if movement_timer % 10 == 0:
-		print("[AttackMovementHandler] frame=%d, effective_frames=%d, speed_mult=%.2f, velocity=%d" % [
-			movement_timer,
-			effective_frames,
-			speed_multiplier,
-			parent_player.fixed_velocity.x
-		])
 	
 	movement_timer += 1
 
