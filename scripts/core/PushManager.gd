@@ -15,7 +15,6 @@ enum DecelMode {
 @export var debug_knockback_velocity_calc: bool = true  # 反推速度計算的詳細輸出
 @export var debug_knockback_execution: bool = true      # Knockback 執行的每幀詳細輸出
 @export var debug_position_tracking: bool = true        # 位置追蹤的詳細輸出
-@export var debug_air_pushbox: bool = false             # 🔴 空中 pushbox 碰撞檢測詳細輸出
 
 @export var PUSH_FRICTION: float = 66.0
 @export var collision_epsilon: float = 5.0
@@ -357,17 +356,6 @@ func _physics_process(delta: float) -> void:
 			if other_is_penetrable or other.skip_pushbox or other_in_throw:
 				continue
 
-			# 🔴 【AIR PUSHBOX DEBUG】檢查角色狀態
-			var parent_is_air = parent.is_jumping or parent.is_knockfly
-			var other_is_air = other.is_jumping or other.is_knockfly
-			var both_in_air = parent_is_air and other_is_air
-			
-			if debug_air_pushbox and both_in_air:
-				print("[AIR_PUSHBOX_CHECK] %s vs %s | P_state(jump=%s knockfly=%s) vs O_state(jump=%s knockfly=%s)" % [
-					parent.name, other.name,
-					parent.is_jumping, parent.is_knockfly,
-					other.is_jumping, other.is_knockfly
-				])
 
 			var fixed_position_a = Vector2i(round(parent.global_position.x * SIMULATION_SCALE), round(parent.global_position.y * SIMULATION_SCALE))
 			var fixed_position_b = Vector2i(round(other.global_position.x * SIMULATION_SCALE), round(other.global_position.y * SIMULATION_SCALE))
@@ -388,38 +376,14 @@ func _physics_process(delta: float) -> void:
 			var size_b = Vector2i(round(other.colbox_half_width * 2 * SIMULATION_SCALE), round(other.colbox_half_height * 2 * SIMULATION_SCALE))
 			var collider_b = Collider.new(center_b, size_b)
 			
-			if debug_air_pushbox and both_in_air:
-				print("[AIR_BOX_CALC] %s: center=(%d,%d) size=(%d,%d) | %s: center=(%d,%d) size=(%d,%d)" % [
-					parent.name, center_a.x, center_a.y, size_a.x, size_a.y,
-					other.name, center_b.x, center_b.y, size_b.x, size_b.y
-				])
-			
-			# 🔴 【AIR PUSHBOX DEBUG】檢查碰撞檢測結果
 			var has_overlap = collider_a.is_overlapping(collider_b, 0, 0)
-			if debug_air_pushbox and both_in_air and not has_overlap:
-				var dist_x = abs(center_a.x - center_b.x)
-				var dist_y = abs(center_a.y - center_b.y)
-				var sum_half_x = (size_a.x + size_b.x) / 2
-				var sum_half_y = (size_a.y + size_b.y) / 2
-				print("[AIR_NO_OVERLAP_DETECTED] %s vs %s | dist_x=%d(need<%d) dist_y=%d(need<%d)" % [
-					parent.name, other.name, dist_x, sum_half_x, dist_y, sum_half_y
-				])
 			
 			if has_overlap:
 				var depth = get_depth(collider_a, collider_b)
 				var overlap_fixed_x = depth.x
 				var overlap_fixed_y = depth.y
 				
-				if debug_air_pushbox and both_in_air:
-					print("[AIR_OVERLAP_DETECTED] %s vs %s | overlap_x=%d overlap_y=%d | check: x_valid=%s y_valid=%s" % [
-						parent.name, other.name,
-						overlap_fixed_x, overlap_fixed_y,
-						overlap_fixed_x > 0, overlap_fixed_y > 0
-					])
-				
 				if overlap_fixed_x <= 0:
-					if debug_air_pushbox and both_in_air:
-						print("[AIR_SKIP_NO_X_OVERLAP] %s vs %s | overlap_x=%d" % [parent.name, other.name, overlap_fixed_x])
 					continue
 				
 				var push_distance_fixed = overlap_fixed_x
@@ -451,12 +415,6 @@ func _physics_process(delta: float) -> void:
 				var push_vec_self = 0
 				var push_vec_other = 0
 				
-				if debug_air_pushbox and both_in_air:
-					print("[AIR_UNPUSH_CHECK] self_at_left=%s self_at_right=%s | other_at_left=%s other_at_right=%s | unpush_self=%s unpush_other=%s" % [
-						self_at_left, self_at_right, other_at_left, other_at_right,
-						unpush_self, unpush_other
-					])
-				
 				if unpush_self and overlap_fixed_y > 0:
 					push_vec_self = 0
 					var push_amount = push_distance_fixed * 1.2 + 1
@@ -475,24 +433,11 @@ func _physics_process(delta: float) -> void:
 					var push_amount = push_distance_fixed * ground_push_multiplier + 1
 					push_vec_self = normal_x * push_amount
 					push_vec_other = -normal_x * push_amount
-					
-					if debug_air_pushbox and both_in_air:
-						print("[AIR_PUSH_CALC_DETAIL] overlap_x=%d | ground_push_mult=%.1f | push_amount=%d | normal_x=%d | result: %d/%d" % [
-							push_distance_fixed, ground_push_multiplier, push_amount, normal_x, push_vec_self, push_vec_other
-						])
 				
 				# 跳躍時應用不同的推開倍數
 				if parent.just_jumped or other.just_jumped:
-					var old_self = push_vec_self
-					var old_other = push_vec_other
 					push_vec_self = int(float(push_vec_self) * jump_push_multiplier)
 					push_vec_other = int(float(push_vec_other) * jump_push_multiplier)
-					if debug_air_pushbox and both_in_air:
-						print("[AIR_JUMP_MULTIPLIER] jump_mult=%.1f | %s: %d→%d | %s: %d→%d" % [
-							jump_push_multiplier,
-							parent.name, old_self, push_vec_self,
-							other.name, old_other, push_vec_other
-						])
 				elif parent.is_landing or other.is_landing:
 					# 著陸時保持正常推開
 					pass
@@ -500,20 +445,7 @@ func _physics_process(delta: float) -> void:
 				var new_self_fixed_x = fixed_position_a.x - push_vec_self
 				var new_other_fixed_x = fixed_position_b.x - push_vec_other
 				
-				if debug_air_pushbox and both_in_air:
-					print("[AIR_PUSH_VEC_CALC] %s->%d | %s->%d | unpush_self=%s unpush_other=%s" % [
-						parent.name, push_vec_self,
-						other.name, push_vec_other,
-						unpush_self, unpush_other
-					])
-				
 				if overlap_fixed_y > 0:
-					if debug_air_pushbox and both_in_air:
-						print("[AIR_Y_OVERLAP_OK] overlap_y=%d → will apply push | final_x: %s->%d, %s->%d" % [
-							overlap_fixed_y,
-							parent.name, new_self_fixed_x,
-							other.name, new_other_fixed_x
-						])
 					var world = get_tree().get_first_node_in_group("world")
 					if world:
 						# 🟢 【关键修正】只在两个角色都在地面时才进行地面吸附
@@ -573,12 +505,8 @@ func _physics_process(delta: float) -> void:
 								])
 								other.fixed_position.y = world.FLOOR_Y
 				else:
-					# 🔴 【AIR PUSHBOX DEBUG】Y軸重疊失敗 - 這是問題所在！
-					if debug_air_pushbox and both_in_air:
-						print("[AIR_CRITICAL_BUG] %s vs %s | Y軸檢查失敗！overlap_y=%d ≤ 0 → 推送被跳過！" % [
-							parent.name, other.name, overlap_fixed_y
-						])
-						log_air_pushbox_failure(parent, other, collider_a, collider_b, depth)
+					# Y軸重疊失敗
+					pass
 				
 				parent.fixed_position.x = new_self_fixed_x
 				other.fixed_position.x = new_other_fixed_x
@@ -628,34 +556,3 @@ func is_at_corner(player: Node) -> bool:
 	var self_at_left = diff_left < epsilon_fixed
 	var self_at_right = diff_right < epsilon_fixed
 	return self_at_left or self_at_right
-
-# 🔴 【調試】詳細記錄為何Y軸重疊檢查失敗
-func log_air_pushbox_failure(parent: Node, other: Node, collider_a: Collider, collider_b: Collider, depth: Vector2i) -> void:
-	if not debug_air_pushbox:
-		return
-	
-	var parent_is_air = parent.is_jumping or parent.is_knockfly
-	var other_is_air = other.is_jumping or other.is_knockfly
-	if not (parent_is_air and other_is_air):
-		return  # 只記錄両角都在空中的情況
-	
-	print("[AIR_PUSHBOX_FAILURE_DETAIL]")
-	print("  Player A (%s): pos=(%.1f,%.1f) box_center=(%d,%d) size=(%d,%d)" % [
-		parent.name, parent.global_position.x, parent.global_position.y,
-		collider_a.center.x, collider_a.center.y, collider_a.size.x, collider_a.size.y
-	])
-	print("  Player B (%s): pos=(%.1f,%.1f) box_center=(%d,%d) size=(%d,%d)" % [
-		other.name, other.global_position.x, other.global_position.y,
-		collider_b.center.x, collider_b.center.y, collider_b.size.x, collider_b.size.y
-	])
-	
-	# 計算Y軸邊界
-	var a_top = collider_a.center.y - (collider_a.size.y / 2)
-	var a_bottom = collider_a.center.y + (collider_a.size.y / 2)
-	var b_top = collider_b.center.y - (collider_b.size.y / 2)
-	var b_bottom = collider_b.center.y + (collider_b.size.y / 2)
-	
-	print("  Y軸邊界 A: top=%d bottom=%d | B: top=%d bottom=%d" % [
-		a_top, a_bottom, b_top, b_bottom
-	])
-	print("  Y軸深度計算: depth.y=%d (失敗！應 > 0)" % [depth.y])
