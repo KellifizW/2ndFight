@@ -6,7 +6,6 @@ extends VBoxContainer
 
 @export var max_history_elements: int = 10
 @export var show_frame_count: bool = true
-@export var debug_mode: bool = true  # 啟用調試日誌
 @export_enum("Player A", "Player B") var track_player: String = "Player A"
 
 var history_elements: Array[InputHistoryElement] = []
@@ -169,19 +168,4 @@ func set_player(player: Player):
 		input_manager = player.get_node_or_null("InputManager")
 
 func clear():
-	"""已禁用：不清除輸入歷史，確保歷史記錄永遠保留"""
-	# 🔴 打印堆棧跟蹤，查看誰在調用此方法
-	if debug_mode:
-		var separator = ""
-		for i in range(60):
-			separator += "="
-		
-		print("\n" + separator)
-		print("[☠️ CLEAR() CALLED - InputHistoryDisplay ☠️]")
-		print("=== 調用堆棧跟蹤 ===")
-		print_stack()
-		print("[track_player] " + track_player)
-		var track_name: String = str(player_to_track.name) if player_to_track else "null"
-		print("[player_to_track] " + track_name)
-		print(separator + "\n")
-	pass  # 空操作 - 任何調用此方法的代碼都不會清除輸入歷史
+	pass  # 不清除輸入歷史
