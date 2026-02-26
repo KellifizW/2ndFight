@@ -14,6 +14,12 @@ const GRAVITY: int = 7400000
 @export var bgm_max_volume_db: float = -6.0
 
 # ============================================================
+# 調試熱重載系統
+# ============================================================
+@export var enable_debug_hotkeys: bool = true  # 啟用調試按鍵
+@export var debug_reload_key_hint: String = "Ctrl+R = 重新加載攻擊資料 | Ctrl+G = 重新加載 gravity"
+
+# ============================================================
 # AI 性能監視器選項（Phase 2 優化）
 # ============================================================
 @export var enable_performance_monitoring: bool = true  # 是否啟用性能監視器
@@ -244,6 +250,18 @@ func _spawn_player(char_data: CharacterData, pos: Vector2, seat: String) -> Play
 
 func _input(event) -> void:
 	if event is InputEventKey and event.pressed:
+		# 調試熱鍵
+		if enable_debug_hotkeys:
+			if event.keycode == KEY_R and Input.is_key_pressed(KEY_CTRL):
+				# Ctrl+R = 重新加載攻擊資料
+				reload_attack_data()
+				return
+			if event.keycode == KEY_G and Input.is_key_pressed(KEY_CTRL):
+				# Ctrl+G = 重新加載物理參數
+				reload_physics_params()
+				return
+		
+		# 遊戲控制（保持原有功能）
 		if event.keycode == KEY_R:
 			reset_players()
 		if Input.is_action_just_pressed("slowmo_toggle") and not slowmo_triggered:
@@ -518,6 +536,45 @@ func _update_advantage_labels(attacker_node: Node, advantage_frames: int, is_blo
 
 func to_scaled_vector2(vector: Vector2i) -> Vector2:
 	return Vector2(float(vector.x) / SIMULATION_SCALE, float(vector.y) / SIMULATION_SCALE)
+
+# ============================================================
+# 🔥 熱重載系統 - 即時套用編輯器數值變更
+# ============================================================
+func reload_attack_data() -> void:
+	"""重新加載攻擊資料（Ctrl+R）"""
+	if not player_a or not player_b:
+		print("❌ 無法熱重載：玩家尚未初始化")
+		return
+	
+	var reload_count = 0
+	print("\n🔄 [HOT RELOAD] 開始重新加載攻擊資料...")
+	
+	for player in [player_a, player_b]:
+		if player.has_method("reload_attack_data"):
+			player.reload_attack_data()
+			reload_count += 1
+			print("  ✅ %s 攻擊資料已重新加載" % player.seat)
+		else:
+			print("  ⚠️  %s 無 reload_attack_data() 方法" % player.seat)
+	
+	print("✨ 熱重載完成: %d 個玩家的攻擊資料已更新\n" % reload_count)
+
+func reload_physics_params() -> void:
+	"""重新加載物理參數（Ctrl+G）"""
+	if not player_a or not player_b:
+		print("❌ 無法熱重載：玩家尚未初始化")
+		return
+	
+	print("\n🔄 [HOT RELOAD] 開始重新加載物理參數...")
+	
+	for player in [player_a, player_b]:
+		if player.has_method("reload_physics_params"):
+			player.reload_physics_params()
+			print("  ✅ %s 物理參數已重新加載" % player.seat)
+		else:
+			print("  ⚠️  %s 無 reload_physics_params() 方法" % player.seat)
+	
+	print("✨ 物理參數熱重載完成\n")
 
 func reset_player_animation(player: Node, target_state: String) -> void:
 	var animation_tree = player.get_node_or_null("AnimationTree")

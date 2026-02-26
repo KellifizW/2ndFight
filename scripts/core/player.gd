@@ -849,3 +849,44 @@ func _initialize_handlers() -> void:
 	
 	if startup_logs:
 		print("[Player] Handlers 初始化完成 (Phase 1-5) | Seat: ", seat)
+# ============================================================
+# 🔥 熱重載系統 - 即時套用編輯器數值變更
+# ============================================================
+func reload_attack_data() -> void:
+	"""重新加載攻擊資料（Ctrl+R）"""
+	if not attack_data:
+		print("  ⚠️  %s attack_data 未設定" % seat)
+		return
+	
+	print("  🔄 重新加載 %s 的攻擊資料..." % seat)
+	
+	# 重新構建 ATTACK_TABLE
+	for a in _ATTACK_NAMES:
+		ATTACK_TABLE[a] = attack_data.get_attack(a)
+	
+	print("  ✅ %s 攻擊表已更新 (%d 個攻擊):" % [seat, ATTACK_TABLE.size()])
+	for name in ATTACK_TABLE:
+		var data = ATTACK_TABLE[name]
+		if data:
+			print("    • %s: 傷害=%.1f, 啟動=%d, 活躍=%d, 恢復=%d" % [
+				name, data.damage if "damage" in data else 0,
+				data.startup_frames if "startup_frames" in data else 0,
+				data.active_frames if "active_frames" in data else 0,
+				data.recovery_frames if "recovery_frames" in data else 0
+			])
+
+func reload_physics_params() -> void:
+	"""重新加載物理參數（Ctrl+G）"""
+	# 同步 @export 的擊飛物理參數
+	knockfly_gravity = default_knockfly_gravity
+	knockfly_vertical_speed = default_knockfly_vertical_speed
+	knockfly_horizontal_speed = default_knockfly_horizontal_speed
+	air_friction = default_air_friction
+	knockfly_duration = default_knockfly_duration
+	
+	print("  ✅ %s 物理參數已重新加載" % seat)
+	print("    • knockfly_gravity = %.0f" % knockfly_gravity)
+	print("    • knockfly_vertical_speed = %.0f" % knockfly_vertical_speed)
+	print("    • knockfly_horizontal_speed = %.0f" % knockfly_horizontal_speed)
+	print("    • air_friction = %.0f" % air_friction)
+	print("    • knockfly_duration = %.3fs" % knockfly_duration)
