@@ -15,6 +15,7 @@ metadata/_custom_type_script = "uid://do60xtl0h0rgp"
 
 [resource]
 script = ExtResource("1_6mkls")
+st_mp_knockback = 70.0
 st_mp_movement = SubResource("Resource_5xk2r")
 st_hp_hitstun_frames = 27
 st_hp_knockback = 100.0
