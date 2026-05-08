@@ -16,12 +16,7 @@ func handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
 	var jump_delay_passed = movement_node.jump_delay_timer <= 0
 	var not_just_jumped = not movement_node.just_jumped
 	
-	# 【除錯】檢查是否重複著地
 	var seat = movement_node.seat if "seat" in movement_node else "?"
-	if movement_node.is_landing:
-		print("[LANDING_ALREADY_ACTIVE] %s: is_landing=true, skipping duplicate landing (airborne=%s falling=%s reached_floor=%s jump_delay=%s just_jumped=%s)" % [
-			seat, is_airborne, is_falling, reached_floor, jump_delay_passed, not movement_node.just_jumped
-		])
 	
 	if not (is_airborne and is_falling and reached_floor and jump_delay_passed and not_just_jumped):
 		return
@@ -111,6 +106,8 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	movement_node._landing_timer_initialized = false  # 【新增】標記此timer剛設置，下一frame才能檢查
 	movement_node._landing_checkpoint_executed = false  # 【新增】重置checkpoint執行標記
 	movement_node._landing_forced_frames = 0  # 【新增】重置強制幀數計數器
+	if movement_node.has_method("force_update_facing_direction"):
+		movement_node.force_update_facing_direction()
 	
 	print("[LANDING_START] %s: is_landing=true, timer=2f, checkpoint_reset" % [seat])
 	

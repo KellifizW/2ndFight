@@ -38,7 +38,7 @@ func _ready() -> void:
 	print("[AI PROFILER] ✓ 性能監視器已啟用，間隔: %.1f秒" % log_interval)
 	
 	# 自動搜索 AI 行為實例
-	_find_ai_behaviors()
+	call_deferred("_find_ai_behaviors")
 
 func _find_ai_behaviors() -> void:
 	"""搜索場景中的所有 AIBehavior 實例"""

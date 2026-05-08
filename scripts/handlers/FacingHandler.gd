@@ -18,10 +18,10 @@ func set_facing(new_facing: float) -> void:
 	movement_node.rotation_degrees = 0
 	movement_node.update_hitbox_position()
 
-func update_facing_direction() -> void:
+func update_facing_direction(ignore_locks: bool = false) -> void:
 	var is_landing_state = ("is_landing" in movement_node and movement_node.is_landing and "landing_lock_timer" in movement_node and movement_node.landing_lock_timer > 0)
 	
-	if movement_node.is_attacking or movement_node.landing_facing_lock or is_landing_state or movement_node.is_layground:
+	if not ignore_locks and (movement_node.is_attacking or movement_node.landing_facing_lock or is_landing_state or movement_node.is_layground):
 		return
 	
 	var players = movement_node.get_tree().get_nodes_in_group("players")

@@ -117,6 +117,7 @@ func _adjust_decision_interval(threat_level: int, distance: float) -> void:
 				current_adaptive_interval = INTERVAL_NORMAL
 
 func _ready() -> void:
+	add_to_group("ai_systems")
 	parent = get_parent()
 	world = get_tree().get_first_node_in_group("world")
 	

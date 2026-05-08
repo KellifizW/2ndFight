@@ -99,10 +99,11 @@ func compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, ani
 		return "cr_idle"
 	
 	if not on_floor and (movement_node.is_jumping or ("is_air_attacking" in movement_node and movement_node.is_air_attacking)):
-		if "is_air_attacking" in movement_node and (movement_node.is_air_attacking or ("has_air_attacked" in movement_node and movement_node.has_air_attacked)):
-			return movement_node.get("attack_type") if "attack_type" in movement_node else "jump_mp"
-		else:
-			return "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
+		if "is_air_attacking" in movement_node and movement_node.is_air_attacking:
+			var air_attack_type = movement_node.get("attack_type") if "attack_type" in movement_node else ""
+			if air_attack_type in ["jump_lp", "jump_mp", "jump_hp", "jump_lk", "jump_mk", "jump_hk"]:
+				return air_attack_type
+		return "Jump_F" if anim_jump_dir > 0 else ("Jump_B" if anim_jump_dir < 0 else "Jump_V")
 	
 	return "Walk"
 
@@ -141,6 +142,16 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		target_state = "layground"
 		movement_node.animation_state.travel("layground")
 		return
+
+	if target_state == "landing":
+		if movement_node.animation_tree:
+			movement_node.animation_tree.active = false
+		if movement_node.animation_player and movement_node.animation_player.current_animation != "landing":
+			movement_node.animation_player.play("landing")
+			movement_node.animation_player.seek(0.0, true)
+		return
+	elif movement_node.animation_tree and not movement_node.animation_tree.active:
+		movement_node.animation_tree.active = true
 	
 	# 移除會覆寫 target_state 的邏輯，因為 compute_target_state 已經正確處理了所有狀態
 	# 如果這裡再根據 jump_dir 覆寫，會導致空中受擊的 Jump_B 被改成 Jump_F/Jump_V
@@ -154,5 +165,3 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	if target_state == "Walk":
 		movement_node.animation_tree.set("parameters/Walk/blend_position", anim_dir)
 	
-	if movement_node.is_jumping and on_floor:
-		movement_node.is_jumping = false

@@ -319,19 +319,19 @@ func _physics_process(delta: float) -> void:
 # （以下函式保持不變，只修正了血量檢查部分）
 func _calculate_hit_advantage() -> void:
 	# 🟢 【改進】使用確定的幀數計算，避免狀態檢查和轉換誤差
-	if not frame_counter or hit_frame == -1 or target_recover_frame != -1:
+	if not frame_counter or hit_frame == -1:
 		return
 	
 	# 🟢 【第1步】計算被擊者恢復時間（基於確定的 hitstun_frames）
-	if target_recover_frame == -1 and is_instance_valid(target_player):
+	if target_recover_frame == -1:
 		# 直接使用 target_player.hitstun_frames（物理幀，已是確定值）
-		if "hitstun_frames" in target_player and target_player.hitstun_frames > 0:
+		if is_instance_valid(target_player) and "hitstun_frames" in target_player and target_player.hitstun_frames > 0:
 			# ✅ 兩個都是物理幀，直接相加（無轉換誤差）
 			target_recover_frame = hit_frame + target_player.hitstun_frames
-	else:
-		# 備用方案（不應到達）
-		var fallback_hitstun = int(hitstun_frames * frame_counter.FPS_RATIO) if hitstun_frames > 0 else 26
-		target_recover_frame = hit_frame + fallback_hitstun
+		else:
+			# 備用方案（不應到達）
+			var fallback_hitstun = int(hitstun_frames * frame_counter.FPS_RATIO) if hitstun_frames > 0 else 26
+			target_recover_frame = hit_frame + fallback_hitstun
 	if attacker_recover_frame == -1 and is_instance_valid(attacker):
 		# 🟢 【修復】使用攻擊開始幀 + 完整動畫時長（而非「當前幀 + 剩餘timer」）
 		# 根本原因：hit stop 期間會凍結 FrameCounter，導致「當前幀 + timer」計算出錯
@@ -363,6 +363,7 @@ func _calculate_hit_advantage() -> void:
 		var advantage_seconds = frame_counter.logic_frames_to_seconds(logic_advantage_frames)
 		
 		_update_advantage_labels(attacker, logic_advantage_frames, false, advantage_seconds)
+		advantage_calculated = true
 
 func _calculate_block_advantage() -> void:
 	var valid = is_instance_valid(block_attacker) and is_instance_valid(blocker)

@@ -105,9 +105,12 @@ func handle_timers(delta: float) -> void:
 			print("[%s] ✓ Landing COMPLETE, is_landing=false" % [_seat])
 			movement_node.is_landing = false
 			movement_node.is_jumping = false  # 【關鍵】著地完成時清除 is_jumping，完全解除著地狀態
+			movement_node.landing_facing_lock = false
 			movement_node._landing_timer_initialized = false
 			movement_node._landing_checkpoint_executed = false
 			movement_node._landing_forced_frames = 0
 			# 【新增】清除中斷標記
 			if "landing_interrupted_by_input" in movement_node:
 				movement_node._landing_interrupted_by_input = false
+			if movement_node.has_method("update_facing_direction"):
+				movement_node.update_facing_direction()

@@ -111,18 +111,35 @@ func reset_air_state() -> void:
 	if self.is_landing and self.landing_lock_timer > 0:
 		return
 	
+	if not self.is_on_floor():
+		self.is_air_attacking = false
+		self.is_attacking = false
+		self.attack_type = "none"
+		var air_input_data = get_input()
+		self._update_animation_state(air_input_data.input_dir, air_input_data.crouch_pressed)
+		return
+	
 	if self.is_on_floor():
 		self.is_air_attacking = false
 		self.has_air_attacked = false
+		self.is_jumping = false
+		self.just_jumped = false
+		self.is_attacking = false
+		self.attack_type = "none"
+		if self.world:
+			self.fixed_position.y = self.world.FLOOR_Y
+			self.global_position = self.world.to_scaled_vector2(self.fixed_position)
+		self.fixed_velocity.y = 0
 		var input_data = get_input()
-		if _has_any_input(input_data):
-			self.is_landing = false
-			self._update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-		else:
-			self.is_landing = true
-			# 轉換 landing_duration（秒）為幀數 @120 FPS (PHYSICS_FPS)
-			self.landing_lock_timer = int(round(self.landing_duration * 120)) if "landing_duration" in self else 24
-			print("[AIR LANDING DEBUG] is_landing set | duration: %.3fs -> timer: %d frames @120 FPS" % [self.landing_duration, self.landing_lock_timer])
+		self.is_landing = true
+		self.landing_lock_timer = 2.0 / 60.0
+		self.landing_facing_lock = false
+		self._landing_timer_initialized = false
+		self._landing_checkpoint_executed = false
+		self._landing_forced_frames = 0
+		self.force_update_facing_direction()
+		print("[AIR LANDING DEBUG] is_landing set | forced timer: %.4fs" % self.landing_lock_timer)
+		self._update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func reset_special_state() -> void:
 	var move_name = move_set.get_active_move_name() if move_set and move_set.has_method("get_active_move_name") else "UNKNOWN"
@@ -309,14 +326,25 @@ func _physics_process(delta: float) -> void:
 	# 【重點】檢查是否已經由 LandingHandler 處理
 	if is_air_attacking and is_on_floor() and not is_landing:
 		is_air_attacking = false
+		has_air_attacked = false
+		is_jumping = false
+		just_jumped = false
 		is_attacking = false
+		attack_type = "none"
+		if world:
+			fixed_position.y = world.FLOOR_Y
+			global_position = world.to_scaled_vector2(fixed_position)
+		fixed_velocity.y = 0
 		var air_input_data = get_input()
-		if not _has_any_input(air_input_data):
-			is_landing = true
-			# 轉換 landing_duration（秒）為幀數 @120 FPS (PHYSICS_FPS)
-			landing_lock_timer = int(round(landing_duration * 120)) if "landing_duration" in self else 24
-			print("[ON FLOOR LANDING DEBUG] Landing triggered | duration: %.3fs -> timer: %d frames @120 FPS" % [landing_duration, landing_lock_timer])
-			animation_state.travel("landing")
+		is_landing = true
+		landing_lock_timer = 2.0 / 60.0
+		landing_facing_lock = false
+		_landing_timer_initialized = false
+		_landing_checkpoint_executed = false
+		_landing_forced_frames = 0
+		force_update_facing_direction()
+		print("[ON FLOOR LANDING DEBUG] Landing triggered | forced timer: %.4fs" % landing_lock_timer)
+		_update_animation_state(air_input_data.input_dir, air_input_data.crouch_pressed)
 
 	var input_data = get_input()
 	input_data.merge(special_input_data, true)
@@ -467,14 +495,6 @@ func _physics_process(delta: float) -> void:
 			attack_executor.debug_air_attack_blocked(input_data, self)
 
 	# 【重點】landing_lock_timer 現在由 TimerHandler 管理，不在這裡遞減
-			landing_facing_lock = false
-			has_air_attacked = false
-			update_facing_direction()
-			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-		elif landing_lock_timer <= 0 and is_landing:
-			is_landing = false
-			has_air_attacked = false
-			landing_facing_lock = false
 
 	# Countdown wakeup timer (FRAME-BASED)
 	if wakeup_timer > 0:
@@ -564,12 +584,11 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 
 	# Air attack animation logic - only when actually in the air
 	if not on_floor and (is_jumping or is_air_attacking):
-		if is_air_attacking:
+		if is_air_attacking and attack_type in AIR_ATTACK_ANIMS:
 			return attack_type
-		else:
-			if anim_jump_dir > 0: return "Jump_F"
-			elif anim_jump_dir < 0: return "Jump_B"
-			else: return "Jump_V"
+		if anim_jump_dir > 0: return "Jump_F"
+		elif anim_jump_dir < 0: return "Jump_B"
+		else: return "Jump_V"
 
 	return super._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
 
@@ -643,15 +662,15 @@ func _reset_jump_state() -> void:
 	if is_on_floor():
 		is_jumping = false
 		var input_data = get_input()
-		if _has_any_input(input_data):
-			is_landing = false
-			landing_facing_lock = false
-			update_facing_direction()
-			_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-		else:
-			is_landing = true
-			landing_lock_timer = int(round(landing_duration * 120)) if "landing_duration" in self else int(24)
-			print("[AIR LANDING DEBUG] is_landing set | duration: %.3fs -> timer: %d frames @120 FPS" % [landing_duration, landing_lock_timer])
+		is_landing = true
+		landing_lock_timer = 2.0 / 60.0
+		landing_facing_lock = false
+		_landing_timer_initialized = false
+		_landing_checkpoint_executed = false
+		_landing_forced_frames = 0
+		force_update_facing_direction()
+		print("[AIR LANDING DEBUG] is_landing set | forced timer: %.4fs" % landing_lock_timer)
+		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func _reset_landing_anim() -> void:
 	"""著地動畫結束重置"""
@@ -721,24 +740,8 @@ func update_facing_direction() -> void:
 	super.update_facing_direction()
 
 func force_update_facing_direction() -> void:
-	var players = get_tree().get_nodes_in_group("players")
-	var other = null
-	for p in players:
-		if p != self:
-			other = p
-			break
-	if other:
-		var self_left  = global_position.x - colbox_half_width
-		var self_right = global_position.x + colbox_half_width
-		var other_left  = other.global_position.x - other.colbox_half_width
-		var other_right = other.global_position.x + other.colbox_half_width
-		if self_left > other_right:
-			facing_direction = -1.0
-			scale.x = -1
-		elif self_right < other_left:
-			facing_direction = 1.0
-			scale.x = 1
-		update_hitbox_position()
+	if facing_handler:
+		facing_handler.update_facing_direction(true)
 
 # _process 已移除 - 陰影同步由 ShadowSyncHandler 處理
 
