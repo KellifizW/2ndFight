@@ -31,7 +31,7 @@ var parent: Player
 var opponent: Player
 var world: Node
 
-const SPECIAL_MOVE_ACTIONS = ["fireball", "spm2", "powerkk", "spnk", "hdk", "dp", "super"]
+const SPECIAL_MOVE_ACTIONS = ["fireball", "fireballL", "fireballM", "fireballH", "spm2", "powerkk", "spnk", "hdk", "dp", "dpL", "dpM", "dpH", "100p", "super"]
 
 # ============================================================
 # ACTION COMMITMENT SYSTEM
@@ -390,8 +390,8 @@ func get_ai_input() -> Dictionary:
 		# Allow defensive override on high/critical threats or imminent contact
 		var threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
 		var imminent_contact = _is_attack_in_block_range(opponent)
-		# 火球威脅（LOW 及以上）也應中斷承諾動作，讓 AI 評估格擋
-		var has_fireball_threat = threat != null and threat.source == "fireball" and threat.level >= ThreatAssessment.ThreatLevel.LOW
+		# 火球只有進入實際反應窗口後才中斷承諾，避免遠距火球造成過早跳躍或抖動。
+		var has_fireball_threat = threat != null and threat.source == "fireball" and threat.level >= ThreatAssessment.ThreatLevel.MEDIUM
 		
 		# 🔴 【新增】 Tactical situation interrupt: If committed to approach (dash/walk) but entered throw range
 		# Re-evaluate instead of blindly continuing approach
@@ -448,7 +448,7 @@ func get_ai_input() -> Dictionary:
 						# After first frame, clear throw_pressed
 						output["throw_pressed"] = false
 				# Special moves: keep ALL input active (spm2_pressed, dp_pressed, motion, etc.)
-				elif current_committed_action in SPECIAL_MOVE_ACTIONS + ["fireballL", "fireballM", "fireballH", "dpL", "dpM", "dpH"]:
+				elif current_committed_action in SPECIAL_MOVE_ACTIONS:
 					# Keep the special move input active for full commitment duration
 					# Don't clear spm2_pressed, dp_pressed, etc.
 					pass  # output remains as committed_input
@@ -927,7 +927,7 @@ func clear_special_move_commitment() -> void:
 	var seat = parent.seat if "seat" in parent else "?"
 	
 	# 只清除特殊招式相關的承諾（防止誤清除其他承諾如投擲）
-	if current_committed_action in SPECIAL_MOVE_ACTIONS + ["fireballL", "fireballM", "fireballH", "dpL", "dpM", "dpH", "super"]:
+	if current_committed_action in SPECIAL_MOVE_ACTIONS:
 		print("[AI FIX - CLEAR SPECIAL MOVE] Frame=%d Seat=%s | Clearing commitment for '%s'" % [
 			current_frame, seat, current_committed_action
 		])

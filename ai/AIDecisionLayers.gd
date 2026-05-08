@@ -52,7 +52,11 @@ const PRIORITY_POSITIONING = 30.0    # Space control
 const PRIORITY_IDLE = 10.0           # Default behavior
 const PRIORITY_CROUCH_LOW = 63.0     # Crouch attacks (alternative priority)
 
-const SPECIAL_MOVE_ACTIONS = ["fireball", "spm2", "powerkk", "spnk", "hdk", "dp", "super"]
+const FIREBALL_JUMP_MIN_FRAMES: int = 16
+const FIREBALL_JUMP_MAX_FRAMES: int = 42
+const FIREBALL_FAR_DISTANCE: float = 280.0
+
+const SPECIAL_MOVE_ACTIONS = ["fireball", "fireballL", "fireballM", "fireballH", "spm2", "powerkk", "spnk", "hdk", "dp", "dpL", "dpM", "dpH", "100p", "super"]
 
 class Decision:
 	var layer: DecisionLayer
@@ -69,6 +73,22 @@ var hitbox_cache: HitboxCache = null  # 【新增】投擲框碰撞檢測
 # Move restrictions (set by AIBehavior)
 var restricted_moves: Array[String] = []
 
+func _can_jump_fireball(threat: ThreatAssessment.ThreatInfo, distance: float) -> bool:
+	if threat.source != "fireball":
+		return false
+	if threat.frames_until_hit < FIREBALL_JUMP_MIN_FRAMES:
+		return false
+	if threat.frames_until_hit > FIREBALL_JUMP_MAX_FRAMES:
+		return false
+	return distance <= FIREBALL_FAR_DISTANCE
+
+func _get_fireball_defense_action(threat: ThreatAssessment.ThreatInfo, distance: float) -> String:
+	if _can_jump_fireball(threat, distance):
+		return "jump_forward" if distance < 230.0 else "jump_neutral"
+	if threat.frames_until_hit < FIREBALL_JUMP_MIN_FRAMES:
+		return "stand_block"
+	return "stand_block"
+
 # ============================================================
 # SPECIAL MOVE COOLDOWN SYSTEM
 # ============================================================
@@ -81,6 +101,10 @@ const SPECIAL_COOLDOWN: float = 2.2  # 必殺技使用後 2.2 秒內不可再次
 # ============================================================
 func _is_move_restricted(move_name: String) -> bool:
 	"""Check if a move is in the restricted moves list"""
+	if move_name.begins_with("fireball") and "fireball" in restricted_moves:
+		return true
+	if move_name.begins_with("dp") and "dp" in restricted_moves:
+		return true
 	return move_name in restricted_moves
 
 func _get_unrestricted_alternative(primary_move: String, alternatives: Array[String]) -> String:
@@ -246,6 +270,13 @@ func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 	var decision = Decision.new()
 	decision.layer = DecisionLayer.SURVIVAL
 	decision.action = threat.recommended_response
+	var threat_distance = abs(ai_player.global_position.x - opponent.global_position.x)
+	if threat.source == "fireball":
+		decision.action = _get_fireball_defense_action(threat, threat_distance)
+		if threat.level == ThreatAssessment.ThreatLevel.LOW and not _can_jump_fireball(threat, threat_distance):
+			decision.priority = PRIORITY_OBSERVE
+			decision.reason = "Low fireball threat: hold position"
+			return decision
 	if decision.action in SPECIAL_MOVE_ACTIONS and not _can_use_special(ai_player, opponent):
 		decision.action = "stand_block"
 		decision.reason = "Threat: %s (special gated)" % threat.source
@@ -268,32 +299,28 @@ func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 				frame_count, decision.action, threat.frames_until_hit, threat.source
 			])
 	elif threat.level == ThreatAssessment.ThreatLevel.MEDIUM:
-		# 🔴 【改進】對中等威脅增加跳躍躲避選項
-		if threat.source == "fireball" and randf() < 0.5:  # 【改進】50%機率（改from 40%）跳過火球而非格擋
+		if threat.source == "fireball" and _can_jump_fireball(threat, threat_distance):
 			var jump_decision = Decision.new()
 			jump_decision.layer = DecisionLayer.SURVIVAL
-			jump_decision.action = "jump_forward"  # 【改進】改用jump_forward增加對手距離
-			jump_decision.priority = PRIORITY_BLOCK + 3.0  # 略高於格擋
+			jump_decision.action = _get_fireball_defense_action(threat, threat_distance)
+			jump_decision.priority = PRIORITY_BLOCK + 3.0
 			jump_decision.reason = "Threat: avoid fireball by jumping"
 			if frame_count % 10 == 0:  # 只在每10幀輸出日志
-				print("[AI JUMP DECISION] Frame=%d | MEDIUM threat → JUMP (50%% chg) | distance=%.1f | frames_until_hit=%d" % [
-					frame_count, abs(ai_player.global_position.x - opponent.global_position.x), threat.frames_until_hit
+				print("[AI JUMP DECISION] Frame=%d | MEDIUM fireball → %s | distance=%.1f | frames_until_hit=%d" % [
+					frame_count, jump_decision.action, threat_distance, threat.frames_until_hit
 				])
 			return jump_decision
 		decision.priority = PRIORITY_BLOCK
 	else:  # LOW
-		# 【改進】對低威脅火球：100% JUMP（移除60%隨機檢查）
 		if threat.source == "fireball":
-			var jump_decision = Decision.new()
-			jump_decision.layer = DecisionLayer.SURVIVAL
-			jump_decision.action = "jump_neutral"
-			jump_decision.priority = 85.0  # 【改進】提高至85.0（確保擊敗其他選項）
-			jump_decision.reason = "Threat: avoid fireball by jumping"
-			if frame_count % 10 == 0:  # 只在每10幀輸出日志
-				print("[AI JUMP DECISION] Frame=%d | LOW threat → 100%% JUMP | distance=%.1f | frames_until_hit=%d" % [
-					frame_count, abs(ai_player.global_position.x - opponent.global_position.x), threat.frames_until_hit
+			decision.action = "stand_block"
+			decision.priority = PRIORITY_OBSERVE
+			decision.reason = "Low fireball threat: wait"
+			if frame_count % 30 == 0:
+				print("[AI FIREBALL HOLD] Frame=%d | LOW threat, no early jump | distance=%.1f | frames_until_hit=%d" % [
+					frame_count, threat_distance, threat.frames_until_hit
 				])
-			return jump_decision
+			return decision
 		# For LOW threats (non-fireball), use tactical priority
 		decision.priority = 68.0  # Similar to normal attacks
 	
