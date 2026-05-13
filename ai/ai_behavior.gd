@@ -40,6 +40,8 @@ var current_committed_action: String = ""
 var commitment_timer: float = 0.0
 var committed_input: Dictionary = {}
 var commitment_one_time_sent: bool = false  # 【FIX】追蹤是否已發送過單幀命令（throw/special moves）
+var _cached_input_frame: int = -1
+var _cached_input_result: Dictionary = {}
 
 # Decision cooldown (simulates human thinking time)
 var decision_cooldown: float = 0.0
@@ -251,6 +253,7 @@ func _process(delta: float) -> void:
 
 func set_ai_enabled(enabled: bool) -> void:
 	ai_enabled = enabled
+	_invalidate_cached_input()
 	if debug_mode:
 		var parent_name = parent.name if parent else "unknown"
 		print("[AI] AI %s for %s" % ["enabled" if enabled else "disabled", parent_name])
@@ -289,6 +292,16 @@ func find_opponent() -> void:
 		push_warning("[AI] No opponent found for %s" % parent.name)
 
 func get_ai_input() -> Dictionary:
+	var current_frame = Engine.get_physics_frames()
+	if _cached_input_frame == current_frame:
+		return _cached_input_result.duplicate(true)
+	
+	var input_result = _compute_ai_input()
+	_cached_input_frame = current_frame
+	_cached_input_result = input_result.duplicate(true)
+	return input_result
+
+func _compute_ai_input() -> Dictionary:
 	"""Main entry point - Industry standard implementation"""
 	var current_frame = Engine.get_physics_frames()
 	var seat = parent.seat if parent and "seat" in parent else "?"
@@ -938,6 +951,11 @@ func clear_special_move_commitment() -> void:
 		current_committed_action = ""
 		commitment_one_time_sent = false
 		decision_cooldown = 0.0  # 立即重新評估，允許下一個決策
+		_invalidate_cached_input()
+
+func _invalidate_cached_input() -> void:
+	_cached_input_frame = -1
+	_cached_input_result = {}
 
 func _is_attack_in_block_range(target: Player) -> bool:
 	if not target or not target.is_attacking or not parent:

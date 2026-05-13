@@ -138,8 +138,12 @@ func _process(delta: float) -> void:
 		special_cooldown_timer -= delta
 
 func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
+	var current_threat = threat_system.evaluate_threats(ai_player, opponent) if threat_system else null
+	var has_active_threat = current_threat != null and current_threat.level >= ThreatAssessment.ThreatLevel.MEDIUM
+	var cached_special = decision_cache != null and decision_cache.action in SPECIAL_MOVE_ACTIONS
+	
 	# Use cached decision if valid
-	if enable_decision_cache and cache_timer > 0 and decision_cache != null:
+	if enable_decision_cache and cache_timer > 0 and decision_cache != null and not has_active_threat and not cached_special:
 		return decision_cache
 	
 	# Original decision calculation logic follows
@@ -234,6 +238,13 @@ func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
 
 func _cache_decision(decision: Decision) -> void:
 	"""Cache the decision for reuse"""
+	# 必殺技不能進入決策快取：一旦 commitment 被威脅中斷，舊 special 決策會被重複取出，造成同幀連續 COMMIT。
+	if decision.action in SPECIAL_MOVE_ACTIONS:
+		special_cooldown_timer = SPECIAL_COOLDOWN
+		decision_cache = null
+		cache_timer = 0.0
+		return
+	
 	if enable_decision_cache:
 		decision_cache = decision
 		# Use override if > 0, use default if 0, disable if < 0
@@ -243,9 +254,6 @@ func _cache_decision(decision: Decision) -> void:
 			cache_timer = CACHE_DURATION
 		else:  # < 0, disable caching
 			cache_timer = 0.0
-	# 必殺技已選擇：啟動冷卻，避免刷屏
-	if decision.action in SPECIAL_MOVE_ACTIONS:
-		special_cooldown_timer = SPECIAL_COOLDOWN
 
 func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 	var threat = threat_system.evaluate_threats(ai_player, opponent)
