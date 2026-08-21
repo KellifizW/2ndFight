@@ -19,12 +19,12 @@ func _find_displays():
 	p2_display = root.find_child("P2InputHistory", true, false)
 	
 	if p1_display:
-		print("[InputHistoryDebugger] ✅ Found P1InputHistory")
+		Debug.log("[InputHistoryDebugger] ✅ Found P1InputHistory")
 	else:
-		print("[InputHistoryDebugger] ❌ P1InputHistory not found - may be named differently")
+		Debug.log("[InputHistoryDebugger] ❌ P1InputHistory not found - may be named differently")
 	
 	if p2_display:
-		print("[InputHistoryDebugger] ✅ Found P2InputHistory")
+		Debug.log("[InputHistoryDebugger] ✅ Found P2InputHistory")
 
 func _physics_process(_delta: float):
 	if not enabled:
@@ -43,25 +43,25 @@ func _check_displays():
 	for i in range(70):
 		separator += "="
 	
-	print("\n" + separator)
+	Debug.log("\n" + separator)
 	var frame = Engine.get_physics_frames()
-	print("[InputHistoryDebugger] Status Check @ Frame " + str(frame))
-	print(separator)
+	Debug.log("[InputHistoryDebugger] Status Check @ Frame " + str(frame))
+	Debug.log(separator)
 	
 	_check_single_display("P1", p1_display)
 	_check_single_display("P2", p2_display)
 	
-	print(separator + "\n")
+	Debug.log(separator + "\n")
 
 func _check_single_display(label: String, display: Node):
 	"""檢查單個顯示節點的狀態"""
 	if not display:
-		print("[" + label + "] ⚠️ Display node not found")
+		Debug.log("[" + label + "] ⚠️ Display node not found")
 		return
 	
 	# 檢查history_elements陣列
 	if not "history_elements" in display:
-		print("[" + label + "] ⚠️ No history_elements array")
+		Debug.log("[" + label + "] ⚠️ No history_elements array")
 		return
 	
 	var history_elements = display.history_elements
@@ -91,17 +91,17 @@ func _check_single_display(label: String, display: Node):
 			if input_durations[i] > 0:
 				durations_set += 1
 	
-	print("[" + label + "] Display Elements: " + str(visible_count) + "/" + str(total_elements) + " visible")
-	print("     InputManager history: " + str(non_zero_inputs) + "/" + str(input_history_size) + " non-zero")
+	Debug.log("[" + label + "] Display Elements: " + str(visible_count) + "/" + str(total_elements) + " visible")
+	Debug.log("     InputManager history: " + str(non_zero_inputs) + "/" + str(input_history_size) + " non-zero")
 	if durations_set > 0:
-		print("     input_durations set: " + str(durations_set) + " entries")
+		Debug.log("     input_durations set: " + str(durations_set) + " entries")
 	
 	# 檢查player_to_track
 	if "player_to_track" in display and display.player_to_track:
-		print("     Tracking: " + display.player_to_track.name)
+		Debug.log("     Tracking: " + display.player_to_track.name)
 	
 	# 如果顯示數量為0，這表示問題
 	if visible_count == 0 and non_zero_inputs > 0:
-		print("     🔴 [PROBLEM] No visible elements but input history has data!")
+		Debug.log("     🔴 [PROBLEM] No visible elements but input history has data!")
 		if durations_set == 0:
-			print("            → input_durations array likely cleared or not populated")
+			Debug.log("            → input_durations array likely cleared or not populated")

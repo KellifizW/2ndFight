@@ -28,7 +28,7 @@ var current_health: float = max_health :
 		
 		# 血量歸零提示（可自行移除）
 		if current_health <= 0:
-			print("Debug: Healthbar %s 已歸零！" % name)
+			Debug.log("Debug: Healthbar %s 已歸零！" % name)
 
 # 延遲條：使用 Node 類型宣告，避免任何型別衝突（因為 ProgressBar 和 TextureProgressBar 都繼承自 Control）
 @onready var damage_bar: Node = $DamageBar

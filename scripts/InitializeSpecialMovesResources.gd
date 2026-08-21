@@ -17,8 +17,8 @@ const LEGACY_PATHS: Array[String] = [
 
 # 調用此函數自動初始化 MoveSet 的 special_moves_data
 static func migrate_special_moves_to_export() -> void:
-	print("[InitializeSpecialMovesResources] ========================================")
-	print("[InitializeSpecialMovesResources] 開始遷移特殊招式資源...")
+	Debug.log("[InitializeSpecialMovesResources] ========================================")
+	Debug.log("[InitializeSpecialMovesResources] 開始遷移特殊招式資源...")
 	
 	# 需要場景樹中存在 Player 節點
 	var tree = Engine.get_main_window().get_tree()
@@ -34,7 +34,7 @@ static func migrate_special_moves_to_export() -> void:
 			players.append(world.get_node("p2"))
 	
 	if players.is_empty():
-		print("[InitializeSpecialMovesResources] ⚠️  未找到 Player 節點，請確保遊戲場景已加載")
+		Debug.log("[InitializeSpecialMovesResources] ⚠️  未找到 Player 節點，請確保遊戲場景已加載")
 		return
 	
 	# 加載所有資源
@@ -43,9 +43,9 @@ static func migrate_special_moves_to_export() -> void:
 		var resource = load(path)
 		if resource is SpecialMoveData:
 			loaded_resources.append(resource)
-			print("[InitializeSpecialMovesResources] ✅ 已加載: %s (%s)" % [resource.move_id, path])
+			Debug.log("[InitializeSpecialMovesResources] ✅ 已加載: %s (%s)" % [resource.move_id, path])
 		else:
-			print("[InitializeSpecialMovesResources] ❌ 找不到或無效: %s" % path)
+			Debug.log("[InitializeSpecialMovesResources] ❌ 找不到或無效: %s" % path)
 	
 	# 設定每個玩家的 MoveSet
 	for player in players:
@@ -53,10 +53,10 @@ static func migrate_special_moves_to_export() -> void:
 			var move_set = player.get_node("MoveSet")
 			move_set.special_moves_data = loaded_resources.duplicate()
 			move_set._initialize_move_library()
-			print("[InitializeSpecialMovesResources] ✅ %s 的 special_moves_data 已更新 (%d 招)" % [player.name, loaded_resources.size()])
+			Debug.log("[InitializeSpecialMovesResources] ✅ %s 的 special_moves_data 已更新 (%d 招)" % [player.name, loaded_resources.size()])
 	
-	print("[InitializeSpecialMovesResources] ========================================")
-	print("[InitializeSpecialMovesResources] ✨ 遷移完成！")
+	Debug.log("[InitializeSpecialMovesResources] ========================================")
+	Debug.log("[InitializeSpecialMovesResources] ✨ 遷移完成！")
 
 # 如果此腳本直接在場景樹中運行，自動執行初始化
 func _ready() -> void:

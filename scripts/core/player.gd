@@ -138,13 +138,13 @@ func reset_air_state() -> void:
 		self._landing_checkpoint_executed = false
 		self._landing_forced_frames = 0
 		self.force_update_facing_direction()
-		print("[AIR LANDING DEBUG] is_landing set | forced timer: %.4fs" % self.landing_lock_timer)
+		Debug.log("[AIR LANDING DEBUG] is_landing set | forced timer: %.4fs" % self.landing_lock_timer)
 		self._update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func reset_special_state() -> void:
 	var move_name = move_set.get_active_move_name() if move_set and move_set.has_method("get_active_move_name") else "UNKNOWN"
 	var seat_str = seat if seat else "?"
-	print("[RESET_SPECIAL] Move '%s' | Seat: %s" % [move_name, seat_str])
+	Debug.log("[RESET_SPECIAL] Move '%s' | Seat: %s" % [move_name, seat_str])
 	
 	if move_set and move_set.is_spmove:
 		move_set.stop_special_move()
@@ -164,7 +164,7 @@ func _spawn_fireball() -> void:
 	var anim_player = get_node_or_null("AnimationPlayer")
 	var current_anim = anim_player.current_animation if anim_player else "none"
 	
-	print("[_spawn_fireball CALLED] Seat=%s | Current animation='%s' | is_spmove=%s | active_move=%s | frame=%d" % [
+	Debug.log("[_spawn_fireball CALLED] Seat=%s | Current animation='%s' | is_spmove=%s | active_move=%s | frame=%d" % [
 		debug_seat,
 		current_anim,
 		move_set.is_spmove if move_set else "?",
@@ -180,7 +180,7 @@ func _spawn_fireball() -> void:
 	if move_set and move_set.has_method("execute_fireball_spawn"):
 		move_set.execute_fireball_spawn()
 	else:
-		print("[_spawn_fireball] ⚠️ MoveSet not found or doesn't have execute_fireball_spawn! (Seat=%s)" % debug_seat)
+		Debug.log("[_spawn_fireball] ⚠️ MoveSet not found or doesn't have execute_fireball_spawn! (Seat=%s)" % debug_seat)
 
 # ── 動畫重置分類（Phase 4 優化）──
 const GROUND_ATTACK_ANIMS = ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk",
@@ -225,7 +225,7 @@ func _ready() -> void:
 		# Connect to Player's override
 		animation_player.animation_finished.connect(_on_animation_player_finished)
 		if startup_logs:
-			print("[PLAYER READY] Connected animation_player.animation_finished to Player's handler | Seat: ", seat)
+			Debug.log("[PLAYER READY] Connected animation_player.animation_finished to Player's handler | Seat: ", seat)
 	
 	# 🟢 【新增】設置 metadata 讓 FrameBar 可以找到玩家的 seat
 	set_meta("player_seat", seat)
@@ -286,7 +286,7 @@ func get_input() -> Dictionary:
 		# 【NEW】Check for throw interrupt: if throw buffered while attacking regular move, cancel it
 		# This handles the case where throw is detected AFTER st_lk started in the same frame
 		if data.get("throw_pressed", false) and is_attacking and attack_type not in ["throw_enter", "throw_seq"]:
-			print("[THROW INTERRUPT] Frame=%d Seat=%s | Throw detected while attacking '%s', will interrupt" % [
+			Debug.log("[THROW INTERRUPT] Frame=%d Seat=%s | Throw detected while attacking '%s', will interrupt" % [
 				Engine.get_physics_frames(), seat, attack_type
 			])
 			# Don't return yet - let Player decide in attack logic
@@ -343,7 +343,7 @@ func _physics_process(delta: float) -> void:
 		_landing_checkpoint_executed = false
 		_landing_forced_frames = 0
 		force_update_facing_direction()
-		print("[ON FLOOR LANDING DEBUG] Landing triggered | forced timer: %.4fs" % landing_lock_timer)
+		Debug.log("[ON FLOOR LANDING DEBUG] Landing triggered | forced timer: %.4fs" % landing_lock_timer)
 		_update_animation_state(air_input_data.input_dir, air_input_data.crouch_pressed)
 
 	var input_data = get_input()
@@ -381,7 +381,7 @@ func _physics_process(delta: float) -> void:
 	if is_attacking and animation_state.get_current_node() in ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk", "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk"]:
 		if _has_any_atk_input_pre_block and not is_ai_controlled:
 			var frames_held = Engine.get_physics_frames() - last_executed_attack_frame
-			print("[LOCK_TRACE:IS_ATTACKING] F=%d Seat=%s | is_attacking=true anim_node='%s' attack_type='%s' | Input cleared (lock_frame=%d, held=%d physF=%.1f logicF)" % [
+			Debug.log("[LOCK_TRACE:IS_ATTACKING] F=%d Seat=%s | is_attacking=true anim_node='%s' attack_type='%s' | Input cleared (lock_frame=%d, held=%d physF=%.1f logicF)" % [
 				Engine.get_physics_frames(), seat,
 				animation_state.get_current_node(), attack_type,
 				last_executed_attack_frame, frames_held, frames_held / 2.0
@@ -401,7 +401,7 @@ func _physics_process(delta: float) -> void:
 	# DEBUG: Log AI special move input reception
 	var has_special_input = input_data.get("spm2_pressed", false) or input_data.get("spm1_pressed", false) or input_data.get("dp_pressed", false)
 	if is_ai_controlled and Engine.get_physics_frames() % 30 == 0 and has_special_input:
-		print("[Player INPUT] Frame=%d Seat=%s spm2=%s spm1=%s dp=%s ground_state=%s" % [
+		Debug.log("[Player INPUT] Frame=%d Seat=%s spm2=%s spm1=%s dp=%s ground_state=%s" % [
 			Engine.get_physics_frames(), seat, 
 			input_data.get("spm2_pressed", false),
 			input_data.get("spm1_pressed", false),
@@ -412,12 +412,12 @@ func _physics_process(delta: float) -> void:
 	if move_set and move_set.is_spmove:
 		# 特殊招式中：無條件呼叫 process_move
 		if is_ai_controlled and Engine.get_physics_frames() % 30 == 0 and has_special_input:
-			print("[Player PROCESS_MOVE] Frame=%d Seat=%s calling process_move(delta, input_data, true)" % [Engine.get_physics_frames(), seat])
+			Debug.log("[Player PROCESS_MOVE] Frame=%d Seat=%s calling process_move(delta, input_data, true)" % [Engine.get_physics_frames(), seat])
 		if move_set.process_move(delta, input_data, true):
 			return
 	elif move_set:
 		if is_ai_controlled and Engine.get_physics_frames() % 30 == 0 and has_special_input:
-			print("[Player PROCESS_MOVE] Frame=%d Seat=%s calling process_move(delta, input_data, %s)" % [Engine.get_physics_frames(), seat, is_valid_ground_state])
+			Debug.log("[Player PROCESS_MOVE] Frame=%d Seat=%s calling process_move(delta, input_data, %s)" % [Engine.get_physics_frames(), seat, is_valid_ground_state])
 		if move_set.process_move(delta, input_data, is_valid_ground_state):
 			return
 
@@ -427,7 +427,7 @@ func _physics_process(delta: float) -> void:
 	if is_cancel_open:
 		if _has_any_atk_input_post_block and not is_ai_controlled:
 			var frames_held = Engine.get_physics_frames() - last_executed_attack_frame
-			print("[LOCK_TRACE:CANCEL_OPEN] F=%d Seat=%s | cancel_window OPEN | attack_type='%s' | Input cleared (lock_frame=%d, held=%d physF=%.1f logicF)" % [
+			Debug.log("[LOCK_TRACE:CANCEL_OPEN] F=%d Seat=%s | cancel_window OPEN | attack_type='%s' | Input cleared (lock_frame=%d, held=%d physF=%.1f logicF)" % [
 				Engine.get_physics_frames(), seat, attack_type,
 				last_executed_attack_frame, frames_held, frames_held / 2.0
 			])
@@ -444,7 +444,7 @@ func _physics_process(delta: float) -> void:
 	# 【DEBUG LOCK TRACE】當輸入通過所有清除保護後，追蹤最終狀態
 	if not is_ai_controlled and (input_data.get("st_lp_pressed", false) or input_data.get("st_mp_pressed", false) or input_data.get("st_hp_pressed", false) or input_data.get("st_lk_pressed", false) or input_data.get("st_mk_pressed", false) or input_data.get("st_hk_pressed", false) or input_data.get("throw_pressed", false)):
 		var frames_held = Engine.get_physics_frames() - last_executed_attack_frame
-		print("[LOCK_TRACE:REACHED_EXEC] F=%d Seat=%s | st_lp=%s is_valid=%s is_attacking=%s anim='%s' | since_last: %d physF=%.1f logicF" % [
+		Debug.log("[LOCK_TRACE:REACHED_EXEC] F=%d Seat=%s | st_lp=%s is_valid=%s is_attacking=%s anim='%s' | since_last: %d physF=%.1f logicF" % [
 			Engine.get_physics_frames(), seat,
 			input_data.get("st_lp_pressed", false), is_valid_ground_state, is_attacking,
 			animation_state.get_current_node() if animation_state else "N/A",
@@ -453,7 +453,7 @@ func _physics_process(delta: float) -> void:
 	elif not is_ai_controlled and has_ground_attack_input and not is_valid_ground_state:
 		var frames_held2 = Engine.get_physics_frames() - last_executed_attack_frame
 		var land_timer_val = landing_lock_timer if "landing_lock_timer" in self else -1.0
-		print("[LOCK_TRACE:INVALID_STATE] F=%d Seat=%s | Input blocked by is_valid_ground_state=false | is_attacking=%s is_dashing=%s is_landing=%s land_timer=%.3f | since_last: %d physF=%.1f logicF" % [
+		Debug.log("[LOCK_TRACE:INVALID_STATE] F=%d Seat=%s | Input blocked by is_valid_ground_state=false | is_attacking=%s is_dashing=%s is_landing=%s land_timer=%.3f | since_last: %d physF=%.1f logicF" % [
 			Engine.get_physics_frames(), seat,
 			is_attacking, is_dashing, is_landing, land_timer_val,
 			frames_held2, frames_held2 / 2.0
@@ -478,7 +478,7 @@ func _physics_process(delta: float) -> void:
 	
 	# 【NEW】Throw can interrupt normal attacks (check separately)
 	elif input_data.get("throw_pressed", false) and not is_crouching and is_attacking and attack_type not in ["throw_enter", "throw_seq"]:
-		print("[THROW INTERRUPT EXECUTION] Frame=%d Seat=%s | Interrupting '%s' with throw" % [
+		Debug.log("[THROW INTERRUPT EXECUTION] Frame=%d Seat=%s | Interrupting '%s' with throw" % [
 			Engine.get_physics_frames(), seat, attack_type
 		])
 		if attack_executor:
@@ -537,7 +537,7 @@ func _physics_process_jump(_delta: float) -> void:
 		
 		# 【新增詳細日誌】跳躍執行追蹤
 		var frame_count = Engine.get_physics_frames()
-		print("[JUMP EXEC] Frame=%d | Seat=%s | Pos(%.1f,%.1f) | Dir=%d | Vel.y=%d | jump_delay_timer=%d" % [
+		Debug.log("[JUMP EXEC] Frame=%d | Seat=%s | Pos(%.1f,%.1f) | Dir=%d | Vel.y=%d | jump_delay_timer=%d" % [
 			frame_count, seat,
 			global_position.x, global_position.y,
 			input_data.input_dir,
@@ -608,7 +608,7 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 			var wakeup_duration = animation_player.get_animation("wakeup").length
 			# 🔴 【關鍵修復】wakeup_timer 需轉換爲 ×120 幀數（120 FPS 物理中逅減）
 			wakeup_timer = int(round(wakeup_duration * 120))
-			print("[WAKEUP DEBUG] wakeup_duration: %.3fs -> wakeup_timer: %d frames @120 FPS physics" % [wakeup_duration, wakeup_timer])
+			Debug.log("[WAKEUP DEBUG] wakeup_duration: %.3fs -> wakeup_timer: %d frames @120 FPS physics" % [wakeup_duration, wakeup_timer])
 		else:
 			wakeup_timer = 60  # 1.0 second = 60 frames @60FPS logic = 120 frames @120 FPS physics
 		animation_state.travel("wakeup")
@@ -619,38 +619,38 @@ func _on_animation_player_finished(anim_name: String) -> void:
 	var seat_str = seat if seat else "?"
 	var is_special_move = move_set and move_set.has_move_id(move_set.get_active_move_name()) if move_set else false
 	var frames_since_last = Engine.get_physics_frames() - last_executed_attack_frame
-	print("[✓ ANIM_FINISHED] '%s' | Seat: %s | F=%d | is_spmove=%s | is_attacking=%s | since_last=%d physF(%.1f logicF)" % [anim_name, seat_str, Engine.get_physics_frames(), is_special_move, is_attacking, frames_since_last, frames_since_last / 2.0])
+	Debug.log("[✓ ANIM_FINISHED] '%s' | Seat: %s | F=%d | is_spmove=%s | is_attacking=%s | since_last=%d physF(%.1f logicF)" % [anim_name, seat_str, Engine.get_physics_frames(), is_special_move, is_attacking, frames_since_last, frames_since_last / 2.0])
 	
 	# 地面攻擊重置
 	if anim_name in GROUND_ATTACK_ANIMS:
-		print("  → Ground attack reset")
+		Debug.log("  → Ground attack reset")
 		reset_attack_state()
 	# 空中攻擊重置
 	elif anim_name in AIR_ATTACK_ANIMS:
-		print("  → Air attack reset")
+		Debug.log("  → Air attack reset")
 		reset_air_state()
 	# 跳躍重置
 	elif anim_name in JUMP_ANIMS:
-		print("  → Jump reset")
+		Debug.log("  → Jump reset")
 		_reset_jump_state()
 	# 特殊招式重置
 	elif anim_name in SPECIAL_ANIMS:
-		print("  → Special move reset")
+		Debug.log("  → Special move reset")
 		# 🟢 【DP自帶著地修正】DP/HDK/POWERKK自帶著地動畫，完成時視為著地完成
 		if move_set and move_set.get_active_move_name() in ["dp", "dpL", "dpM", "dpH", "hdk", "powerkk"]:
-			print("     (self-landing move)")
+			Debug.log("     (self-landing move)")
 		reset_special_state()
 	# 摔投重置
 	elif anim_name in ["throw_enter", "throw_seq"]:
-		print("  → Throw reset")
+		Debug.log("  → Throw reset")
 		reset_attack_state()
 	# 著地重置
 	elif anim_name == "landing":
-		print("  → Landing reset")
+		Debug.log("  → Landing reset")
 		_reset_landing_anim()
 	else:
 		# 如果不在上述分類中，調用父類方法
-		print("  → Parent handler")
+		Debug.log("  → Parent handler")
 		super._on_animation_player_finished(anim_name)
 
 func _reset_jump_state() -> void:
@@ -669,7 +669,7 @@ func _reset_jump_state() -> void:
 		_landing_checkpoint_executed = false
 		_landing_forced_frames = 0
 		force_update_facing_direction()
-		print("[AIR LANDING DEBUG] is_landing set | forced timer: %.4fs" % landing_lock_timer)
+		Debug.log("[AIR LANDING DEBUG] is_landing set | forced timer: %.4fs" % landing_lock_timer)
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func _reset_landing_anim() -> void:
@@ -751,7 +751,7 @@ func force_update_facing_direction() -> void:
 
 func _execute_attack(attack_name: String) -> void:
 	"""統一的攻擊執行函式，處理傷害設置、狀態變更和移動啟動"""
-	print("[EXECUTE_ATTACK] attack_name: ", attack_name, " | Seat: ", seat)
+	Debug.log("[EXECUTE_ATTACK] attack_name: ", attack_name, " | Seat: ", seat)
 	
 	# 【FIX】攻擊去重防護：防止同一攻擊在相鄰幀中重複執行（業界標準）
 	# 根本原因：reset_attack_state()後同一幀可能再次觸發相同按鍵
@@ -761,7 +761,7 @@ func _execute_attack(attack_name: String) -> void:
 	var is_same_attack_repeat = (last_executed_attack == attack_name and frames_since_last_exec < attack_execution_lock_frames)
 	
 	if is_same_attack_repeat:
-		print("[LOCK_TRACE:DEDUP] F=%d Seat=%s | Rejecting '%s' - last exec %d physF ago (%.1f logicF), lock=%d physF (%.1f logicF)" % [
+		Debug.log("[LOCK_TRACE:DEDUP] F=%d Seat=%s | Rejecting '%s' - last exec %d physF ago (%.1f logicF), lock=%d physF (%.1f logicF)" % [
 			current_frame, seat, attack_name,
 			frames_since_last_exec, frames_since_last_exec / 2.0,
 			attack_execution_lock_frames, attack_execution_lock_frames / 2.0
@@ -770,7 +770,7 @@ func _execute_attack(attack_name: String) -> void:
 	
 	var is_throw_attack = attack_name in ["throw_enter", "throw_seq"]
 	if not is_throw_attack and not attack_name in ATTACK_TABLE:
-		print("[EXECUTE_ATTACK] NOT in ATTACK_TABLE")
+		Debug.log("[EXECUTE_ATTACK] NOT in ATTACK_TABLE")
 		return
 	
 	if not is_throw_attack:
@@ -786,7 +786,7 @@ func _execute_attack(attack_name: String) -> void:
 	var frame_counter = get_tree().root.get_node_or_null("World/FrameCounter")
 	if frame_counter:
 		attack_start_frame = frame_counter.get_current_frame()
-		print("[EXECUTE_ATTACK] 記錄攻擊開始幀：%d (120 FPS 物理幀)" % attack_start_frame)
+		Debug.log("[EXECUTE_ATTACK] 記錄攻擊開始幀：%d (120 FPS 物理幀)" % attack_start_frame)
 	else:
 		attack_start_frame = -1
 	
@@ -796,18 +796,18 @@ func _execute_attack(attack_name: String) -> void:
 		# 🔴 【關鍵修復】attack_duration_timer 應按 120 FPS 物理幀計算
 		# 邏輯：動畫時長（秒）× 60 FPS（邏輯幀）× 2（物理幀轉換係數）= 對應的物理幀數
 		attack_duration_timer = int(round(anim_length * 60 * 2))
-		print("[EXECUTE_ATTACK] Set attack_duration_timer=%d frames for %s (duration: %.3fs @60 FPS logic = %d @120 FPS physics)" % [int(round(anim_length * 60)), attack_name, anim_length, attack_duration_timer])
+		Debug.log("[EXECUTE_ATTACK] Set attack_duration_timer=%d frames for %s (duration: %.3fs @60 FPS logic = %d @120 FPS physics)" % [int(round(anim_length * 60)), attack_name, anim_length, attack_duration_timer])
 	else:
 		# Default: 0.5 seconds @ 60 FPS = 30 frames → × 2 = 60 frames @ 120 FPS
 		attack_duration_timer = 60
-		print("[EXECUTE_ATTACK] Animation not found, using default timer=60 frames (@120 FPS physics)")
+		Debug.log("[EXECUTE_ATTACK] Animation not found, using default timer=60 frames (@120 FPS physics)")
 	
-	print("[EXECUTE_ATTACK] Set is_attacking=true, attack_type=", attack_name)
+	Debug.log("[EXECUTE_ATTACK] Set is_attacking=true, attack_type=", attack_name)
 	
 	# Immediately switch to attack animation
 	if animation_state:
 		animation_state.travel(attack_name)
-		print("[EXECUTE_ATTACK] Switched animation to: ", attack_name)
+		Debug.log("[EXECUTE_ATTACK] Switched animation to: ", attack_name)
 	
 	# 啟動攻擊移動（如果有設定）
 	if attack_movement_handler:
@@ -857,4 +857,4 @@ func _initialize_handlers() -> void:
 	throw_handler.set_player(self)
 	
 	if startup_logs:
-		print("[Player] Handlers 初始化完成 (Phase 1-5) | Seat: ", seat)
+		Debug.log("[Player] Handlers 初始化完成 (Phase 1-5) | Seat: ", seat)

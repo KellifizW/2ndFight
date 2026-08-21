@@ -191,11 +191,11 @@ func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
 	
 	# Debug: 顯示過濾統計
 	if filtered_count > 0 and Engine.get_physics_frames() % 120 == 0:
-		print("[AI] Filtered %d restricted moves. Available decisions: %d" % [filtered_count, decisions.size()])
+		Debug.log("[AI] Filtered %d restricted moves. Available decisions: %d" % [filtered_count, decisions.size()])
 		if decisions.size() > 0:
 			var top_5 = decisions.slice(0, min(5, decisions.size()))
 			for d in top_5:
-				print("  - %s (%.1f): %s" % [d.action, d.priority, d.reason])
+				Debug.log("  - %s (%.1f): %s" % [d.action, d.priority, d.reason])
 	
 	# Layer 5: 待機層（最低優先級）
 	# 確保至少有一個決策
@@ -213,7 +213,7 @@ func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
 	# 【DEBUG】 決策排序和選擇追蹤（只記錄 throw、special move 或每 60 幀一次）
 	var is_throw_involved = best_decision.action == "throw" or decisions.any(func(d): return d.action == "throw")
 	if is_throw_involved or best_decision.action in SPECIAL_MOVE_ACTIONS or Engine.get_physics_frames() % 60 == 0:
-		print("[DECISION LAYER FINAL] Frame=%d Seat=%s | Selected: '%s' (%.1f) | reason: '%s'" % [
+		Debug.log("[DECISION LAYER FINAL] Frame=%d Seat=%s | Selected: '%s' (%.1f) | reason: '%s'" % [
 			Engine.get_physics_frames(),
 			ai_player.seat if "seat" in ai_player else "?",
 			best_decision.action,
@@ -226,7 +226,7 @@ func get_best_decision(ai_player: Player, opponent: Player) -> Decision:
 			var throw_decisions = decisions.filter(func(d): return d.action == "throw")
 			if throw_decisions.size() > 0:
 				var throw_priority = throw_decisions[0].priority
-				print("[THROW NOT SELECTED] Frame=%d | throw_priority=%.1f < selected_priority=%.1f | reason: '%s'" % [
+				Debug.log("[THROW NOT SELECTED] Frame=%d | throw_priority=%.1f < selected_priority=%.1f | reason: '%s'" % [
 					Engine.get_physics_frames(),
 					throw_priority,
 					best_decision.priority,
@@ -271,7 +271,7 @@ func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 				emergency.action = threat_system.get_defense_for_attack(attack_type) if threat_system else "stand_block"
 				emergency.priority = PRIORITY_SURVIVAL
 				emergency.reason = "Emergency block: " + attack_type
-				print("[AI JUMP DECISION] Frame=%d | EMERGENCY BLOCK: %s (dist=%.1f)" % [frame_count, emergency.action, distance])
+				Debug.log("[AI JUMP DECISION] Frame=%d | EMERGENCY BLOCK: %s (dist=%.1f)" % [frame_count, emergency.action, distance])
 				return emergency
 		return null
 	
@@ -289,21 +289,21 @@ func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 		decision.action = "stand_block"
 		decision.reason = "Threat: %s (special gated)" % threat.source
 		decision.priority = PRIORITY_SURVIVAL
-		print("[AI JUMP DECISION] Frame=%d | GATED: %s → block (special unavailable) | threat=%s" % [frame_count, threat.recommended_response, threat.source])
+		Debug.log("[AI JUMP DECISION] Frame=%d | GATED: %s → block (special unavailable) | threat=%s" % [frame_count, threat.recommended_response, threat.source])
 		return decision
 	
 	# Adjust priority based on threat level
 	if threat.level == ThreatAssessment.ThreatLevel.CRITICAL:
 		decision.priority = PRIORITY_CRITICAL
 		if frame_count % 5 == 0:  # 只在每5幀輸出日志（CRITICAL需要更及時）
-			print("[AI JUMP DECISION] Frame=%d | CRITICAL threat | action=%s | frames_until_hit=%d | distance=%.1f" % [
+			Debug.log("[AI JUMP DECISION] Frame=%d | CRITICAL threat | action=%s | frames_until_hit=%d | distance=%.1f" % [
 				frame_count, decision.action, threat.frames_until_hit, 
 				abs(ai_player.global_position.x - opponent.global_position.x)
 			])
 	elif threat.level == ThreatAssessment.ThreatLevel.HIGH:
 		decision.priority = PRIORITY_SURVIVAL
 		if frame_count % 10 == 0:  # 只在每10幀輸出日志
-			print("[AI JUMP DECISION] Frame=%d | HIGH threat | action=%s | frames_until_hit=%d | source=%s" % [
+			Debug.log("[AI JUMP DECISION] Frame=%d | HIGH threat | action=%s | frames_until_hit=%d | source=%s" % [
 				frame_count, decision.action, threat.frames_until_hit, threat.source
 			])
 	elif threat.level == ThreatAssessment.ThreatLevel.MEDIUM:
@@ -314,7 +314,7 @@ func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 			jump_decision.priority = PRIORITY_BLOCK + 3.0
 			jump_decision.reason = "Threat: avoid fireball by jumping"
 			if frame_count % 10 == 0:  # 只在每10幀輸出日志
-				print("[AI JUMP DECISION] Frame=%d | MEDIUM fireball → %s | distance=%.1f | frames_until_hit=%d" % [
+				Debug.log("[AI JUMP DECISION] Frame=%d | MEDIUM fireball → %s | distance=%.1f | frames_until_hit=%d" % [
 					frame_count, jump_decision.action, threat_distance, threat.frames_until_hit
 				])
 			return jump_decision
@@ -325,7 +325,7 @@ func _evaluate_survival_layer(ai_player: Player, opponent: Player) -> Decision:
 			decision.priority = PRIORITY_OBSERVE
 			decision.reason = "Low fireball threat: wait"
 			if frame_count % 30 == 0:
-				print("[AI FIREBALL HOLD] Frame=%d | LOW threat, no early jump | distance=%.1f | frames_until_hit=%d" % [
+				Debug.log("[AI FIREBALL HOLD] Frame=%d | LOW threat, no early jump | distance=%.1f | frames_until_hit=%d" % [
 					frame_count, threat_distance, threat.frames_until_hit
 				])
 			return decision
@@ -410,7 +410,7 @@ func _can_use_special(ai_player: Player, opponent: Player) -> bool:
 	# 必殺技冷卻中，不允許再次使用
 	if special_cooldown_timer > 0:
 		if Engine.get_physics_frames() % 30 == 0:
-			print("[_can_use_special] cooldown_timer=%.2f > 0 → BLOCK SPECIAL" % special_cooldown_timer)
+			Debug.log("[_can_use_special] cooldown_timer=%.2f > 0 → BLOCK SPECIAL" % special_cooldown_timer)
 		return false
 	# 懲罰窗口：永遠允許
 	if opponent.is_hit or opponent.is_knockfly:
@@ -425,7 +425,7 @@ func _can_use_special(ai_player: Player, opponent: Player) -> bool:
 	var can_use = not is_attacking and not is_hit and not is_knockfly and is_on_floor
 	
 	if Engine.get_physics_frames() % 30 == 0:
-		print("[_can_use_special] attacking=%s hit=%s knockfly=%s on_floor=%s → %s" % [
+		Debug.log("[_can_use_special] attacking=%s hit=%s knockfly=%s on_floor=%s → %s" % [
 			is_attacking, is_hit, is_knockfly, is_on_floor, can_use
 		])
 	
@@ -469,7 +469,7 @@ func _is_attack_in_range(ai_player: Player, opponent: Player, attack_name: Strin
 	if debug_attack_range:
 		var ai_id = ai_player.character_id if "character_id" in ai_player else "?"
 		if Engine.get_physics_frames() % 60 == 0:
-			print("[HITBOX RANGE CHECK] Frame=%d | attack=%s | dist=%.1f | collision=%s" % [
+			Debug.log("[HITBOX RANGE CHECK] Frame=%d | attack=%s | dist=%.1f | collision=%s" % [
 				Engine.get_physics_frames(),
 				attack_name,
 				distance,
@@ -504,7 +504,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 		var has_move_set = ai_player and ai_player.move_set and not ai_player.move_set.is_spmove
 		
 		if Engine.get_physics_frames() % 30 == 0:
-			print("[TACTICAL LAYER] Frame=%d | dist=%.0f | can_special=%s move_set=%s restricted=%s" % [
+			Debug.log("[TACTICAL LAYER] Frame=%d | dist=%.0f | can_special=%s move_set=%s restricted=%s" % [
 				Engine.get_physics_frames(), distance, can_special, has_move_set, 
 				"fireball" in restricted_moves
 			])
@@ -960,7 +960,7 @@ func _evaluate_tactical_layer(ai_player: Player, opponent: Player) -> Array[Deci
 				throw_dec.reason = "Close range: throw (real hitbox collision)"
 			
 			# 【DEBUG】throw 被加入決策
-			print("[TACTICAL THROW ADDED] Frame=%d Seat=%s | priority=%.1f reason='%s' | throw_range=%.1f" % [
+			Debug.log("[TACTICAL THROW ADDED] Frame=%d Seat=%s | priority=%.1f reason='%s' | throw_range=%.1f" % [
 				Engine.get_physics_frames(),
 				ai_player.seat if "seat" in ai_player else "?",
 				throw_dec.priority,
@@ -1056,22 +1056,22 @@ func get_fallback_decision(ai_player: Player, opponent: Player) -> Decision:
 	if not alternative_normals.is_empty():
 		alternative_normals.sort_custom(func(a, b): return a.priority > b.priority)
 		if Engine.get_physics_frames() % 120 == 0:
-			print("[AI.get_fallback_decision] Using normal attack fallback: %s" % alternative_normals[0].action)
+			Debug.log("[AI.get_fallback_decision] Using normal attack fallback: %s" % alternative_normals[0].action)
 		return alternative_normals[0]
 	
 	if not defensive_options.is_empty():
 		defensive_options.sort_custom(func(a, b): return a.priority > b.priority)
 		if Engine.get_physics_frames() % 120 == 0:
-			print("[AI.get_fallback_decision] Using defensive fallback: %s" % defensive_options[0].action)
+			Debug.log("[AI.get_fallback_decision] Using defensive fallback: %s" % defensive_options[0].action)
 		return defensive_options[0]
 	
 	if not movement_options.is_empty():
 		movement_options.sort_custom(func(a, b): return a.priority > b.priority)
 		if Engine.get_physics_frames() % 120 == 0:
-			print("[AI.get_fallback_decision] Using movement fallback: %s" % movement_options[0].action)
+			Debug.log("[AI.get_fallback_decision] Using movement fallback: %s" % movement_options[0].action)
 		return movement_options[0]
 	
 	# 最後的備選方案：待機
 	if Engine.get_physics_frames() % 120 == 0:
-		print("[AI.get_fallback_decision] All options exhausted, returning idle")
+		Debug.log("[AI.get_fallback_decision] All options exhausted, returning idle")
 	return _get_idle_decision()

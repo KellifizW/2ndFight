@@ -75,7 +75,7 @@ func handle_hitbox_collision(area: Area2D) -> void:
 	
 	# 🔴 調試：顯示active_move的狀態
 	if active_move:
-		print("[HitResponseHandler] 碰撞檢測：move=%s, is_spmove=%s, is_multi_hit=%s, hit_phases.size()=%d" % [
+		Debug.log("[HitResponseHandler] 碰撞檢測：move=%s, is_spmove=%s, is_multi_hit=%s, hit_phases.size()=%d" % [
 			active_move.name, move_set.is_spmove, active_move.is_multi_hit, active_move.hit_phases.size()
 		])
 	
@@ -84,7 +84,7 @@ func handle_hitbox_collision(area: Area2D) -> void:
 	if active_move and active_move.is_multi_hit:
 		# 如果hit_phases為空，説明多段配置不完整，降級為非多段模式
 		if active_move.hit_phases.size() == 0:
-			print("[HitResponseHandler] ⚠️  %s is_multi_hit=true 但 hit_phases 為空，降級為非多段模式" % active_move.name)
+			Debug.log("[HitResponseHandler] ⚠️  %s is_multi_hit=true 但 hit_phases 為空，降級為非多段模式" % active_move.name)
 			active_move.is_multi_hit = false
 			# ✅ 繼續執行碰撞，使用基礎參數
 		else:
@@ -93,17 +93,17 @@ func handle_hitbox_collision(area: Area2D) -> void:
 			phase_data = _get_multi_hit_phase(active_move, target, elapsed_frames)
 			if phase_data == null:
 				# 未達到hit_phase時間點，不碰撞
-				print("[HitResponseHandler] ⚠️  phase_data=null for multi-hit move '%s', elapsed_frames=%d, target=%s" % [active_move.name, elapsed_frames, target.name])
+				Debug.log("[HitResponseHandler] ⚠️  phase_data=null for multi-hit move '%s', elapsed_frames=%d, target=%s" % [active_move.name, elapsed_frames, target.name])
 				return
 	
 	# ── 獲取攻擊參數 ──
 	var hit_params = _get_hit_parameters(phase_data)
 	
-	print("═══════════════════════════════════════════════════════════")
-	print("[HitResponseHandler] %s 擊中 %s" % [parent_player.name, target.name])
-	print("  - hitstun: %d frames (%.3fs)" % [hit_params.hitstun, hit_params.hitstun / 60.0])
-	print("  - blockstun: %d frames (%.3fs)" % [hit_params.blockstun, hit_params.blockstun / 60.0])
-	print("  - damage: %.1f" % hit_params.damage)
+	Debug.log("═══════════════════════════════════════════════════════════")
+	Debug.log("[HitResponseHandler] %s 擊中 %s" % [parent_player.name, target.name])
+	Debug.log("  - hitstun: %d frames (%.3fs)" % [hit_params.hitstun, hit_params.hitstun / 60.0])
+	Debug.log("  - blockstun: %d frames (%.3fs)" % [hit_params.blockstun, hit_params.blockstun / 60.0])
+	Debug.log("  - damage: %.1f" % hit_params.damage)
 	
 	# 🟢 【重要】先呼叫 take_hit() 讓受擊動畫立即播放
 	# 這確保在 hitstop 凍結之前，角色已經開始播放受擊動畫
@@ -239,7 +239,7 @@ func _get_multi_hit_phase(active_move, target: Node, elapsed_frames: int):
 	var phase_data = null
 	
 	# 🔴 詳細診斷
-	print("[_get_multi_hit_phase] Checking move=%s, elapsed_frames=%d (physics), target=%s" % [active_move.name, elapsed_frames, target.name])
+	Debug.log("[_get_multi_hit_phase] Checking move=%s, elapsed_frames=%d (physics), target=%s" % [active_move.name, elapsed_frames, target.name])
 	
 	for i in active_move.hit_phases.size():
 		var phase = active_move.hit_phases[i]
@@ -249,7 +249,7 @@ func _get_multi_hit_phase(active_move, target: Node, elapsed_frames: int):
 		if phase_frame < 0:
 			continue
 		var phase_physics = int(round(phase_frame * float(physics_fps) / 60.0))
-		print("    [Phase%d] frame(logic)=%d → phase_physics=%d (elapsed=%d, match=%s)" % [
+		Debug.log("    [Phase%d] frame(logic)=%d → phase_physics=%d (elapsed=%d, match=%s)" % [
 			i, phase_frame, phase_physics, elapsed_frames, elapsed_frames >= phase_physics
 		])
 		if elapsed_frames >= phase_physics:
@@ -257,26 +257,26 @@ func _get_multi_hit_phase(active_move, target: Node, elapsed_frames: int):
 			phase_data = phase
 	
 	if hit_index < 0:
-		print("[_get_multi_hit_phase] ❌ No matching phase found (elapsed_frames=%d too early)" % elapsed_frames)
+		Debug.log("[_get_multi_hit_phase] ❌ No matching phase found (elapsed_frames=%d too early)" % elapsed_frames)
 		return null
 	
 	# 🔴 【新增】檢查phase是否有有效數據（不能所有値都為0）
 	if phase_data != null and phase_data.damage == 0.0 and phase_data.hitstun == 0 and phase_data.knockback == 0.0:
-		print("[_get_multi_hit_phase] ⚠️  Phase%d 無效（所有値為0） frame=%d" % [hit_index, phase_data.frame])
+		Debug.log("[_get_multi_hit_phase] ⚠️  Phase%d 無效（所有値為0） frame=%d" % [hit_index, phase_data.frame])
 		return null
 	
 	var target_id = target.get_instance_id()
 	var record = multi_hit_targets.get(target_id, {"hit_index": -1, "last_hit_frame": -1})
-	print("[_get_multi_hit_phase] Target=%s (id=%d), current_hit_index=%d, previous_hit_index=%d" % [
+	Debug.log("[_get_multi_hit_phase] Target=%s (id=%d), current_hit_index=%d, previous_hit_index=%d" % [
 		target.name, target_id, hit_index, record["hit_index"]
 	])
 	if record["hit_index"] == hit_index:
-		print("[_get_multi_hit_phase] ⚠️  Already hit this target with phase%d, skipping" % hit_index)
+		Debug.log("[_get_multi_hit_phase] ⚠️  Already hit this target with phase%d, skipping" % hit_index)
 		return null
 	record["hit_index"] = hit_index
 	record["last_hit_frame"] = elapsed_frames
 	multi_hit_targets[target_id] = record
-	print("[_get_multi_hit_phase] ✅ Returning phase%d for target %s" % [hit_index, target.name])
+	Debug.log("[_get_multi_hit_phase] ✅ Returning phase%d for target %s" % [hit_index, target.name])
 	return phase_data
 
 func _play_hit_sound(is_blocked: bool, damage: float = 10.0) -> void:
@@ -362,22 +362,22 @@ func _handle_corner_pushback(target: Node, stun_duration: float, knockback_dista
 	else:
 		# 後備方案：使用舊的係數
 		parent_player.corner_push_velocity = corner_push_distance * world.SIMULATION_SCALE * 4.0
-		print("[CORNER PUSH WARNING] PushManager 未找到或無反推函數，使用後備係數")
+		Debug.log("[CORNER PUSH WARNING] PushManager 未找到或無反推函數，使用後備係數")
 	
 	# 🟢 初始化 corner push 狀態（攻擊者被推回）
 	parent_player.corner_push_frames = physics_push_frames
 	parent_player.initial_corner_push_frames = physics_push_frames
 	parent_player.corner_push_start_x = parent_player.position.x
 	
-	print("\n╔════════════════════════════════════════════════════════════════╗")
-	print("║ CORNER PUSH INITIALIZATION (攻擊者被推回)                   ║")
-	print("╚════════════════════════════════════════════════════════════════╝")
-	print("  🎮 Player: %s" % parent_player.name)
-	print("  📍 Position: (%.2f, %.2f)" % [parent_player.position.x, parent_player.position.y])
-	print("  📏 Corner push distance: %.1f pixels (與攻擊 knockback 相同)" % corner_push_distance)
-	print("  ⏱️  Push frames: %d (%.3fs @ 60 FPS)" % [physics_push_frames, physics_push_frames / 60.0])
-	print("  ⚡ Corner push velocity: %.2f units (%.2f px/frame)" % [parent_player.corner_push_velocity, parent_player.corner_push_velocity / world.SIMULATION_SCALE])
-	print()
+	Debug.log("\n╔════════════════════════════════════════════════════════════════╗")
+	Debug.log("║ CORNER PUSH INITIALIZATION (攻擊者被推回)                   ║")
+	Debug.log("╚════════════════════════════════════════════════════════════════╝")
+	Debug.log("  🎮 Player: %s" % parent_player.name)
+	Debug.log("  📍 Position: (%.2f, %.2f)" % [parent_player.position.x, parent_player.position.y])
+	Debug.log("  📏 Corner push distance: %.1f pixels (與攻擊 knockback 相同)" % corner_push_distance)
+	Debug.log("  ⏱️  Push frames: %d (%.3fs @ 60 FPS)" % [physics_push_frames, physics_push_frames / 60.0])
+	Debug.log("  ⚡ Corner push velocity: %.2f units (%.2f px/frame)" % [parent_player.corner_push_velocity, parent_player.corner_push_velocity / world.SIMULATION_SCALE])
+	Debug.log()
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 【新增】Fireball 專用：供 fireball.gd 動態讀取 hitstun 參數

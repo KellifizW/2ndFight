@@ -104,7 +104,7 @@ func _find_player():
 	"""自動查找並連接玩家"""
 	var world = get_tree().get_first_node_in_group("world")
 	if not world:
-		print("[InputHistoryDisplay] 警告：找不到 world 節點")
+		Debug.log("[InputHistoryDisplay] 警告：找不到 world 節點")
 		return
 	
 	# 根據設置的 track_player 屬性選擇玩家
@@ -116,11 +116,11 @@ func _find_player():
 	if player_to_track:
 		input_manager = player_to_track.get_node_or_null("InputManager")
 		if input_manager:
-			print("[InputHistoryDisplay] 成功連接到 " + player_to_track.name + " 的 InputManager")
+			Debug.log("[InputHistoryDisplay] 成功連接到 " + player_to_track.name + " 的 InputManager")
 		else:
-			print("[InputHistoryDisplay] 警告：玩家 " + player_to_track.name + " 沒有 InputManager")
+			Debug.log("[InputHistoryDisplay] 警告：玩家 " + player_to_track.name + " 沒有 InputManager")
 	else:
-		print("[InputHistoryDisplay] 警告：找不到玩家")
+		Debug.log("[InputHistoryDisplay] 警告：找不到玩家")
 
 func _physics_process(_delta: float):
 	if not input_manager or not player_to_track:

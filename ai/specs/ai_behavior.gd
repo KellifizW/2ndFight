@@ -9,10 +9,10 @@ func _ready() -> void:
     if parent:
         state_timer = randf() * 0.3 + 0.3
         if OS.is_debug_build():
-            print("Debug: AIBehavior ready for %s!" % parent.name)
+            Debug.log("Debug: AIBehavior ready for %s!" % parent.name)
     else:
         if OS.is_debug_build():
-            print("Warning: No parent Player found for AIBehavior")
+            Debug.log("Warning: No parent Player found for AIBehavior")
 
 func set_ai_enabled(enabled: bool) -> void:
     ai_enabled = enabled
@@ -21,7 +21,7 @@ func set_ai_enabled(enabled: bool) -> void:
         state_timer = randf() * 0.3 + 0.3
     if OS.is_debug_build():
         if parent:
-            print("Debug: AI %s for %s" % ["enabled" if enabled else "disabled", parent.name])
+            Debug.log("Debug: AI %s for %s" % ["enabled" if enabled else "disabled", parent.name])
 
 func _process(delta: float) -> void:
     if not ai_enabled or not parent:
@@ -62,7 +62,7 @@ func _process(delta: float) -> void:
                 state_timer = randf() * 0.4 + 0.3
                 
         if OS.is_debug_build():
-            print("Debug: AI State changed to %s for %s" % [current_state, parent.name])
+            Debug.log("Debug: AI State changed to %s for %s" % [current_state, parent.name])
 
 func get_current_state() -> String:
     return current_state

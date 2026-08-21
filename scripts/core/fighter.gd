@@ -65,7 +65,7 @@ func _ready() -> void:
 		colbox_half_width = collision_shape.shape.size.x * collision_scale.x / 2.0
 		colbox_half_height = collision_shape.shape.size.y * collision_scale.y / 2.0
 	else:
-		print("Warning: CollisionShape2D not found or invalid for %s" % name)
+		Debug.log("Warning: CollisionShape2D not found or invalid for %s" % name)
 	
 	add_to_group("players")
 	
@@ -82,7 +82,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if not world:
-		print("Warning: World node not found in group 'world' for %s" % name)
+		Debug.log("Warning: World node not found in group 'world' for %s" % name)
 		return
 
 	# 🟢 【調試】監控 DP 期間的垂直速度變化
@@ -129,7 +129,7 @@ func _physics_process(delta: float) -> void:
 		if blockstun_frames <= 0:
 			is_blocking = false
 			block_type = "none"
-			print("[FIXED-FRAME BLOCKSTUN END] %s 格擋結束！" % name)
+			Debug.log("[FIXED-FRAME BLOCKSTUN END] %s 格擋結束！" % name)
 			block_knockback_frames = 0  # 確保 block knockback 也被清除
 	else:
 		if blockstun_frames <= 0:
@@ -184,7 +184,7 @@ func take_hit(
 	knockback_distance: float = -1.0
 ) -> void:
 	if not world:
-		print("Warning: World node not found in group 'world' for %s" % name)
+		Debug.log("Warning: World node not found in group 'world' for %s" % name)
 		return
 	
 	# 🟢 輸入是邏輯幀（60 FPS 基準），需轉換為物理幀
@@ -269,9 +269,9 @@ func take_hit(
 	# ── 扣血（不變）──
 	if healthbar != null:
 		healthbar.current_health -= damage
-		print("Debug: %s 受到 %.1f 傷害，剩餘血量 %.1f" % [name, damage, healthbar.current_health])
+		Debug.log("Debug: %s 受到 %.1f 傷害，剩餘血量 %.1f" % [name, damage, healthbar.current_health])
 	else:
-		print("Warning: healthbar 未設定，無法扣血（%s）" % name)
+		Debug.log("Warning: healthbar 未設定，無法扣血（%s）" % name)
 	
 	var facing_mult = get_facing_multiplier()
 	var should_knockfly: bool = force_knockfly or damage > 10.0 or (healthbar != null and healthbar.current_health <= 0)
@@ -293,7 +293,7 @@ func take_hit(
 		is_knockfly = true
 		# � 【統一修復】knockfly_timer 使用秒數，由 PushManager 以 delta 遞減
 		knockfly_timer = params.duration  # ✅ 使用秒數，不是幀數
-		print("[KNOCKFLY DEBUG] Started | params.duration: %.3fs -> knockfly_timer: %.3fs" % [params.duration, knockfly_timer])
+		Debug.log("[KNOCKFLY DEBUG] Started | params.duration: %.3fs -> knockfly_timer: %.3fs" % [params.duration, knockfly_timer])
 		# 🟢 【關鍵修復】同時設置 knockfly_duration，確保 PushManager 的速度計算正確
 		knockfly_duration = params.duration  # ✅ knockfly_duration 也用秒數
 		is_immune_to_floor_snap = true
@@ -309,7 +309,7 @@ func take_hit(
 		
 		# 記錄並打印垂直速度來源
 		var final_vertical = params.vertical_speed * world.SIMULATION_SCALE
-		print("[KNOCKFLY VERTICAL SPEED] %s 被擊飛 → 垂直速度 = %d (原始: %.1f * SIMULATION_SCALE %.1f)" % [
+		Debug.log("[KNOCKFLY VERTICAL SPEED] %s 被擊飛 → 垂直速度 = %d (原始: %.1f * SIMULATION_SCALE %.1f)" % [
 			name, final_vertical, params.vertical_speed, world.SIMULATION_SCALE
 		])
 		
@@ -335,7 +335,7 @@ func take_hit(
 		# 🟢 檢查是否有 hit stop 正在進行
 		if slow_mo_controller and slow_mo_controller.is_hit_slowmo:
 			# Hit stop 正在進行 → 延遲設置 hitstun/knockback/blockstun，等待 hit stop 完成
-			print("[HITSTUN DELAYED] %s - Hit stop 進行中，延遲設置 hitstun/knockback/blockstun" % name)
+			Debug.log("[HITSTUN DELAYED] %s - Hit stop 進行中，延遲設置 hitstun/knockback/blockstun" % name)
 			waiting_for_hit_stop_end = true
 			pending_hit_params = {
 				"hit_frames": hit_frames,
@@ -380,9 +380,9 @@ func take_hit(
 			is_immune_to_floor_snap = true
 			# 🔴 【關鍵修復】轉換秒數duration為幀數 基於 PHYSICS_FPS(120)
 			floor_snap_immunity_timer = int(round(floor_snap_immunity_duration * LOGIC_FPS * 2))
-			print("[AIR HIT DEBUG] air_hit_backjump_timer: %.3fs -> %d frames, floor_snap_immunity_timer: %.3fs -> %d frames @120 FPS physics" % [air_hit_backjump_duration, air_hit_backjump_timer, floor_snap_immunity_duration, floor_snap_immunity_timer])
+			Debug.log("[AIR HIT DEBUG] air_hit_backjump_timer: %.3fs -> %d frames, floor_snap_immunity_timer: %.3fs -> %d frames @120 FPS physics" % [air_hit_backjump_duration, air_hit_backjump_timer, floor_snap_immunity_duration, floor_snap_immunity_timer])
 			fixed_position.y -= 2
-			print("[AIR HIT] %s 空中受擊 → 後跳速度 x=%d, y=%d (0.7x 正常跳躍)" % [name, fixed_velocity.x, fixed_velocity.y])
+			Debug.log("[AIR HIT] %s 空中受擊 → 後跳速度 x=%d, y=%d (0.7x 正常跳躍)" % [name, fixed_velocity.x, fixed_velocity.y])
 		else:
 			# 地面普通受擊 → 只有 hitstun，無垂直速度（讓 PushManager 處理水平推擊）
 			fixed_velocity.y = 0
@@ -414,7 +414,7 @@ func take_knockfly() -> void:
 		# � 【統一修復】knockfly_timer 使用秒數，由 PushManager 以 delta 遞減
 		knockfly_timer = max(default_knockfly_duration, min_hitstun_duration)
 		knockfly_duration = knockfly_timer  # 同步 knockfly_duration
-		print("[KNOCKFLY TAKE DEBUG] default_knockfly_duration: %.3fs -> knockfly_timer: %.3fs (seconds)" % [default_knockfly_duration, knockfly_timer])
+		Debug.log("[KNOCKFLY TAKE DEBUG] default_knockfly_duration: %.3fs -> knockfly_timer: %.3fs (seconds)" % [default_knockfly_duration, knockfly_timer])
 		_update_animation_state(0, is_crouching)
 
 func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
@@ -471,7 +471,7 @@ func is_in_blockstun() -> bool:
 # 🟢 Hit stop 完成後的回調 - 啟動被延遲的 hitstun/knockback/blockstun
 func _on_hit_slowmo_finished() -> void:
 	if waiting_for_hit_stop_end and pending_hit_params.size() > 0:
-		print("[HIT STOP END] %s - 啟動被延遲的 hitstun/knockback/blockstun" % name)
+		Debug.log("[HIT STOP END] %s - 啟動被延遲的 hitstun/knockback/blockstun" % name)
 		_apply_pending_hit_effect()
 		waiting_for_hit_stop_end = false
 		pending_hit_params.clear()
@@ -489,9 +489,9 @@ func _apply_pending_hit_effect() -> void:
 	var skip_push = pending_hit_params.get("skip_push", false)
 	
 	# 啟動 hitstun（blockstun 只在格擋時設置）
-	print("[DEBUG _apply_pending_hit_effect] 執行前: hitstun_frames=%d, 即將設置為 %d" % [hitstun_frames, hit_frames])
+	Debug.log("[DEBUG _apply_pending_hit_effect] 執行前: hitstun_frames=%d, 即將設置為 %d" % [hitstun_frames, hit_frames])
 	hitstun_frames = hit_frames
-	print("[DEBUG _apply_pending_hit_effect] 執行後: hitstun_frames=%d" % hitstun_frames)
+	Debug.log("[DEBUG _apply_pending_hit_effect] 執行後: hitstun_frames=%d" % hitstun_frames)
 	if blockstun > 0:
 		blockstun_frames = blockstun
 		initial_blockstun_frames = blockstun
@@ -506,7 +506,7 @@ func _apply_pending_hit_effect() -> void:
 		initial_knockback_frames = hit_frames_val
 		hit_push_velocity = hit_push_initial_velocity_val
 	
-	print("[HIT EFFECT APPLIED] %s - hitstun: %d frames, blockstun: %d frames, knockback: %d frames" % [
+	Debug.log("[HIT EFFECT APPLIED] %s - hitstun: %d frames, blockstun: %d frames, knockback: %d frames" % [
 		name, hitstun_frames, blockstun_frames, knockback_frames
 	])
 

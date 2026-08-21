@@ -52,9 +52,9 @@ func _delayed_init() -> void:
 	position = target_position  # 立即設定，避免第一幀卡在 (0,0)
 	
 	if startup_logs:
-		print("=== 鏡頭延後初始化完成 ===")
-		print("追蹤玩家：%s 和 %s" % [players[0].name, players[1].name])
-		print("初始鏡頭位置：%s" % position)
+		Debug.log("=== 鏡頭延後初始化完成 ===")
+		Debug.log("追蹤玩家：%s 和 %s" % [players[0].name, players[1].name])
+		Debug.log("初始鏡頭位置：%s" % position)
 
 func _update_target_position_and_zoom() -> void:
 	if players.size() < 2:

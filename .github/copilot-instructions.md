@@ -1,5 +1,37 @@
 # 2D Fighting Game - Godot 4.x Codebase Instructions
 
+> ## ⛔ 不可違反的架構守則（2026-08-21 起生效，優先於本文其餘內容）
+>
+> 本專案曾因 AI 迭代堆疊累積大量技術債。以下規則用於防止問題再發，
+> 任何修改（包括 AI 修改）必須遵守。**本文後續章節若與守則衝突，以守則為準；
+> 後續章節描述的是歷史架構，部分已過時，改代碼前先看實際代碼。**
+>
+> 1. **日誌規則**: 遊戲代碼（scripts/、ai/、characters/）**禁止直接 `print()`**。
+>    事件型日誌用 `Debug.log("[TAG] ...")`，每幀/高頻追蹤用 `Debug.vlog(...)`。
+>    錯誤警告用 `push_warning/push_error`。Debug logger 預設關閉（`Debug.enabled`），
+>    遊戲中 Ctrl+D 切換。
+> 2. **時間規則**: 現有遊戲邏輯混用了 秒數 / 60FPS 邏輯幀 / 120FPS 物理幀 / FrameCounter 幀
+>    四種時間域（已知技術債，Stage 1 將統一為「整數物理幀」）。在統一完成前:
+>    - 新增計時器一律用 **int 物理幀**（`_physics_process` 每幀 `-1` 遞減）
+>    - **禁止**新增以秒為單位（float + delta）的遊戲邏輯計時器
+>    - 幀數據（hitstun/blockstun/duration）以 60FPS 邏輯幀存放，載入時一次性 ×2 轉物理幀
+>    - 秒數只允許用於: UI、攝影機、BGM、tween 視覺效果
+> 3. **狀態規則**: **禁止新增 bool 狀態旗標**（`is_*`/`was_*`/`just_*`/`has_*`）來表達
+>    角色狀態。現有 ~34 個旗標是技術債（Stage 2 將改為顯式狀態機）。
+>    新邏輯若需要新的角色狀態，先提議擴展狀態機設計，不要加旗標。
+> 4. **測試規則**: 改動戰鬥邏輯（hit/block/knockback/攻擊生命週期/輸入）前，
+>    先跑 `bash tests/frame_tests/run_frame_tests.sh`（需 Godot 4.6 CLI）確認現狀；
+>    改完必須全綠。行為有意變更時，更新 `docs/systems/FRAME_DATA_TABLE.md` 與測試斷言。
+> 5. **數據單一真相來源**: 招式的 damage/hitstun/blockstun/duration 只允許存在於
+>    一個地方。當前特殊招式有「場景內嵌 smd_* 優先、data/specials/*.tres fallback」的
+>    雙來源問題（見 FRAME_DATA_TABLE.md）——修改招式數據時兩處都要檢查，
+>    並在 Stage 3 收攏前不要新增第三來源。
+> 6. **修復方式**: 修 bug 時禁止「加 print 然後觀察」的迭代。先用 frame 測試或
+>    最小重現腳本**確定性地重現**問題，再修，修完刪除臨時調試代碼。
+>    修復完成後不要新增 `XXX_FIX_SUMMARY.md` 類文檔——更新對應系統的正式文檔。
+> 7. **提交規則**: 每輪修改一個獨立關注點，commit message 寫清楚改了什麼不變式。
+>    不要一次提交「修了 5 個東西 + 順便重構」。
+
 ## Architecture Overview
 
 This is a **Godot 4.x 2D fighting game** using a **fixed-point physics system** and **data-driven architecture** for precise, deterministic combat. The game follows AAA fighting game patterns (Street Fighter, Tekken) with modular handler-based design.

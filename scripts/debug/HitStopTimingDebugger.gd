@@ -41,7 +41,7 @@ const MAX_HISTORY: int = 10
 func _ready() -> void:
 	if not enabled:
 		return
-	print("[HITSTOP DEBUGGER] 初始化完成，詳細日誌：%s" % detailed_logging)
+	Debug.log("[HITSTOP DEBUGGER] 初始化完成，詳細日誌：%s" % detailed_logging)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 公開方法：記錄 Hit Stop 事件
@@ -78,21 +78,21 @@ func start_hitstop_event(attacker: Node, defender: Node, attack_name: String) ->
 		current_event.defender_hitstun_frames = defender.hitstun_frames
 	
 	if detailed_logging:
-		print("[HITSTOP START] %s 使用 %s 擊中 %s" % [
+		Debug.log("[HITSTOP START] %s 使用 %s 擊中 %s" % [
 			current_event.attacker_name,
 			current_event.attack_name,
 			current_event.defender_name
 		])
-		print("  - 物理幀：%d，真實時間：%.3fs" % [
+		Debug.log("  - 物理幀：%d，真實時間：%.3fs" % [
 			current_event.start_frame,
 			current_event.start_time
 		])
-		print("  - 攻擊者動畫：%.3fs / %.3fs (%.1f%%)" % [
+		Debug.log("  - 攻擊者動畫：%.3fs / %.3fs (%.1f%%)" % [
 			current_event.attacker_anim_time,
 			current_event.attacker_anim_length,
 			(current_event.attacker_anim_time / current_event.attacker_anim_length * 100.0) if current_event.attacker_anim_length > 0 else 0.0
 		])
-		print("  - 防守者 hitstun：%d 幀（等待啟動）" % current_event.defender_hitstun_frames)
+		Debug.log("  - 防守者 hitstun：%d 幀（等待啟動）" % current_event.defender_hitstun_frames)
 
 func end_hitstop_event(attacker: Node, defender: Node) -> void:
 	if not enabled or not current_event:
@@ -153,60 +153,60 @@ func _print_event_report() -> void:
 	if not current_event:
 		return
 	
-	print("\n═══════════════════════════════════════════════════════════")
-	print("[HITSTOP TIMING REPORT] %s (%s) → %s" % [
+	Debug.log("\n═══════════════════════════════════════════════════════════")
+	Debug.log("[HITSTOP TIMING REPORT] %s (%s) → %s" % [
 		current_event.attacker_name,
 		current_event.attack_name,
 		current_event.defender_name
 	])
-	print("───────────────────────────────────────────────────────────")
+	Debug.log("───────────────────────────────────────────────────────────")
 	
 	# Hit Stop 持續時間
-	print("【Hit Stop 持續時間】")
-	print("  - 真實時間：%.4fs (%.1f 真實幀 @60fps)" % [
+	Debug.log("【Hit Stop 持續時間】")
+	Debug.log("  - 真實時間：%.4fs (%.1f 真實幀 @60fps)" % [
 		current_event.duration_real,
 		current_event.duration_real * 60.0
 	])
-	print("  - 物理幀差：%d 幀" % [
+	Debug.log("  - 物理幀差：%d 幀" % [
 		current_event.end_frame - current_event.start_frame
 	])
 	
 	# 攻擊者動畫進度
-	print("\n【攻擊者動畫進度】")
-	print("  - 開始：%.3fs / %.3fs (%.1f%%)" % [
+	Debug.log("\n【攻擊者動畫進度】")
+	Debug.log("  - 開始：%.3fs / %.3fs (%.1f%%)" % [
 		current_event.attacker_anim_time,
 		current_event.attacker_anim_length,
 		(current_event.attacker_anim_time / current_event.attacker_anim_length * 100.0) if current_event.attacker_anim_length > 0 else 0.0
 	])
-	print("  - 結束：%.3fs / %.3fs (%.1f%%)" % [
+	Debug.log("  - 結束：%.3fs / %.3fs (%.1f%%)" % [
 		current_event.attacker_anim_time_end,
 		current_event.attacker_anim_length,
 		(current_event.attacker_anim_time_end / current_event.attacker_anim_length * 100.0) if current_event.attacker_anim_length > 0 else 0.0
 	])
-	print("  - 推進：%.1f 真實幀 (動畫時間 × 60fps)" % current_event.anim_progress_real_frames)
+	Debug.log("  - 推進：%.1f 真實幀 (動畫時間 × 60fps)" % current_event.anim_progress_real_frames)
 	
 	# 防守者 hitstun 狀態
-	print("\n【防守者 Hitstun 狀態】")
-	print("  - Hit Stop 前：%d 幀（延遲啟動）" % current_event.defender_hitstun_frames)
-	print("  - Hit Stop 後：%d 幀（開始計時）" % current_event.defender_hitstun_frames_end)
+	Debug.log("\n【防守者 Hitstun 狀態】")
+	Debug.log("  - Hit Stop 前：%d 幀（延遲啟動）" % current_event.defender_hitstun_frames)
+	Debug.log("  - Hit Stop 後：%d 幀（開始計時）" % current_event.defender_hitstun_frames_end)
 	
 	# 時機偏移分析
-	print("\n【時機偏移分析】")
-	print("  - 物理推進：%.2f 遊戲幀" % current_event.physics_progress_game_frames)
-	print("  - 動畫推進：%.2f 真實幀" % current_event.anim_progress_real_frames)
-	print("  - 偏移量：%.2f 幀 (%s)" % [
+	Debug.log("\n【時機偏移分析】")
+	Debug.log("  - 物理推進：%.2f 遊戲幀" % current_event.physics_progress_game_frames)
+	Debug.log("  - 動畫推進：%.2f 真實幀" % current_event.anim_progress_real_frames)
+	Debug.log("  - 偏移量：%.2f 幀 (%s)" % [
 		current_event.timing_mismatch,
 		"攻擊者提前恢復" if current_event.timing_mismatch > 0 else "同步正確" if current_event.timing_mismatch == 0 else "攻擊者延遲恢復"
 	])
 	
 	if current_event.timing_mismatch > 1.0:
-		print("  ⚠️ 警告：時機錯位超過 1 幀，可能影響連段")
+		Debug.log("  ⚠️ 警告：時機錯位超過 1 幀，可能影響連段")
 	elif current_event.timing_mismatch > 3.0:
-		print("  🚨 嚴重：時機錯位超過 3 幀，連段時機錯誤")
+		Debug.log("  🚨 嚴重：時機錯位超過 3 幀，連段時機錯誤")
 	elif abs(current_event.timing_mismatch) < 0.5:
-		print("  ✅ 正常：時機同步良好")
+		Debug.log("  ✅ 正常：時機同步良好")
 	
-	print("═══════════════════════════════════════════════════════════\n")
+	Debug.log("═══════════════════════════════════════════════════════════\n")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 公開方法：獲取最近的事件
@@ -231,9 +231,9 @@ func print_summary() -> void:
 	if not enabled or event_history.is_empty():
 		return
 	
-	print("\n═══════════════════════════════════════════════════════════")
-	print("[HITSTOP TIMING SUMMARY] 最近 %d 次事件" % event_history.size())
-	print("───────────────────────────────────────────────────────────")
+	Debug.log("\n═══════════════════════════════════════════════════════════")
+	Debug.log("[HITSTOP TIMING SUMMARY] 最近 %d 次事件" % event_history.size())
+	Debug.log("───────────────────────────────────────────────────────────")
 	
 	var total_mismatch: float = 0.0
 	var max_mismatch: float = 0.0
@@ -245,15 +245,15 @@ func print_summary() -> void:
 		max_mismatch = max(max_mismatch, event.timing_mismatch)
 		min_mismatch = min(min_mismatch, event.timing_mismatch)
 		
-		print("[%d] %s (%s): 偏移 %.2f 幀" % [
+		Debug.log("[%d] %s (%s): 偏移 %.2f 幀" % [
 			i + 1,
 			event.attacker_name,
 			event.attack_name,
 			event.timing_mismatch
 		])
 	
-	print("───────────────────────────────────────────────────────────")
-	print("平均偏移：%.2f 幀" % (total_mismatch / float(event_history.size())))
-	print("最大偏移：%.2f 幀" % max_mismatch)
-	print("最小偏移：%.2f 幀" % min_mismatch)
-	print("═══════════════════════════════════════════════════════════\n")
+	Debug.log("───────────────────────────────────────────────────────────")
+	Debug.log("平均偏移：%.2f 幀" % (total_mismatch / float(event_history.size())))
+	Debug.log("最大偏移：%.2f 幀" % max_mismatch)
+	Debug.log("最小偏移：%.2f 幀" % min_mismatch)
+	Debug.log("═══════════════════════════════════════════════════════════\n")

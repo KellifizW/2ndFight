@@ -47,10 +47,10 @@ func _physics_process(_delta: float) -> void:
 	
 	if lp_just:
 		throw_lp_frame = current_physics_frame
-		print("[THROW TRACKING] LP pressed at frame=%d" % throw_lp_frame)
+		Debug.log("[THROW TRACKING] LP pressed at frame=%d" % throw_lp_frame)
 	if lk_just:
 		throw_lk_frame = current_physics_frame
-		print("[THROW TRACKING] LK pressed at frame=%d" % throw_lk_frame)
+		Debug.log("[THROW TRACKING] LK pressed at frame=%d" % throw_lk_frame)
 	
 	# 【NEW】Check if LP and LK are within throw window (both pressed within 3 frames)
 	var throw_detected = false
@@ -58,7 +58,7 @@ func _physics_process(_delta: float) -> void:
 		var frame_diff = abs(throw_lp_frame - throw_lk_frame)
 		if frame_diff <= THROW_DETECTION_WINDOW:
 			throw_detected = true
-			print("[THROW DETECTED] 🎯 LP(frame=%d) + LK(frame=%d) | diff=%d frames (within window=%d)" % [
+			Debug.log("[THROW DETECTED] 🎯 LP(frame=%d) + LK(frame=%d) | diff=%d frames (within window=%d)" % [
 				throw_lp_frame, throw_lk_frame, frame_diff, THROW_DETECTION_WINDOW
 			])
 			# Reset tracking after throwing
@@ -67,7 +67,7 @@ func _physics_process(_delta: float) -> void:
 	
 	# 【DEBUG】Show tracking state
 	if lp_just or lk_just:
-		print("[INPUT DEBUG] Frame=%d Seat=%s | st_lp_just=%s(tracked_at=%d) st_lk_just=%s(tracked_at=%d) | throw_detected=%s" % [
+		Debug.log("[INPUT DEBUG] Frame=%d Seat=%s | st_lp_just=%s(tracked_at=%d) st_lk_just=%s(tracked_at=%d) | throw_detected=%s" % [
 			current_physics_frame, player_seat,
 			lp_just, throw_lp_frame, lk_just, throw_lk_frame, throw_detected
 		])
@@ -76,14 +76,14 @@ func _physics_process(_delta: float) -> void:
 		# 【NEW】立即中斷st_lp/st_lk動畫（1F內優先級最高）
 		var player = player_node as Player
 		if player and player.is_attacking and player.attack_type in ["st_lp", "st_lk"]:
-			print("[THROW INTERRUPT IMMEDIATE] Frame=%d | 打斷 '%s' → 執行 throw (diff <= %dF)" % [
+			Debug.log("[THROW INTERRUPT IMMEDIATE] Frame=%d | 打斷 '%s' → 執行 throw (diff <= %dF)" % [
 				current_physics_frame, player.attack_type, THROW_DETECTION_WINDOW
 			])
 			# 強制停止當前攻擊
 			player.stop_attack_for_throw()
 		
 		input_buffer.record_input("throw")
-		print("[INPUT THROW DETECTED] ✅ Frame=%d Seat=%s | LP + LK within %d-frame window → 'throw' buffered" % [
+		Debug.log("[INPUT THROW DETECTED] ✅ Frame=%d Seat=%s | LP + LK within %d-frame window → 'throw' buffered" % [
 			current_physics_frame, player_seat, THROW_DETECTION_WINDOW
 		])
 	else:
@@ -91,7 +91,7 @@ func _physics_process(_delta: float) -> void:
 			if _just[btn]:
 				input_buffer.record_input(btn)
 				if lp_just or lk_just:  # 【DEBUG】Show individual button recorded
-					print("[INPUT SEPARATE] Frame=%d Seat=%s | Individual '%s' recorded (throw not detected)" % [
+					Debug.log("[INPUT SEPARATE] Frame=%d Seat=%s | Individual '%s' recorded (throw not detected)" % [
 						current_physics_frame, player_seat, btn
 					])
 	
@@ -191,7 +191,7 @@ func get_input_data() -> Dictionary:
 	
 	# 【DEBUG】顯示當前 buffer 中的按鍵狀態
 	if st_lp_pressed or st_lk_pressed or throw_pressed:
-		print("[BUFFER STATUS] Frame=%d Seat=%s | LP_buffered=%s LK_buffered=%s THROW_buffered=%s" % [
+		Debug.vlog("[BUFFER STATUS] Frame=%d Seat=%s | LP_buffered=%s LK_buffered=%s THROW_buffered=%s" % [
 			Engine.get_physics_frames(), player_seat, st_lp_pressed, st_lk_pressed, throw_pressed
 		])
 	var spm1_pressed  = input_buffer.is_input_buffered("spmove1")
@@ -219,7 +219,7 @@ func get_input_data() -> Dictionary:
 	
 	# DEBUG: 每幀顯示 100p buffer 狀態
 	if move_100p_buffered:
-		print("[PlayerController Buffer] ✅ 100p FOUND in buffer! Setting 100p_pressed")
+		Debug.vlog("[PlayerController Buffer] ✅ 100p FOUND in buffer! Setting 100p_pressed")
 	
 	# 如果 buffer 中有特殊招式，設置對應的標誌
 	if fireball_buffered:
@@ -248,7 +248,7 @@ func get_input_data() -> Dictionary:
 	
 	# 🔴 【新增】Handle 100p buffered input (DAV only, multi-hit punch)
 	if move_100p_buffered:
-		print("[PlayerController] 100p moving to spm3_pressed (or creating new flag for MoveSet handling)")
+		Debug.log("[PlayerController] 100p moving to spm3_pressed (or creating new flag for MoveSet handling)")
 		# Note: 100p needs special handling since it's not in spm1/spm2/spm3
 		st_mk_pressed = false  # Clear MK to prevent normal attack
 	
@@ -282,7 +282,7 @@ func get_input_data() -> Dictionary:
 	
 	# 【DEBUG】詳細顯示攻擊優先級決策
 	if attack_type != "none" and (throw_pressed or st_lp_pressed or st_lk_pressed):
-		print("[ATTACK PRIORITY] Frame=%d Seat=%s | throw_pressed=%s st_lp=%s st_lk=%s | SELECTED: '%s'" % [
+		Debug.vlog("[ATTACK PRIORITY] Frame=%d Seat=%s | throw_pressed=%s st_lp=%s st_lk=%s | SELECTED: '%s'" % [
 			Engine.get_physics_frames(), player_seat, throw_pressed, st_lp_pressed, st_lk_pressed, attack_type
 		])
 	

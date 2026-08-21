@@ -71,7 +71,7 @@ func handle_timers(delta: float) -> void:
 			
 			var seat = movement_node.get_meta("player_seat") if movement_node.has_meta("player_seat") else "unknown"
 			var timer_desc = "0.001s (interrupted)" if has_input else "0.2s (full animation)"
-			print("[LANDING_CHECKPOINT] %s: input_detected=%s, landing_timer will be: %s" % [
+			Debug.log("[LANDING_CHECKPOINT] %s: input_detected=%s, landing_timer will be: %s" % [
 				seat, has_input, timer_desc
 			])
 			
@@ -102,7 +102,7 @@ func handle_timers(delta: float) -> void:
 		
 		# 檢查著地是否完成
 		if movement_node.landing_lock_timer <= 0:
-			print("[%s] ✓ Landing COMPLETE, is_landing=false" % [_seat])
+			Debug.log("[%s] ✓ Landing COMPLETE, is_landing=false" % [_seat])
 			movement_node.is_landing = false
 			movement_node.is_jumping = false  # 【關鍵】著地完成時清除 is_jumping，完全解除著地狀態
 			movement_node.landing_facing_lock = false

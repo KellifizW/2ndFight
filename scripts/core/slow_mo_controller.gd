@@ -36,7 +36,7 @@ func _ready():
 	# 確保初始時間縮放為正常
 	Engine.time_scale = normal_time_scale
 	emit_signal("time_scale_changed", normal_time_scale)
-	print("Debug: SlowMoController initialized, time_scale set to %s, process_mode set to ALWAYS" % normal_time_scale)
+	Debug.log("Debug: SlowMoController initialized, time_scale set to %s, process_mode set to ALWAYS" % normal_time_scale)
 
 func _process(_delta):
 	pass
@@ -45,7 +45,7 @@ func _process(_delta):
 func request_slowmo_change():
 	if is_hit_slowmo:
 		pending_slowmo_request = true
-		print("Debug: Slowmo request deferred until hit stop ends")
+		Debug.log("Debug: Slowmo request deferred until hit stop ends")
 		return
 	if slowmo_active:
 		exit_slowmo_animation()
@@ -55,12 +55,12 @@ func request_slowmo_change():
 # 請求擊中慢動作效果
 func request_hit_freeze():
 	if not enable_hitstop:
-		print("Debug: Hit slowmo request ignored (enable_hitstop=%s)" % enable_hitstop)
+		Debug.log("Debug: Hit slowmo request ignored (enable_hitstop=%s)" % enable_hitstop)
 		# 🟢 即使跳過慢動作，仍發送信號讓 hitstun/knockback 正常進行
 		emit_signal("hit_slowmo_finished")
 		return
 	if slowmo_active or is_hit_slowmo:
-		print("Debug: Hit slowmo request ignored (slowmo_active=%s, is_hit_slowmo=%s)" % [slowmo_active, is_hit_slowmo])
+		Debug.log("Debug: Hit slowmo request ignored (slowmo_active=%s, is_hit_slowmo=%s)" % [slowmo_active, is_hit_slowmo])
 		return  # 避免重複觸發
 	is_hit_slowmo = true
 	
@@ -102,7 +102,7 @@ func enter_slowmo_animation():
 	tween.tween_property(Engine, "time_scale", slowmo_time_scale, slowmo_enter_time)
 	tween.tween_callback(_on_enter_slowmo_finished)
 	emit_signal("time_scale_changed", slowmo_time_scale)
-	print("Debug: Entering slow motion, transitioning to time_scale=%s over %s seconds" % [slowmo_time_scale, slowmo_enter_time])
+	Debug.log("Debug: Entering slow motion, transitioning to time_scale=%s over %s seconds" % [slowmo_time_scale, slowmo_enter_time])
 
 # 退出慢動作的動畫（手動切換）
 func exit_slowmo_animation():
@@ -114,19 +114,19 @@ func exit_slowmo_animation():
 	tween.tween_property(Engine, "time_scale", normal_time_scale, slowmo_exit_time)
 	tween.tween_callback(_on_exit_slowmo_finished)
 	emit_signal("time_scale_changed", normal_time_scale)
-	print("Debug: Exiting slow motion, transitioning to time_scale=%s over %s seconds" % [normal_time_scale, slowmo_exit_time])
+	Debug.log("Debug: Exiting slow motion, transitioning to time_scale=%s over %s seconds" % [normal_time_scale, slowmo_exit_time])
 
 # 進入慢動作完成
 func _on_enter_slowmo_finished():
 	slowmo_active = true
-	print("Debug: Slow motion activated, slowmo_active=%s" % slowmo_active)
+	Debug.log("Debug: Slow motion activated, slowmo_active=%s" % slowmo_active)
 
 # 退出慢動作完成
 func _on_exit_slowmo_finished():
 	slowmo_active = false
 	Engine.time_scale = normal_time_scale  # 確保時間縮放完全恢復
 	emit_signal("time_scale_changed", normal_time_scale)
-	print("Debug: Slow motion deactivated, slowmo_active=%s, time_scale=%s" % [slowmo_active, Engine.time_scale])
+	Debug.log("Debug: Slow motion deactivated, slowmo_active=%s, time_scale=%s" % [slowmo_active, Engine.time_scale])
 
 # 擊中慢動作完成
 func _on_hit_slowmo_finished():
@@ -164,7 +164,7 @@ func register_player(player: Node) -> void:
 		affected_players.append(player)
 		if Engine.is_editor_hint():
 			return
-		print("[SLOWMO] 註冊玩家：%s" % player.name)
+		Debug.log("[SLOWMO] 註冊玩家：%s" % player.name)
 
 func unregister_player(player: Node) -> void:
 	"""取消註冊玩家"""
@@ -172,7 +172,7 @@ func unregister_player(player: Node) -> void:
 		affected_players.erase(player)
 		if Engine.is_editor_hint():
 			return
-		print("[SLOWMO] 取消註冊玩家：%s" % player.name)
+		Debug.log("[SLOWMO] 取消註冊玩家：%s" % player.name)
 
 func _sync_player_animations(speed_scale: float) -> void:
 	"""同步所有註冊玩家的動畫速度"""

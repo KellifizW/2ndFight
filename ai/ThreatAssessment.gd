@@ -63,7 +63,7 @@ func _init_hitbox_cache() -> void:
 			push_warning("[THREAT EVAL] 警告：HitboxCache 未找到，將使用後備距離數據")
 	else:
 		if debug_mode:
-			print("[THREAT EVAL] HitboxCache 已連接")
+			Debug.log("[THREAT EVAL] HitboxCache 已連接")
 
 func evaluate_threats(ai_player: Player, opponent: Player) -> ThreatInfo:
 	var threat = ThreatInfo.new()
@@ -122,11 +122,11 @@ func _evaluate_attack_threat(ai_player: Player, opponent: Player) -> ThreatInfo:
 		
 		if debug_mode:
 			var ai_hurtbox = hitbox_cache.get_hurtbox_data(ai_player.character_id)
-			print("\n[THREAT EVAL] %s 檢查威脅 from %s..." % [ai_player.name, opponent.name])
-			print("  📍 距離: %.1f px" % distance)
-			print("  📍 攻擊範圍: %.1f px (真實 Hitbox)" % attack_range)
-			print("  📍 AI Hurtbox 尺寸: %s" % ai_hurtbox.size)
-			print("  📍 Hitbox 碰撞檢測: %s" % ("有重疊" if has_hitbox_collision else "無重疊"))
+			Debug.log("\n[THREAT EVAL] %s 檢查威脅 from %s..." % [ai_player.name, opponent.name])
+			Debug.log("  📍 距離: %.1f px" % distance)
+			Debug.log("  📍 攻擊範圍: %.1f px (真實 Hitbox)" % attack_range)
+			Debug.log("  📍 AI Hurtbox 尺寸: %s" % ai_hurtbox.size)
+			Debug.log("  📍 Hitbox 碰撞檢測: %s" % ("有重疊" if has_hitbox_collision else "無重疊"))
 	else:
 		# 後備：使用硬編碼距離
 		attack_range = attack_ranges_fallback.get(attack_type, 100.0)
@@ -142,14 +142,14 @@ func _evaluate_attack_threat(ai_player: Player, opponent: Player) -> ThreatInfo:
 		threat.recommended_response = _get_optimal_defense(attack_type)
 		
 		if debug_mode:
-			print("  🚨 威脅等級: CRITICAL (Hitbox 碰撞)")
+			Debug.log("  🚨 威脅等級: CRITICAL (Hitbox 碰撞)")
 		
 		return threat
 	
 	# 否則使用距離判斷
 	if distance > attack_range:
 		if debug_mode:
-			print("  ✅ 無威脅 (超出範圍)")
+			Debug.log("  ✅ 無威脅 (超出範圍)")
 		return threat
 	
 	threat.frames_until_hit = _calculate_frames_to_hit(ai_player, opponent, attack_type)
@@ -158,17 +158,17 @@ func _evaluate_attack_threat(ai_player: Player, opponent: Player) -> ThreatInfo:
 		threat.level = ThreatLevel.CRITICAL
 		threat.recommended_response = _get_optimal_defense(attack_type)
 		if debug_mode:
-			print("  🚨 威脅等級: CRITICAL (<%d 幀)" % threat.frames_until_hit)
+			Debug.log("  🚨 威脅等級: CRITICAL (<%d 幀)" % threat.frames_until_hit)
 	elif threat.frames_until_hit < 15:
 		threat.level = ThreatLevel.HIGH
 		threat.recommended_response = "stand_block"
 		if debug_mode:
-			print("  ⚠️ 威脅等級: HIGH (<%d 幀)" % threat.frames_until_hit)
+			Debug.log("  ⚠️ 威脅等級: HIGH (<%d 幀)" % threat.frames_until_hit)
 	elif threat.frames_until_hit < 25:
 		threat.level = ThreatLevel.MEDIUM
 		threat.recommended_response = "backdash"
 		if debug_mode:
-			print("  📊 威脅等級: MEDIUM (<%d 幀)" % threat.frames_until_hit)
+			Debug.log("  📊 威脅等級: MEDIUM (<%d 幀)" % threat.frames_until_hit)
 	
 	return threat
 
@@ -182,7 +182,7 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 			projectile_check_timer = PROJECTILE_CHECK_INTERVAL
 			
 			if debug_mode:
-				print("[THREAT EVAL] Refreshed projectile cache: %d fireballs" % tracked_projectiles.size())
+				Debug.log("[THREAT EVAL] Refreshed projectile cache: %d fireballs" % tracked_projectiles.size())
 		else:
 			# Clean up invalid projectiles from cache between refreshes
 			var valid_projectiles: Array = []
@@ -223,7 +223,7 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 		# 【新增詳細日誌】Fireball 檢測信息
 		var frame_count = Engine.get_physics_frames()
 		if frame_count % 5 == 0:  # 每5幀打印一次，避免日誌過度
-			print("[FIREBALL THREAT] Frame=%d | Detect=%s | Dir=%.0f(proj) vs %.0f(rel) | Dist=%.1f | Speed=%.1f | ETA=%.2fs(%d frames)" % [
+			Debug.log("[FIREBALL THREAT] Frame=%d | Detect=%s | Dir=%.0f(proj) vs %.0f(rel) | Dist=%.1f | Speed=%.1f | ETA=%.2fs(%d frames)" % [
 				frame_count,
 				"✓" if proj_direction == relative_dir else "✗",
 				proj_direction,
@@ -233,14 +233,14 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 				distance / actual_speed if actual_speed > 0 else 0,
 				frames_to_impact
 			])
-			print("  📍 Fireball Pos: (%.1f, %.1f) | AI Pos: (%.1f, %.1f) | Y差: %.1f" % [
+			Debug.log("  📍 Fireball Pos: (%.1f, %.1f) | AI Pos: (%.1f, %.1f) | Y差: %.1f" % [
 				proj.global_position.x,
 				proj.global_position.y,
 				ai_player.global_position.x,
 				ai_player.global_position.y,
 				abs(proj.global_position.y - ai_player.global_position.y)
 			])
-			print("  🎯 Velocity: %s | Speed: %.1f (from proj)" % [velocity, speed_value])
+			Debug.log("  🎯 Velocity: %s | Speed: %.1f (from proj)" % [velocity, speed_value])
 		
 		# 如果火球不是朝向AI玩家，跳過
 		if proj_direction != relative_dir:
@@ -260,7 +260,7 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 				# 近距離：格擋是最安全的選擇
 				threat.recommended_response = "stand_block"
 				if frame_count % 5 == 0:  # CRITICAL每5幀輸出一次
-					print("[FIREBALL THREAT EVAL] Frame=%d | CRITICAL(<%dF) | Dist=%.1f Y=%.1f | Response: %s" % [
+					Debug.log("[FIREBALL THREAT EVAL] Frame=%d | CRITICAL(<%dF) | Dist=%.1f Y=%.1f | Response: %s" % [
 						frame_count, frames_to_impact, distance, y_diff, threat.recommended_response
 					])
 			
@@ -276,7 +276,7 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 					# 較遠但已接近：垂直跳比過早前跳安全
 					threat.recommended_response = "jump_neutral"
 				if frame_count % 10 == 0:  # HIGH每10幀輸出一次
-					print("[FIREBALL THREAT EVAL] Frame=%d | HIGH(%dF) | Dist=%.1f Y=%.1f | Response: %s" % [
+					Debug.log("[FIREBALL THREAT EVAL] Frame=%d | HIGH(%dF) | Dist=%.1f Y=%.1f | Response: %s" % [
 						frame_count, frames_to_impact, distance, y_diff, threat.recommended_response
 					])
 			
@@ -292,7 +292,7 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 					else:
 						threat.recommended_response = "stand_block"
 				if frame_count % 10 == 0:  # MEDIUM每10幀輸出一次
-					print("[FIREBALL THREAT EVAL] Frame=%d | MEDIUM(%dF) | Dist=%.1f Y=%.1f | Response: %s" % [
+					Debug.log("[FIREBALL THREAT EVAL] Frame=%d | MEDIUM(%dF) | Dist=%.1f Y=%.1f | Response: %s" % [
 						frame_count, frames_to_impact, distance, y_diff, threat.recommended_response
 					])
 			
@@ -301,7 +301,7 @@ func _evaluate_projectile_threat(ai_player: Player, opponent: Player) -> ThreatI
 				# 低威脅火球只提示防守/對波，不強制跳躍
 				threat.recommended_response = "stand_block"
 				if frame_count % 10 == 0:  # LOW每10幀輸出一次
-					print("[FIREBALL THREAT EVAL] Frame=%d | LOW(%.1fs) | Dist=%.1f Y=%.1f | Response: %s" % [
+					Debug.log("[FIREBALL THREAT EVAL] Frame=%d | LOW(%.1fs) | Dist=%.1f Y=%.1f | Response: %s" % [
 						frame_count, frames_to_impact/LOGIC_FPS, distance, y_diff, threat.recommended_response
 					])
 			else:

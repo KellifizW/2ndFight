@@ -25,12 +25,12 @@ func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
 	frame_counter = get_tree().get_first_node_in_group("frame_counter")
 	
-	print("[GameSpeedDebugger] ✓ 初始化完成")
-	print("[GameSpeedDebugger] 監視項目：")
-	print("  • _process() 調用速率")
-	print("  • _physics_process() 調用速率")
-	print("  • 邏輯幀 vs 物理幀比例")
-	print("  • 動畫速度")
+	Debug.log("[GameSpeedDebugger] ✓ 初始化完成")
+	Debug.log("[GameSpeedDebugger] 監視項目：")
+	Debug.log("  • _process() 調用速率")
+	Debug.log("  • _physics_process() 調用速率")
+	Debug.log("  • 邏輯幀 vs 物理幀比例")
+	Debug.log("  • 動畫速度")
 
 func _process(delta: float) -> void:
 	_process_call_count += 1
@@ -45,21 +45,21 @@ func _process(delta: float) -> void:
 		var expected_process_fps = Engine.get_physics_frames_per_second()  # 應該接近 60
 		var delta_avg = elapsed / _process_call_count
 		
-		print("\n" + "="*70)
-		print("[GAMESPY DEBUGGER] Process() 速率分析 @ %.2f 秒" % [current_time - start_time])
-		print("="*70)
-		print("  📊 _process() 調用率：%.1f FPS（間隔 %.4f 秒）" % [process_fps, delta_avg])
-		print("  🎯 預期 FPS：60 Hz")
-		print("  ⚖️  異常度：%.1f%%" % [abs(process_fps - 60.0) / 60.0 * 100])
+		Debug.log("\n" + "="*70)
+		Debug.log("[GAMESPY DEBUGGER] Process() 速率分析 @ %.2f 秒" % [current_time - start_time])
+		Debug.log("="*70)
+		Debug.log("  📊 _process() 調用率：%.1f FPS（間隔 %.4f 秒）" % [process_fps, delta_avg])
+		Debug.log("  🎯 預期 FPS：60 Hz")
+		Debug.log("  ⚖️  異常度：%.1f%%" % [abs(process_fps - 60.0) / 60.0 * 100])
 		
 		if process_fps > 65:
-			print("  🚨 警告：Process 速率偏高（可能導致動畫加速）")
+			Debug.log("  🚨 警告：Process 速率偏高（可能導致動畫加速）")
 		elif process_fps < 55:
-			print("  🚨 警告：Process 速率偏低（可能導致動畫減速）")
+			Debug.log("  🚨 警告：Process 速率偏低（可能導致動畫減速）")
 		
 		# 檢查和物理幀的關係
 		var physics_physics_ratio = _physics_process_call_count / float(_process_call_count) if _process_call_count > 0 else 0.0
-		print("  🔗 物理幀/邏輯幀比例：%.2f（應為 2.0）" % [physics_physics_ratio])
+		Debug.log("  🔗 物理幀/邏輯幀比例：%.2f（應為 2.0）" % [physics_physics_ratio])
 		
 		last_report_time = current_time
 		_process_call_count = 0
@@ -76,7 +76,7 @@ func _physics_process(delta: float) -> void:
 			var ratio = physics_frame_count / float(current_logic_frame) if current_logic_frame > 0 else 0.0
 			# 每 120 物理幀檢查一次（即 1 秒）
 			if physics_frame_count % 120 == 0:
-				print("[GameSpeedDebugger] 物理幀計數：%d，邏輯幀計數：%d，比例：%.2f（應為 2.0）" % [
+				Debug.log("[GameSpeedDebugger] 物理幀計數：%d，邏輯幀計數：%d，比例：%.2f（應為 2.0）" % [
 					physics_frame_count, current_logic_frame, ratio
 				])
 
@@ -90,15 +90,15 @@ func check_animation_speed(anim_player: AnimationPlayer, anim_name: String) -> v
 		var speed_scale = anim_player.speed_scale
 		var expected_duration = anim.length
 		
-		print("\n[AnimationSpeedCheck] '%s'" % [anim_name])
-		print("  動畫時長：%.3f 秒" % [expected_duration])
-		print("  播放速度倍率：%.2f" % [speed_scale])
-		print("  實際播放時長：%.3f 秒" % [expected_duration / speed_scale])
+		Debug.log("\n[AnimationSpeedCheck] '%s'" % [anim_name])
+		Debug.log("  動畫時長：%.3f 秒" % [expected_duration])
+		Debug.log("  播放速度倍率：%.2f" % [speed_scale])
+		Debug.log("  實際播放時長：%.3f 秒" % [expected_duration / speed_scale])
 		
 		# 計算應該有多少幀
 		var expected_logic_frames = int(round(expected_duration * 60))  # 60 FPS 邏輯幀
 		var expected_physics_frames = expected_logic_frames * 2  # 120 FPS 物理幀
-		print("  預期：%d 邏輯幀 / %d 物理幀" % [expected_logic_frames, expected_physics_frames])
+		Debug.log("  預期：%d 邏輯幀 / %d 物理幀" % [expected_logic_frames, expected_physics_frames])
 
 # 檢查移動速度和距離
 func check_move_distance(player: Node, move_name: String, start_pos: Vector2, end_pos: Vector2, duration_frames: int) -> void:
@@ -115,17 +115,17 @@ func check_move_distance(player: Node, move_name: String, start_pos: Vector2, en
 	var speed_fps = distance / duration_secs if duration_secs > 0 else 0.0
 	var expected_speed = expected_distance / duration_secs if duration_secs > 0 else 0.0
 	
-	print("\n[MoveDistanceCheck] '%s' 移動距離分析" % [move_name])
-	print("  起始位置：(%.1f, %.1f)" % [start_pos.x, start_pos.y])
-	print("  結束位置：(%.1f, %.1f)" % [end_pos.x, end_pos.y])
-	print("  實際移動距離：%.1f 像素" % [distance])
-	print("  預期移動距離：%.1f 像素" % [expected_distance])
-	print("  幀數：%d 邏輯幀（%.3f 秒）" % [duration_frames, duration_secs])
-	print("  實際速度：%.1f px/s（%.1f px/frame）" % [speed_fps, speed_fps / 60.0])
-	print("  預期速度：%.1f px/s（%.1f px/frame）" % [expected_speed, expected_speed / 60.0])
+	Debug.log("\n[MoveDistanceCheck] '%s' 移動距離分析" % [move_name])
+	Debug.log("  起始位置：(%.1f, %.1f)" % [start_pos.x, start_pos.y])
+	Debug.log("  結束位置：(%.1f, %.1f)" % [end_pos.x, end_pos.y])
+	Debug.log("  實際移動距離：%.1f 像素" % [distance])
+	Debug.log("  預期移動距離：%.1f 像素" % [expected_distance])
+	Debug.log("  幀數：%d 邏輯幀（%.3f 秒）" % [duration_frames, duration_secs])
+	Debug.log("  實際速度：%.1f px/s（%.1f px/frame）" % [speed_fps, speed_fps / 60.0])
+	Debug.log("  預期速度：%.1f px/s（%.1f px/frame）" % [expected_speed, expected_speed / 60.0])
 	
 	if abs(distance - expected_distance) > 0.5:
-		print("  🚨 偏差：%.1f 像素（%.1f%%）" % [
+		Debug.log("  🚨 偏差：%.1f 像素（%.1f%%）" % [
 			distance - expected_distance,
 			abs(distance - expected_distance) / expected_distance * 100 if expected_distance > 0 else 0
 		])

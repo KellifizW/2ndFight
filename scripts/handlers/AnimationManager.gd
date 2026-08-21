@@ -49,23 +49,23 @@ func compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, ani
 		var active_move = move_set_for_landing.get_active_move_name() if move_set_for_landing and move_set_for_landing.has_method("get_active_move_name") else "none"
 		
 		if not is_spmove_active:  # 【重要】只在特殊招式結束後播放
-			print("[LANDING_ANIMATION_PLAY] %s | move=%s | lock_timer=%.3f | spmove=%s" % [
+			Debug.log("[LANDING_ANIMATION_PLAY] %s | move=%s | lock_timer=%.3f | spmove=%s" % [
 				seat, active_move, movement_node.landing_lock_timer, is_spmove_active
 			])
 			return "landing"
 		else:
-			print("[LANDING_BLOCKED_BY_SPMOVE] %s | move=%s | lock_timer=%.3f" % [
+			Debug.log("[LANDING_BLOCKED_BY_SPMOVE] %s | move=%s | lock_timer=%.3f" % [
 				seat, active_move, movement_node.landing_lock_timer
 			])
 	elif "is_landing" in movement_node and movement_node.is_landing and "landing_lock_timer" in movement_node and movement_node.landing_lock_timer <= 0:
 		# 【檢測】landing 被中斷
-		print("[LANDING_INTERRUPTED] %s: is_landing=true but timer=%.3f (should be false)" % [
+		Debug.log("[LANDING_INTERRUPTED] %s: is_landing=true but timer=%.3f (should be false)" % [
 			seat, movement_node.landing_lock_timer
 		])
 	elif "is_landing" in movement_node and movement_node.is_landing and ("landing_lock_timer" not in movement_node or movement_node.landing_lock_timer <= 0):
 		# 【檢測】沒進入 landing 狀態的原因
 		var timer_val = movement_node.landing_lock_timer if "landing_lock_timer" in movement_node else "N/A"
-		print("[LANDING_NOT_PLAYING] %s: is_landing=true, timer=%s, jumping=%s, knockfly=%s" % [
+		Debug.log("[LANDING_NOT_PLAYING] %s: is_landing=true, timer=%s, jumping=%s, knockfly=%s" % [
 			seat, timer_val, movement_node.is_jumping, movement_node.is_knockfly
 		])
 	
@@ -132,7 +132,7 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			# 🟢 去重：只打印新的狀態轉換（不是上一幀已經打過的相同轉換）
 			var transition_key = "%s→%s" % [curr_state, target_state]
 			if last_printed_transition != transition_key:
-				print("[STATE_CHANGE] %s: '%s' → '%s' (spmove=%s is_landing=%s timer=%.3f)" % [seat_str, curr_state, target_state, is_spmove, is_landing, landing_timer])
+				Debug.log("[STATE_CHANGE] %s: '%s' → '%s' (spmove=%s is_landing=%s timer=%.3f)" % [seat_str, curr_state, target_state, is_spmove, is_landing, landing_timer])
 				last_printed_transition = transition_key
 	
 	var ui_root = movement_node.get_tree().get_first_node_in_group("ui")

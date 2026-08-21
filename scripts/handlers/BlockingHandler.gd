@@ -16,7 +16,7 @@ func handle_blocking(input_dir: int, is_special_moving: bool) -> void:
 		if movement_node.is_opponent_proximity and movement_node.is_holding_back:
 			if not movement_node.is_proximity_blocking:
 				var player_seat = movement_node.player.seat if movement_node.player and "seat" in movement_node.player else "?"
-				print("[PROXIMITY BLOCK] %s: 激活 proximity block (opponent_prox=%s, holding_back=%s)" % [
+				Debug.log("[PROXIMITY BLOCK] %s: 激活 proximity block (opponent_prox=%s, holding_back=%s)" % [
 					player_seat,
 					movement_node.is_opponent_proximity,
 					movement_node.is_holding_back
@@ -25,7 +25,7 @@ func handle_blocking(input_dir: int, is_special_moving: bool) -> void:
 		else:
 			if movement_node.is_proximity_blocking:
 				var player_seat = movement_node.player.seat if movement_node.player and "seat" in movement_node.player else "?"
-				print("[PROXIMITY BLOCK] %s: 取消 proximity block" % player_seat)
+				Debug.log("[PROXIMITY BLOCK] %s: 取消 proximity block" % player_seat)
 			movement_node.is_proximity_blocking = false
 	else:
 		if not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_layground):

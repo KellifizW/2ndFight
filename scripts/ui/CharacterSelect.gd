@@ -20,7 +20,7 @@ var p2_ready: bool = false
 var grid_buttons: Array[TextureButton] = []
 
 func _ready() -> void:
-	print("=== CharacterSelect _ready() 開始執行 ===")
+	Debug.log("=== CharacterSelect _ready() 開始執行 ===")
 	
 	characters = [dav_resource, woo_resource, den_resource]
 	
@@ -42,7 +42,7 @@ func _ready() -> void:
 	
 	# 初始化 UI
 	_update_ui()
-	print("=== CharacterSelect 初始化完成 ===")
+	Debug.log("=== CharacterSelect 初始化完成 ===")
 
 func _process(_delta: float) -> void:
 	# P1 左右移動游標
@@ -77,7 +77,7 @@ func _process(_delta: float) -> void:
 
 # 滑鼠點擊備用（點擊先算 P1，再算 P2）
 func _on_grid_pressed(index: int) -> void:
-	print("滑鼠點擊格子: ", index)
+	Debug.log("滑鼠點擊格子: ", index)
 	if not p1_ready:
 		p1_selected = index
 		SelectedCharacters.p1_character = characters[p1_selected]
@@ -123,5 +123,5 @@ func _check_ready() -> void:
 		ready_label.text = ("P1 READY ∞" if p1_ready else "P1 ?") + "   " + ("P2 READY ∞" if p2_ready else "P2 ?")
 	
 	if p1_ready and p2_ready:
-		print("兩人都確認完成，自動跳轉 world.tscn")
+		Debug.log("兩人都確認完成，自動跳轉 world.tscn")
 		get_tree().change_scene_to_file("res://scenes/gameplay/world.tscn")

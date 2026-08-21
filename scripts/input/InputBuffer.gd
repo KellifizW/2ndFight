@@ -36,7 +36,7 @@ func record_input(action_name: String) -> void:
 		buffered_inputs[action_name] = BufferEntry.new(action_name, current_frame)
 		# 🔴 Debug: Show special move buffering, especially 100p
 		if action_name in ["100p", "powerkk", "dp", "fireball"]:
-			print("[InputBuffer] 🟢 Recorded '%s' at frame %d (will expire at frame %d, buffer_frames=%d)" % [
+			Debug.log("[InputBuffer] 🟢 Recorded '%s' at frame %d (will expire at frame %d, buffer_frames=%d)" % [
 				action_name, current_frame, current_frame + BUFFER_FRAMES, BUFFER_FRAMES
 			])
 
@@ -54,7 +54,7 @@ func is_input_buffered(action_name: String) -> bool:
 	
 	# 🔴 Debug: Show special move buffering checks for 100p
 	if action_name in ["100p", "powerkk", "dp", "fireball"]:
-		print("[InputBuffer.is_buffered] Check '%s': age=%d/30, consumed=%s, valid=%s" % [
+		Debug.log("[InputBuffer.is_buffered] Check '%s': age=%d/30, consumed=%s, valid=%s" % [
 			action_name, age, entry.consumed, is_valid
 		])
 	

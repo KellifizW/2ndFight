@@ -48,7 +48,7 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 		
 		# 【關鍵修復】跳過被摔投角色第一幀的摩擦力，防止初速被清除
 		if "just_thrown" in movement_node and movement_node.just_thrown:
-			print("[KNOCKFLY_FRICTION_SKIP] %s: Skipping friction on just_thrown frame" % (
+			Debug.log("[KNOCKFLY_FRICTION_SKIP] %s: Skipping friction on just_thrown frame" % (
 				movement_node.seat if "seat" in movement_node else "?"
 			))
 			movement_node.just_thrown = false  # 清除標記，下一幀恢復正常摩擦力
@@ -61,20 +61,20 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 		var vel_x = movement_node.fixed_velocity.x
 		var timer = movement_node.knockfly_timer
 		var seat = movement_node.seat if "seat" in movement_node else "?"
-		print("[KNOCKFLY_CHECK] %s | timer=%.3f | vel_x=%d vel_y=%d | on_floor=%s | timer<=0=%s" % [
+		Debug.log("[KNOCKFLY_CHECK] %s | timer=%.3f | vel_x=%d vel_y=%d | on_floor=%s | timer<=0=%s" % [
 			seat, timer, vel_x, vel_y, on_floor, timer <= 0
 		])
 
 		# 【修正】只有向下移動時才進入 layground，向上移動時保持 knockfly 狀態
 		# 这防止刚被摔投时立即进入 layground 的问题
 		if on_floor and vel_y >= 0:
-			print("[KNOCKFLY→LAYGROUND] %s triggered: on_floor=%s vel_y=%d >= 0" % [seat, on_floor, vel_y])
+			Debug.log("[KNOCKFLY→LAYGROUND] %s triggered: on_floor=%s vel_y=%d >= 0" % [seat, on_floor, vel_y])
 			_enter_layground("knockfly_landed")
 			return
 
 		# If timer ends but still in air, only mark animation complete
 		if timer <= 0 and not on_floor:
-			print("[KNOCKFLY_ANIM_FINISH] %s | timer expired, still in air" % seat)
+			Debug.log("[KNOCKFLY_ANIM_FINISH] %s | timer expired, still in air" % seat)
 			movement_node.is_knockfly_animation_finished = true
 			movement_node.fixed_velocity.x = 0
 			return
@@ -88,7 +88,7 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 		var floor_y: int = movement_node.world.FLOOR_Y if movement_node.world else 570000
 		if movement_node.fixed_position.y > floor_y:
 			movement_node.fixed_position.y = floor_y
-			print("[LAYGROUND SNAP] Position snapped to floor: y=%d" % floor_y)
+			Debug.log("[LAYGROUND SNAP] Position snapped to floor: y=%d" % floor_y)
 		
 		if movement_node.layground_timer <= 0:
 			reset_layground_with_health_check()
@@ -107,7 +107,7 @@ func apply_air_friction(friction_coeff: float) -> void:
 	
 	# 詳細日誌：記錄摩擦力應用
 	if pre_friction_vel_x != movement_node.fixed_velocity.x:
-		print("[AIR_FRICTION] %s: vel_x changed from %d to %d (friction_amount=%d)" % [
+		Debug.log("[AIR_FRICTION] %s: vel_x changed from %d to %d (friction_amount=%d)" % [
 			seat, pre_friction_vel_x, movement_node.fixed_velocity.x, friction_amount
 		])
 
@@ -118,7 +118,7 @@ func _should_force_ko_layground() -> bool:
 	return player_healthbar.current_health <= 0 and movement_node.is_on_floor() and not movement_node.is_layground
 	
 func _enter_layground(reason: String = "unknown") -> void:
-	print("[LAYGROUND ENTER] %s | reason=%s" % [movement_node.name, reason])
+	Debug.log("[LAYGROUND ENTER] %s | reason=%s" % [movement_node.name, reason])
 	movement_node.fixed_velocity = Vector2i.ZERO
 	movement_node.knockfly_velocity_x = 0.0  # 🟢 重置 knockfly_velocity_x，確保下次跳躍不會繼承
 	movement_node.knockfly_timer = 0  # 🟢 完全清除 timer
@@ -128,14 +128,14 @@ func _enter_layground(reason: String = "unknown") -> void:
 	# 🟢 【關鍵修復】重置位置到地面，防止位置穿過地面
 	var floor_y: int = movement_node.world.FLOOR_Y if movement_node.world else 570000
 	movement_node.fixed_position.y = floor_y
-	print("[LAYGROUND POSITION_RESET] fixed_position.y set to floor_y: %d" % floor_y)
+	Debug.log("[LAYGROUND POSITION_RESET] fixed_position.y set to floor_y: %d" % floor_y)
 	
 	movement_node.is_layground = true
 	# 轉換 layground_duration（秒）為幀數（@120 FPS 物理幀）
 	# layground_frames 在 _physics_process 每幀遞減，所以應×120 而非×60
 	var layground_frames = int(round(movement_node.layground_duration * 120.0)) if "layground_duration" in movement_node else 24
 	movement_node.layground_timer = layground_frames
-	print("[LAYGROUND INIT] duration: %.3fs → timer: %d frames" % [movement_node.layground_duration, layground_frames])
+	Debug.log("[LAYGROUND INIT] duration: %.3fs → timer: %d frames" % [movement_node.layground_duration, layground_frames])
 	movement_node._update_animation_state(0, false)
 
 func reset_layground_with_health_check() -> void:
@@ -144,7 +144,7 @@ func reset_layground_with_health_check() -> void:
 	if player_healthbar and player_healthbar.current_health <= 0:
 		# Only print debug message once when health reaches zero
 		if not health_check_done:
-			print("Debug: %s 血量已歸零，保持躺地狀態，不觸發 wakeup。" % movement_node.name)
+			Debug.log("Debug: %s 血量已歸零，保持躺地狀態，不觸發 wakeup。" % movement_node.name)
 			health_check_done = true
 		movement_node.is_layground = true
 		movement_node.is_knockfly = false
@@ -169,17 +169,17 @@ func reset_layground_with_health_check() -> void:
 		if "animation_player" in movement_node and movement_node.animation_player and movement_node.animation_player.has_animation("wakeup"):
 			var wakeup_duration = movement_node.animation_player.get_animation("wakeup").length
 			movement_node.wakeup_timer = int(round(wakeup_duration * 120.0))
-			print("[WAKEUP TIMER] wakeup_duration: %.3fs -> wakeup_timer: %d frames @120 FPS physics" % [wakeup_duration, movement_node.wakeup_timer])
+			Debug.log("[WAKEUP TIMER] wakeup_duration: %.3fs -> wakeup_timer: %d frames @120 FPS physics" % [wakeup_duration, movement_node.wakeup_timer])
 		else:
 			# Fallback: 1.0 second = 120 frames @120 FPS physics
 			movement_node.wakeup_timer = 120
-			print("[WAKEUP TIMER] Using fallback: wakeup_timer = 120 frames")
+			Debug.log("[WAKEUP TIMER] Using fallback: wakeup_timer = 120 frames")
 		
-		print("[WAKEUP TRIGGERED] is_wakeup: %s, is_wakeup_locked: %s, wakeup_timer: %d" % [movement_node.is_wakeup, movement_node.is_wakeup_locked, movement_node.wakeup_timer])
+		Debug.log("[WAKEUP TRIGGERED] is_wakeup: %s, is_wakeup_locked: %s, wakeup_timer: %d" % [movement_node.is_wakeup, movement_node.is_wakeup_locked, movement_node.wakeup_timer])
 		movement_node.animation_state.travel("wakeup")
-		print("[WAKEUP ANIM] animation_state.travel('wakeup') called")
+		Debug.log("[WAKEUP ANIM] animation_state.travel('wakeup') called")
 	else:
-		print("[WAKEUP FAILED] movement_node: %s, has_is_wakeup: %s, has_is_wakeup_locked: %s" % [
+		Debug.log("[WAKEUP FAILED] movement_node: %s, has_is_wakeup: %s, has_is_wakeup_locked: %s" % [
 			movement_node.name,
 			"is_wakeup" in movement_node,
 			"is_wakeup_locked" in movement_node
