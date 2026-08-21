@@ -36,7 +36,7 @@ func _warmup_resources() -> void:
 	"""預熱所有資源：實例化並立即銷毀以觸發 GPU shader 編譯"""
 	var start_time = Time.get_ticks_msec()
 	
-	print("[ResourcePreloadManager] 開始預熱資源（觸發 shader 編譯）...")
+	Debug.log("[ResourcePreloadManager] 開始預熱資源（觸發 shader 編譯）...")
 	
 	# 預熱 VFX 特效
 	_warmup_vfx("hit", VFX_HIT)
@@ -47,7 +47,7 @@ func _warmup_resources() -> void:
 	_warmup_fireball("DEN", FIREBALL_DEN)
 	
 	var elapsed = Time.get_ticks_msec() - start_time
-	print("[ResourcePreloadManager] 預熱完成 (耗時 %d ms)" % elapsed)
+	Debug.log("[ResourcePreloadManager] 預熱完成 (耗時 %d ms)" % elapsed)
 
 func _warmup_vfx(name: String, scene: PackedScene) -> void:
 	"""預熱 VFX：實例化、啟動粒子、等待一幀、銷毀"""
@@ -62,7 +62,7 @@ func _warmup_vfx(name: String, scene: PackedScene) -> void:
 	
 	# 立即銷毀（shader 已編譯）
 	instance.queue_free()
-	print("  ✓ 已預熱 VFX: %s" % name)
+	Debug.log("  ✓ 已預熱 VFX: %s" % name)
 
 func _warmup_fireball(name: String, scene: PackedScene) -> void:
 	"""預熱 Fireball：實例化並立即銷毀"""
@@ -78,7 +78,7 @@ func _warmup_fireball(name: String, scene: PackedScene) -> void:
 	
 	# 立即銷毀
 	instance.queue_free()
-	print("  ✓ 已預熱 Fireball: %s" % name)
+	Debug.log("  ✓ 已預熱 Fireball: %s" % name)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 資源獲取接口

@@ -54,10 +54,10 @@ func _update_highlight() -> void:
 func _on_button_confirmed(index: int) -> void:
 	match index:
 		0:  # Start
-			print("進入角色選擇畫面")
+			Debug.log("進入角色選擇畫面")
 			get_tree().change_scene_to_file("res://ui/CharacterSelect.tscn")
 		1:  # Options
 			pass  # 暫時無功能
 		2:  # Exit
-			print("結束遊戲")
+			Debug.log("結束遊戲")
 			get_tree().quit()

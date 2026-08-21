@@ -27,8 +27,8 @@ func _ready() -> void:
 		push_warning("CPUController：找不到兩個玩家！目前找到 %d 個" % players.size())
 	else:
 		if startup_logs:
-			print("Debug: CPUController ready! 找到 %d 個玩家" % players.size())
-			print("Debug: 按 'C' 鍵切換 Player A AI，按 'V' 鍵切換 Player B AI")
+			Debug.log("Debug: CPUController ready! 找到 %d 個玩家" % players.size())
+			Debug.log("Debug: 按 'C' 鍵切換 Player A AI，按 'V' 鍵切換 Player B AI")
 		
 		# 應用招式限制設定到動態生成的玩家
 		_apply_move_restrictions()
@@ -37,7 +37,7 @@ func _input(event: InputEvent) -> void:
 	# 切換 Player A（左邊玩家）的 AI
 	if event.is_action_pressed("cpu_p1"):  # 預設綁定 C 鍵
 		if players.is_empty():
-			print("Warning: 還沒有玩家可控制 AI")
+			Debug.log("Warning: 還沒有玩家可控制 AI")
 			return
 			
 		ai_enabled_a = !ai_enabled_a
@@ -48,7 +48,7 @@ func _input(event: InputEvent) -> void:
 		if ai_behavior and ai_behavior.has_method("set_ai_enabled"):
 			ai_behavior.set_ai_enabled(ai_enabled_a)
 		
-		print("Debug: Player A AI %s！（角色：%s）" % [
+		Debug.log("Debug: Player A AI %s！（角色：%s）" % [
 			"啟用" if ai_enabled_a else "停用",
 			player_a.character_id if "character_id" in player_a else "UNKNOWN"
 		])
@@ -56,7 +56,7 @@ func _input(event: InputEvent) -> void:
 	# 切換 Player B（右邊玩家）的 AI
 	if event.is_action_pressed("cpu_p2"):  # 預設綁定 V 鍵
 		if players.size() < 2:
-			print("Warning: Player B 不存在，無法切換 AI")
+			Debug.log("Warning: Player B 不存在，無法切換 AI")
 			return
 			
 		ai_enabled_b = !ai_enabled_b
@@ -67,7 +67,7 @@ func _input(event: InputEvent) -> void:
 		if ai_behavior and ai_behavior.has_method("set_ai_enabled"):
 			ai_behavior.set_ai_enabled(ai_enabled_b)
 		
-		print("Debug: Player B AI %s！（角色：%s）" % [
+		Debug.log("Debug: Player B AI %s！（角色：%s）" % [
 			"啟用" if ai_enabled_b else "停用",
 			player_b.character_id if "character_id" in player_b else "UNKNOWN"
 		])
@@ -84,7 +84,7 @@ func _apply_move_restrictions() -> void:
 		ai_behavior_a.set_move_restrictions(restricted_moves_a, enable_restrictions_a)
 		if enable_restrictions_a and restricted_moves_a.size() > 0:
 			if startup_logs:
-				print("[CPU Controller] Player A move restrictions applied: %s" % str(restricted_moves_a))
+				Debug.log("[CPU Controller] Player A move restrictions applied: %s" % str(restricted_moves_a))
 	
 	# 應用 Player B 的限制
 	var player_b = players[1]
@@ -93,4 +93,4 @@ func _apply_move_restrictions() -> void:
 		ai_behavior_b.set_move_restrictions(restricted_moves_b, enable_restrictions_b)
 		if enable_restrictions_b and restricted_moves_b.size() > 0:
 			if startup_logs:
-				print("[CPU Controller] Player B move restrictions applied: %s" % str(restricted_moves_b))
+				Debug.log("[CPU Controller] Player B move restrictions applied: %s" % str(restricted_moves_b))

@@ -13,7 +13,7 @@ func handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -
 	var seat = movement_node.seat if "seat" in movement_node else "?"
 	
 	if is_being_thrown or movement_node.is_knockfly:
-		print("[WALK_HANDLER] %s: Skipping walk (is_being_thrown=%s is_knockfly=%s vel_x=%d)" % [
+		Debug.log("[WALK_HANDLER] %s: Skipping walk (is_being_thrown=%s is_knockfly=%s vel_x=%d)" % [
 			seat, is_being_thrown, movement_node.is_knockfly, movement_node.fixed_velocity.x
 		])
 		return
@@ -42,7 +42,7 @@ func handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -
 		if "is_air_attacking" in movement_node and movement_node.is_air_attacking: reasons.append("is_air_attacking")
 		if "is_landing" in movement_node and movement_node.is_landing: reasons.append("is_landing")
 		if debug_walk_blocked:
-			print("[WALK BLOCKED] Seat: ", movement_node.seat if "seat" in movement_node else "?", " | Reasons: ", reasons)
+			Debug.log("[WALK BLOCKED] Seat: ", movement_node.seat if "seat" in movement_node else "?", " | Reasons: ", reasons)
 	
 	if can_walk:
 		if input_dir != 0:

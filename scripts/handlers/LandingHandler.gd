@@ -28,7 +28,7 @@ func handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
 	# 【業界標準】檢查是否在特殊招式期間
 	if is_spmove_active:
 		# 【除錯】詳細記錄觸發條件，幫助診斷誤觸發
-		print("[LANDING_DETECTED_DURING_SPMOVE] %s | move=%s | pos_y=%d floor_y=%d | vel_y=%d | is_jumping=%s | conditions: airborne=%s falling=%s reached_floor=%s delay_passed=%s not_just_jumped=%s" % [
+		Debug.log("[LANDING_DETECTED_DURING_SPMOVE] %s | move=%s | pos_y=%d floor_y=%d | vel_y=%d | is_jumping=%s | conditions: airborne=%s falling=%s reached_floor=%s delay_passed=%s not_just_jumped=%s" % [
 			seat, active_move, movement_node.fixed_position.y, floor_y, movement_node.fixed_velocity.y, movement_node.is_jumping,
 			is_airborne, is_falling, reached_floor, jump_delay_passed, not_just_jumped
 		])
@@ -37,7 +37,7 @@ func handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
 		# 注意：此時vel_y=0是因為PushManager在hitstop期間持續把位置snap回地面，
 		# 導致重力累積使速度趨近0——實際上角色應該要上升，不應被當作著地處理
 		if movement_node.fixed_velocity.y < 0:
-			print("[LANDING_SPMOVE_GUARD] %s | vel_y=%d < 0，角色正在上升，跳過著地重置（防止DP跳躍被中斷）" % [
+			Debug.log("[LANDING_SPMOVE_GUARD] %s | vel_y=%d < 0，角色正在上升，跳過著地重置（防止DP跳躍被中斷）" % [
 				seat, movement_node.fixed_velocity.y
 			])
 			return  # ← 不重置，讓角色繼續上升
@@ -53,7 +53,7 @@ func handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
 	
 	# ========== 處理正常著地（從普通跳躍或特殊招式結束後著地） ==========
 	if not movement_node.is_knockfly:
-		print("[LANDING_DETECT_NORMAL] %s | move=%s | is_jumping=%s" % [seat, active_move, movement_node.is_jumping])
+		Debug.log("[LANDING_DETECT_NORMAL] %s | move=%s | is_jumping=%s" % [seat, active_move, movement_node.is_jumping])
 		_handle_normal_landing(input_data, floor_y, delta)
 		return
 	
@@ -90,7 +90,7 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	# 【著地時停止水平移動】確保著地後不會繼續滑動
 	var pre_clear_vel_x = movement_node.fixed_velocity.x
 	if pre_clear_vel_x != 0:
-		print("[LANDING HANDLER] %s: About to clear vel_x=%d, is_knockfly=%s" % [seat, pre_clear_vel_x, movement_node.is_knockfly])
+		Debug.log("[LANDING HANDLER] %s: About to clear vel_x=%d, is_knockfly=%s" % [seat, pre_clear_vel_x, movement_node.is_knockfly])
 	movement_node.fixed_velocity.x = 0
 	
 	# 重置相關狀態
@@ -109,7 +109,7 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	if movement_node.has_method("force_update_facing_direction"):
 		movement_node.force_update_facing_direction()
 	
-	print("[LANDING_START] %s: is_landing=true, timer=2f, checkpoint_reset" % [seat])
+	Debug.log("[LANDING_START] %s: is_landing=true, timer=2f, checkpoint_reset" % [seat])
 	
 	# 【視覺效果】著地時播放粒子和sound
 	if movement_node.groundsmoke:

@@ -243,7 +243,7 @@ func check_hdk_input()     -> bool:  return check_motion_for("hdk")
 func check_dp_input() -> bool:
 	var motion = _get_motion_for("dp")
 	if motion.is_empty():
-		if DEBUG_DP: print("[DP_DEBUG] dp_input.tres not loaded!")
+		if DEBUG_DP: Debug.log("[DP_DEBUG] dp_input.tres not loaded!")
 		return false
 	if DEBUG_DP:
 		_check_motion_debug(motion, "dp")
@@ -273,15 +273,15 @@ func _check_motion_debug(motion: Dictionary, move_id: String) -> void:
 	var punch_mask = ButtonInputs.ST_LP | ButtonInputs.ST_MP | ButtonInputs.ST_HP
 	if (last_buttons & punch_mask) == 0:
 		return
-	print("[DP_DEBUG] check_motion(%s) | seat=%s | cur_history=%d | last_buttons=%d | input_side=%d | history(newest5): %s" % [
+	Debug.log("[DP_DEBUG] check_motion(%s) | seat=%s | cur_history=%d | last_buttons=%d | input_side=%d | history(newest5): %s" % [
 		move_id, get_parent().seat if get_parent() and "seat" in get_parent() else "?", current_history, last_buttons, input_side, _dump_recent_history(5)])
 	for si in valid_inputs.size():
 		var seq = valid_inputs[si]
 		var target_button = seq.back().buttons
 		if last_buttons != target_button:
-			print("[DP_DEBUG]   seq[%d] SKIP early-exit: last_buttons=%d != target_button=%d" % [si, last_buttons, target_button])
+			Debug.log("[DP_DEBUG]   seq[%d] SKIP early-exit: last_buttons=%d != target_button=%d" % [si, last_buttons, target_button])
 			continue
-		print("[DP_DEBUG]   seq[%d] button match OK (btn=%d), checking %d steps..." % [si, target_button, seq.size()])
+		Debug.log("[DP_DEBUG]   seq[%d] button match OK (btn=%d), checking %d steps..." % [si, target_button, seq.size()])
 		var seq_idx = seq.size() - 1
 		var hist_pos = current_history
 		var total_frames = 0
@@ -295,7 +295,7 @@ func _check_motion_debug(motion: Dictionary, move_id: String) -> void:
 				step_frames += h.duration
 				total_frames += h.duration
 				if total_frames > max_total_frames:
-					print("[DP_DEBUG]     step[%d] TIMEOUT total_frames=%d > max=%d" % [seq_idx, total_frames, max_total_frames])
+					Debug.log("[DP_DEBUG]     step[%d] TIMEOUT total_frames=%d > max=%d" % [seq_idx, total_frames, max_total_frames])
 					matched = false
 					break
 				var abs_dir = h.raw_input >> 8
@@ -304,23 +304,23 @@ func _check_motion_debug(motion: Dictionary, move_id: String) -> void:
 				var dir_ok = (step.directional == abs_dir) if absolute_direction else (step.directional == rel_dir)
 				var btn_ok = (step.buttons == ButtonInputs.NONE) or ((btn & step.buttons) != 0)
 				if dir_ok and btn_ok:
-					print("[DP_DEBUG]     step[%d] MATCH: want(dir=%d,btn=%d) got(rel=%d,abs=%d,btn=%d) dur=%d" % [seq_idx, step.directional, step.buttons, rel_dir, abs_dir, btn, h.duration])
+					Debug.log("[DP_DEBUG]     step[%d] MATCH: want(dir=%d,btn=%d) got(rel=%d,abs=%d,btn=%d) dur=%d" % [seq_idx, step.directional, step.buttons, rel_dir, abs_dir, btn, h.duration])
 					var is_final_step = (seq_idx == seq.size() - 1)
 					if not is_final_step or h.duration <= input_buffer_size:
 						step_matched = true
 						seq_idx -= 1
 					else:
-						print("[DP_DEBUG]     step[%d] MATCH but final-step duration %d > buffer %d" % [seq_idx, h.duration, input_buffer_size])
+						Debug.log("[DP_DEBUG]     step[%d] MATCH but final-step duration %d > buffer %d" % [seq_idx, h.duration, input_buffer_size])
 				else:
-					print("[DP_DEBUG]     step[%d] no match: want(dir=%d,btn=%d) got(rel=%d,abs=%d,btn=%d) dir_ok=%s btn_ok=%s" % [seq_idx, step.directional, step.buttons, rel_dir, abs_dir, btn, dir_ok, btn_ok])
+					Debug.log("[DP_DEBUG]     step[%d] no match: want(dir=%d,btn=%d) got(rel=%d,abs=%d,btn=%d) dir_ok=%s btn_ok=%s" % [seq_idx, step.directional, step.buttons, rel_dir, abs_dir, btn, dir_ok, btn_ok])
 				hist_pos = (hist_pos - 1 + INPUT_HISTORY_SIZE) % INPUT_HISTORY_SIZE
 			if not step_matched:
-				print("[DP_DEBUG]     step[%d] FAILED (no match within buffer)" % seq_idx)
+				Debug.log("[DP_DEBUG]     step[%d] FAILED (no match within buffer)" % seq_idx)
 				matched = false
 		if matched:
-			print("[DP_DEBUG]   seq[%d] ✅ FULL MATCH!" % si)
+			Debug.log("[DP_DEBUG]   seq[%d] ✅ FULL MATCH!" % si)
 		else:
-			print("[DP_DEBUG]   seq[%d] ❌ no match" % si)
+			Debug.log("[DP_DEBUG]   seq[%d] ❌ no match" % si)
 
 func check_100p_input() -> bool: return check_motion_for("100p")
 
@@ -449,7 +449,7 @@ func detect_special_move() -> String:
 		var _cur_btns = input_history[current_history].raw_input & 0xFF
 		var _punch_mask = ButtonInputs.ST_LP | ButtonInputs.ST_MP | ButtonInputs.ST_HP
 		if (_cur_btns & _punch_mask) != 0 and input_history[current_history].duration <= INPUT_BUFFER:
-			print("[DP_AVAIL] char=%s dp_can_use=false → DP 檢查被跳過 | %s" % [character_id, _dp_avail_debug])
+			Debug.log("[DP_AVAIL] char=%s dp_can_use=false → DP 檢查被跳過 | %s" % [character_id, _dp_avail_debug])
 	if dp_can_use and check_dp_input():
 		var strength = _get_punch_strength()
 		# 依優先順序選擇可用的 DP 變體：完全匹配 → 通用 → 任何可用
@@ -465,33 +465,33 @@ func detect_special_move() -> String:
 		elif can_use_special.call("dpL"):
 			dp_variant = "dpL"
 		if dp_variant == "":
-			print("[DETECT_SPECIAL] DP input matched but NO dp variant found! char=%s %s" % [character_id, _dp_avail_debug])
+			Debug.log("[DETECT_SPECIAL] DP input matched but NO dp variant found! char=%s %s" % [character_id, _dp_avail_debug])
 		else:
-			print("[DETECT_SPECIAL] DP detected → %s (strength=%s | %s)" % [dp_variant, strength, _dp_avail_debug])
+			Debug.log("[DETECT_SPECIAL] DP detected → %s (strength=%s | %s)" % [dp_variant, strength, _dp_avail_debug])
 			detected_special_this_frame = dp_variant
 			return dp_variant
 	
 	# 【新增】100p 多段連打（236+MK）- DAV only
 	if character_id == "DAV" and can_use_special.call("100p") and check_100p_input():
-		print("[DETECT_SPECIAL] 💥 100p detected! | Seat: %s | Buffer Check: can_use_special('100p')=true" % character_id if character_id == "DAV" else "NOT_DAV")
+		Debug.log("[DETECT_SPECIAL] 💥 100p detected! | Seat: %s | Buffer Check: can_use_special('100p')=true" % character_id if character_id == "DAV" else "NOT_DAV")
 		detected_special_this_frame = "100p"
 		return "100p"
 	
 	# PowerKK
 	if can_use_special.call("powerkk") and check_powerkk_input():
-		print("[DETECT_SPECIAL] PowerKK detected")
+		Debug.log("[DETECT_SPECIAL] PowerKK detected")
 		detected_special_this_frame = "powerkk"
 		return "powerkk"
 	
 	# SPNK
 	if can_use_special.call("spnk") and check_spnk_input():
-		print("[DETECT_SPECIAL] SPNK detected")
+		Debug.log("[DETECT_SPECIAL] SPNK detected")
 		detected_special_this_frame = "spnk"
 		return "spnk"
 	
 	# HDK
 	if can_use_special.call("hdk") and check_hdk_input():
-		print("[DETECT_SPECIAL] HDK detected")
+		Debug.log("[DETECT_SPECIAL] HDK detected")
 		detected_special_this_frame = "hdk"
 		return "hdk"
 	
@@ -514,8 +514,8 @@ func detect_special_move() -> String:
 		if fireball_variant != "":
 			# 【除錯】如果 DP 可用但仍然到達 Fireball，表示 check_dp_input() 返回 false
 			if dp_can_use:
-				print("[DETECT_SPECIAL] ⚠ Fireball detected but dp_can_use=true → check_dp_input() may have failed! (char=%s strength=%s)" % [character_id, strength])
-			print("[DETECT_SPECIAL] Fireball detected → %s (strength=%s)" % [fireball_variant, strength])
+				Debug.log("[DETECT_SPECIAL] ⚠ Fireball detected but dp_can_use=true → check_dp_input() may have failed! (char=%s strength=%s)" % [character_id, strength])
+			Debug.log("[DETECT_SPECIAL] Fireball detected → %s (strength=%s)" % [fireball_variant, strength])
 			detected_special_this_frame = fireball_variant
 			return fireball_variant
 	

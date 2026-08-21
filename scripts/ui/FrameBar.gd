@@ -186,12 +186,12 @@ func _process(delta: float) -> void:
 	if "block_timer" in target_player:
 		var cur_timer = target_player.block_timer
 		if cur_timer > 0 and not _blockstun_start_logged:
-			print("[BLOCKSTUN] %s 進入 blockstun → %.3f秒 (約 %d 幀)" % [
+			Debug.log("[BLOCKSTUN] %s 進入 blockstun → %.3f秒 (約 %d 幀)" % [
 				target_player.name, cur_timer, int(cur_timer * Engine.physics_ticks_per_second)
 			])
 			_blockstun_start_logged = true
 		elif cur_timer <= 0 and _blockstun_start_logged:
-			print("[BLOCKSTUN] %s blockstun 結束" % target_player.name)
+			Debug.log("[BLOCKSTUN] %s blockstun 結束" % target_player.name)
 			_blockstun_start_logged = false
 		_last_block_timer = cur_timer
 	

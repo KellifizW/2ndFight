@@ -81,19 +81,19 @@ func _initialize_move_library() -> void:
 	_md = _load_smd(smd_100p, "res://data/specials/dav_100p.tres")
 	if _md:
 		# 🔴 調試：打印100p的多段信息
-		print("[DAVMoveSet] 100p loaded: is_multi_hit=%s, hit_phases.size()=%d" % [_md.is_multi_hit, _md.hit_phases.size()])
+		Debug.log("[DAVMoveSet] 100p loaded: is_multi_hit=%s, hit_phases.size()=%d" % [_md.is_multi_hit, _md.hit_phases.size()])
 		if _md.hit_phases.size() > 0:
 			for i in _md.hit_phases.size():
 				var hp = _md.hit_phases[i]
 				if hp:
-					print("  [Phase%d] frame=%d, damage=%.1f, hitstun=%d, knockback=%.1f" % [i, hp.frame, hp.damage, hp.hitstun, hp.knockback])
+					Debug.log("  [Phase%d] frame=%d, damage=%.1f, hitstun=%d, knockback=%.1f" % [i, hp.frame, hp.damage, hp.hitstun, hp.knockback])
 				else:
-					print("  [Phase%d] NULL HitPhaseData!" % i)
+					Debug.log("  [Phase%d] NULL HitPhaseData!" % i)
 		# ✅ 多段hit數據已修復（DAV.tscn中的4個phase補全了缺失字段）
-		print("[DAVMoveSet] ✅ 100p多段hit數據完整，啟用多段模式")
+		Debug.log("[DAVMoveSet] ✅ 100p多段hit數據完整，啟用多段模式")
 		move_library[_md.name] = _md
 	else:
-		print("[DAVMoveSet] ⚠️  100p fallback: resource load failed, creating default")
+		Debug.log("[DAVMoveSet] ⚠️  100p fallback: resource load failed, creating default")
 		move_library["100p"] = MoveData.new(
 			"100p", "DAV", 5.0, 100.0, 60.0, 0.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 18, 10, false, []
 		)

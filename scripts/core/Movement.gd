@@ -283,7 +283,7 @@ func _physics_process(delta: float) -> void:
 		var frame_time = get_physics_process_delta_time()
 		if Engine.get_physics_frames() % 120 == 0 and name == "Player_A":
 			var expected_time = Time.get_ticks_msec() / 1000.0
-			print("[GAME SPEED] @%.2f秒 | Δt=%.5f(%.1f FPS) | Expected: 1/120" % [
+			Debug.vlog("[GAME SPEED] @%.2f秒 | Δt=%.5f(%.1f FPS) | Expected: 1/120" % [
 				expected_time, frame_time, 1.0 / max(frame_time, 0.0001)
 			])
 	
@@ -347,7 +347,7 @@ func _physics_process(delta: float) -> void:
 	# 【新增調試】跳躍軌跡追蹤
 	if is_jumping and Engine.get_physics_frames() % 5 == 0:
 		var seat_name = player.seat if player and "seat" in player else "?"
-		print("[JUMP TRAJECTORY] Frame=%d | Seat=%s | Y=%d | Vel.y=%d | jump_delay_timer=%d | on_floor=%s" % [
+		Debug.vlog("[JUMP TRAJECTORY] Frame=%d | Seat=%s | Y=%d | Vel.y=%d | jump_delay_timer=%d | on_floor=%s" % [
 			Engine.get_physics_frames(),
 			seat_name,
 			fixed_position.y,

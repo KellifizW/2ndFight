@@ -22,7 +22,7 @@ func _ready() -> void:
 	frame_counter = get_tree().get_first_node_in_group("frame_counter")
 	last_report_time = Time.get_ticks_msec() / 1000.0
 	wall_clock_time_at_last_report = last_report_time
-	print("[TimingDiagnostics] ✓ 初始化完成，將每 %.1f 秒進行一次診斷" % [REPORT_INTERVAL])
+	Debug.log("[TimingDiagnostics] ✓ 初始化完成，將每 %.1f 秒進行一次診斷" % [REPORT_INTERVAL])
 
 func _physics_process(delta: float) -> void:
 	_physics_frame_counter += 1
@@ -52,34 +52,34 @@ func _generate_timing_report(current_time: float, physics_delta: float) -> void:
 	if frame_counter and frame_counter.has_method("get_current_logic_frame"):
 		current_logic_frame = frame_counter.call("get_current_logic_frame")
 	
-	print("\n" + "="*80)
-	print("[TIMING DIAGNOSTIC] @ 牆上時鐘 %.2f秒" % [current_time])
-	print("="*80)
-	print("📊 物理幀速統計:")
-	print("  實際 Physics FPS: %.1f（預期：120.0）" % [actual_physics_fps])
-	print("  誤差：%.1f%%（%s）" % [
+	Debug.log("\n" + "="*80)
+	Debug.log("[TIMING DIAGNOSTIC] @ 牆上時鐘 %.2f秒" % [current_time])
+	Debug.log("="*80)
+	Debug.log("📊 物理幀速統計:")
+	Debug.log("  實際 Physics FPS: %.1f（預期：120.0）" % [actual_physics_fps])
+	Debug.log("  誤差：%.1f%%（%s）" % [
 		physics_fps_error,
 		"✓ 正常" if physics_fps_error < 5.0 else "❌ 偏差過大"
 	])
-	print("  物理 Delta 值：%.6f（預期：%.6f）" % [physics_delta, 1.0 / 120.0])
-	print()
-	print("📊 邏輯幀速統計:")
+	Debug.log("  物理 Delta 值：%.6f（預期：%.6f）" % [physics_delta, 1.0 / 120.0])
+	Debug.log()
+	Debug.log("📊 邏輯幀速統計:")
 	if frame_counter:
-		print("  當前邏輯幀：%d" % [current_logic_frame])
+		Debug.log("  當前邏輯幀：%d" % [current_logic_frame])
 		var expected_logic_frames = int(elapsed_frames / 2.0)  # 120 FPS / 60 FPS = 2:1
 		var logic_frames_error = abs(current_logic_frame -expected_logic_frames) if expected_logic_frames > 0 else 0
-		print("  預期邏輯幀：%d（基於 %d 物理幀）" % [expected_logic_frames, elapsed_frames])
+		Debug.log("  預期邏輯幀：%d（基於 %d 物理幀）" % [expected_logic_frames, elapsed_frames])
 		if logic_frames_error > 0:
-			print("  邏輯幀誤差：%d 幀（%.1f%%）" % [
+			Debug.log("  邏輯幀誤差：%d 幀（%.1f%%）" % [
 				logic_frames_error,
 				float(logic_frames_error) / float(expected_logic_frames) * 100.0 if expected_logic_frames > 0 else 0.0
 			])
 	else:
-		print("  ⚠️  FrameCounter 未找到")
-	print()
-	print("🎬 動畫播放診斷:")
+		Debug.log("  ⚠️  FrameCounter 未找到")
+	Debug.log()
+	Debug.log("🎬 動畫播放診斷:")
 	_diagnose_animation_speed()
-	print()
+	Debug.log()
 	
 	# 檢查特殊招式的移動速度
 	_diagnose_special_move_speed()
@@ -103,7 +103,7 @@ func _diagnose_animation_speed() -> void:
 				elif anim_speed != 1.0:
 					status = "減速中 (speed_scale=%.2f)" % [anim_speed]
 				
-				print("    %s: %s | 動畫: '%s' | 進度: %.2f%%" % [
+				Debug.log("    %s: %s | 動畫: '%s' | 進度: %.2f%%" % [
 					player.name,
 					status,
 					current_anim,
@@ -123,12 +123,12 @@ func _diagnose_special_move_speed() -> void:
 					if duration > 0:
 						progress = (1.0 - (timer / duration)) * 100.0
 					
-					print("  特殊招式 (%s):" % [player.name])
-					print("    總時長：%.3f 秒" % [duration])
-					print("    剩餘幀數：%d" % [timer])
-					print("    進度：%.1f%%" % [progress])
+					Debug.log("  特殊招式 (%s):" % [player.name])
+					Debug.log("    總時長：%.3f 秒" % [duration])
+					Debug.log("    剩餘幀數：%d" % [timer])
+					Debug.log("    進度：%.1f%%" % [progress])
 					
 					if "initial_speed" in move_state:
 						var speed_units = move_state.initial_speed
 						var speed_px_per_sec = abs(speed_units) / 1000.0 if speed_units > 0 else 0.0
-						print("    運動速度：%.0f units/s = %.1f px/s" % [speed_units, speed_px_per_sec])
+						Debug.log("    運動速度：%.0f units/s = %.1f px/s" % [speed_units, speed_px_per_sec])

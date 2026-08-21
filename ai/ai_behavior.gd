@@ -137,7 +137,7 @@ func _ready() -> void:
 	decision_cooldown = 0.0  # 【FIX】立即進行第一次決策評估，不要延遲
 	
 	if debug_mode and startup_logs:
-		print("[AI] AIBehavior initialized for %s" % parent.name)
+		Debug.log("[AI] AIBehavior initialized for %s" % parent.name)
 
 func _init_subsystems() -> void:
 	"""初始化所有子系統"""
@@ -187,7 +187,7 @@ func _load_animation_durations_from_player() -> void:
 	
 	# 遍歷所有動畫並記錄其時長
 	var anim_list = anim_player.get_animation_list()
-	print("[AI DynLoad] ✅ AnimationPlayer found! Loading %d animations..." % anim_list.size())
+	Debug.log("[AI DynLoad] ✅ AnimationPlayer found! Loading %d animations..." % anim_list.size())
 	
 	var loaded_count = 0
 	for anim_name in anim_list:
@@ -196,14 +196,14 @@ func _load_animation_durations_from_player() -> void:
 			animation_durations[anim_name] = anim.length
 			loaded_count += 1
 			if debug_mode and startup_logs:
-				print("[AI DynLoad] ✓ %s: %.3fs (120fps physics timer: %d frames)" % [
+				Debug.log("[AI DynLoad] ✓ %s: %.3fs (120fps physics timer: %d frames)" % [
 					anim_name, 
 					anim.length,
 					int(round(anim.length * 120))
 				])
 	
 	var char_id = parent.character_data.short_id if parent.character_data else "Unknown"
-	print("[AI DynLoad] ✅ Successfully loaded %d animations from %s" % [loaded_count, char_id])
+	Debug.log("[AI DynLoad] ✅ Successfully loaded %d animations from %s" % [loaded_count, char_id])
 
 func get_action_duration(action: String) -> float:
 	"""
@@ -246,7 +246,7 @@ func _process(delta: float) -> void:
 			opponent_search_timer = 0.5
 			# 【DEBUG】每次搜尋後顯示是否找到對手
 			if Engine.get_physics_frames() % 30 == 0:
-				print("[AI._process] Frame=%d | opponent search result: %s" % [
+				Debug.log("[AI._process] Frame=%d | opponent search result: %s" % [
 					Engine.get_physics_frames(),
 					opponent.name if opponent else "NOT FOUND"
 				])
@@ -256,7 +256,7 @@ func set_ai_enabled(enabled: bool) -> void:
 	_invalidate_cached_input()
 	if debug_mode:
 		var parent_name = parent.name if parent else "unknown"
-		print("[AI] AI %s for %s" % ["enabled" if enabled else "disabled", parent_name])
+		Debug.log("[AI] AI %s for %s" % ["enabled" if enabled else "disabled", parent_name])
 
 func set_move_restrictions(restricted: Array[String], enable: bool) -> void:
 	"""
@@ -273,7 +273,7 @@ func set_move_restrictions(restricted: Array[String], enable: bool) -> void:
 	if debug_mode and startup_logs:
 		var restriction_str = "None" if restricted.is_empty() else str(restricted)
 		var parent_name = parent.name if parent else "unknown"
-		print("[AI.set_move_restrictions] %s - Restricted moves: %s (enabled: %s)" % [
+		Debug.log("[AI.set_move_restrictions] %s - Restricted moves: %s (enabled: %s)" % [
 			parent_name,
 			restriction_str,
 			enable
@@ -286,7 +286,7 @@ func find_opponent() -> void:
 		if player != parent:
 			opponent = player
 			if debug_mode and startup_logs:
-				print("[AI] Found opponent: %s" % opponent.name)
+				Debug.log("[AI] Found opponent: %s" % opponent.name)
 			return
 	if debug_mode:
 		push_warning("[AI] No opponent found for %s" % parent.name)
@@ -309,11 +309,11 @@ func _compute_ai_input() -> Dictionary:
 	# 【DEBUG】顯示初始狀態（每秒一次）
 	if current_frame % 120 == 0:
 		if not ai_enabled:
-			print("[AI] Frame=%d Seat=%s | ⚠️ AI DISABLED" % [current_frame, seat])
+			Debug.log("[AI] Frame=%d Seat=%s | ⚠️ AI DISABLED" % [current_frame, seat])
 		if not parent:
-			print("[AI] Frame=%d | ⚠️ NO PARENT" % current_frame)
+			Debug.log("[AI] Frame=%d | ⚠️ NO PARENT" % current_frame)
 		if not opponent:
-			print("[AI] Frame=%d Seat=%s | 🔍 Searching for opponent..." % [current_frame, seat])
+			Debug.log("[AI] Frame=%d Seat=%s | 🔍 Searching for opponent..." % [current_frame, seat])
 	
 	# ============================================================
 	# HEALTH CHECK: STOP ALL ACTIONS IF ANY CHARACTER IS DEFEATED
@@ -322,7 +322,7 @@ func _compute_ai_input() -> Dictionary:
 	if parent and "healthbar" in parent and parent.healthbar:
 		if parent.healthbar.current_health <= 0:
 			if debug_mode and current_frame % 120 == 0:
-				print("[AI] Frame=%d Seat=%s | 💀 AI SELF DEFEATED (health=%.1f) - Stopping all actions" % [
+				Debug.log("[AI] Frame=%d Seat=%s | 💀 AI SELF DEFEATED (health=%.1f) - Stopping all actions" % [
 					current_frame, seat, parent.healthbar.current_health
 				])
 			return _neutral_input()
@@ -330,7 +330,7 @@ func _compute_ai_input() -> Dictionary:
 	if opponent and "healthbar" in opponent and opponent.healthbar:
 		if opponent.healthbar.current_health <= 0:
 			if debug_mode and current_frame % 120 == 0:
-				print("[AI] Frame=%d Seat=%s | 💀 OPPONENT DEFEATED (health=%.1f) - Stopping all actions" % [
+				Debug.log("[AI] Frame=%d Seat=%s | 💀 OPPONENT DEFEATED (health=%.1f) - Stopping all actions" % [
 					current_frame, seat, opponent.healthbar.current_health
 				])
 			return _neutral_input()
@@ -350,7 +350,7 @@ func _compute_ai_input() -> Dictionary:
 		else:
 			state_str = "🤔 EVALUATING NEW DECISION"
 		var distance = abs(parent.global_position.x - opponent.global_position.x)
-		print("[AI SUMMARY] Frame=%d Seat=%s | %s | dist=%.0f opp=%s" % [
+		Debug.log("[AI SUMMARY] Frame=%d Seat=%s | %s | dist=%.0f opp=%s" % [
 			current_frame, seat, state_str, distance, 
 			opponent.attack_type if opponent.is_attacking else ("blocking" if opponent.is_blocking else "idle")
 		])
@@ -388,7 +388,7 @@ func _compute_ai_input() -> Dictionary:
 					block_input.crouch_pressed = true
 				
 				if debug_mode or debug_block_trace:
-					print("[AI EMERGENCY BLOCK] attack=%s dist=%.1f range=%.1f input_dir=%d facing=%.1f" % [
+					Debug.log("[AI EMERGENCY BLOCK] attack=%s dist=%.1f range=%.1f input_dir=%d facing=%.1f" % [
 						attack_type, distance, attack_range, input_dir, parent.facing_direction
 					])
 				
@@ -413,7 +413,7 @@ func _compute_ai_input() -> Dictionary:
 		var entered_throw_range = should_check_throw and distance < 120.0  # Throw range
 		
 		if Engine.get_physics_frames() % 60 == 0 and should_check_throw:
-			print("[AI COMMIT CHECK] Frame=%d | action='%s' | dist=%.0f | throw_range=%s | opp_attacking=%s" % [
+			Debug.log("[AI COMMIT CHECK] Frame=%d | action='%s' | dist=%.0f | throw_range=%s | opp_attacking=%s" % [
 				Engine.get_physics_frames(), current_committed_action, distance, entered_throw_range, opponent.is_attacking if opponent else "?"
 			])
 		
@@ -426,7 +426,7 @@ func _compute_ai_input() -> Dictionary:
 		elif entered_throw_range and opponent and not opponent.is_attacking:
 			# 【DEBUG】當進入投擲範圍但對手未攻擊時，中斷承諾以重新評估
 			if Engine.get_physics_frames() % 30 == 0:
-				print("[AI INTERRUPT] Frame=%d Seat=%s | Committed to '%s' but entered throw range (dist=%.0f) → Re-evaluating" % [
+				Debug.log("[AI INTERRUPT] Frame=%d Seat=%s | Committed to '%s' but entered throw range (dist=%.0f) → Re-evaluating" % [
 					Engine.get_physics_frames(), seat, current_committed_action, distance
 				])
 			commitment_timer = 0.0
@@ -445,7 +445,7 @@ func _compute_ai_input() -> Dictionary:
 					commitment_timer = min(commitment_timer, remaining)
 				commitment_timer -= delta
 				if debug_mode and Engine.get_physics_frames() % 60 == 0:
-					print("[AI] Committed: %s (%.2fs remaining)" % [current_committed_action, commitment_timer])
+					Debug.log("[AI] Committed: %s (%.2fs remaining)" % [current_committed_action, commitment_timer])
 				
 				# 🔴 【FIX】Special moves and throws need different handling:
 				# - throw: One-time button press (send once, then clear)
@@ -485,7 +485,7 @@ func _compute_ai_input() -> Dictionary:
 		var next_move = combo_system.get_next_combo_move()
 		if next_move:
 			if debug_mode:
-				print("[AI] Combo step: %s" % next_move)
+				Debug.log("[AI] Combo step: %s" % next_move)
 			return _commit_action(next_move, 0.4)
 		else:
 			combo_system.reset_combo()
@@ -504,7 +504,7 @@ func _compute_ai_input() -> Dictionary:
 				var threat_levels = ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 				threat_str = threat_levels[min(threat.level, 4)] if threat.level >= 0 else "NONE"
 			var distance = abs(parent.global_position.x - opponent.global_position.x)
-			print("[AI COOLDOWN] Frame=%d Seat=%s | ⏳ %.2fs remaining | action='%s' | threat=%s | dist=%.0f" % [
+			Debug.log("[AI COOLDOWN] Frame=%d Seat=%s | ⏳ %.2fs remaining | action='%s' | threat=%s | dist=%.0f" % [
 				Engine.get_physics_frames(), seat, decision_cooldown, current_committed_action, threat_str, distance
 			])
 		return committed_input if committed_input.size() > 0 else _neutral_input()
@@ -534,14 +534,14 @@ func _compute_ai_input() -> Dictionary:
 		else:
 			opp_state = "IDLE"
 	
-	print("[AI EVAL] Frame=%d Seat=%s | 🎯 Evaluating... | opponent=%s(%s) | dist=%.0f | threat=%s" % [
+	Debug.log("[AI EVAL] Frame=%d Seat=%s | 🎯 Evaluating... | opponent=%s(%s) | dist=%.0f | threat=%s" % [
 		Engine.get_physics_frames(), seat, opponent.name if opponent else "none", opp_state, distance, threat_str
 	])
 	
 	var decision = decision_layers.get_best_decision(parent, opponent)
 	
 	# 【DEBUG】決策結果輸出
-	print("[AI DECISION] Frame=%d Seat=%s | ✅ Selected: '%s' (priority: %.1f) | reason: %s" % [
+	Debug.log("[AI DECISION] Frame=%d Seat=%s | ✅ Selected: '%s' (priority: %.1f) | reason: %s" % [
 		Engine.get_physics_frames(), seat, decision.action, decision.priority, decision.reason
 	])
 	if debug_block_trace and opponent and opponent.is_attacking:
@@ -552,7 +552,7 @@ func _compute_ai_input() -> Dictionary:
 			var relative_dir = sign(opponent.global_position.x - parent.global_position.x)
 			var input_dir = -int(relative_dir) if relative_dir != 0 else -int(parent.facing_direction)
 			var holding_back = input_dir * parent.facing_direction < 0
-			print("[AI BLOCK TRACE] action=%s attack=%s dist=%.1f input_dir=%d facing=%.1f holding_back=%s dashing=%s backdash=%s attacking=%s" % [
+			Debug.log("[AI BLOCK TRACE] action=%s attack=%s dist=%.1f input_dir=%d facing=%.1f holding_back=%s dashing=%s backdash=%s attacking=%s" % [
 				decision.action, attack_type, dist, input_dir, parent.facing_direction, holding_back,
 				parent.is_dashing, parent.is_backdashing, parent.is_attacking
 			])
@@ -562,10 +562,10 @@ func _compute_ai_input() -> Dictionary:
 	# 檢查招式是否被限制，如果是則獲取替代決策
 	if enable_move_restrictions and decision.action in restricted_moves:
 		if debug_mode or Engine.get_physics_frames() % 60 == 0:
-			print("[AI] Move '%s' (priority: %.1f) is restricted, finding alternative..." % [decision.action, decision.priority])
+			Debug.log("[AI] Move '%s' (priority: %.1f) is restricted, finding alternative..." % [decision.action, decision.priority])
 		decision = decision_layers.get_fallback_decision(parent, opponent)
 		if debug_mode or Engine.get_physics_frames() % 60 == 0:
-			print("[AI] Fallback decision: '%s' (priority: %.1f)" % [decision.action, decision.priority])
+			Debug.log("[AI] Fallback decision: '%s' (priority: %.1f)" % [decision.action, decision.priority])
 	
 	# ============================================================
 	# ADAPTIVE DECISION INTERVAL ADJUSTMENT (Phase 2)
@@ -597,22 +597,22 @@ func _compute_ai_input() -> Dictionary:
 		# 獲取威脅信息（重用已聲明的threat變數）
 		if threat:
 			var threat_level_str = ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"][threat.level]
-			print("\n[AI DECISION] %s" % parent.name)
-			print("  動作: %s" % decision.action)
-			print("  優先級: %.1f" % decision.priority)
-			print("  理由: %s" % decision.reason)
+			Debug.log("\n[AI DECISION] %s" % parent.name)
+			Debug.log("  動作: %s" % decision.action)
+			Debug.log("  優先級: %.1f" % decision.priority)
+			Debug.log("  理由: %s" % decision.reason)
 			if enable_adaptive_interval:
-				print("  決策間隔: %.3f (自適應)" % active_interval)
+				Debug.log("  決策間隔: %.3f (自適應)" % active_interval)
 			
 			if threat.level > 0:  # 有威脅時顯示威脅信息
-				print("  威脅等級: %s" % threat_level_str)
+				Debug.log("  威脅等級: %s" % threat_level_str)
 				if threat.source != "":
-					print("  威脅來源: %s" % threat.source)
+					Debug.log("  威脅來源: %s" % threat.source)
 				if threat.frames_until_hit < 999:
-					print("  撞擊幀數: %d" % threat.frames_until_hit)
+					Debug.log("  撞擊幀數: %d" % threat.frames_until_hit)
 	elif debug_mode and verbose_decision_logs and not debug_block_trace and (Engine.get_physics_frames() % 20 == 0 or decision.action in SPECIAL_MOVE_ACTIONS):
 		# 簡化日誌（保持原有行為）
-		print("[AI] %s decision: %s (priority: %.1f) - %s" % [parent.name, decision.action, decision.priority, decision.reason])
+		Debug.log("[AI] %s decision: %s (priority: %.1f) - %s" % [parent.name, decision.action, decision.priority, decision.reason])
 	
 	# Handle combo start
 	if decision.action.begins_with("combo_"):
@@ -627,7 +627,7 @@ func _compute_ai_input() -> Dictionary:
 	# ============================================================
 	if enable_move_restrictions and decision.action in restricted_moves:
 		if debug_mode or Engine.get_physics_frames() % 60 == 0:
-			print("[AI] WARNING: Final check caught restricted move '%s', reverting to walk_forward" % decision.action)
+			Debug.log("[AI] WARNING: Final check caught restricted move '%s', reverting to walk_forward" % decision.action)
 		decision.action = "walk_forward"
 	
 	# Commit to the decided action
@@ -681,7 +681,7 @@ func _commit_action(action: String, duration: float) -> Dictionary:
 	elif "block" in action:
 		action_icon = "🛡️"
 	
-	print("[AI COMMIT] Frame=%d Seat=%s | %s %s (%.2fs)" % [
+	Debug.log("[AI COMMIT] Frame=%d Seat=%s | %s %s (%.2fs)" % [
 		Engine.get_physics_frames(),
 		parent.seat if "seat" in parent else "?",
 		action_icon,
@@ -758,7 +758,7 @@ func _action_to_input(action: String) -> Dictionary:
 		"throw":
 			input.throw_pressed = true
 			if debug_mode:
-				print("[AI._action_to_input] Frame=%d Seat=%s | Setting throw_pressed=true" % [
+				Debug.log("[AI._action_to_input] Frame=%d Seat=%s | Setting throw_pressed=true" % [
 					Engine.get_physics_frames(),
 					parent.seat if parent and "seat" in parent else "?"
 				])
@@ -766,13 +766,13 @@ func _action_to_input(action: String) -> Dictionary:
 			# ⚠️ 檢查：不應該到達這裡（應該被決策層過濾）
 			if enable_move_restrictions and "fireball" in restricted_moves:
 				if debug_mode:
-					print("[AI._action_to_input] WARNING: Fireball action reached input conversion despite being restricted!")
+					Debug.log("[AI._action_to_input] WARNING: Fireball action reached input conversion despite being restricted!")
 				# 返回中立輸入，不執行
 				return _neutral_input()
 			input.spm2_pressed = true
 			input["ai_special_variant"] = "fireball"  # Store variant for MoveSet
 			if debug_mode:
-				print("[AI._action_to_input] %s: Setting spm2_pressed=true for action '%s'" % [parent.name, action])
+				Debug.log("[AI._action_to_input] %s: Setting spm2_pressed=true for action '%s'" % [parent.name, action])
 		# 🔴 【新增】Fireball 變體 (L/M/H)
 		"fireballL", "fireballM", "fireballH":
 			if enable_move_restrictions and "fireball" in restricted_moves:
@@ -780,11 +780,11 @@ func _action_to_input(action: String) -> Dictionary:
 			input.spm2_pressed = true
 			input["ai_special_variant"] = action  # Store the specific variant (fireballL, fireballM, fireballH)
 			if debug_mode:
-				print("[AI._action_to_input] %s: Setting spm2_pressed=true for variant '%s'" % [parent.name, action])
+				Debug.log("[AI._action_to_input] %s: Setting spm2_pressed=true for variant '%s'" % [parent.name, action])
 		"powerkk", "spm1":
 			if enable_move_restrictions and "powerkk" in restricted_moves:
 				if debug_mode:
-					print("[AI._action_to_input] WARNING: Powerkk action reached input conversion despite being restricted!")
+					Debug.log("[AI._action_to_input] WARNING: Powerkk action reached input conversion despite being restricted!")
 				return _neutral_input()
 			input.spm1_pressed = true
 			input["ai_special_variant"] = action  # Store variant
@@ -805,11 +805,11 @@ func _action_to_input(action: String) -> Dictionary:
 			input.dp_pressed = true
 			input["ai_special_variant"] = action
 			if debug_mode:
-				print("[AI._action_to_input] %s: Setting dp_pressed=true for DP variant '%s'" % [parent.name, action])
+				Debug.log("[AI._action_to_input] %s: Setting dp_pressed=true for DP variant '%s'" % [parent.name, action])
 		"dp":
 			if enable_move_restrictions and "dp" in restricted_moves:
 				if debug_mode:
-					print("[AI._action_to_input] WARNING: DP action reached input conversion despite being restricted!")
+					Debug.log("[AI._action_to_input] WARNING: DP action reached input conversion despite being restricted!")
 				return _neutral_input()
 			input.dp_pressed = true
 			input["ai_special_variant"] = "dp"
@@ -819,7 +819,7 @@ func _action_to_input(action: String) -> Dictionary:
 				input.super_pressed = true  # 使用super_pressed作為100p的輸入
 				input["ai_special_variant"] = "100p"
 				if debug_mode:
-					print("[AI._action_to_input] %s: Setting super_pressed=true for 100p" % parent.name)
+					Debug.log("[AI._action_to_input] %s: Setting super_pressed=true for 100p" % parent.name)
 			else:
 				# 非DAV角色不應該執行100p
 				return _neutral_input()
@@ -840,7 +840,7 @@ func _action_to_input(action: String) -> Dictionary:
 			if debug_mode:
 				var frame_count = Engine.get_physics_frames()
 				var dist = abs(parent.global_position.x - opponent.global_position.x) if opponent else 0
-				print("[AI ACTION→INPUT] Frame=%d | jump_forward | dir=%d | dist=%.1f | opponent_y=%.1f | self_y=%.1f" % [
+				Debug.log("[AI ACTION→INPUT] Frame=%d | jump_forward | dir=%d | dist=%.1f | opponent_y=%.1f | self_y=%.1f" % [
 					frame_count, int(relative_dir), dist, 
 					opponent.global_position.y if opponent else 0,
 					parent.global_position.y
@@ -850,14 +850,14 @@ func _action_to_input(action: String) -> Dictionary:
 			input.input_dir = -int(relative_dir)
 			if debug_mode:
 				var frame_count = Engine.get_physics_frames()
-				print("[AI ACTION→INPUT] Frame=%d | jump_backward | dir=%d" % [frame_count, -int(relative_dir)])
+				Debug.log("[AI ACTION→INPUT] Frame=%d | jump_backward | dir=%d" % [frame_count, -int(relative_dir)])
 		"jump_neutral":
 			input.jump_pressed = true
 			input.input_dir = 0
 			if debug_mode:
 				var frame_count = Engine.get_physics_frames()
 				var dist = abs(parent.global_position.x - opponent.global_position.x) if opponent else 0
-				print("[AI ACTION→INPUT] Frame=%d | jump_neutral | dist=%.1f | opponent_y=%.1f | self_y=%.1f" % [
+				Debug.log("[AI ACTION→INPUT] Frame=%d | jump_neutral | dist=%.1f | opponent_y=%.1f | self_y=%.1f" % [
 					frame_count, dist,
 					opponent.global_position.y if opponent else 0,
 					parent.global_position.y
@@ -941,7 +941,7 @@ func clear_special_move_commitment() -> void:
 	
 	# 只清除特殊招式相關的承諾（防止誤清除其他承諾如投擲）
 	if current_committed_action in SPECIAL_MOVE_ACTIONS:
-		print("[AI FIX - CLEAR SPECIAL MOVE] Frame=%d Seat=%s | Clearing commitment for '%s'" % [
+		Debug.log("[AI FIX - CLEAR SPECIAL MOVE] Frame=%d Seat=%s | Clearing commitment for '%s'" % [
 			current_frame, seat, current_committed_action
 		])
 		

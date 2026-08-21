@@ -23,10 +23,10 @@ func _ready() -> void:
 	if world and "player_a" in world:
 		player_a = world.player_a
 		player_b = world.player_b
-		print("[KNOCKFLY DEBUGGER] ✅ Initialized - Monitoring both players")
+		Debug.log("[KNOCKFLY DEBUGGER] ✅ Initialized - Monitoring both players")
 	else:
 		enabled = false
-		print("[KNOCKFLY DEBUGGER] ❌ Could not find players")
+		Debug.log("[KNOCKFLY DEBUGGER] ❌ Could not find players")
 
 func _physics_process(_delta: float) -> void:
 	if not enabled or not player_a:
@@ -55,35 +55,35 @@ func _check_player_state(player: Node, name: String) -> void:
 	# ── Detect state transitions ──
 	if is_knockfly and not _last_knockfly_state:
 		_knockfly_entered_frame = Engine.get_physics_frames()
-		print("\n🔴 [%s] KNOCKFLY STARTED (Frame %d)" % [name, _knockfly_entered_frame])
-		print("  📍 knockfly_timer: %.3f seconds" % knockfly_timer)
-		print("  🎬 Animation: %s" % curr_anim)
+		Debug.log("\n🔴 [%s] KNOCKFLY STARTED (Frame %d)" % [name, _knockfly_entered_frame])
+		Debug.log("  📍 knockfly_timer: %.3f seconds" % knockfly_timer)
+		Debug.log("  🎬 Animation: %s" % curr_anim)
 	
 	elif is_layground and not _last_layground_state and not is_knockfly:
 		_layground_entered_frame = Engine.get_physics_frames()
 		var knockfly_duration = _layground_entered_frame - _knockfly_entered_frame
-		print("\n🟡 [%s] LAYGROUND STARTED (Frame %d)" % [name, _layground_entered_frame])
-		print("  ⏱️  Knockfly lasted: %d frames" % knockfly_duration)
-		print("  ⏱️  layground_timer: %d frames" % layground_timer)
-		print("  🎬 Animation: %s" % curr_anim)
+		Debug.log("\n🟡 [%s] LAYGROUND STARTED (Frame %d)" % [name, _layground_entered_frame])
+		Debug.log("  ⏱️  Knockfly lasted: %d frames" % knockfly_duration)
+		Debug.log("  ⏱️  layground_timer: %d frames" % layground_timer)
+		Debug.log("  🎬 Animation: %s" % curr_anim)
 	
 	elif is_wakeup and not _last_wakeup_state and not is_layground:
 		_wakeup_entered_frame = Engine.get_physics_frames()
 		var layground_duration = _wakeup_entered_frame - _layground_entered_frame
-		print("\n🟢 [%s] WAKEUP STARTED (Frame %d)" % [name, _wakeup_entered_frame])
-		print("  ⏱️  Layground lasted: %d frames" % layground_duration)
-		print("  ⏱️  wakeup_timer: %d frames" % wakeup_timer)
-		print("  🎬 Animation: %s" % curr_anim)
+		Debug.log("\n🟢 [%s] WAKEUP STARTED (Frame %d)" % [name, _wakeup_entered_frame])
+		Debug.log("  ⏱️  Layground lasted: %d frames" % layground_duration)
+		Debug.log("  ⏱️  wakeup_timer: %d frames" % wakeup_timer)
+		Debug.log("  🎬 Animation: %s" % curr_anim)
 	
 	elif not is_knockfly and not is_layground and not is_wakeup and (_last_knockfly_state or _last_layground_state or _last_wakeup_state):
 		var total_sequence = Engine.get_physics_frames() - _knockfly_entered_frame
-		print("\n✅ [%s] SEQUENCE COMPLETE (Frame %d)" % [name, Engine.get_physics_frames()])
-		print("  ⏱️  Total knockdown duration: %d frames (%.3f seconds @ 120 FPS)" % [total_sequence, total_sequence / 120.0])
-		print("  🎬 Animation: %s" % curr_anim)
+		Debug.log("\n✅ [%s] SEQUENCE COMPLETE (Frame %d)" % [name, Engine.get_physics_frames()])
+		Debug.log("  ⏱️  Total knockdown duration: %d frames (%.3f seconds @ 120 FPS)" % [total_sequence, total_sequence / 120.0])
+		Debug.log("  🎬 Animation: %s" % curr_anim)
 	
 	# Verbose frame-by-frame logging
 	if verbose_mode and (is_knockfly or is_layground or is_wakeup):
-		print("[%s-Frame%d] KF:%s LG:%s WU:%s | KF_timer:%.3f LG_timer:%d WU_timer:%d | Anim:%s" % [
+		Debug.log("[%s-Frame%d] KF:%s LG:%s WU:%s | KF_timer:%.3f LG_timer:%d WU_timer:%d | Anim:%s" % [
 			name, Engine.get_physics_frames(),
 			"✓" if is_knockfly else "✗",
 			"✓" if is_layground else "✗",
@@ -99,12 +99,12 @@ func _check_player_state(player: Node, name: String) -> void:
 
 func enable() -> void:
 	enabled = true
-	print("[KNOCKFLY DEBUGGER] Enabled")
+	Debug.log("[KNOCKFLY DEBUGGER] Enabled")
 
 func disable() -> void:
 	enabled = false
-	print("[KNOCKFLY DEBUGGER] Disabled")
+	Debug.log("[KNOCKFLY DEBUGGER] Disabled")
 
 func toggle() -> void:
 	enabled = not enabled
-	print("[KNOCKFLY DEBUGGER] %s" % ("Enabled" if enabled else "Disabled"))
+	Debug.log("[KNOCKFLY DEBUGGER] %s" % ("Enabled" if enabled else "Disabled"))

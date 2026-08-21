@@ -40,7 +40,7 @@ func execute() -> void:
 	parent_player.attack_type = attack_id
 	parent_player.current_damage = damage
 	parent_player.animation_player.play(animation_name)
-	print("[AttackBase] 執行普通攻擊：", attack_id)
+	Debug.log("[AttackBase] 執行普通攻擊：", attack_id)
 
 # ── 每幀更新（由 AttackController 在 _physics_process 呼叫） ─────────────────────────
 func update(delta: float) -> void:

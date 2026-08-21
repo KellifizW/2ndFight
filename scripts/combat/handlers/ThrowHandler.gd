@@ -62,7 +62,7 @@ var debug_enabled: bool = true
 func _ready() -> void:
 	name = "ThrowHandler"
 	if debug_enabled:
-		print("[ThrowHandler] Initialized for player: %s" % player_node.name if player_node else "None")
+		Debug.log("[ThrowHandler] Initialized for player: %s" % player_node.name if player_node else "None")
 
 
 ## ═══════════════════════════════════════════════════════════════════════════
@@ -75,7 +75,7 @@ func set_player(player: Node) -> void:
 	if player_node and player_node.has_node("/root/World"):
 		world_node = player_node.get_node("/root/World")
 	if debug_enabled:
-		print("[ThrowHandler] Player set to: %s" % player_node.name)
+		Debug.log("[ThrowHandler] Player set to: %s" % player_node.name)
 
 
 ## ═══════════════════════════════════════════════════════════════════════════
@@ -112,7 +112,7 @@ func try_initiate_throw(input_data: Dictionary) -> bool:
 	is_grabbing = true
 	
 	if debug_enabled:
-		print("[ThrowHandler] Throw initiated - entering STARTUP phase")
+		Debug.log("[ThrowHandler] Throw initiated - entering STARTUP phase")
 	
 	return true
 
@@ -141,7 +141,7 @@ func check_grab_collision() -> Node:
 	"""檢查摔投碰撞，返回被抓取的對手（如果有）"""
 	if not player_node or not player_node.has_node("ThrowBox"):
 		if debug_enabled:
-			print("[ThrowHandler] No ThrowBox found on player")
+			Debug.log("[ThrowHandler] No ThrowBox found on player")
 		return null
 	
 	# 只有在 ThrowHit 判定框為 active 時才進行檢測
@@ -150,13 +150,13 @@ func check_grab_collision() -> Node:
 		var throw_hit = throw_box.get_node("ThrowHit")
 		if throw_hit.disabled:
 			if debug_enabled:
-				print("[ThrowHandler] ThrowHit is disabled - skipping grab detection")
+				Debug.log("[ThrowHandler] ThrowHit is disabled - skipping grab detection")
 			return null
 	
 	var overlapping_areas = throw_box.get_overlapping_areas()
 	
 	if debug_enabled and overlapping_areas.size() > 0:
-		print("[ThrowHandler] Found %d overlapping areas" % overlapping_areas.size())
+		Debug.log("[ThrowHandler] Found %d overlapping areas" % overlapping_areas.size())
 	
 	for area in overlapping_areas:
 		# 尋找對手的 ThrowBox
@@ -177,12 +177,12 @@ func check_grab_collision() -> Node:
 		# 檢查對手狀態（是否可被摔投）
 		if potential_target.is_knockfly or potential_target.is_being_thrown:
 			if debug_enabled:
-				print("[ThrowHandler] Target %s in invalid state (knockfly or already thrown)" % potential_target.name)
+				Debug.log("[ThrowHandler] Target %s in invalid state (knockfly or already thrown)" % potential_target.name)
 			continue
 		
 		# 找到有效目標
 		if debug_enabled:
-			print("[ThrowHandler] Valid throw target found: %s" % potential_target.name)
+			Debug.log("[ThrowHandler] Valid throw target found: %s" % potential_target.name)
 		
 		# 【雙向摔投衝突檢測】—— Throw Escape
 		# 情況 A: 對手的 ThrowHandler 也在 STARTUP 階段（同幀处理）
@@ -203,7 +203,7 @@ func check_grab_collision() -> Node:
 		
 		if target_also_threw:
 			if debug_enabled:
-				print("[ThrowHandler] MUTUAL THROW detected! Triggering Throw Escape")
+				Debug.log("[ThrowHandler] MUTUAL THROW detected! Triggering Throw Escape")
 			handle_mutual_throw_collision(potential_target)
 			return null  # 不抓取任何人，雙方觸發 throw escape
 		
@@ -240,15 +240,15 @@ func lock_opponent(opponent: Node) -> void:
 	
 	# 清空對手輸入緩衝
 	if opponent.has_node("PlayerController") and opponent.get_node("PlayerController").has_method("clear_input_buffer"):
-		print("[🔴 ThrowHandler] Clearing opponent's input_buffer at frame %d | opponent: %s" % [
+		Debug.log("[🔴 ThrowHandler] Clearing opponent's input_buffer at frame %d | opponent: %s" % [
 			Engine.get_physics_frames(), opponent.name
 		])
 		opponent.get_node("PlayerController").input_buffer.clear()
-		print("[ThrowHandler] Input buffer cleared. Calling input display clear() if it exists...")
+		Debug.log("[ThrowHandler] Input buffer cleared. Calling input display clear() if it exists...")
 		# 檢查是否有輸入歷史顯示並嘗試調用clear
 		var input_display = get_tree().root.find_child("InputHistoryDisplayIcon", true, false)
 		if input_display:
-			print("[⚠️ ThrowHandler] Found InputHistoryDisplayIcon - NOT calling clear() to preserve history")
+			Debug.log("[⚠️ ThrowHandler] Found InputHistoryDisplayIcon - NOT calling clear() to preserve history")
 			# 【改動】不調用clear() 以保留歷史
 			# input_display.call("clear")
 		
@@ -267,14 +267,14 @@ func lock_opponent(opponent: Node) -> void:
 		throw_pivot_offset = Vector2i(int(pivot_x * 1000), int(pivot_y * 1000))
 	
 	if debug_enabled:
-		print("[ThrowHandler] Opponent locked: %s | pivot_offset: %s" % [opponent.name, throw_pivot_offset])
+		Debug.log("[ThrowHandler] Opponent locked: %s | pivot_offset: %s" % [opponent.name, throw_pivot_offset])
 	
 	# 【新增】清空攻擊者的速度（防止在 throw_seq 期間移動）
 	if player_node and "fixed_velocity" in player_node:
 		player_node.fixed_velocity.x = 0
 		player_node.fixed_velocity.y = 0
 		if debug_enabled:
-			print("[ThrowHandler] Attacker velocity cleared to prevent movement during throw")
+			Debug.log("[ThrowHandler] Attacker velocity cleared to prevent movement during throw")
 	
 	# 【新增】停止攻擊者的衝刺狀態（如果有）
 	if player_node:
@@ -298,7 +298,7 @@ func lock_opponent(opponent: Node) -> void:
 				var anim_length = player_node.animation_player.get_animation("throw_seq").length
 				player_node.attack_duration_timer = int(round(anim_length * 60 * 2))
 				if debug_enabled:
-					print("[ThrowHandler] Switched to throw_seq | timer=%d frames" % player_node.attack_duration_timer)
+					Debug.log("[ThrowHandler] Switched to throw_seq | timer=%d frames" % player_node.attack_duration_timer)
 				else:
 					player_node.attack_duration_timer = 60
 			else:
@@ -332,7 +332,7 @@ func update_opponent_position(delta: float) -> void:
 	
 	# 每 30 幀輸出一次除錯（0.25 秒）
 	if debug_enabled and Engine.get_physics_frames() % 30 == 0:
-		print("[ThrowHandler] Position locked | attacker: %s | opponent: %s | offset: %s" % [
+		Debug.log("[ThrowHandler] Position locked | attacker: %s | opponent: %s | offset: %s" % [
 			player_node.fixed_position, target_position, throw_pivot_offset
 		])
 
@@ -345,7 +345,7 @@ func release_opponent() -> void:
 	"""釋放對手並應用發射速度（從 AnimationPlayer 事件呼叫）"""
 	if not grabbed_opponent or not player_node:
 		if debug_enabled:
-			print("[ThrowHandler] Release called but no grabbed opponent")
+			Debug.log("[ThrowHandler] Release called but no grabbed opponent")
 		return
 	
 	current_phase = ThrowPhase.EXECUTE
@@ -390,7 +390,7 @@ func release_opponent() -> void:
 		grabbed_opponent.animation_state.travel("knockfly")
 	
 	if debug_enabled:
-		print("[ThrowHandler] Opponent released | damage: %.1f | hitstun: %d physics frames | velocity: %s" % [
+		Debug.log("[ThrowHandler] Opponent released | damage: %.1f | hitstun: %d physics frames | velocity: %s" % [
 			damage, hitstun_physics, grabbed_opponent.fixed_velocity
 		])
 	
@@ -417,7 +417,7 @@ func _start_escape_window() -> void:
 		escape_mash_threshold = throw_data.get("escape_mash_threshold", 8)
 	
 	if debug_enabled:
-		print("[ThrowHandler] Escape window started | threshold: %d inputs" % escape_mash_threshold)
+		Debug.log("[ThrowHandler] Escape window started | threshold: %d inputs" % escape_mash_threshold)
 
 
 func check_throw_escape() -> bool:
@@ -437,7 +437,7 @@ func check_throw_escape() -> bool:
 	if elapsed_frames > _logic_frames_to_physics_frames(escape_window_end_frame):
 		escape_window_active = false
 		if debug_enabled:
-			print("[ThrowHandler] Escape window closed | inputs: %d/%d" % [escape_input_count, escape_mash_threshold])
+			Debug.log("[ThrowHandler] Escape window closed | inputs: %d/%d" % [escape_input_count, escape_mash_threshold])
 		return false
 	
 	# 檢測對手輸入（任意按鍵）
@@ -485,7 +485,7 @@ func _execute_escape() -> void:
 		return
 	
 	if debug_enabled:
-		print("[ThrowHandler] THROW ESCAPED! | inputs: %d/%d" % [escape_input_count, escape_mash_threshold])
+		Debug.log("[ThrowHandler] THROW ESCAPED! | inputs: %d/%d" % [escape_input_count, escape_mash_threshold])
 	
 	# 對手逃脫成功
 	grabbed_opponent.is_being_thrown = false
@@ -530,7 +530,7 @@ func _handle_startup_phase() -> void:
 	var still_in_throw_enter = player_node.is_attacking and player_node.attack_type == "throw_enter"
 	if not still_in_throw_enter:
 		if debug_enabled:
-			print("[ThrowHandler] throw_enter ended without grab - resetting throw state")
+			Debug.log("[ThrowHandler] throw_enter ended without grab - resetting throw state")
 		reset_throw_state()
 		return
 	
@@ -557,7 +557,7 @@ func _handle_hold_phase(delta: float) -> void:
 		# 當攻擊計時器歸零且還在 HOLD 階段，說明動畫已結束但沒有釋放
 		if player_node.attack_duration_timer <= 0 and player_node.attack_type == "throw_seq":
 			if debug_enabled:
-				print("[ThrowHandler] HOLD phase auto-release: throw_seq animation completed but no release event triggered")
+				Debug.log("[ThrowHandler] HOLD phase auto-release: throw_seq animation completed but no release event triggered")
 			release_opponent()
 			return
 	
@@ -586,12 +586,12 @@ func _handle_recovery_phase() -> void:
 		# 檢查動畫是否已結束或狀態已改變
 		if player_node.attack_type != "throw_seq" or not player_node.is_attacking:
 			if debug_enabled:
-				print("[ThrowHandler] RECOVERY phase complete, resetting state")
+				Debug.log("[ThrowHandler] RECOVERY phase complete, resetting state")
 			reset_throw_state()
 		# 【新增】額外保護：如果攻擊計時器歸零，也重置
 		elif "attack_duration_timer" in player_node and player_node.attack_duration_timer <= 0:
 			if debug_enabled:
-				print("[ThrowHandler] RECOVERY phase: attack timer expired, resetting state")
+				Debug.log("[ThrowHandler] RECOVERY phase: attack timer expired, resetting state")
 			reset_throw_state()
 
 
@@ -619,7 +619,7 @@ func _apply_throw_damage(opponent: Node, damage: float) -> void:
 	if "healthbar" in opponent and opponent.healthbar != null:
 		opponent.healthbar.current_health -= damage
 		if debug_enabled:
-			print("[ThrowHandler] Applied %.1f damage | remaining health: %.1f" % [damage, opponent.healthbar.current_health])
+			Debug.log("[ThrowHandler] Applied %.1f damage | remaining health: %.1f" % [damage, opponent.healthbar.current_health])
 	else:
 		push_warning("[ThrowHandler] Cannot apply damage: healthbar not found on %s" % opponent.name)
 
@@ -650,7 +650,7 @@ func _apply_launch_velocity(opponent: Node, throw_data: Dictionary) -> void:
 	opponent.fixed_position.y = world_node.FLOOR_Y - 10000  # 抬起 10 像素
 	
 	if debug_enabled:
-		print("[ThrowHandler] Launch velocity applied | horizontal: %d | vertical: %d | gravity: %.0f" % [
+		Debug.log("[ThrowHandler] Launch velocity applied | horizontal: %d | vertical: %d | gravity: %.0f" % [
 			opponent.fixed_velocity.x, opponent.fixed_velocity.y, custom_gravity
 		])
 
@@ -688,7 +688,7 @@ func reset_throw_state() -> void:
 			cwh.reset()
 	
 	if debug_enabled:
-		print("[ThrowHandler] State reset")
+		Debug.log("[ThrowHandler] State reset")
 
 
 func _logic_frames_to_physics_frames(logic_frames: int) -> int:
@@ -717,7 +717,7 @@ func on_animation_start_hold() -> void:
 	if current_phase == ThrowPhase.GRAB:
 		current_phase = ThrowPhase.HOLD
 		if debug_enabled:
-			print("[ThrowHandler] HOLD phase started via animation event")
+			Debug.log("[ThrowHandler] HOLD phase started via animation event")
 
 ## ═══════════════════════════════════════════════════════════════════════════
 ## 互相摔投衝突處理（雙方同時執行摔投時）—— Throw Escape
@@ -753,7 +753,7 @@ func handle_mutual_throw_collision(opponent: Node) -> void:
 		initial_velocity = escape_distance * sim_scale * 4.0  # 後備方案
 	
 	if debug_enabled:
-		print("[THROW ESCAPE] Mutual throw! escape_frames=%d distance=%.1fpx initial_vel=%.0f" % [escape_frames, escape_distance, initial_velocity])
+		Debug.log("[THROW ESCAPE] Mutual throw! escape_frames=%d distance=%.1fpx initial_vel=%.0f" % [escape_frames, escape_distance, initial_velocity])
 	
 	# ── 重置雙方 ThrowHandler 狀態 ──
 	reset_throw_state()
@@ -810,4 +810,4 @@ func handle_mutual_throw_collision(opponent: Node) -> void:
 		opponent.animation_state.travel("idle")
 	
 	if debug_enabled:
-		print("[THROW ESCAPE] Done | %s → idle | %s → idle" % [player_node.name, opponent.name])
+		Debug.log("[THROW ESCAPE] Done | %s → idle | %s → idle" % [player_node.name, opponent.name])

@@ -84,7 +84,7 @@ var is_bgm_enabled: bool = true
 func _ready() -> void:
 	add_to_group("world")
 	if startup_logs:
-		print("Debug: World _ready() 開始執行")
+		Debug.log("Debug: World _ready() 開始執行")
 	
 	# ============================================================
 	# 初始化 HitboxCache（新增）
@@ -95,7 +95,7 @@ func _ready() -> void:
 	add_child(hitbox_cache)
 	hitbox_cache.add_to_group("hitbox_cache")
 	if startup_logs:
-		print("[WORLD] HitboxCache 已初始化")
+		Debug.log("[WORLD] HitboxCache 已初始化")
 	
 	# ============================================================
 	# 初始化 ResourcePreloadManager（特效預載系統）
@@ -105,7 +105,7 @@ func _ready() -> void:
 	add_child(resource_preloader)
 	resource_preloader.add_to_group("resource_preloader")
 	if startup_logs:
-		print("[WORLD] ResourcePreloadManager 已初始化")
+		Debug.log("[WORLD] ResourcePreloadManager 已初始化")
 	
 	# ============================================================
 	# 初始化 AI 性能監視器（Phase 2 優化）
@@ -117,10 +117,10 @@ func _ready() -> void:
 		profiler.show_realtime = false
 		add_child(profiler)
 		if startup_logs:
-			print("[WORLD] ✓ AI 性能監視器已啟用 (每 %.1f 秒輸出一次報告，檢查 Console 標籤)" % profiling_log_interval)
+			Debug.log("[WORLD] ✓ AI 性能監視器已啟用 (每 %.1f 秒輸出一次報告，檢查 Console 標籤)" % profiling_log_interval)
 	else:
 		if startup_logs:
-			print("[WORLD] ℹ️ AI 性能監視器已禁用 (在 Inspector 中設置 enable_performance_monitoring = True 以啟用)")
+			Debug.log("[WORLD] ℹ️ AI 性能監視器已禁用 (在 Inspector 中設置 enable_performance_monitoring = True 以啟用)")
 	
 	# ============================================================
 	# 🟢 【新增】初始化幀計數器（替代浮點時間戳）
@@ -129,7 +129,7 @@ func _ready() -> void:
 	frame_counter.name = "FrameCounter"
 	add_child(frame_counter)
 	if startup_logs:
-		print("[WORLD] ✓ FrameCounter 已初始化 - 精確的幀級時間追蹤")
+		Debug.log("[WORLD] ✓ FrameCounter 已初始化 - 精確的幀級時間追蹤")
 	
 	# ============================================================
 	# 🟢 【新增】初始化 Hit Stop 時機調試器
@@ -140,14 +140,14 @@ func _ready() -> void:
 	hitstop_debug.detailed_logging = false  # 設為 true 可查看更詳細的日誌
 	add_child(hitstop_debug)
 	if startup_logs:
-		print("[WORLD] ✓ HitStopTimingDebugger 已初始化 (詳細日誌: %s)" % hitstop_debug.detailed_logging)
+		Debug.log("[WORLD] ✓ HitStopTimingDebugger 已初始化 (詳細日誌: %s)" % hitstop_debug.detailed_logging)
 	
 	# 關鍵修正：優先從選角畫面讀取角色（SelectedCharacters 是 Autoload 全局單例）
 	if SelectedCharacters.p1_character != null and SelectedCharacters.p2_character != null:
 		player_a_character = SelectedCharacters.p1_character
 		player_b_character = SelectedCharacters.p2_character
 		if startup_logs:
-			print("從選角畫面成功載入角色：P1 = %s, P2 = %s" % [player_a_character.display_name, player_b_character.display_name])
+			Debug.log("從選角畫面成功載入角色：P1 = %s, P2 = %s" % [player_a_character.display_name, player_b_character.display_name])
 	else:
 		# 如果直接執行 world.tscn（測試用），檢查編輯器是否有手動拖入角色
 		if not player_a_character:
@@ -157,7 +157,7 @@ func _ready() -> void:
 			push_error("錯誤：Player B 的 CharacterData 未指定！請從 CharacterSelect 進入，或在 World 節點的 Inspector 中拖入角色 .tres")
 			return
 		if startup_logs:
-			print("使用編輯器預設角色：P1 = %s, P2 = %s" % [player_a_character.display_name, player_b_character.display_name])
+			Debug.log("使用編輯器預設角色：P1 = %s, P2 = %s" % [player_a_character.display_name, player_b_character.display_name])
 	
 	# 安全檢查：確保兩個角色都有 PackedScene
 	if not player_a_character.scene:
@@ -182,11 +182,11 @@ func _ready() -> void:
 	
 	# 其餘初始化（保持不變）
 	if not slowmo_controller:
-		print("Warning: SlowMoController node not found in world")
+		Debug.log("Warning: SlowMoController node not found in world")
 	if not animation_label:
-		print("Warning: AnimationLabel node not found in world")
+		Debug.log("Warning: AnimationLabel node not found in world")
 	if not combo_label:
-		print("Warning: ComboLabel node not found in world")
+		Debug.log("Warning: ComboLabel node not found in world")
 	else:
 		combo_label.text = ""
 	if debug_label:
@@ -196,7 +196,7 @@ func _ready() -> void:
 	if p2_advantage_label:
 		p2_advantage_label.text = "P2 Adv: 0"
 	else:
-		print("Warning: Advantage labels not found in UI")
+		Debug.log("Warning: Advantage labels not found in UI")
 	if bgm_player:
 		is_bgm_enabled = true
 		bgm_player.volume_db = -80.0
@@ -205,30 +205,30 @@ func _ready() -> void:
 		tween.tween_property(bgm_player, "volume_db", bgm_max_volume_db, 1.0)
 		tween.play()
 		if startup_logs:
-			print("Debug: BGM fade-in started at %s ms" % Time.get_ticks_msec())
+			Debug.log("Debug: BGM fade-in started at %s ms" % Time.get_ticks_msec())
 	else:
-		print("Warning: BGMPlayer node not found in world")
+		Debug.log("Warning: BGMPlayer node not found in world")
 	
 	initial_player_a_pos = player_a.global_position
 	initial_player_b_pos = player_b.global_position
 	if startup_logs:
-		print("Debug: Initial positions set - Player A: %s, Player B: %s" % [player_a.global_position, player_b.global_position])
+		Debug.log("Debug: Initial positions set - Player A: %s, Player B: %s" % [player_a.global_position, player_b.global_position])
 	
 	if frame_bar_p1:
 		frame_bar_p1.initialize(player_a, player_b)
 		frame_bar_p1.z_index = 10
 	else:
-		print("Error: FrameBarP1 not found in UI")
+		Debug.log("Error: FrameBarP1 not found in UI")
 	if frame_bar_p2:
 		frame_bar_p2.initialize(player_b, player_a)
 		frame_bar_p2.z_index = 10
 	else:
-		print("Error: FrameBarP2 not found in UI")
+		Debug.log("Error: FrameBarP2 not found in UI")
 	
 	if position_label:
 		position_label.text = "Player A: (0, 0)\nPlayer B: (0, 0)"
 	else:
-		print("Warning: PositionLabel not found in UI")
+		Debug.log("Warning: PositionLabel not found in UI")
 	
 	$UI/CountdownTimer.countdown_finished.connect(_on_countdown_finished)
 	
@@ -266,10 +266,10 @@ func _input(event) -> void:
 			reset_players()
 		if Input.is_action_just_pressed("slowmo_toggle") and not slowmo_triggered:
 			slowmo_controller.request_slowmo_change()
-			print("Debug: slowmo_toggle pressed, requesting slow motion change at %s ms" % Time.get_ticks_msec())
+			Debug.log("Debug: slowmo_toggle pressed, requesting slow motion change at %s ms" % Time.get_ticks_msec())
 		if Input.is_action_just_pressed("toggle_bgm"):
 			toggle_bgm()
-			print("Debug: toggle_bgm action triggered, BGM state: %s at %s ms" % [is_bgm_enabled, Time.get_ticks_msec()])
+			Debug.log("Debug: toggle_bgm action triggered, BGM state: %s at %s ms" % [is_bgm_enabled, Time.get_ticks_msec()])
 			
 func _process(delta: float) -> void:
 	fps_label.text = "FPS: %d" % (1.0 / delta)
@@ -292,9 +292,9 @@ func _process(delta: float) -> void:
 				tween.play()
 				is_fading_out = true
 				is_bgm_enabled = false
-				print("Debug: BGM fade-out started at %s ms due to player health <= 0" % Time.get_ticks_msec())
+				Debug.log("Debug: BGM fade-out started at %s ms due to player health <= 0" % Time.get_ticks_msec())
 			slowmo_controller.request_slowmo_change()
-			print("Debug: Slow motion triggered due to player health <= 0 at %s ms" % Time.get_ticks_msec())
+			Debug.log("Debug: Slow motion triggered due to player health <= 0 at %s ms" % Time.get_ticks_msec())
 	
 	if position_label and player_a and player_b:
 		var a_pos = player_a.global_position
@@ -504,38 +504,38 @@ func to_scaled_vector2(vector: Vector2i) -> Vector2:
 func reload_attack_data() -> void:
 	"""重新加載攻擊資料（Ctrl+R）"""
 	if not player_a or not player_b:
-		print("❌ 無法熱重載：玩家尚未初始化")
+		Debug.log("❌ 無法熱重載：玩家尚未初始化")
 		return
 	
 	var reload_count = 0
-	print("\n🔄 [HOT RELOAD] 開始重新加載攻擊資料...")
+	Debug.log("\n🔄 [HOT RELOAD] 開始重新加載攻擊資料...")
 	
 	for player in [player_a, player_b]:
 		if player.has_method("reload_attack_data"):
 			player.reload_attack_data()
 			reload_count += 1
-			print("  ✅ %s 攻擊資料已重新加載" % player.seat)
+			Debug.log("  ✅ %s 攻擊資料已重新加載" % player.seat)
 		else:
-			print("  ⚠️  %s 無 reload_attack_data() 方法" % player.seat)
+			Debug.log("  ⚠️  %s 無 reload_attack_data() 方法" % player.seat)
 	
-	print("✨ 熱重載完成: %d 個玩家的攻擊資料已更新\n" % reload_count)
+	Debug.log("✨ 熱重載完成: %d 個玩家的攻擊資料已更新\n" % reload_count)
 
 func reload_physics_params() -> void:
 	"""重新加載物理參數（Ctrl+G）"""
 	if not player_a or not player_b:
-		print("❌ 無法熱重載：玩家尚未初始化")
+		Debug.log("❌ 無法熱重載：玩家尚未初始化")
 		return
 	
-	print("\n🔄 [HOT RELOAD] 開始重新加載物理參數...")
+	Debug.log("\n🔄 [HOT RELOAD] 開始重新加載物理參數...")
 	
 	for player in [player_a, player_b]:
 		if player.has_method("reload_physics_params"):
 			player.reload_physics_params()
-			print("  ✅ %s 物理參數已重新加載" % player.seat)
+			Debug.log("  ✅ %s 物理參數已重新加載" % player.seat)
 		else:
-			print("  ⚠️  %s 無 reload_physics_params() 方法" % player.seat)
+			Debug.log("  ⚠️  %s 無 reload_physics_params() 方法" % player.seat)
 	
-	print("✨ 物理參數熱重載完成\n")
+	Debug.log("✨ 物理參數熱重載完成\n")
 
 func reset_player_animation(player: Node, target_state: String) -> void:
 	var animation_tree = player.get_node_or_null("AnimationTree")
@@ -544,13 +544,13 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 	var move_set = player.get_node_or_null("MoveSet")
 	
 	if not animation_tree or not animation_state or not animation_player:
-		print("Warning: AnimationTree, animation_state, or animation_player not found for %s" % player.name)
+		Debug.log("Warning: AnimationTree, animation_state, or animation_player not found for %s" % player.name)
 		return
 	
 	animation_player.stop()
 	animation_player.clear_queue()
 	animation_player.speed_scale = 1.0
-	print("Debug: %s AnimationPlayer stopped and queue cleared at %s ms" % [player.name, Time.get_ticks_msec()])
+	Debug.log("Debug: %s AnimationPlayer stopped and queue cleared at %s ms" % [player.name, Time.get_ticks_msec()])
 	
 	animation_tree.active = false
 	
@@ -579,7 +579,7 @@ func reset_player_animation(player: Node, target_state: String) -> void:
 	
 	animation_tree.active = true
 	animation_state.travel(target_state)
-	print("Debug: %s animation reset to %s at %s ms" % [player.name, target_state, Time.get_ticks_msec()])
+	Debug.log("Debug: %s animation reset to %s at %s ms" % [player.name, target_state, Time.get_ticks_msec()])
 
 func reset_players() -> void:
 	if not player_a or not player_b:
@@ -595,7 +595,7 @@ func reset_players() -> void:
 	for player in [player_a, player_b]:
 		if player.healthbar != null:
 			player.healthbar.current_health = 100.0
-			print("Debug: %s health reset to 100.0 at %s ms" % [player.name, Time.get_ticks_msec()])
+			Debug.log("Debug: %s health reset to 100.0 at %s ms" % [player.name, Time.get_ticks_msec()])
 	
 	for player in [player_a, player_b]:
 		player.is_hit = false
@@ -638,7 +638,7 @@ func reset_players() -> void:
 		slowmo_controller.is_hit_slowmo = false
 		slowmo_triggered = false
 		Engine.time_scale = slowmo_controller.normal_time_scale
-		print("Debug: Slow motion and hit slowmo states reset, time_scale=%s at %s ms" % [Engine.time_scale, Time.get_ticks_msec()])
+		Debug.log("Debug: Slow motion and hit slowmo states reset, time_scale=%s at %s ms" % [Engine.time_scale, Time.get_ticks_msec()])
 	
 	if bgm_player:
 		bgm_player.stop()
@@ -648,10 +648,10 @@ func reset_players() -> void:
 			var tween = create_tween()
 			tween.tween_property(bgm_player, "volume_db", bgm_max_volume_db, 3.0)
 			tween.play()
-			print("Debug: BGM reset and fade-in started at %s ms" % Time.get_ticks_msec())
+			Debug.log("Debug: BGM reset and fade-in started at %s ms" % Time.get_ticks_msec())
 		else:
 			bgm_player.volume_db = -80.0
-			print("Debug: BGM reset but kept off at %s ms" % Time.get_ticks_msec())
+			Debug.log("Debug: BGM reset but kept off at %s ms" % Time.get_ticks_msec())
 		is_fading_out = false
 	
 	if animation_label:
@@ -699,7 +699,7 @@ func reset_players() -> void:
 	if frame_bar_p2:
 		frame_bar_p2.reset_frame_bar()
 	
-	print("[WORLD] ✓ 玩家重置完成 - 位置、血量、動畫、幀條、優勢已恢復 | FrameCounter 重置至 0")
+	Debug.log("[WORLD] ✓ 玩家重置完成 - 位置、血量、動畫、幀條、優勢已恢復 | FrameCounter 重置至 0")
 
 func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool) -> void:
 	var hit_time_ms = Time.get_ticks_msec()
@@ -732,7 +732,7 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 			# 🟢 【關鍵】直接取得被擊者的 hitstun_frames（已是物理幀，來自 take_hit()）
 			if "hitstun_frames" in target_player:
 				hitstun_frames = target_player.hitstun_frames  # ✅ 物理幀，直接使用
-				print("[HIT DETECTION] 被擊者 %s 進入 %d 物理幀 hitstun (%.1f 邏輯幀)" % [
+				Debug.log("[HIT DETECTION] 被擊者 %s 進入 %d 物理幀 hitstun (%.1f 邏輯幀)" % [
 					target_player.name, hitstun_frames, hitstun_frames / frame_counter.FPS_RATIO
 				])
 			else:
@@ -762,7 +762,7 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		
 	else:
 		hit_label.text = target + " blocked!"
-		print("Debug: %s blocked at %s ms" % [target, hit_time_ms])
+		Debug.log("Debug: %s blocked at %s ms" % [target, hit_time_ms])
 		reset_combo()
 		
 		block_attacker = player_a if target == player_b.name else player_b
@@ -782,7 +782,7 @@ func _on_block_detected(target: String, block_type: String) -> void:
 	var block_time_ms = Time.get_ticks_msec()
 	if block_type == "proximity":
 		hit_label.text = target + " blocked (proximity)!"
-		print("Debug: %s triggered proximity block at %s ms" % [target, block_time_ms])
+		Debug.log("Debug: %s triggered proximity block at %s ms" % [target, block_time_ms])
 	reset_combo()
 
 func update_combo_label() -> void:
@@ -798,7 +798,7 @@ func reset_combo() -> void:
 
 func toggle_bgm() -> void:
 	if not bgm_player:
-		print("Warning: BGMPlayer node not found, cannot toggle BGM")
+		Debug.log("Warning: BGMPlayer node not found, cannot toggle BGM")
 		return
 	
 	is_fading_out = true
@@ -808,15 +808,15 @@ func toggle_bgm() -> void:
 		tween.tween_property(bgm_player, "volume_db", -80.0, 1.0)
 		tween.tween_callback(bgm_player.stop)
 		is_bgm_enabled = false
-		print("Debug: BGM fading out and stopping at %s ms" % Time.get_ticks_msec())
+		Debug.log("Debug: BGM fading out and stopping at %s ms" % Time.get_ticks_msec())
 	else:
 		bgm_player.play()
 		tween.tween_property(bgm_player, "volume_db", bgm_max_volume_db, 1.0)
 		is_bgm_enabled = true
-		print("Debug: BGM playing and fading in at %s ms" % Time.get_ticks_msec())
+		Debug.log("Debug: BGM playing and fading in at %s ms" % Time.get_ticks_msec())
 	
 	tween.tween_callback(func(): is_fading_out = false)
 	tween.play()
 
 func _on_countdown_finished() -> void:
-	print("對戰時間結束")
+	Debug.log("對戰時間結束")

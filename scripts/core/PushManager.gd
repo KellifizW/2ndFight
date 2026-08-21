@@ -266,7 +266,7 @@ func _physics_process(delta: float) -> void:
 			if player.corner_push_frames <= 0:
 				var moved_distance = abs(player.position.x - player.corner_push_start_x)
 				if debug_knockback_execution:
-					print("[CORNER PUSH SUMMARY] %s - moved: %.2f px" % [player.name, moved_distance])
+					Debug.log("[CORNER PUSH SUMMARY] %s - moved: %.2f px" % [player.name, moved_distance])
 				player.corner_push_frames = 0
 				player.corner_push_velocity = 0.0
 				player.fixed_velocity.x = 0
@@ -456,7 +456,7 @@ func _physics_process(delta: float) -> void:
 						# 🟢 【调试】记录速度清零操作
 						if parent_needs_snap and not parent.is_jumping:
 							if parent.fixed_velocity.y != 0:
-								print("[PUSH_SNAP] %s 地面吸附清零速度: velocity.y=%d → 0 | pos.y=%d | FLOOR_Y=%d" % [
+								Debug.vlog("[PUSH_SNAP] %s 地面吸附清零速度: velocity.y=%d → 0 | pos.y=%d | FLOOR_Y=%d" % [
 									parent.name, parent.fixed_velocity.y, parent.fixed_position.y, world.FLOOR_Y
 								])
 							parent.fixed_position.y = world.FLOOR_Y
@@ -470,19 +470,19 @@ func _physics_process(delta: float) -> void:
 								move_set.current_move_state.has_jumped
 							if parent_in_spmove_jump:
 								# DP跳躍上升中：完全跳過Y位置和速度修正
-								print("[PUSH_SNAP_SPMOVE_SKIP] %s DP/特殊招式跳躍，跳過Y吸附 | vel.y=%d | pos.y=%d" % [
+								Debug.vlog("[PUSH_SNAP_SPMOVE_SKIP] %s DP/特殊招式跳躍，跳過Y吸附 | vel.y=%d | pos.y=%d" % [
 									parent.name, parent.fixed_velocity.y, parent.fixed_position.y
 								])
 							else:
 								# 普通跳躍：只修正位置，保留速度（原有行為）
-								print("[PUSH_SNAP_SKIP] %s 正在跳躍，跳過速度清零 | velocity.y=%d | is_jumping=%s" % [
+								Debug.vlog("[PUSH_SNAP_SKIP] %s 正在跳躍，跳過速度清零 | velocity.y=%d | is_jumping=%s" % [
 									parent.name, parent.fixed_velocity.y, parent.is_jumping
 								])
 								parent.fixed_position.y = world.FLOOR_Y
 						
 						if other_needs_snap and not other.is_jumping:
 							if other.fixed_velocity.y != 0:
-								print("[PUSH_SNAP] %s 地面吸附清零速度: velocity.y=%d → 0 | pos.y=%d | FLOOR_Y=%d" % [
+								Debug.vlog("[PUSH_SNAP] %s 地面吸附清零速度: velocity.y=%d → 0 | pos.y=%d | FLOOR_Y=%d" % [
 									other.name, other.fixed_velocity.y, other.fixed_position.y, world.FLOOR_Y
 								])
 							other.fixed_position.y = world.FLOOR_Y
@@ -495,12 +495,12 @@ func _physics_process(delta: float) -> void:
 								other_move_set.current_move_state.has_jumped
 							if other_in_spmove_jump:
 								# DP跳躍上升中：完全跳過Y位置和速度修正
-								print("[PUSH_SNAP_SPMOVE_SKIP] %s DP/特殊招式跳躍，跳過Y吸附 | vel.y=%d | pos.y=%d" % [
+								Debug.vlog("[PUSH_SNAP_SPMOVE_SKIP] %s DP/特殊招式跳躍，跳過Y吸附 | vel.y=%d | pos.y=%d" % [
 									other.name, other.fixed_velocity.y, other.fixed_position.y
 								])
 							else:
 								# 普通跳躍：只修正位置，保留速度
-								print("[PUSH_SNAP_SKIP] %s 正在跳躍，跳過速度清零 | velocity.y=%d | is_jumping=%s" % [
+								Debug.vlog("[PUSH_SNAP_SKIP] %s 正在跳躍，跳過速度清零 | velocity.y=%d | is_jumping=%s" % [
 									other.name, other.fixed_velocity.y, other.is_jumping
 								])
 								other.fixed_position.y = world.FLOOR_Y

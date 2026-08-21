@@ -9,7 +9,7 @@ func _init(movement: Node) -> void:
 func set_facing(new_facing: float) -> void:
 	if movement_node.facing_direction != new_facing:
 		var seat = movement_node.get_meta("player_seat") if movement_node.has_meta("player_seat") else "unknown"
-		print("[FACING_CHANGE] %s: %.1f → %.1f" % [seat, movement_node.facing_direction, new_facing])
+		Debug.log("[FACING_CHANGE] %s: %.1f → %.1f" % [seat, movement_node.facing_direction, new_facing])
 	movement_node.facing_direction = new_facing
 	movement_node.scale.x = sign(new_facing)
 	movement_node.scale.y = 1

@@ -25,7 +25,7 @@ func handle_gravity(delta: float, move_set) -> void:
 				var move_name = move_set.current_move_state.active_move.name
 				if (move_name.begins_with("dp") or move_name in ["hdk", "powerkk", "super"]) and movement_node.is_jumping:
 					in_special_jump = true
-					print("[GRAVITY_SKIP] %s 在%s期間跳過速度清零 | velocity.y=%d" % [movement_node.name, move_name, movement_node.fixed_velocity.y])
+					Debug.log("[GRAVITY_SKIP] %s 在%s期間跳過速度清零 | velocity.y=%d" % [movement_node.name, move_name, movement_node.fixed_velocity.y])
 			
 			if not in_special_jump:
 				movement_node.fixed_velocity.y = 0
@@ -78,7 +78,7 @@ func apply_gravity_unified(delta: float, move_set: Node = null) -> void:
 		
 		# 🔴 調試日誌（默認禁用，需要調試時改為 true）
 		if false:
-			print("[GRAVITY_UNIFIED] %s | source=%s gravity=%d delta=%.4f old_vy=%d new_vy=%d" % [
+			Debug.log("[GRAVITY_UNIFIED] %s | source=%s gravity=%d delta=%.4f old_vy=%d new_vy=%d" % [
 				movement_node.name,
 				gravity_source,
 				gravity_to_apply,

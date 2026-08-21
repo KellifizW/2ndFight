@@ -86,8 +86,8 @@ func reset_all() -> void:
 
 # 除錯：列印所有計時器狀態
 func debug_print() -> void:
-	print("=== TimerManager Debug ===")
+	Debug.log("=== TimerManager Debug ===")
 	for timer_name in _timers.keys():
 		var entry = _timers[timer_name]
-		print("%s: %.3f (active: %s)" % [timer_name, entry.timer_ref.value, entry.is_active])
-	print("==========================")
+		Debug.log("%s: %.3f (active: %s)" % [timer_name, entry.timer_ref.value, entry.is_active])
+	Debug.log("==========================")

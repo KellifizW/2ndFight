@@ -22,6 +22,7 @@ config/icon="uid://b2flvbdt0uir3"
 [autoload]
 
 SelectedCharacters="*res://characters/CharacterSelectData.gd"
+Debug="*res://scripts/core/DebugLogger.gd"
 
 [display]
 

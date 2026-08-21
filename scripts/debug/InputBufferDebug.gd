@@ -34,14 +34,14 @@ func _ready() -> void:
 	# 自動尋找兩個玩家的 PlayerController
 	var players = get_tree().get_nodes_in_group("players")
 	if startup_logs:
-		print("InputBufferDebug: 找到 %d 個玩家" % players.size())
+		Debug.log("InputBufferDebug: 找到 %d 個玩家" % players.size())
 	
 	for player in players:
 		var controller = player.get_node_or_null("PlayerController")
 		if controller:
 			var seat = player.seat if "seat" in player else "unknown"
 			if startup_logs:
-				print("InputBufferDebug: 找到玩家 %s 的 PlayerController" % seat)
+				Debug.log("InputBufferDebug: 找到玩家 %s 的 PlayerController" % seat)
 			
 			if seat == "player_a":
 				player1_controller = controller
@@ -50,7 +50,7 @@ func _ready() -> void:
 	
 	if not player1_controller and not player2_controller:
 		if startup_logs:
-			print("InputBufferDebug: 警告 - 沒有找到任何 PlayerController！")
+			Debug.log("InputBufferDebug: 警告 - 沒有找到任何 PlayerController！")
 
 func _process(_delta: float) -> void:
 	if not enabled or not visible:

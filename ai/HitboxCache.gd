@@ -57,7 +57,7 @@ var players_to_scan: Array = []
 
 func _ready() -> void:
 	if debug_mode:
-		print("\n[HITBOX CACHE] 開始初始化...")
+		Debug.log("\n[HITBOX CACHE] 開始初始化...")
 	
 	# 延遲初始化，確保場景已完全加載
 	call_deferred("_initialize_cache")
@@ -71,7 +71,7 @@ func _initialize_cache() -> void:
 	
 	if players.is_empty():
 		if debug_mode:
-			print("[HITBOX CACHE] 警告：未找到玩家節點，將在玩家生成後重新初始化")
+			Debug.log("[HITBOX CACHE] 警告：未找到玩家節點，將在玩家生成後重新初始化")
 		return
 	
 	# ============================================================
@@ -91,7 +91,7 @@ func _initialize_cache() -> void:
 				characters_to_cache.append(char_id)
 		
 		if debug_mode:
-			print("[HITBOX CACHE] 延迟加载已啟用，將分幀掃描 %d 個角色" % characters_to_cache.size())
+			Debug.log("[HITBOX CACHE] 延迟加载已啟用，將分幀掃描 %d 個角色" % characters_to_cache.size())
 		
 		# 開始延迟加载
 		call_deferred("_lazy_load_next_character")
@@ -104,10 +104,10 @@ func _initialize_cache() -> void:
 		var elapsed = Time.get_ticks_msec() - start_time
 		
 		if debug_mode:
-			print("[HITBOX CACHE] 初始化完成！耗時: %d ms" % elapsed)
-			print("[HITBOX CACHE] 快取統計:")
-			print("  📦 Hitbox 數據: %d 條" % hitbox_cache.size())
-			print("  📦 Hurtbox 數據: %d 條" % hurtbox_cache.size())
+			Debug.log("[HITBOX CACHE] 初始化完成！耗時: %d ms" % elapsed)
+			Debug.log("[HITBOX CACHE] 快取統計:")
+			Debug.log("  📦 Hitbox 數據: %d 條" % hitbox_cache.size())
+			Debug.log("  📦 Hurtbox 數據: %d 條" % hurtbox_cache.size())
 
 func _lazy_load_next_character() -> void:
 	"""逐幀加載每個角色的 Hitbox 數據，避免初始化卡頓"""
@@ -116,10 +116,10 @@ func _lazy_load_next_character() -> void:
 		lazy_loading_enabled = false
 		
 		if debug_mode:
-			print("[HITBOX CACHE] 延迟加載完成！")
-			print("[HITBOX CACHE] 快取統計:")
-			print("  📦 Hitbox 數據: %d 條" % hitbox_cache.size())
-			print("  📦 Hurtbox 數據: %d 條" % hurtbox_cache.size())
+			Debug.log("[HITBOX CACHE] 延迟加載完成！")
+			Debug.log("[HITBOX CACHE] 快取統計:")
+			Debug.log("  📦 Hitbox 數據: %d 條" % hitbox_cache.size())
+			Debug.log("  📦 Hurtbox 數據: %d 條" % hurtbox_cache.size())
 		
 		return
 	
@@ -142,7 +142,7 @@ func _scan_player_hitboxes(player: Node) -> void:
 	var character_id = player.character_id if "character_id" in player else "UNKNOWN"
 	
 	if debug_mode:
-		print("\n[HITBOX CACHE] 掃描角色: %s (ID: %s)" % [player.name, character_id])
+		Debug.log("\n[HITBOX CACHE] 掃描角色: %s (ID: %s)" % [player.name, character_id])
 	
 	# 掃描 Hurtbox（角色本體碰撞箱）
 	_scan_hurtbox(player, character_id)
@@ -156,7 +156,7 @@ func _scan_hurtbox(player: Node, character_id: String) -> void:
 	
 	if not hurtbox_node:
 		if debug_mode:
-			print("  ⚠️ 未找到 Hurtbox/HurtShape 節點")
+			Debug.log("  ⚠️ 未找到 Hurtbox/HurtShape 節點")
 		return
 	
 	var hurtbox_data = HurtboxData.new()
@@ -169,18 +169,18 @@ func _scan_hurtbox(player: Node, character_id: String) -> void:
 			hurtbox_data.position = hurtbox_node.position
 		else:
 			if debug_mode:
-				print("  ⚠️ Hurtbox shape 不是 RectangleShape2D: %s" % hurtbox_node.shape)
+				Debug.log("  ⚠️ Hurtbox shape 不是 RectangleShape2D: %s" % hurtbox_node.shape)
 			return
 	else:
 		if debug_mode:
-			print("  ⚠️ Hurtbox 沒有有效的 shape")
+			Debug.log("  ⚠️ Hurtbox 沒有有效的 shape")
 		return
 	
 	# 儲存到快取
 	hurtbox_cache[character_id] = hurtbox_data
 	
 	if debug_mode:
-		print("  ✅ Hurtbox: size=%s, pos=%s" % [hurtbox_data.size, hurtbox_data.position])
+		Debug.log("  ✅ Hurtbox: size=%s, pos=%s" % [hurtbox_data.size, hurtbox_data.position])
 
 func _scan_throw_hitboxes(player: Node, character_id: String, animation_player: AnimationPlayer) -> void:
 	"""【新增】掃描投擲框數據（ThrowBox）"""
@@ -189,14 +189,14 @@ func _scan_throw_hitboxes(player: Node, character_id: String, animation_player: 
 	
 	if not throw_box:
 		if debug_mode:
-			print("  ⚠️ 未找到 ThrowBox/ThrowHit 節點")
+			Debug.log("  ⚠️ 未找到 ThrowBox/ThrowHit 節點")
 		return
 	
 	# 嘗試掃描 throw_enter 動畫
 	var throw_enter_anim = animation_player.get_animation("throw_enter")
 	if not throw_enter_anim:
 		if debug_mode:
-			print("  ⚠️ 未找到 throw_enter 動畫")
+			Debug.log("  ⚠️ 未找到 throw_enter 動畫")
 		return
 	
 	var track_count = throw_enter_anim.get_track_count()
@@ -248,7 +248,7 @@ func _scan_throw_hitboxes(player: Node, character_id: String, animation_player: 
 		hitbox_cache[cache_key] = hitbox_data
 		
 		if debug_mode:
-			print("  ✅ throw_enter: size=%s, pos=%s (throw_hit_range)" % [throw_size, throw_position])
+			Debug.log("  ✅ throw_enter: size=%s, pos=%s (throw_hit_range)" % [throw_size, throw_position])
 
 func _scan_hitboxes(player: Node, character_id: String) -> void:
 	"""掃描 Hitbox 數據（從 AnimationPlayer 讀取不同攻擊的 Hitbox）"""
@@ -256,7 +256,7 @@ func _scan_hitboxes(player: Node, character_id: String) -> void:
 	
 	if not animation_player:
 		if debug_mode:
-			print("  ⚠️ 未找到 AnimationPlayer 節點")
+			Debug.log("  ⚠️ 未找到 AnimationPlayer 節點")
 		return
 	
 	# 獲取所有動畫名稱
@@ -265,7 +265,7 @@ func _scan_hitboxes(player: Node, character_id: String) -> void:
 	
 	if not hitbox_node:
 		if debug_mode:
-			print("  ⚠️ 未找到 Hitbox/HitShape 節點")
+			Debug.log("  ⚠️ 未找到 Hitbox/HitShape 節點")
 		return
 	
 	# 掃描常見攻擊動畫
@@ -279,7 +279,7 @@ func _scan_hitboxes(player: Node, character_id: String) -> void:
 	_scan_throw_hitboxes(player, character_id, animation_player)
 	
 	if debug_mode:
-		print("  📊 共掃描 %d 個攻擊動畫的 Hitbox 數據" % attack_animations.size())
+		Debug.log("  📊 共掃描 %d 個攻擊動畫的 Hitbox 數據" % attack_animations.size())
 
 func _scan_attack_hitbox(
 	player: Node,
@@ -337,7 +337,7 @@ func _scan_attack_hitbox(
 		hitbox_cache[cache_key] = hitbox_data
 		
 		if debug_mode:
-			print("    ✅ %s: size=%s, pos=%s" % [attack_name, hitbox_size, hitbox_position])
+			Debug.log("    ✅ %s: size=%s, pos=%s" % [attack_name, hitbox_size, hitbox_position])
 
 # ============================================================
 # 公開查詢接口
@@ -457,20 +457,20 @@ func check_throw_collision(
 
 func print_cache_summary() -> void:
 	"""打印快取摘要"""
-	print("\n[HITBOX CACHE] 快取摘要:")
-	print("============================================================")
+	Debug.log("\n[HITBOX CACHE] 快取摘要:")
+	Debug.log("============================================================")
 	
-	print("\n📦 Hurtbox 數據:")
+	Debug.log("\n📦 Hurtbox 數據:")
 	for character_id in hurtbox_cache:
 		var data = hurtbox_cache[character_id]
-		print("  %s: %s" % [character_id, data])
+		Debug.log("  %s: %s" % [character_id, data])
 	
-	print("\n📦 Hitbox 數據:")
+	Debug.log("\n📦 Hitbox 數據:")
 	for cache_key in hitbox_cache:
 		var data = hitbox_cache[cache_key]
-		print("  %s: %s" % [cache_key, data])
+		Debug.log("  %s: %s" % [cache_key, data])
 	
-	print("============================================================")
+	Debug.log("============================================================")
 
 func force_refresh() -> void:
 	"""強制刷新快取（用於調試）"""

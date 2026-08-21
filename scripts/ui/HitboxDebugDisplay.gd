@@ -97,11 +97,11 @@ func _initialize() -> void:
 	# 設置樣式
 	add_theme_font_size_override("font_size", 12)
 	
-	print("[HITBOX DEBUG] 調試顯示已初始化")
+	Debug.log("[HITBOX DEBUG] 調試顯示已初始化")
 
 func _find_players() -> void:
 	if startup_logs:
-		print("[HITBOX DEBUG] 調試顯示已初始化")
+		Debug.log("[HITBOX DEBUG] 調試顯示已初始化")
 	var players = get_tree().get_nodes_in_group("players")
 	
 	if players.size() < 1:

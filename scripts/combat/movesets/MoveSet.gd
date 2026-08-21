@@ -176,18 +176,18 @@ func _smd_to_move_data(res: Resource) -> MoveData:
 	var hit_phases = res.get("hit_phases") if "hit_phases" in res else []
 	var is_multi_hit = res.get("is_multi_hit") if "is_multi_hit" in res else false
 	if is_multi_hit and hit_phases.size() > 0:
-		print("[_smd_to_move_data] ✓ Multi-hit detected for '%s': %d phases loaded" % [mid, hit_phases.size()])
+		Debug.log("[_smd_to_move_data] ✓ Multi-hit detected for '%s': %d phases loaded" % [mid, hit_phases.size()])
 		# 🔴 詳細診斷：顯示每個phase的內容
 		for i in hit_phases.size():
 			var hp = hit_phases[i]
 			if hp:
-				print("    [Phase%d] frame=%d, damage=%.1f, hitstun=%d, blockstun=%d, knockback=%.1f" % [
+				Debug.log("    [Phase%d] frame=%d, damage=%.1f, hitstun=%d, blockstun=%d, knockback=%.1f" % [
 					i, hp.frame, hp.damage, hp.hitstun, hp.blockstun, hp.knockback
 				])
 			else:
-				print("    [Phase%d] NULL!" % i)
+				Debug.log("    [Phase%d] NULL!" % i)
 	elif is_multi_hit and hit_phases.size() == 0:
-		print("[_smd_to_move_data] ⚠️  Multi-hit flagged for '%s' but hit_phases is empty!" % mid)
+		Debug.log("[_smd_to_move_data] ⚠️  Multi-hit flagged for '%s' but hit_phases is empty!" % mid)
 	
 	var md = MoveData.new(
 		mid,
@@ -244,7 +244,7 @@ func _load_smd(export_var, fallback_path: String) -> MoveData:
 		return null
 	var md = _smd_to_move_data(res)
 	var src = "(Inspector)" if export_var != null else fallback_path.get_file()
-	print("[MoveSet] ✓ %s  '%s'  dmg=%.1f hitstun=%d" % [src, md.name, md.damage, md.hitstun])
+	Debug.log("[MoveSet] ✓ %s  '%s'  dmg=%.1f hitstun=%d" % [src, md.name, md.damage, md.hitstun])
 	return md
 
 func _initialize_move_library() -> void:
@@ -264,19 +264,19 @@ func _start_special(move_name: String) -> void:
 		push_error("Move '%s' not found in move library" % move_name)
 		return
 	
-	print("[MoveSet._start_special] Starting move: %s (player: %s)" % [move_name, parent.name])
+	Debug.log("[MoveSet._start_special] Starting move: %s (player: %s)" % [move_name, parent.name])
 	
 	var move_data: MoveData = move_library[move_name]
 	var character_id = parent.character_id if "character_id" in parent else "UNKNOWN"
 	
 	# Character requirement check
 	if move_data.character_requirement != "*" and character_id != move_data.character_requirement:
-		print("[MoveSet] %s tried to use %s but character doesn't match (requires %s)" % [parent.name, move_name, move_data.character_requirement])
+		Debug.log("[MoveSet] %s tried to use %s but character doesn't match (requires %s)" % [parent.name, move_name, move_data.character_requirement])
 		return
 	
 	# State check
 	if parent.is_attacking or is_spmove:
-		print("[MoveSet] %s cannot use %s: already attacking or in special move" % [parent.name, move_name])
+		Debug.log("[MoveSet] %s cannot use %s: already attacking or in special move" % [parent.name, move_name])
 		return
 	
 	# Set up move state
@@ -306,7 +306,7 @@ func _start_special(move_name: String) -> void:
 	
 	var seat = parent.seat if "seat" in parent else "?"
 	if move_data.jump_delay > 0:
-		print("[DP_START_SPECIAL] %s: %s | jump_delay=%.0f frames | jump_timer=%.4f sec | jump_speed=%.0f" % [
+		Debug.log("[DP_START_SPECIAL] %s: %s | jump_delay=%.0f frames | jump_timer=%.4f sec | jump_speed=%.0f" % [
 			seat, move_name, move_data.jump_delay, current_move_state.jump_timer, move_data.jump_speed
 		])
 	
@@ -353,36 +353,36 @@ func _start_special(move_name: String) -> void:
 		var anim = animation_player.get_animation(move_name)
 		# ℹ️ 【重要】timer 已在前面設定（基於 move_data.duration），不再覆蓋
 		# 如果需要使用動畫長度，應該在 move_data 中設定 duration 與動畫長度相符
-		print("[MoveSet DEBUG] Animation '%s' loaded | Duration: %.3fs | Timer: %d frames @%d FPS (physics)" % [move_name, anim.length, current_move_state.timer, 120])
+		Debug.log("[MoveSet DEBUG] Animation '%s' loaded | Duration: %.3fs | Timer: %d frames @%d FPS (physics)" % [move_name, anim.length, current_move_state.timer, 120])
 		
 		# 🟢 【詳細除錯】移動參數分析
 		if move_data.move_distance > 0:
 			var d_secs = move_data.duration / 60.0  # 🔴 duration 是邏輯幀數，轉換為秒
 			var spd_sec = move_data.move_distance / d_secs if d_secs > 0 else 0.0
 			var spd_frame = spd_sec / 120.0  # pixel per 120 FPS physics frame
-			print("  [MOVE DEBUG] 移動距離: %.1f px, 時長: %.3f s (%d logical frames), 速度: %.1f px/s (%.3f px/frame @120FPS physics)" % [move_data.move_distance, d_secs, int(move_data.duration), spd_sec, spd_frame])
+			Debug.log("  [MOVE DEBUG] 移動距離: %.1f px, 時長: %.3f s (%d logical frames), 速度: %.1f px/s (%.3f px/frame @120FPS physics)" % [move_data.move_distance, d_secs, int(move_data.duration), spd_sec, spd_frame])
 	else:
-		print("[MoveSet._start_special] ⚠️  WARNING: Animation '%s' not found! (Seat: %s)" % [move_name, seat_str])
+		Debug.log("[MoveSet._start_special] ⚠️  WARNING: Animation '%s' not found! (Seat: %s)" % [move_name, seat_str])
 	
 	# Use AnimationTree.travel() (prevents dual playback with AnimationPlayer)
 	# parent is Movement which has animation_state
 	if parent and "animation_state" in parent:
 		var current_anim_state: String = parent.animation_state.get_current_node() if parent.animation_state else "(unknown)"
-		print("[MoveSet._start_special] 🎬 Playing '%s' | Current AnimTree state: '%s' | Seat: %s" % [move_name, current_anim_state, seat_str])
+		Debug.log("[MoveSet._start_special] 🎬 Playing '%s' | Current AnimTree state: '%s' | Seat: %s" % [move_name, current_anim_state, seat_str])
 		
 		# 🟢 強制重置：如果已經在同一招式狀態，需要直接通過AnimationPlayer強制重啟
 		if current_anim_state == move_name:
-			print("  ⚠️  Already in '%s' state! Forcing reset via AnimationPlayer..." % move_name)
+			Debug.log("  ⚠️  Already in '%s' state! Forcing reset via AnimationPlayer..." % move_name)
 			# 直接用 AnimationPlayer.play() 強制重新開始動畫（這會重置播放位置到第0幀）
 			if animation_player:
 				animation_player.play(move_name)
-				print("  ✓ AnimationPlayer.play('%s') called - animation restarted from frame 0" % move_name)
+				Debug.log("  ✓ AnimationPlayer.play('%s') called - animation restarted from frame 0" % move_name)
 		else:
 			# 正常情況：使用 travel()
 			parent.animation_state.travel(move_name)
-			print("  ✓ AnimTree travel() called | New state: '%s'" % move_name)
+			Debug.log("  ✓ AnimTree travel() called | New state: '%s'" % move_name)
 	else:
-		print("[MoveSet._start_special] Fallback: Playing via AnimationPlayer.play(): %s" % move_name)
+		Debug.log("[MoveSet._start_special] Fallback: Playing via AnimationPlayer.play(): %s" % move_name)
 		if animation_player:
 			animation_player.play(move_name)
 	
@@ -399,7 +399,7 @@ func _start_special(move_name: String) -> void:
 	else:
 		push_warning("[MoveSet] 無法找到音效節點: %s（招式: %s，sound_type: %s）" % [sound_node_name, move_name, move_data.sound_type])
 	
-	print("[MoveSet] ✅ Started %s! Char: %s, Duration: %.3f, Seat: %s" % [move_name, character_id, current_move_state.timer, seat_str])
+	Debug.log("[MoveSet] ✅ Started %s! Char: %s, Duration: %.3f, Seat: %s" % [move_name, character_id, current_move_state.timer, seat_str])
 
 # ============================================================
 # INPUT HANDLERS (Clean, DRY)
@@ -437,7 +437,7 @@ func start_dp() -> void:
 		push_error("MoveSet.start_dp: no dp variant found in move_library for char=%s | library=%s" % [
 			parent.character_id if parent else "?", str(move_library.keys())])
 		return
-	print("[START_DP] Using variant '%s' (requested strength=%s)" % [chosen, strength])
+	Debug.log("[START_DP] Using variant '%s' (requested strength=%s)" % [chosen, strength])
 	_start_special(chosen)
 
 func start_dp_variant(variant: String) -> void:
@@ -445,7 +445,7 @@ func start_dp_variant(variant: String) -> void:
 	if not move_library.has(variant):
 		push_error("MoveSet.start_dp_variant: variant '%s' not found in move_library" % variant)
 		return
-	print("[START_DP_VARIANT] Starting '%s' (AI direct request)" % variant)
+	Debug.log("[START_DP_VARIANT] Starting '%s' (AI direct request)" % variant)
 	_start_special(variant)
 
 func start_hdk() -> void:
@@ -456,17 +456,17 @@ func start_fireball() -> void:
 	var _seat = parent.seat if "seat" in parent else "?"
 	
 	# 【DEBUG】記錄進入 start_fireball 時的狀態
-	print("[start_fireball ENTRY] Frame=%d Seat=%s | is_attacking=%s is_spmove=%s" % [
+	Debug.log("[start_fireball ENTRY] Frame=%d Seat=%s | is_attacking=%s is_spmove=%s" % [
 		_frame, _seat, parent.is_attacking, is_spmove
 	])
 	
 	if parent.is_attacking or is_spmove:
-		print("[start_fireball BLOCKED] Frame=%d Seat=%s | Cannot start - is_attacking=%s is_spmove=%s" % [
+		Debug.log("[start_fireball BLOCKED] Frame=%d Seat=%s | Cannot start - is_attacking=%s is_spmove=%s" % [
 			_frame, _seat, parent.is_attacking, is_spmove
 		])
 		return
 	if parent.active_fireball != null and is_instance_valid(parent.active_fireball):
-		print("[start_fireball BLOCKED] Frame=%d Seat=%s | Cannot start - active_fireball already exists" % [_frame, _seat])
+		Debug.log("[start_fireball BLOCKED] Frame=%d Seat=%s | Cannot start - active_fireball already exists" % [_frame, _seat])
 		return
 	# 🔴 FIX: select the correct fireball variant for this character
 	# (DAV uses fireballL/M/H; DEN uses generic "fireball")
@@ -490,21 +490,21 @@ func start_fireball() -> void:
 		push_error("MoveSet.start_fireball: no fireball variant found for char=%s | library=%s" % [
 			parent.character_id if parent else "?", str(move_library.keys())])
 		return
-	print("[start_fireball SUCCESS] Frame=%d Seat=%s | Starting variant=%s" % [_frame, _seat, chosen])
+	Debug.log("[start_fireball SUCCESS] Frame=%d Seat=%s | Starting variant=%s" % [_frame, _seat, chosen])
 	_start_special(chosen)
 
 func start_fireball_variant(variant: String) -> void:
 	if parent.is_attacking or is_spmove: return
 	if parent.active_fireball != null and is_instance_valid(parent.active_fireball):
-		print("[MoveSet] %s: Cannot start %s - active_fireball already exists" % [parent.name, variant])
+		Debug.log("[MoveSet] %s: Cannot start %s - active_fireball already exists" % [parent.name, variant])
 		return
 	_start_special(variant)
 
 func start_100p() -> void:
 	# 🔴 【新增】100p 多段連打 (DAV only)
-	print("[MoveSet.start_100p] ✓ 開始執行 100p 招式 | 座位: %s | character_id: %s" % [parent.seat, parent.character_id])
+	Debug.log("[MoveSet.start_100p] ✓ 開始執行 100p 招式 | 座位: %s | character_id: %s" % [parent.seat, parent.character_id])
 	if parent.is_attacking or is_spmove:
-		print("[MoveSet.start_100p] ❌ Cannot start 100p - already attacking or in special move")
+		Debug.log("[MoveSet.start_100p] ❌ Cannot start 100p - already attacking or in special move")
 		return
 	_start_special("100p")
 
@@ -530,7 +530,7 @@ func stop_special_move() -> void:
 	
 	var move_name = current_move_state.active_move.name if current_move_state.active_move else "UNKNOWN"
 	var seat_str = parent.seat if "seat" in parent else "?"
-	print("[STOP_MOVE] '%s' | Seat: %s" % [move_name, seat_str])
+	Debug.log("[STOP_MOVE] '%s' | Seat: %s" % [move_name, seat_str])
 	
 	# 【FIX】當特殊招式完成時，清除AI的特殊招式輸入（防止重複發射火球等）
 	# 根本原因：AI commitment於特殊招式的「決策時長」，但動畫會先結束
@@ -539,7 +539,7 @@ func stop_special_move() -> void:
 	var ai_behavior = parent.get_node_or_null("AIBehavior") if parent else null
 	if ai_behavior and ai_behavior.has_method("clear_special_move_commitment"):
 		ai_behavior.clear_special_move_commitment()
-		print("[STOP_MOVE AI FIX] Cleared AI special move commitment for '%s' (Seat: %s)" % [move_name, seat_str])
+		Debug.log("[STOP_MOVE AI FIX] Cleared AI special move commitment for '%s' (Seat: %s)" % [move_name, seat_str])
 	
 	is_spmove = false
 	is_special_moving = false
@@ -562,7 +562,7 @@ func stop_special_move() -> void:
 	var world = get_tree().get_first_node_in_group("world")
 	var is_on_ground = parent.fixed_position.y >= (world.FLOOR_Y if world else 200000)
 	
-	print("[STOP_MOVE_DEBUG] %s: has_jumped=%s, vel_before=%d, is_on_ground=%s, knockfly=%s" % [
+	Debug.log("[STOP_MOVE_DEBUG] %s: has_jumped=%s, vel_before=%d, is_on_ground=%s, knockfly=%s" % [
 		seat_for_log, has_jumped, vel_before, is_on_ground, parent.is_knockfly
 	])
 	
@@ -571,11 +571,11 @@ func stop_special_move() -> void:
 	# 如果DP還在空中，保留is_jumping讓下一幀著地
 	if has_jumped and not is_on_ground:
 		# 還在空中，保留jumping狀態
-		print("[STOP_MOVE_DEBUG] %s: PRESERVED is_jumping=true (still in air)" % seat_for_log)
+		Debug.log("[STOP_MOVE_DEBUG] %s: PRESERVED is_jumping=true (still in air)" % seat_for_log)
 		parent.is_jumping = true
 	elif has_jumped and is_on_ground:
 		# 已經著地，清除jumping狀態以防止多餘著地動畫
-		print("[STOP_MOVE_DEBUG] %s: CLEARED is_jumping (already on ground)" % seat_for_log)
+		Debug.log("[STOP_MOVE_DEBUG] %s: CLEARED is_jumping (already on ground)" % seat_for_log)
 		parent.is_jumping = false
 		
 		# 【關鍵新增】當特殊招式（例如DP）著地時，也要清除dash狀態
@@ -588,9 +588,9 @@ func stop_special_move() -> void:
 		# 沒有jump過的特殊招式（如火球），清零速度
 		if not parent.is_knockfly:
 			parent.fixed_velocity = Vector2i.ZERO
-			print("[STOP_MOVE_DEBUG] %s: CLEARED velocity (no jump executed)" % seat_for_log)
+			Debug.log("[STOP_MOVE_DEBUG] %s: CLEARED velocity (no jump executed)" % seat_for_log)
 		else:
-			print("[STOP_MOVE_DEBUG] %s: PRESERVED velocity (knockfly active)" % seat_for_log)
+			Debug.log("[STOP_MOVE_DEBUG] %s: PRESERVED velocity (knockfly active)" % seat_for_log)
 	
 	# 重設move狀態
 	current_move_state.reset()
@@ -611,7 +611,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		if not current_move_state.has_jumped:
 			var _move_name_log = current_move_state.active_move.name
 			var _seat_log = parent.seat if "seat" in parent else "?"
-			print("[DP_PROCESS_JUMP_CALLED] %s: %s | jump_delay=%.2f | jump_timer=%.3f" % [
+			Debug.log("[DP_PROCESS_JUMP_CALLED] %s: %s | jump_delay=%.2f | jump_timer=%.3f" % [
 				_seat_log, _move_name_log, current_move_state.active_move.jump_delay, current_move_state.jump_timer
 			])
 		_process_jump(delta, world, current_move_state.active_move)
@@ -636,7 +636,7 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	if not is_valid_state and not can_process_special_input:
 		# DEBUG: Track why input is rejected (for AI)
 		if parent.is_ai_controlled and Engine.get_physics_frames() % 30 == 0 and has_special_move_input:
-			print("[MoveSet.process_move REJECT] Frame=%d | is_valid_state=%s can_process_special=%s on_floor=%s" % [
+			Debug.log("[MoveSet.process_move REJECT] Frame=%d | is_valid_state=%s can_process_special=%s on_floor=%s" % [
 				Engine.get_physics_frames(), is_valid_state, can_process_special_input, parent.is_on_floor()
 			])
 		return false
@@ -793,7 +793,7 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 	
 	if input_data.get("spm2_pressed", false) and not parent.is_attacking and not is_spmove:
 		# 【DEBUG】詳細追蹤 spm2 執行
-		print("[MoveSet._handle_input] Frame=%d | %s spm2_pressed=true → start_fireball()" % [
+		Debug.log("[MoveSet._handle_input] Frame=%d | %s spm2_pressed=true → start_fireball()" % [
 			Engine.get_physics_frames(), parent.name
 		])
 		# Consume buffered fireball (detected by motion input)
@@ -814,7 +814,7 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 	
 	# 🔴 【新增 100p 處理】Multi-hit punch (DAV only)
 	if input_data.get("100p_pressed", false) and parent.character_id == "DAV" and not parent.is_attacking and not is_spmove:
-		print("[MoveSet._handle_input] ✓ 100p_pressed detected! Calling start_100p() | Seat: %s" % parent.seat)
+		Debug.log("[MoveSet._handle_input] ✓ 100p_pressed detected! Calling start_100p() | Seat: %s" % parent.seat)
 		if controller and controller.has_method("consume_button_input"):
 			controller.consume_button_input("100p")  # Consume the special move buffer
 			controller.consume_button_input("st_mk")  # Also consume trigger button
@@ -855,21 +855,21 @@ func _process_projectile_spawn(_delta: float, _world: Node) -> void:
 func execute_fireball_spawn() -> void:
 	# 🔴 防護：檢查基本條件和激活狀態
 	if not is_spmove:
-		print("[Fireball DEBUG] ⚠️ execute_fireball_spawn called but is_spmove=false (Seat=%s)" % parent.seat)
+		Debug.log("[Fireball DEBUG] ⚠️ execute_fireball_spawn called but is_spmove=false (Seat=%s)" % parent.seat)
 		return
 	
 	if current_move_state.active_move == null:
-		print("[Fireball DEBUG] ⚠️ execute_fireball_spawn called but active_move=null (Seat=%s)" % parent.seat)
+		Debug.log("[Fireball DEBUG] ⚠️ execute_fireball_spawn called but active_move=null (Seat=%s)" % parent.seat)
 		return
 	
 	var active_move_name = current_move_state.active_move.name
 	if active_move_name not in ["fireball", "fireballL", "fireballM", "fireballH"]:
-		print("[Fireball DEBUG] ⚠️ execute_fireball_spawn called for non-fireball move: '%s' (Seat=%s)" % [active_move_name, parent.seat])
+		Debug.log("[Fireball DEBUG] ⚠️ execute_fireball_spawn called for non-fireball move: '%s' (Seat=%s)" % [active_move_name, parent.seat])
 		return
 	
 	# 🔴 關鍵防護：同一幀內只能生成一個火球（防止 Call Method 被觸發多次）
 	if parent.active_fireball != null and is_instance_valid(parent.active_fireball):
-		print("[Fireball DEBUG] ❌ DUPLICATE SPAWN BLOCKED - active_fireball already exists! (Seat=%s) Active: %s, Requested: %s" % [
+		Debug.log("[Fireball DEBUG] ❌ DUPLICATE SPAWN BLOCKED - active_fireball already exists! (Seat=%s) Active: %s, Requested: %s" % [
 			parent.seat,
 			parent.active_fireball.special_move_id,
 			active_move_name
@@ -902,7 +902,7 @@ func execute_fireball_spawn() -> void:
 		fb.hit_hitstun = smd.get("hitstun_frames")
 		fb.hit_blockstun = smd.get("blockstun_frames")
 		fb.hit_knockback = smd.get("knockback")
-		print("[Fireball SPAWN] %s variant=%s speed=%.0f dmg=%.1f hitstun=%d blkstun=%d (Seat=%s)" % [
+		Debug.log("[Fireball SPAWN] %s variant=%s speed=%.0f dmg=%.1f hitstun=%d blkstun=%d (Seat=%s)" % [
 			parent.name, active_move_name, fb.speed, fb.hit_damage, fb.hit_hitstun, fb.hit_blockstun, parent.seat
 		])
 	else:
@@ -914,7 +914,7 @@ func execute_fireball_spawn() -> void:
 			fb.hit_hitstun = md.hitstun
 			fb.hit_blockstun = md.blockstun
 			fb.hit_knockback = md.knockback
-			print("[Fireball SPAWN FALLBACK] %s variant=%s speed=%.0f dmg=%.1f hitstun=%d (Seat=%s)" % [
+			Debug.log("[Fireball SPAWN FALLBACK] %s variant=%s speed=%.0f dmg=%.1f hitstun=%d (Seat=%s)" % [
 				parent.name, active_move_name, fb.speed, fb.hit_damage, fb.hit_hitstun, parent.seat
 			])
 		else:
@@ -925,7 +925,7 @@ func execute_fireball_spawn() -> void:
 	fb.special_move_id = active_move_name
 	get_tree().current_scene.add_child(fb)
 	parent.active_fireball = fb
-	print("[MoveSet.execute_fireball_spawn] ✅ Fireball created (Seat=%s) | variant=%s | owner=%s | speed=%.0f | pos=%.1f,%.1f" % [
+	Debug.log("[MoveSet.execute_fireball_spawn] ✅ Fireball created (Seat=%s) | variant=%s | owner=%s | speed=%.0f | pos=%.1f,%.1f" % [
 		parent.seat, active_move_name, parent.name, fb.speed, fb.global_position.x, fb.global_position.y
 	])
 
@@ -948,7 +948,7 @@ func _process_jump(_delta: float, world: Node, move: MoveData) -> void:
 		parent.fixed_position.y = world.FLOOR_Y - 1 if world else 199999
 		parent.is_jumping = true
 		current_move_state.has_jumped = true
-		print("[DP_JUMP_TRIGGERED] %s: %s | velocity.y=%d | is_on_floor=%s" % [seat, move_name, parent.fixed_velocity.y, parent.is_on_floor()])
+		Debug.log("[DP_JUMP_TRIGGERED] %s: %s | velocity.y=%d | is_on_floor=%s" % [seat, move_name, parent.fixed_velocity.y, parent.is_on_floor()])
 	elif timer_ready and current_move_state.has_jumped:
 		pass  # Already jumped
 	elif current_move_state.jump_timer > 0 and not current_move_state.has_jumped:
@@ -968,7 +968,7 @@ func _apply_gravity(delta: float, world: Node, gravity: float) -> void:
 func _on_spmove_animation_finished(anim_name: String) -> void:
 	# 【除錯】記錄動畫完成時的狀態（幫助診斷過早 stop 問題）
 	if anim_name in move_library or anim_name in ["dp", "dpM", "dpH", "dpL"]:
-		print("[ANIM_FINISHED_SPMOVE] '%s' | is_spmove=%s | anim_playing=%s | timer=%d | char=%s" % [
+		Debug.log("[ANIM_FINISHED_SPMOVE] '%s' | is_spmove=%s | anim_playing=%s | timer=%d | char=%s" % [
 			anim_name, is_spmove, is_spmove_animation_playing,
 			current_move_state.timer if current_move_state else -1,
 			parent.character_id if parent and "character_id" in parent else "?"])

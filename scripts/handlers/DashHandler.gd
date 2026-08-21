@@ -11,7 +11,7 @@ func _init(movement: Node) -> void:
 func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -> void:
 	var seat = movement_node.seat if "seat" in movement_node else "?"
 	if debug_dash and Engine.get_physics_frames() % 30 == 0 and input_dir != 0:  # 每 30 幀輸出一次（0.25秒）
-		print("[DASH DEBUG] %s | input_dir=%d | neutral_timer=%.1f | pending_dir=%d | last_input=%d | conditions: on_floor=%s, attacking=%s, dashing=%s" % [
+		Debug.log("[DASH DEBUG] %s | input_dir=%d | neutral_timer=%.1f | pending_dir=%d | last_input=%d | conditions: on_floor=%s, attacking=%s, dashing=%s" % [
 			seat, input_dir, movement_node.neutral_timer, movement_node.pending_dash_dir, 
 			movement_node.last_input_dir, movement_node.is_on_floor(), movement_node.is_attacking, movement_node.is_dashing
 		])
@@ -21,7 +21,7 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 		if movement_node.neutral_timer > 0 and input_dir != 0 and movement_node.pending_dash_dir == input_dir:
 			# 🟢 double-tap 被檢出！
 			if debug_dash:
-				print("[DASH DETECTED] %s | neutral_timer=%.1f | input_dir=%d | pending_dir=%d | facing=%.1f" % [
+				Debug.log("[DASH DETECTED] %s | neutral_timer=%.1f | input_dir=%d | pending_dir=%d | facing=%.1f" % [
 					seat, movement_node.neutral_timer, input_dir, movement_node.pending_dash_dir, 
 					movement_node.facing_direction
 				])
@@ -33,7 +33,7 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 				movement_node.dash_initial_speed = movement_node.dash_speed * scale_factor * input_dir
 				movement_node.fixed_velocity.x = int(movement_node.dash_initial_speed)
 				if debug_dash:
-					print("[DASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
+					Debug.log("[DASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
 					seat, movement_node.dash_timer, movement_node.fixed_velocity.x, movement_node.dash_initial_speed
 					])
 				if movement_node.groundsmoke:
@@ -47,7 +47,7 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 				movement_node.dash_initial_speed = movement_node.backdash_speed * scale_factor * input_dir
 				movement_node.fixed_velocity.x = int(movement_node.dash_initial_speed)
 				if debug_dash:
-					print("[BACKDASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
+					Debug.log("[BACKDASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
 					seat, movement_node.dash_timer, movement_node.fixed_velocity.x, movement_node.dash_initial_speed
 					])
 				if movement_node.groundsmoke:
@@ -63,7 +63,7 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 				movement_node.neutral_timer = int(round(movement_node.double_tap_timer * 120.0))
 				movement_node.pending_dash_dir = movement_node.last_input_dir
 				if debug_dash:
-					print("[DASH WINDOW START] %s | neutral_timer_frames=%d (%.2fs) | pending_dir=%d" % [
+					Debug.log("[DASH WINDOW START] %s | neutral_timer_frames=%d (%.2fs) | pending_dir=%d" % [
 					seat, movement_node.neutral_timer, movement_node.neutral_timer / 120.0, movement_node.pending_dash_dir
 					])
 			movement_node.last_input_dir = input_dir

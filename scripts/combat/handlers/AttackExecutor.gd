@@ -57,7 +57,7 @@ func try_execute_ground_attack(input_data: Dictionary, is_crouching: bool) -> bo
 	if throw_pressed or (input_data.get("st_lp_pressed", false) and input_data.get("st_lk_pressed", false)):
 		var parent_seat = parent_player.seat if parent_player and "seat" in parent_player else "?"
 		var parent_is_ai = parent_player.is_ai_controlled if parent_player else false
-		print("[ATTACK_EXECUTOR] Frame=%d Seat=%s is_ai=%s | throw_pressed=%s, is_crouching=%s, is_attacking=%s | attack_type=%s" % [
+		Debug.log("[ATTACK_EXECUTOR] Frame=%d Seat=%s is_ai=%s | throw_pressed=%s, is_crouching=%s, is_attacking=%s | attack_type=%s" % [
 			Engine.get_physics_frames(),
 			parent_seat,
 			parent_is_ai,
@@ -71,7 +71,7 @@ func try_execute_ground_attack(input_data: Dictionary, is_crouching: bool) -> bo
 		# 【FIXED】Throw CAN interrupt normal attacks (cancel capability)
 		# Only reject throw if throw_enter/throw_seq is already executing
 		if parent_player and parent_player.is_attacking and parent_player.attack_type in ["throw_enter", "throw_seq"]:
-			print("[THROW BLOCKED] Frame=%d Seat=%s | Already executing throw (attack_type=%s), cannot throw again" % [
+			Debug.log("[THROW BLOCKED] Frame=%d Seat=%s | Already executing throw (attack_type=%s), cannot throw again" % [
 				Engine.get_physics_frames(),
 				parent_player.seat if parent_player and "seat" in parent_player else "?",
 				parent_player.attack_type if parent_player else "?"
@@ -79,7 +79,7 @@ func try_execute_ground_attack(input_data: Dictionary, is_crouching: bool) -> bo
 			return false
 		# Consume and execute throw (interrupts normal attacks)
 		_consume_throw_inputs()
-		print("[EXECUTE THROW] Frame=%d Seat=%s | ✅ Executing 'throw_enter' (was attacking: %s)" % [
+		Debug.log("[EXECUTE THROW] Frame=%d Seat=%s | ✅ Executing 'throw_enter' (was attacking: %s)" % [
 			Engine.get_physics_frames(),
 			parent_player.seat if parent_player and "seat" in parent_player else "?",
 			parent_player.attack_type if parent_player else "none"
@@ -192,4 +192,4 @@ func debug_air_attack_blocked(input_data: Dictionary, parent: Node) -> void:
 	if parent.is_layground: blocked_reasons.append("is_layground")
 	
 	if blocked_reasons.size() > 0:
-		print("[AIR ATTACK BLOCKED] Seat: ", parent.seat, " | Reasons: ", blocked_reasons)
+		Debug.log("[AIR ATTACK BLOCKED] Seat: ", parent.seat, " | Reasons: ", blocked_reasons)

@@ -19,7 +19,7 @@ var test_results: Array = []
 func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
 	if not world:
-		print("[HITSTOP TEST] 錯誤：找不到 world 節點")
+		Debug.log("[HITSTOP TEST] 錯誤：找不到 world 節點")
 		return
 	
 	# 等待一幀讓 world 完成初始化
@@ -31,19 +31,19 @@ func _ready() -> void:
 	debugger = world.get_node_or_null("HitStopTimingDebugger")
 	
 	if not player_a or not player_b:
-		print("[HITSTOP TEST] 錯誤：找不到玩家節點")
+		Debug.log("[HITSTOP TEST] 錯誤：找不到玩家節點")
 		return
 	
-	print("[HITSTOP TEST] 初始化完成")
-	print("  - 自動測試：%s" % auto_test)
-	print("  - 測試次數：%d" % test_count)
-	print("  - 測試間隔：%.1fs" % test_interval)
-	print("\n按鍵說明：")
-	print("  - T: 手動觸發單次測試")
-	print("  - Y: 開始/停止自動測試")
-	print("  - U: 打印測試摘要")
-	print("  - I: 切換 hit stop 開關")
-	print("  - O: 切換動畫同步開關")
+	Debug.log("[HITSTOP TEST] 初始化完成")
+	Debug.log("  - 自動測試：%s" % auto_test)
+	Debug.log("  - 測試次數：%d" % test_count)
+	Debug.log("  - 測試間隔：%.1fs" % test_interval)
+	Debug.log("\n按鍵說明：")
+	Debug.log("  - T: 手動觸發單次測試")
+	Debug.log("  - Y: 開始/停止自動測試")
+	Debug.log("  - U: 打印測試摘要")
+	Debug.log("  - I: 切換 hit stop 開關")
+	Debug.log("  - O: 切換動畫同步開關")
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_focus_next"):  # T 鍵
@@ -53,17 +53,17 @@ func _input(event: InputEvent) -> void:
 			KEY_Y:  # 切換自動測試
 				auto_test = !auto_test
 				current_test = 0
-				print("[HITSTOP TEST] 自動測試：%s" % ("開啟" if auto_test else "關閉"))
+				Debug.log("[HITSTOP TEST] 自動測試：%s" % ("開啟" if auto_test else "關閉"))
 			KEY_U:  # 打印摘要
 				_print_test_summary()
 			KEY_I:  # 切換 hit stop
 				if slowmo_controller:
 					slowmo_controller.enable_hitstop = !slowmo_controller.enable_hitstop
-					print("[HITSTOP TEST] Hit Stop：%s" % ("開啟" if slowmo_controller.enable_hitstop else "關閉"))
+					Debug.log("[HITSTOP TEST] Hit Stop：%s" % ("開啟" if slowmo_controller.enable_hitstop else "關閉"))
 			KEY_O:  # 切換動畫同步
 				if slowmo_controller:
 					slowmo_controller.sync_animation_speed = !slowmo_controller.sync_animation_speed
-					print("[HITSTOP TEST] 動畫同步：%s" % ("開啟" if slowmo_controller.sync_animation_speed else "關閉"))
+					Debug.log("[HITSTOP TEST] 動畫同步：%s" % ("開啟" if slowmo_controller.sync_animation_speed else "關閉"))
 
 func _process(delta: float) -> void:
 	if not auto_test:
@@ -77,7 +77,7 @@ func _process(delta: float) -> void:
 		
 		if current_test >= test_count:
 			auto_test = false
-			print("\n[HITSTOP TEST] 自動測試完成！")
+			Debug.log("\n[HITSTOP TEST] 自動測試完成！")
 			_print_test_summary()
 
 func _run_single_test() -> void:
@@ -85,11 +85,11 @@ func _run_single_test() -> void:
 	if not player_a or not player_b:
 		return
 	
-	print("\n" + "═" * 60)
-	print("[HITSTOP TEST #%d] 開始測試" % (test_results.size() + 1))
-	print("  - Hit Stop：%s" % ("開啟" if slowmo_controller and slowmo_controller.enable_hitstop else "關閉"))
-	print("  - 動畫同步：%s" % ("開啟" if slowmo_controller and slowmo_controller.sync_animation_speed else "關閉"))
-	print("═" * 60)
+	Debug.log("\n" + "═" * 60)
+	Debug.log("[HITSTOP TEST #%d] 開始測試" % (test_results.size() + 1))
+	Debug.log("  - Hit Stop：%s" % ("開啟" if slowmo_controller and slowmo_controller.enable_hitstop else "關閉"))
+	Debug.log("  - 動畫同步：%s" % ("開啟" if slowmo_controller and slowmo_controller.sync_animation_speed else "關閉"))
+	Debug.log("═" * 60)
 	
 	# 重置兩個玩家的狀態
 	_reset_player_state(player_a)
@@ -116,7 +116,7 @@ func _run_single_test() -> void:
 	var result = _capture_test_result()
 	test_results.append(result)
 	
-	print("\n[HITSTOP TEST #%d] 測試完成" % test_results.size())
+	Debug.log("\n[HITSTOP TEST #%d] 測試完成" % test_results.size())
 	_print_test_result(result)
 
 func _reset_player_state(player: Node) -> void:
@@ -149,7 +149,7 @@ func _simulate_attack(player: Node, attack_name: String) -> void:
 		var anim_state = player.get_node("AnimationState")
 		anim_state.travel(attack_name)
 	
-	print("[HITSTOP TEST] %s 使用 %s" % [player.name, attack_name])
+	Debug.log("[HITSTOP TEST] %s 使用 %s" % [player.name, attack_name])
 
 func _capture_test_result() -> Dictionary:
 	"""捕捉測試結果"""
@@ -172,19 +172,19 @@ func _capture_test_result() -> Dictionary:
 
 func _print_test_result(result: Dictionary) -> void:
 	"""打印單次測試結果"""
-	print("  - 時機偏移：%.2f 幀" % result.timing_mismatch)
-	print("  - 結果：%s" % ("✅ 成功" if result.success else "❌ 失敗"))
+	Debug.log("  - 時機偏移：%.2f 幀" % result.timing_mismatch)
+	Debug.log("  - 結果：%s" % ("✅ 成功" if result.success else "❌ 失敗"))
 
 func _print_test_summary() -> void:
 	"""打印測試摘要"""
 	if test_results.is_empty():
-		print("\n[HITSTOP TEST] 尚無測試結果")
+		Debug.log("\n[HITSTOP TEST] 尚無測試結果")
 		return
 	
-	print("\n" + "═" * 60)
-	print("[HITSTOP TEST SUMMARY] 測試摘要")
-	print("═" * 60)
-	print("總測試次數：%d" % test_results.size())
+	Debug.log("\n" + "═" * 60)
+	Debug.log("[HITSTOP TEST SUMMARY] 測試摘要")
+	Debug.log("═" * 60)
+	Debug.log("總測試次數：%d" % test_results.size())
 	
 	var success_count = 0
 	var total_mismatch = 0.0
@@ -201,19 +201,19 @@ func _print_test_summary() -> void:
 		
 		var status = "✅" if result.success else "❌"
 		var sync = "✓" if result.animation_sync_enabled else "✗"
-		print("[%d] %s 偏移：%.2f 幀（動畫同步：%s）" % [
+		Debug.log("[%d] %s 偏移：%.2f 幀（動畫同步：%s）" % [
 			i + 1, status, result.timing_mismatch, sync
 		])
 	
-	print("─" * 60)
-	print("成功率：%d / %d (%.1f%%)" % [
+	Debug.log("─" * 60)
+	Debug.log("成功率：%d / %d (%.1f%%)" % [
 		success_count, test_results.size(),
 		(float(success_count) / test_results.size() * 100.0)
 	])
-	print("平均偏移：%.2f 幀" % (total_mismatch / test_results.size()))
-	print("最大偏移：%.2f 幀" % max_mismatch)
-	print("最小偏移：%.2f 幀" % min_mismatch)
-	print("═" * 60)
+	Debug.log("平均偏移：%.2f 幀" % (total_mismatch / test_results.size()))
+	Debug.log("最大偏移：%.2f 幀" % max_mismatch)
+	Debug.log("最小偏移：%.2f 幀" % min_mismatch)
+	Debug.log("═" * 60)
 	
 	# 如果有調試器，也打印其摘要
 	if debugger:

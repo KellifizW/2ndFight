@@ -65,7 +65,7 @@ func execute() -> void:
 		tween.tween_interval(freeze_time)
 		tween.tween_property(Engine, "time_scale", 1.0, 0.1)
 	
-	print("[SpecialMoveBase] 執行特殊招：", move_id)
+	Debug.log("[SpecialMoveBase] 執行特殊招：", move_id)
 
 func update(delta: float) -> void:
 	if not is_executing:
