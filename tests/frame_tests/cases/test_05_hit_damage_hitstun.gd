@@ -14,15 +14,15 @@ extends FrameTestCase
 ##   - hitstun 結束後 P2 恢復
 
 func run() -> bool:
-	await_frames(10)
+	await await_frames(10)
 	teleport_x(p2, 680.0)
-	await_frames(5)
+	await await_frames(5)
 
 	check(p2.is_on_floor(), "P2 teleport 後應在地面")
 	check(p2.is_attacking == false, "P2 初始不應該在攻擊")
 
 	Input.action_press("st_mp")
-	await_frames(1)
+	await await_frames(1)
 	Input.action_release("st_mp")
 
 	# hitstop 會把 Engine.time_scale 壓到 0.02 ~0.13s（真實時間），
@@ -31,7 +31,7 @@ func run() -> bool:
 	var took_damage: bool = false
 	var saw_knockfly: bool = false
 	for i in 300:  # 最多 2.5 秒（真實時間）
-		await_frames(1)
+		await await_frames(1)
 		if p2.hitstun_frames == 48:
 			seen_hitstun_48 = true
 		if p2.healthbar and p2.healthbar.current_health < 100.0:

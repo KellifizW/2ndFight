@@ -7,23 +7,23 @@ extends FrameTestCase
 ##   - blockstun 結束後恢復
 
 func run() -> bool:
-	await_frames(10)
+	await await_frames(10)
 	teleport_x(p2, 680.0)
-	await_frames(5)
+	await await_frames(5)
 
 	# P2 按住後 → BlockingHandler 設定 is_holding_back
 	Input.action_press("move_right_p2")
-	await_frames(10)
+	await await_frames(10)
 	check(p2.is_holding_back == true, "P2 按住後應該 is_holding_back=true")
 
 	Input.action_press("st_mp")
-	await_frames(1)
+	await await_frames(1)
 	Input.action_release("st_mp")
 
 	var saw_blockstun_32: bool = false
 	var saw_hit_damage: bool = false
 	for i in 300:
-		await_frames(1)
+		await await_frames(1)
 		if p2.blockstun_frames == 32:
 			saw_blockstun_32 = true
 		if p2.healthbar and p2.healthbar.current_health < 100.0:

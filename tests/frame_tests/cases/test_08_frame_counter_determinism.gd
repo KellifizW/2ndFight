@@ -11,7 +11,7 @@ func run() -> bool:
 	check(fc.is_paused == false, "FrameCounter 初始不應是暫停狀態")
 
 	var f0: int = fc.get_current_frame()
-	await_frames(60)
+	await await_frames(60)
 	var f1: int = fc.get_current_frame()
 	var diff: int = f1 - f0
 	check(diff >= 58 and diff <= 62, "60 物理幀後 FrameCounter 應推進 60±2，實為 %d" % diff)
