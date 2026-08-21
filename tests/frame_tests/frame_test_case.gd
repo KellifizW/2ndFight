@@ -34,13 +34,13 @@ func await_frames(n: int) -> void:
 ## 按住輸入 action 共 n 個物理幀後釋放
 func hold(action: String, n_frames: int) -> void:
 	Input.action_press(action)
-	await_frames(n_frames)
+	await await_frames(n_frames)
 	Input.action_release(action)
 
 ## 按下 1 個物理幀後立即釋放
 func tap(action: String) -> void:
 	Input.action_press(action)
-	await_frames(1)
+	await await_frames(1)
 	Input.action_release(action)
 
 ## 記錄一次斷言。cond 為 false 時累積失敗訊息（不中斷，跑完整個用例）。
@@ -62,7 +62,7 @@ func px(player: Node) -> float:
 ## 在最多 max_frames 物理幀內等待條件成立（每幀檢查一次）
 func wait_until(cond_fn: Callable, max_frames: int) -> bool:
 	for i in max_frames:
-		await_frames(1)
+		await await_frames(1)
 		if cond_fn.call():
 			return true
 	return false

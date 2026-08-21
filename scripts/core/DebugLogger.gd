@@ -9,33 +9,34 @@ extends Node
 ##   2. 代碼中: Debug.enabled = true
 ##   3. 只看特定標籤: Debug.tags = ["THROW", "HIT"]
 ##      （訊息慣例: 以 [TAG] 開頭，例如 Debug.log("[JUMP] ...")）
-##   4. 每幀級別的高頻追蹤日誌: Debug.verbose = true（僅影響 Debug.vlog()）
+##   4. 每幀級別的高頻日誌: Debug.verbose = true（僅影響 Debug.vlog()）
 ##
 ## 慣例:
 ##   - 事件型日誌（一次動作一次輸出）→ Debug.log()
 ##   - 每幀 / 高頻追蹤日誌 → Debug.vlog()（需要 verbose=true 才輸出）
 ##   - 錯誤與警告仍用 push_warning() / push_error()（引擎錯誤通道，不受此開關影響）
 ##
-## ⚠️ 新代碼規則: 禁止在遊戲代碼中直接呼叫 print()，一律走本 logger。
+## ⚠️ 新代碼規則: 遊戲代碼中禁止直接呼叫 print()，一律走本 logger。
+## ⚠️ 本檔案內部使用原生 print()（logger 不能依賴自己）。
 
 @export var enabled: bool = false
 @export var verbose: bool = false
 @export var tags: PackedStringArray = []
 
 ## 事件型日誌。參數與 print() 相同（任意多個，用空格連接）。
-func log(...args: Variant) -> void:
+func log(...args: Array) -> void:
 	if not enabled:
 		return
 	var text := _format(args)
 	if not _matches_tags(text):
 		return
-	Debug.log(text)
+	print(text)
 
 ## 高頻（每幀）日誌，需要 verbose=true 才會輸出。
-func vlog(...args: Variant) -> void:
+func vlog(...args: Array) -> void:
 	if not (enabled and verbose):
 		return
-	Debug.log(_format(args))
+	print(_format(args))
 
 func _matches_tags(text: String) -> bool:
 	if tags.is_empty():
@@ -56,4 +57,4 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_D and Input.is_key_pressed(KEY_CTRL):
 			enabled = not enabled
 			verbose = enabled
-			Debug.log("[DEBUG LOGGER] 除錯日誌: %s（再按 Ctrl+D 切換）" % ("開啟" if enabled else "關閉"))
+			print("[DEBUG LOGGER] 除錯日誌: %s（再按 Ctrl+D 切換）" % ("開啟" if enabled else "關閉"))

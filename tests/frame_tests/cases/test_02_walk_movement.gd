@@ -4,10 +4,10 @@ extends FrameTestCase
 ## 同時確認：單一持續按住不會觸發 dash（dash 需要 double-tap）
 
 func run() -> bool:
-	await_frames(10)  # 穩定
+	await await_frames(10)  # 穩定
 	var x0: float = px(p1)
 
-	hold("move_right", 24)
+	await hold("move_right", 24)
 
 	check(p1.is_dashing == false, "持續按住不應該觸發 dash")
 	check(p1.is_backdashing == false, "持續按住不應該觸發 backdash")
@@ -18,7 +18,7 @@ func run() -> bool:
 
 	# 停止輸入後應停止移動
 	var x_stop: float = px(p1)
-	await_frames(10)
+	await await_frames(10)
 	check(abs(px(p1) - x_stop) < 0.5, "停止輸入後應停止移動（漂移 %.2f px）" % (px(p1) - x_stop))
 
 	return not has_failures()

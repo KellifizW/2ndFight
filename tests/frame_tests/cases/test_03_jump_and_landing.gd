@@ -5,7 +5,7 @@ extends FrameTestCase
 func run() -> bool:
 	var x0: float = px(p1)
 
-	tap("jump")
+	await tap("jump")
 
 	# 跳躍有 0.1s（12 物理幀）delay，最多等 1 秒應該離地
 	# 注意: GDScript lambda 只能 capture 局部變數，先綁定 p1
@@ -16,10 +16,10 @@ func run() -> bool:
 	if not reached_air:
 		return not has_failures()
 
-	var apex_y: float = float(p1.fixed_position.y)
-	for i in 60:
-		await_frames(1)
-		apex_y = min(apex_y, float(p1.fixed_position.y))
+	var apex_y: float = float(p1.fixed_position.y) / float(SIM_SCALE)
+	for i in 90:
+		await await_frames(1)
+		apex_y = min(apex_y, float(p1.fixed_position.y) / float(SIM_SCALE))
 	check(apex_y < FLOOR_Y_PX - 10.0, "跳躍應達到離地 >10px（apex 差 %.1f px）" % (FLOOR_Y_PX - apex_y))
 
 	# 落地：最多 3 秒

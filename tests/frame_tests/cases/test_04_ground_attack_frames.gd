@@ -5,10 +5,10 @@ extends FrameTestCase
 ## - 結束後 is_attacking=false, attack_type="none"
 
 func run() -> bool:
-	await_frames(10)
+	await await_frames(10)
 
 	Input.action_press("st_mp")
-	await_frames(1)
+	await await_frames(1)
 	Input.action_release("st_mp")
 
 	# 攻擊應在 12 物理幀內開始（lambda 只能 capture 局部變數）

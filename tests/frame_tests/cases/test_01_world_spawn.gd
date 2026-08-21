@@ -22,7 +22,7 @@ func run() -> bool:
 	check(p1.is_attacking == false, "P1 生成時不應該在攻擊")
 	check(p2.is_attacking == false, "P2 生成時不應該在攻擊")
 
-	await_frames(10)
+	await await_frames(10)
 	var a_state = p1.animation_state.get_current_node() if p1.animation_state else "?"
 	var b_state = p2.animation_state.get_current_node() if p2.animation_state else "?"
 	check(a_state in ["Walk", "idle"], "P1 初始動畫應為 Walk/idle，實為 %s" % a_state)
