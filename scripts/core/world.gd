@@ -260,13 +260,13 @@ func _start_bgm(fade_time: float = 1.0) -> void:
 	if startup_logs:
 		Debug.log("Debug: BGM fade-in started at %s ms" % Time.get_ticks_msec())
 
-func _unlock_web_audio(event) -> void:
+func _unlock_web_audio(event: InputEvent) -> void:
 	if not OS.has_feature("web") or _bgm_started or not is_bgm_enabled:
 		return
 	if not bgm_player:
 		return
 
-	var user_gesture := (
+	var user_gesture: bool = (
 		(event is InputEventKey and event.pressed and not event.echo)
 		or (event is InputEventMouseButton and event.pressed)
 		or (event is InputEventScreenTouch and event.pressed)
