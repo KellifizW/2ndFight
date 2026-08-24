@@ -1,4 +1,4 @@
-extends FrameTestCase
+extends "res://tests/frame_tests/frame_test_case.gd"
 ## Debug logger 預設值：遊戲代碼日誌預設關閉（Stage 0 新不變式）
 ## 透過節點取得，不依賴 autoload 全域識別碼解析
 

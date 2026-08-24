@@ -26,6 +26,9 @@ const CASES: Array = [
 	"res://tests/frame_tests/cases/test_07_fireball_spawn.gd",
 	"res://tests/frame_tests/cases/test_08_frame_counter_determinism.gd",
 	"res://tests/frame_tests/cases/test_09_debug_logger_default_off.gd",
+	"res://tests/frame_tests/cases/test_10_hitstun_decrement.gd",
+	"res://tests/frame_tests/cases/test_11_landing_lock_frames.gd",
+	"res://tests/frame_tests/cases/test_12_dash_frames.gd",
 ]
 
 var _passed: int = 0

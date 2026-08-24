@@ -1,4 +1,4 @@
-extends FrameTestCase
+extends "res://tests/frame_tests/frame_test_case.gd"
 ## 格擋判定：P2 持續按「後」（move_right_p2，因為 P2 面向左）時被 P1 st_mp 命中
 ##
 ## 期望:

@@ -1,4 +1,4 @@
-extends FrameTestCase
+extends "res://tests/frame_tests/frame_test_case.gd"
 ## 地面攻擊 st_mp（DAV）：
 ## - 按 st_mp → is_attacking + attack_type + 動畫狀態 st_mp
 ## - st_mp 動畫長 24 邏輯幀 = 48 物理幀 → 攻擊應在 ~48+15 物理幀內結束

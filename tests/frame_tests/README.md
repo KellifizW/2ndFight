@@ -1,4 +1,4 @@
-# Frame Tests（Stage 0 安全網）
+# Frame Tests（Stage 0/1 安全網）
 
 確定性物理幀測試框架。格鬥遊戲的邏輯建立在固定 120 FPS 物理 tick 上，
 本框架用「腳本化輸入 → 斷言物理幀狀態/位置/血量」的方式鎖定遊戲行為，
@@ -7,7 +7,7 @@
 ## 執行
 
 ```bash
-# 需要 Godot 4.6.x CLI（在 PATH 或用 GODOT_BIN 指定）
+# 需要 Godot 4.7.x CLI（在 PATH 或用 GODOT_BIN 指定）
 bash tests/frame_tests/run_frame_tests.sh
 # 等同:
 godot --headless --path . -s res://tests/frame_tests/run_tests.gd
@@ -28,6 +28,9 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | test_07_fireball_spawn | fireballM 在動畫 Call Method 時間點生成、spmove 狀態恢復 |
 | test_08_frame_counter_determinism | FrameCounter 60 物理幀精確推進、邏輯幀換算 |
 | test_09_debug_logger_default_off | Debug logger 預設關閉（Stage 0 新不變式） |
+| test_10_hitstun_decrement | hitstop 期間凍結、之後 48 次逐幀遞減至 0 |
+| test_11_landing_lock_frames | 無輸入著地狀態精確持續 23 物理幀 |
+| test_12_dash_frames | 雙擊前衝精確持續 42 物理幀 |
 
 ## 設計規則（寫新用例時請遵守）
 
@@ -45,7 +48,7 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 
 ## 新增用例步驟
 
-1. 在 `cases/` 建 `test_NN_描述.gd`，`extends FrameTestCase`，實作 `run() -> bool`。
+1. 在 `cases/` 建 `test_NN_描述.gd`，明確 `extends "res://tests/frame_tests/frame_test_case.gd"`，實作 `run() -> bool`。
 2. 把路徑加進 `run_tests.gd` 的 `CASES` 陣列（維持編號順序）。
 3. 跑 `bash tests/frame_tests/run_frame_tests.sh` 確認全綠。
 

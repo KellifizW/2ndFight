@@ -1,4 +1,4 @@
-extends FrameTestCase
+extends "res://tests/frame_tests/frame_test_case.gd"
 ## 世界生成基本狀態：雙玩家、血量、面向、初始動畫
 
 func run() -> bool:

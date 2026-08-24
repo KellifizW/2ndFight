@@ -1,4 +1,4 @@
-extends FrameTestCase
+extends "res://tests/frame_tests/frame_test_case.gd"
 ## 走路移動：持續按住方向 24 物理幀（0.2 秒）
 ## 期望位移 = walk_speed(360 px/s) × 0.2s = 72 px（允許 60~84 容差）
 ## 同時確認：單一持續按住不會觸發 dash（dash 需要 double-tap）

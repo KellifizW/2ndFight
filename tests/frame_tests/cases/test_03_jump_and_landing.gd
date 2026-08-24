@@ -1,4 +1,4 @@
-extends FrameTestCase
+extends "res://tests/frame_tests/frame_test_case.gd"
 ## 跳躍與著地：tap jump → 離地 → 落地 → landing 狀態自動完成
 ## 驗證空中狀態、landing lock、以及著地後 is_jumping 清除
 

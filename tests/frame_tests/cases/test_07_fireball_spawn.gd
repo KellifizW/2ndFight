@@ -1,4 +1,4 @@
-extends FrameTestCase
+extends "res://tests/frame_tests/frame_test_case.gd"
 ## 火球生成（直接呼叫 MoveSet.start_fireball()，不模擬方向指令）
 ##
 ## DAV fireballM: 動畫 0.267s（16 邏輯幀 = 32 物理幀）時 Call Method

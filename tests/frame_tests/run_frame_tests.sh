@@ -5,7 +5,7 @@
 #   bash tests/frame_tests/run_frame_tests.sh
 #
 # 環境:
-#   - 需要 Godot 4.6.x CLI（專案 config/features = "4.6"）
+#   - 需要 Godot 4.7.x CLI（專案 config/features = "4.7"）
 #   - 若 godot 不在 PATH，用 GODOT_BIN 指定:
 #     GODOT_BIN=/path/to/godot bash tests/frame_tests/run_frame_tests.sh
 #

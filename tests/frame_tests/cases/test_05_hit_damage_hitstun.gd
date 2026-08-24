@@ -1,4 +1,4 @@
-extends FrameTestCase
+extends "res://tests/frame_tests/frame_test_case.gd"
 ## 命中判定：P1 st_mp 打中 P2
 ##
 ## 幾何（DAV st_mp, 動畫驅動 hitbox）:

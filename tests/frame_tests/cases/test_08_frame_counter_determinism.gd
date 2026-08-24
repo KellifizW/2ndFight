@@ -1,4 +1,4 @@
-extends FrameTestCase
+extends "res://tests/frame_tests/frame_test_case.gd"
 ## FrameCounter 確定性：60 物理幀後應精確推進 ~60 幀
 ## （驗證固定 120 FPS tick 與幀計數器的一致性——後續 Stage 1 統一時間域的基準）
 

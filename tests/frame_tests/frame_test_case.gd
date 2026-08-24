@@ -73,4 +73,7 @@ func has_failures() -> bool:
 func failure_report() -> String:
 	if _failures.is_empty():
 		return ""
-	return "\n" + "\n".join(["  ✗ " + f for f in _failures])
+	var lines: Array[String] = []
+	for failure in _failures:
+		lines.append("  ✗ " + failure)
+	return "\n" + "\n".join(lines)
