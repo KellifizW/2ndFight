@@ -80,6 +80,7 @@ var frame_counter: FrameCounter = null
 
 var is_fading_out: bool = false
 var is_bgm_enabled: bool = true
+var _bgm_started: bool = false
 
 func _ready() -> void:
 	add_to_group("world")
@@ -200,12 +201,10 @@ func _ready() -> void:
 	if bgm_player:
 		is_bgm_enabled = true
 		bgm_player.volume_db = -80.0
-		bgm_player.play()
-		var tween = create_tween()
-		tween.tween_property(bgm_player, "volume_db", bgm_max_volume_db, 1.0)
-		tween.play()
-		if startup_logs:
-			Debug.log("Debug: BGM fade-in started at %s ms" % Time.get_ticks_msec())
+		# Web browsers block autoplay until a user gesture. The first key, mouse,
+		# touch, or gamepad input starts the BGM from inside the input callback.
+		if not OS.has_feature("web"):
+			_start_bgm(1.0)
 	else:
 		Debug.log("Warning: BGMPlayer node not found in world")
 	
@@ -248,7 +247,36 @@ func _spawn_player(char_data: CharacterData, pos: Vector2, seat: String) -> Play
 # 其餘函式（_input, _process, _physics_process, advantage 計算, reset_players 等）保持原樣不變
 # （為了節省篇幅這裡省略，但請保留你原本的所有程式碼）
 
+func _start_bgm(fade_time: float = 1.0) -> void:
+	if not bgm_player or not is_bgm_enabled or _bgm_started:
+		return
+
+	_bgm_started = true
+	bgm_player.volume_db = -80.0
+	bgm_player.play()
+	var tween = create_tween()
+	tween.tween_property(bgm_player, "volume_db", bgm_max_volume_db, fade_time)
+	tween.play()
+	if startup_logs:
+		Debug.log("Debug: BGM fade-in started at %s ms" % Time.get_ticks_msec())
+
+func _unlock_web_audio(event) -> void:
+	if not OS.has_feature("web") or _bgm_started or not is_bgm_enabled:
+		return
+	if not bgm_player:
+		return
+
+	var user_gesture := (
+		(event is InputEventKey and event.pressed and not event.echo)
+		or (event is InputEventMouseButton and event.pressed)
+		or (event is InputEventScreenTouch and event.pressed)
+		or (event is InputEventJoypadButton and event.pressed)
+	)
+	if user_gesture:
+		_start_bgm()
+
 func _input(event) -> void:
+	_unlock_web_audio(event)
 	if event is InputEventKey and event.pressed:
 		# 調試熱鍵
 		if enable_debug_hotkeys:

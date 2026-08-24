@@ -44,6 +44,7 @@ shader_parameter/blur_factor = 0.0
 [node name="World" type="Node2D" unique_id=530271091]
 script = ExtResource("1_aqk2v")
 bgm_max_volume_db = 0.0
+enable_performance_monitoring = false
 player_a_character = ExtResource("15_26xuy")
 player_b_character = ExtResource("17_bc84e")
 
@@ -224,7 +225,7 @@ size_flags_horizontal = 4
 size_flags_vertical = 8
 theme_override_font_sizes/font_size = 12
 script = ExtResource("12_cbp6q")
-enabled = true
+enabled = false
 
 [node name="HitboxDebugP1" type="Label" parent="UI" unique_id=1220062444]
 visible = false
@@ -291,7 +292,7 @@ knockback_deceleration_mode = 2
 
 [node name="BGMPlayer" type="AudioStreamPlayer" parent="." unique_id=2000188195]
 stream = ExtResource("12_k3n1d")
-autoplay = true
+autoplay = false
 
 [node name="PlayerAShadowSprite" type="AnimatedSprite2D" parent="." unique_id=1618088426]
 modulate = Color(0.16078432, 0.16078432, 0.16078432, 1)

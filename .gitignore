@@ -4,3 +4,5 @@
 **/*.import
 .vscode\settings.json
 
+# Generated Web exports
+build/
