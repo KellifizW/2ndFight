@@ -228,6 +228,8 @@ func _ready() -> void:
 		position_label.text = "Player A: (0, 0)\nPlayer B: (0, 0)"
 	else:
 		Debug.log("Warning: PositionLabel not found in UI")
+
+	_focus_web_canvas()
 	
 	$UI/CountdownTimer.countdown_finished.connect(_on_countdown_finished)
 	
@@ -260,6 +262,12 @@ func _start_bgm(fade_time: float = 1.0) -> void:
 	if startup_logs:
 		Debug.log("Debug: BGM fade-in started at %s ms" % Time.get_ticks_msec())
 
+func _focus_web_canvas() -> void:
+	if not OS.has_feature("web"):
+		return
+	if Engine.has_singleton("JavaScriptBridge"):
+		JavaScriptBridge.eval("if (typeof Module !== 'undefined' && Module.canvas) { Module.canvas.tabIndex = 0; Module.canvas.focus(); }", true)
+
 func _unlock_web_audio(event: InputEvent) -> void:
 	if not OS.has_feature("web") or _bgm_started or not is_bgm_enabled:
 		return
@@ -273,9 +281,16 @@ func _unlock_web_audio(event: InputEvent) -> void:
 		or (event is InputEventJoypadButton and event.pressed)
 	)
 	if user_gesture:
+		_focus_web_canvas()
 		_start_bgm()
 
-func _input(event) -> void:
+func _input(event: InputEvent) -> void:
+	if OS.has_feature("web") and (
+		(event is InputEventMouseButton and event.pressed)
+		or (event is InputEventScreenTouch and event.pressed)
+	):
+		_focus_web_canvas()
+
 	_unlock_web_audio(event)
 	if event is InputEventKey and event.pressed:
 		# 調試熱鍵
