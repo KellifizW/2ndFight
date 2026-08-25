@@ -18,9 +18,9 @@ enum ButtonInputs {
 }
 enum ButtonMode { PRESS, HOLD }
 
-const INPUT_HISTORY_SIZE: int = 240  # 歷史記錄大小，約 4 秒 (60 FPS)
-const INPUT_BUFFER: int = 10  # 輸入緩衝區，約 0.167 秒
-const MAX_TOTAL_FRAMES: int = 120  # 總匹配時間限制，約 2 秒
+const INPUT_HISTORY_SIZE: int = 240  # 歷史記錄大小，約 2 秒 (120 FPS)
+const INPUT_BUFFER: int = 30  # 輸入緩衝區，約 0.25 秒 (120 FPS)
+const MAX_TOTAL_FRAMES: int = 120  # 總匹配時間限制，約 1.0 秒 (120 FPS)
 
 # Special move detection result cache (prevents double-detection in same frame)
 var detected_special_this_frame: String = ""
@@ -68,8 +68,7 @@ func _ready():
 		input_history[i] = InputRegistry.new()
 
 func _physics_process(_delta: float) -> void:
-	# Reset detection cache each frame
-	detected_special_this_frame = ""
+	pass
 
 func update_input():
 	var raw_input = get_current_raw_input()
@@ -182,7 +181,9 @@ func insert_to_history(raw_input: int):
 const _MIRROR_DIR: Dictionary = {2: 4, 3: 5, 4: 2, 5: 3, 7: 8, 8: 7}
 
 func get_relative_direction(absolute_dir: int) -> int:
-	if input_side >= 0:
+	var parent = get_parent()
+	var facing = parent.facing_direction if parent and "facing_direction" in parent else 1.0
+	if facing >= 0:
 		return absolute_dir
 	return _MIRROR_DIR.get(absolute_dir, absolute_dir)
 
@@ -277,9 +278,11 @@ func _check_motion_debug(motion: Dictionary, move_id: String) -> void:
 		move_id, get_parent().seat if get_parent() and "seat" in get_parent() else "?", current_history, last_buttons, input_side, _dump_recent_history(5)])
 	for si in valid_inputs.size():
 		var seq = valid_inputs[si]
-		var target_button = seq.back().buttons
-		if last_buttons != target_button:
-			Debug.log("[DP_DEBUG]   seq[%d] SKIP early-exit: last_buttons=%d != target_button=%d" % [si, last_buttons, target_button])
+		if seq.is_empty():
+			continue
+		var target_button = seq.back().buttons if "buttons" in seq.back() else ButtonInputs.NONE
+		if target_button != ButtonInputs.NONE and (last_buttons & target_button) == 0:
+			Debug.log("[DP_DEBUG]   seq[%d] SKIP early-exit: last_buttons=%d does not contain target_button=%d" % [si, last_buttons, target_button])
 			continue
 		Debug.log("[DP_DEBUG]   seq[%d] button match OK (btn=%d), checking %d steps..." % [si, target_button, seq.size()])
 		var seq_idx = seq.size() - 1
@@ -331,17 +334,23 @@ func check_motion(motion: Dictionary) -> bool:
 	var max_total_frames = motion.get("MaxTotalFrames", MAX_TOTAL_FRAMES)
 	var absolute_direction = motion.get("AbsoluteDirection", false)
 	var valid_inputs = motion.get("ValidInputs", [])
-	var found = false
+	
+	var current_buttons = input_history[current_history].raw_input & 0xFF
+	var current_duration = input_history[current_history].duration
+	
+	# Lenient input: only proceed if the button was freshly pressed
+	# (current history entry duration within the buffer window)
+	if current_duration > input_buffer:
+		return false
+	
 	for seq in valid_inputs:
-		var last_buttons = input_history[current_history].raw_input & 0xFF
-		var target_button = seq.back().buttons
-		if last_buttons != target_button:
+		if seq.is_empty():
 			continue
 		
-		# Lenient input: only proceed if the button was freshly pressed
-		# (current history entry duration within the buffer window)
-		if input_history[current_history].duration > input_buffer:
-			continue
+		var target_button = seq.back().get("buttons", ButtonInputs.NONE)
+		if target_button != ButtonInputs.NONE:
+			if (current_buttons & target_button) == 0:
+				continue
 		
 		var seq_idx = seq.size() - 1
 		var hist_pos = current_history
@@ -353,14 +362,16 @@ func check_motion(motion: Dictionary) -> bool:
 			var is_final_step = (seq_idx == seq.size() - 1)
 			var step_matched = false
 			var step_frames = 0
+			var required_dir = step.get("directional", DirectionalInputs.NEUTRAL)
+			var required_btn = step.get("buttons", ButtonInputs.NONE) if not is_final_step else ButtonInputs.NONE
 			
 			# ── Lenient final-step logic ──────────────────────────────────────────
-			# The button press is already confirmed by the last_buttons check above.
+			# The button press is already confirmed by the current_buttons check above.
 			# For the final step we only need to find the required direction somewhere
 			# in the recent history (within input_buffer frames), so pressing the
 			# button separately after completing the motion also triggers the move.
-			if is_final_step and step.buttons != ButtonInputs.NONE:
-				if step.directional == DirectionalInputs.NEUTRAL:
+			if is_final_step:
+				if required_dir == DirectionalInputs.NEUTRAL:
 					# No direction requirement — button alone is sufficient.
 					step_matched = true
 					seq_idx -= 1
@@ -374,7 +385,7 @@ func check_motion(motion: Dictionary) -> bool:
 							matched = false
 							break
 						# Direction-only check (button already confirmed above)
-						if check_input(hist_pos, step.directional, ButtonInputs.NONE, step.dir_mode, step.but_mode if "but_mode" in step else ButtonMode.PRESS, absolute_direction):
+						if check_input(hist_pos, required_dir, ButtonInputs.NONE, step.get("dir_mode", 1), step.get("but_mode", ButtonMode.PRESS), absolute_direction):
 							step_matched = true
 							seq_idx -= 1
 						hist_pos = (hist_pos - 1 + INPUT_HISTORY_SIZE) % INPUT_HISTORY_SIZE
@@ -389,7 +400,7 @@ func check_motion(motion: Dictionary) -> bool:
 						matched = false
 						break
 					
-					if check_input(hist_pos, step.directional, step.buttons if "buttons" in step else 0, step.dir_mode, step.but_mode if "but_mode" in step else ButtonMode.PRESS, absolute_direction):
+					if check_input(hist_pos, required_dir, required_btn, step.get("dir_mode", 1), step.get("but_mode", ButtonMode.PRESS), absolute_direction):
 						step_matched = true
 						seq_idx -= 1
 					hist_pos = (hist_pos - 1 + INPUT_HISTORY_SIZE) % INPUT_HISTORY_SIZE
@@ -398,10 +409,9 @@ func check_motion(motion: Dictionary) -> bool:
 				matched = false
 		
 		if matched:
-			found = true
-			break
+			return true
 	
-	return found
+	return false
 
 # ============================================================
 # ENHANCED SPECIAL MOVE DETECTION (with buffer support)
@@ -525,10 +535,12 @@ func detect_special_move() -> String:
 func _get_punch_strength() -> String:
 	"""判斷輸入歷史中最新按下的拳按鈕強度（L/M/H）"""
 	var buttons = input_history[current_history].raw_input & 0xFF
-	if buttons & ButtonInputs.ST_LP:
-		return "L"
-	elif buttons & ButtonInputs.ST_HP:
+	if buttons & ButtonInputs.ST_HP:
 		return "H"
+	elif buttons & ButtonInputs.ST_MP:
+		return "M"
+	elif buttons & ButtonInputs.ST_LP:
+		return "L"
 	else:
 		return "M"  # ST_MP or unknown defaults to Medium
 

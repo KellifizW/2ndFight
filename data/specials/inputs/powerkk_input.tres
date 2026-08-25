@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 sequence_id = "powerkk"
-input_buffer = 10
+input_buffer = 30
 max_total_frames = 120
 absolute_direction = false
 valid_inputs = [[{
@@ -20,6 +20,61 @@ valid_inputs = [[{
 "but_mode": 0
 }, {
 "directional": 5,
+"buttons": 2,
+"dir_mode": 1,
+"but_mode": 1
+}], [{
+"directional": 2,
+"buttons": 0,
+"dir_mode": 1,
+"but_mode": 0
+}, {
+"directional": 1,
+"buttons": 0,
+"dir_mode": 1,
+"but_mode": 0
+}, {
+"directional": 4,
+"buttons": 0,
+"dir_mode": 1,
+"but_mode": 0
+}, {
+"directional": 5,
+"buttons": 2,
+"dir_mode": 1,
+"but_mode": 1
+}], [{
+"directional": 2,
+"buttons": 0,
+"dir_mode": 1,
+"but_mode": 0
+}, {
+"directional": 4,
+"buttons": 0,
+"dir_mode": 1,
+"but_mode": 0
+}, {
+"directional": 5,
+"buttons": 2,
+"dir_mode": 1,
+"but_mode": 1
+}], [{
+"directional": 1,
+"buttons": 0,
+"dir_mode": 1,
+"but_mode": 0
+}, {
+"directional": 5,
+"buttons": 2,
+"dir_mode": 1,
+"but_mode": 1
+}], [{
+"directional": 1,
+"buttons": 0,
+"dir_mode": 1,
+"but_mode": 0
+}, {
+"directional": 4,
 "buttons": 2,
 "dir_mode": 1,
 "but_mode": 1
