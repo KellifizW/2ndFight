@@ -35,7 +35,7 @@ metadata/_custom_type_script = "uid://c4qqdmb1sci8y"
 size = Vector2(90, 270)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_x536s"]
-size = Vector2(30, 60)
+size = Vector2(135, 40)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_md12c"]
 size = Vector2(80, 20)
@@ -3326,7 +3326,7 @@ tracks/0/path = NodePath("AnimatedSprite2D:frame")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.06666667, 0.13333334, 0.18333334, 0.26666668, 0.33333334, 0.5, 0.6, 0.7),
+"times": PackedFloat32Array(0, 0.06666667, 0.13333334, 0.18333334, 0.26666668, 0.33333334, 0.41666666, 0.48333332, 0.5833333),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [0, 1, 2, 3, 4, 5, 6, 7, 8]
@@ -3453,7 +3453,7 @@ tracks/0/path = NodePath("AnimatedSprite2D:frame")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.06666667, 0.13333334, 0.2, 0.26666668, 0.33333334, 0.53333336, 0.6333333, 0.71666664),
+"times": PackedFloat32Array(0, 0.06666667, 0.13333334, 0.2, 0.26666668, 0.33333334, 0.41666666, 0.51666665, 0.6333333),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [0, 1, 2, 3, 4, 5, 6, 7, 8]
@@ -3477,10 +3477,10 @@ tracks/2/path = NodePath("spawnfire/ball:position")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0, 0.16666667),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.06666667, 0.3),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
-"values": [Vector2(-30, 0), Vector2(110, -40)]
+"values": [Vector2(-30, 0), Vector2(-30, -100), Vector2(110, -40)]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
@@ -3489,10 +3489,10 @@ tracks/3/path = NodePath("spawnfire/tail:position")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.16666667),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.06666667, 0.28333333),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
-"values": [Vector2(0, 0), Vector2(110, -40)]
+"values": [Vector2(0, 0), Vector2(-30, -100), Vector2(110, -40)]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -3501,7 +3501,7 @@ tracks/4/path = NodePath("spawnfire/ball:one_shot")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
-"times": PackedFloat32Array(0),
+"times": PackedFloat32Array(0.06666667),
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [true]
@@ -3513,7 +3513,7 @@ tracks/5/path = NodePath("spawnfire/ball:emitting")
 tracks/5/interp = 1
 tracks/5/loop_wrap = true
 tracks/5/keys = {
-"times": PackedFloat32Array(0, 0.46666667),
+"times": PackedFloat32Array(0.06666667, 0.46666667),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [true, false]
@@ -3525,7 +3525,7 @@ tracks/6/path = NodePath("spawnfire/tail:one_shot")
 tracks/6/interp = 1
 tracks/6/loop_wrap = true
 tracks/6/keys = {
-"times": PackedFloat32Array(0),
+"times": PackedFloat32Array(0.06666667),
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [true]
@@ -3537,7 +3537,7 @@ tracks/7/path = NodePath("spawnfire/tail:emitting")
 tracks/7/interp = 1
 tracks/7/loop_wrap = true
 tracks/7/keys = {
-"times": PackedFloat32Array(0, 0.7),
+"times": PackedFloat32Array(0.06666667, 0.7),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [true, false]
@@ -5296,7 +5296,7 @@ tracks/2/path = NodePath("Hitbox/HitShape:shape")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0.3, 0.43333334),
+"times": PackedFloat32Array(0.3, 0.36666667),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [SubResource("RectangleShape2D_x536s"), null]
@@ -5404,10 +5404,10 @@ tracks/11/path = NodePath("AnimatedSprite2D:frame")
 tracks/11/interp = 1
 tracks/11/loop_wrap = true
 tracks/11/keys = {
-"times": PackedFloat32Array(0, 0.1, 0.2, 0.3, 0.53333336, 0.6, 0.76666665),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.1, 0.2, 0.26666668, 0.33333334, 0.43333334, 0.53333336, 0.56666666, 0.6333333, 0.7, 0.76666665, 0.8666667),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 0,
-"values": [0, 1, 2, 3, 4, 5, 6]
+"values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 }
 tracks/12/type = "value"
 tracks/12/imported = false
@@ -5432,6 +5432,18 @@ tracks/13/keys = {
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [true, false]
+}
+tracks/14/type = "value"
+tracks/14/imported = false
+tracks/14/enabled = true
+tracks/14/path = NodePath("AnimatedSprite2D:scale")
+tracks/14/interp = 1
+tracks/14/loop_wrap = true
+tracks/14/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0.8, 0.8)]
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_woueq"]
@@ -6628,7 +6640,7 @@ tracks/1/path = NodePath("AnimatedSprite2D:frame")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
-"times": PackedFloat32Array(0, 0.049999997, 0.23333333),
+"times": PackedFloat32Array(0, 0.06666667, 0.2),
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
 "values": [0, 1, 2]
@@ -6692,6 +6704,18 @@ tracks/6/keys = {
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
 "values": [true, false, true]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("AnimatedSprite2D:scale")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0.47, 0.47)]
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tm1hu"]
@@ -7211,6 +7235,19 @@ scale_min = 0.099999994
 scale_max = 0.29999998
 alpha_curve = SubResource("CurveTexture_vhfda")
 
+[sub_resource type="Resource" id="Resource_opo8r"]
+script = ExtResource("9_0wmxw")
+move_id = "powerkk"
+knockfly_gravity = 600000.0
+knockfly_vertical_speed = -70.0
+knockfly_horizontal_speed = 2400.0
+movement_duration_frames = 20
+move_distance = 400.0
+trajectory_delay_frames = 100
+acceleration_curve = 2
+deceleration_ratio = 150.0
+metadata/_custom_type_script = "uid://tld6w015ripa"
+
 [sub_resource type="Resource" id="Resource_b3w3n"]
 script = ExtResource("9_0wmxw")
 damage = 8.0
@@ -7349,10 +7386,11 @@ animation = &"Reset"
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1846523726]
 visible = false
-scale = Vector2(1e-05, 1e-05)
+scale = Vector2(0.9, 0.9)
 texture = ExtResource("4_0wmxw")
 hframes = 10
 vframes = 19
+frame = 100
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=1779273482]
 position = Vector2(0, 10)
@@ -7429,6 +7467,7 @@ speed_scale = 0.8
 
 [node name="MoveSet" type="Node" parent="." unique_id=1579431232]
 script = ExtResource("8_7kano")
+smd_powerkk = SubResource("Resource_opo8r")
 smd_dpL = SubResource("Resource_b3w3n")
 smd_dpM = SubResource("Resource_t485y")
 smd_dpH = SubResource("Resource_hshs3")

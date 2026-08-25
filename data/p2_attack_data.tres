@@ -14,5 +14,6 @@ st_hp_knockback = 120.0
 st_hp_movement = ExtResource("2_ybc3s")
 st_mk_movement = ExtResource("4_lgwdk")
 st_hk_movement = ExtResource("3_pjwwx")
+cr_hk_knockback = 40.0
 cr_hk_movement = ExtResource("1_tfxke")
 metadata/_custom_type_script = "uid://ccjfweg28wskh"

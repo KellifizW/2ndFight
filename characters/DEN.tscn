@@ -5,21 +5,21 @@
 [ext_resource type="SpriteFrames" uid="uid://5q7cfeoprqup" path="res://assets/sprite_frames/player2.tres" id="3_4lg2u"]
 [ext_resource type="Script" uid="uid://c4qqdmb1sci8y" path="res://data/ThrowData.gd" id="3_jo7nc"]
 [ext_resource type="Texture2D" uid="uid://bmg0ytsusin8c" path="res://assets/Dennis2.png" id="4_a1vnf"]
-[ext_resource type="Texture2D" uid="uid://dtrspm0lofn8v" path="res://assets/texture/smoke/smoke_01.png" id="5_x0tr5"]
+[ext_resource type="Texture2D" uid="uid://bf08spa3gkec5" path="res://assets/texture/smoke/smoke_01.png" id="5_x0tr5"]
 [ext_resource type="Script" uid="uid://ccvbblak3coev" path="res://scripts/combat/movesets/DENMoveSet.gd" id="7_jo7nc"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_wv6ou"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_808jx"]
 [ext_resource type="Script" uid="uid://um826wha4t60" path="res://data/HitPhaseData.gd" id="8_wv6ou"]
 [ext_resource type="Script" uid="uid://tld6w015ripa" path="res://data/SpecialMoveData.gd" id="9_808jx"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://scripts/input/InputManager.gd" id="9_mhb1e"]
-[ext_resource type="AudioStream" uid="uid://donxd3nqn4jt2" path="res://assets/audio/heavy_hit_sound.wav" id="10_bi6lw"]
-[ext_resource type="AudioStream" uid="uid://dbe6n06qwaw2i" path="res://assets/audio/block_sound.wav" id="11_ysvx1"]
-[ext_resource type="AudioStream" uid="uid://bhv42gpxxbp65" path="res://assets/audio/hurt_grunt_p2.wav" id="12_ydrny"]
-[ext_resource type="AudioStream" uid="uid://d0fb3axafbiwh" path="res://assets/audio/spnk_call.mp3" id="13_m8rlt"]
-[ext_resource type="AudioStream" uid="uid://to86tjkx51w6" path="res://assets/audio/fireball_call_p2.wav" id="14_qpqbf"]
-[ext_resource type="AudioStream" uid="uid://chf6ovrhyejma" path="res://assets/audio/loud3.mp3" id="16_x0tr5"]
-[ext_resource type="AudioStream" uid="uid://bdoof7d18fx5a" path="res://assets/audio/heavyblock.mp3" id="17_vym3m"]
-[ext_resource type="AudioStream" uid="uid://b20xi8m11rgxh" path="res://assets/audio/hurt_grunt3_p1.wav" id="18_wv6ou"]
+[ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://assets/audio/heavy_hit_sound.wav" id="10_bi6lw"]
+[ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://assets/audio/block_sound.wav" id="11_ysvx1"]
+[ext_resource type="AudioStream" uid="uid://tvuhpp3xdv6f" path="res://assets/audio/hurt_grunt_p2.wav" id="12_ydrny"]
+[ext_resource type="AudioStream" uid="uid://cll5h0p83t516" path="res://assets/audio/spnk_call.mp3" id="13_m8rlt"]
+[ext_resource type="AudioStream" uid="uid://byrh2qgg16h31" path="res://assets/audio/fireball_call_p2.wav" id="14_qpqbf"]
+[ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://assets/audio/loud3.mp3" id="16_x0tr5"]
+[ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="17_vym3m"]
+[ext_resource type="AudioStream" uid="uid://bd2f1ha4u0e6f" path="res://assets/audio/hurt_grunt3_p1.wav" id="18_wv6ou"]
 
 [sub_resource type="Resource" id="Resource_4lg2u"]
 script = ExtResource("3_jo7nc")
@@ -423,6 +423,18 @@ tracks/31/keys = {
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [false]
+}
+tracks/32/type = "value"
+tracks/32/imported = false
+tracks/32/enabled = true
+tracks/32/path = NodePath("Hurtbox/AttackHurtShape:shape:size")
+tracks/32/interp = 1
+tracks/32/loop_wrap = true
+tracks/32/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(200, 100)]
 }
 
 [sub_resource type="Animation" id="Animation_meopb"]
@@ -918,13 +930,13 @@ tracks/10/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_iwfv5"]
-size = Vector2(0, 0)
+size = Vector2(100, 100)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_uns0w"]
 size = Vector2(40, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_7gy1f"]
-size = Vector2(175, 50)
+size = Vector2(190, 100)
 
 [sub_resource type="Animation" id="Animation_jo7nc"]
 resource_name = "cr_hk"
@@ -1081,7 +1093,7 @@ tracks/12/path = NodePath("Hurtbox/AttackHurtShape:shape")
 tracks/12/interp = 1
 tracks/12/loop_wrap = true
 tracks/12/keys = {
-"times": PackedFloat32Array(0.16666669, 0.23333335),
+"times": PackedFloat32Array(0.16666669, 0.6),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [SubResource("RectangleShape2D_iwfv5"), null]
@@ -1093,10 +1105,10 @@ tracks/13/path = NodePath("Hurtbox/AttackHurtShape:shape:size")
 tracks/13/interp = 1
 tracks/13/loop_wrap = true
 tracks/13/keys = {
-"times": PackedFloat32Array(0.16666669),
-"transitions": PackedFloat32Array(1),
+"times": PackedFloat32Array(0.16666669, 0.51666665),
+"transitions": PackedFloat32Array(1, 1),
 "update": 1,
-"values": [Vector2(40, 20)]
+"values": [Vector2(200, 100), Vector2(100, 100)]
 }
 tracks/14/type = "value"
 tracks/14/imported = false
@@ -1105,10 +1117,10 @@ tracks/14/path = NodePath("Hurtbox/AttackHurtShape:position")
 tracks/14/interp = 1
 tracks/14/loop_wrap = true
 tracks/14/keys = {
-"times": PackedFloat32Array(0.16666669),
-"transitions": PackedFloat32Array(1),
+"times": PackedFloat32Array(0.16666669, 0.51666665),
+"transitions": PackedFloat32Array(1, 1),
 "update": 1,
-"values": [Vector2(25, 20)]
+"values": [Vector2(80, 100), Vector2(80, 100)]
 }
 tracks/15/type = "value"
 tracks/15/imported = false
@@ -1117,7 +1129,7 @@ tracks/15/path = NodePath("AnimatedSprite2D:frame")
 tracks/15/interp = 1
 tracks/15/loop_wrap = true
 tracks/15/keys = {
-"times": PackedFloat32Array(0, 0.06666667, 0.13333334, 0.2, 0.23333333, 0.26666668, 0.31666666, 0.35, 0.36666667, 0.43333334, 0.51666665, 0.5833333),
+"times": PackedFloat32Array(0, 0.06666667, 0.13333334, 0.2, 0.23333333, 0.26666668, 0.31666666, 0.35, 0.36666667, 0.43333334, 0.51666665, 0.6),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
@@ -1158,10 +1170,10 @@ tracks/18/path = NodePath("AnimatedSprite2D:offset")
 tracks/18/interp = 1
 tracks/18/loop_wrap = true
 tracks/18/keys = {
-"times": PackedFloat32Array(0, 0.06666667),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0, 0.06666667, 0.51666665, 0.5833333),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
 "update": 1,
-"values": [Vector2(0, 0), Vector2(80, 0)]
+"values": [Vector2(0, 0), Vector2(80, 0), Vector2(50, 0), Vector2(0, 0)]
 }
 
 [sub_resource type="Animation" id="Animation_ysvx1"]
@@ -2596,6 +2608,30 @@ tracks/4/keys = {
 "args": [],
 "method": &"_spawn_fireball"
 }]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("AnimatedSprite2D:scale")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [Vector2(0.46, 0.46)]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("AnimatedSprite2D:offset")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0, 0)]
 }
 
 [sub_resource type="Animation" id="Animation_iwfv5"]
@@ -6005,13 +6041,16 @@ animation = &"move_f"
 animation = &"move_b"
 
 [sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_idi7q"]
+blend_mode = 1
 blend_point_0/node = SubResource("AnimationNodeAnimation_0e34t")
 blend_point_0/pos = 0.0
+blend_point_0/name = &"0"
 blend_point_1/node = SubResource("AnimationNodeAnimation_6ev7e")
 blend_point_1/pos = 1.0
+blend_point_1/name = &"1"
 blend_point_2/node = SubResource("AnimationNodeAnimation_aar5g")
 blend_point_2/pos = -1.0
-blend_mode = 1
+blend_point_2/name = &"2"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_qr7ep"]
 animation = &"block"
@@ -6273,6 +6312,7 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
+frame = 140
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
