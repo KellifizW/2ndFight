@@ -17,7 +17,7 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 		return
 	
 	if movement_node.is_air_hit_backjump:
-		# 【重要】air_hit_backjump_timer 現在由 TimerHandler 管理
+		# 【重要】air_hit_backjump_timer 由 KnockflyHandler 管理，避免 TimerHandler 重複遞減
 		movement_node.air_hit_backjump_timer = max(0, movement_node.air_hit_backjump_timer - 1)
 		# 【統一重力系統】直接應用重力（這個狀態獨立於 GravitySystem）
 		var gravity: int = movement_node.world.GRAVITY if movement_node.world else 6000000

@@ -29,6 +29,9 @@ const CASES: Array = [
 	"res://tests/frame_tests/cases/test_10_hitstun_decrement.gd",
 	"res://tests/frame_tests/cases/test_11_landing_lock_frames.gd",
 	"res://tests/frame_tests/cases/test_12_dash_frames.gd",
+	"res://tests/frame_tests/cases/test_13_combo_requires_active_stun.gd",
+	"res://tests/frame_tests/cases/test_14_dash_window_expires.gd",
+	"res://tests/frame_tests/cases/test_15_vfx_preloader_character_vfx.gd",
 ]
 
 var _passed: int = 0

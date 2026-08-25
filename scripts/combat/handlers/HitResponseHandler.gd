@@ -66,7 +66,10 @@ func handle_hitbox_collision(area: Area2D) -> void:
 		return
 	
 	var target = area.get_parent()
-	var was_in_stun = target.is_hit or target.is_knockfly
+	# Capture combo state before applying the new hit.  Using is_hit alone is
+	# unsafe because legacy timers can leave that boolean set after hitstun has
+	# reached 0; combo continuation must be based on active stun/knockfly frames.
+	var was_in_stun = _target_is_combo_stunned(target)
 	var move_set = parent_player.move_set if "move_set" in parent_player else null
 	var active_move = move_set.current_move_state.active_move if move_set and move_set.is_spmove else null
 	
@@ -154,6 +157,27 @@ func _is_valid_hit(area: Area2D) -> bool:
 	if area.get_parent() == parent_player:
 		return false
 	return true
+
+func _target_is_combo_stunned(target: Node) -> bool:
+	"""Return true only when the target was still comboable before this hit."""
+	if target == null:
+		return false
+	# Authoritative frame-based hitstun.  This avoids stale is_hit booleans from
+	# extending the combo counter after the defender has actually recovered.
+	if "hitstun_frames" in target and int(target.hitstun_frames) > 0:
+		return true
+	# During hitstop, hitstun may be pending until SlowMoController finishes.
+	if "waiting_for_hit_stop_end" in target and target.waiting_for_hit_stop_end:
+		return true
+	# Air hit-backjump and knockfly are still combo/juggle states.
+	if "is_air_hit_backjump" in target and target.is_air_hit_backjump:
+		return true
+	if "is_knockfly" in target and target.is_knockfly:
+		return true
+	# Fallback for non-Fighter targets only.
+	if not ("hitstun_frames" in target) and "is_hit" in target and target.is_hit:
+		return true
+	return false
 
 func _get_hit_parameters(phase_data = null) -> Dictionary:
 	"""從 ATTACK_TABLE 或 MoveSet 獲取攻擊參數"""

@@ -175,6 +175,11 @@ func _ready() -> void:
 		push_error("角色生成失敗！請檢查 CharacterData 和場景設定。")
 		return
 	
+	# 預熱已生成角色內嵌的 VFX（groundsmoke、spawnfire 等），避免第一次觸發時卡頓。
+	if resource_preloader and resource_preloader.has_method("warmup_character_vfx"):
+		resource_preloader.warmup_character_vfx(player_a, player_a.character_id)
+		resource_preloader.warmup_character_vfx(player_b, player_b.character_id)
+
 	# 連接信號
 	player_a.hit_detected.connect(_on_hit_detected)
 	player_a.block_detected.connect(_on_block_detected)
@@ -744,6 +749,9 @@ func reset_players() -> void:
 	
 	Debug.log("[WORLD] ✓ 玩家重置完成 - 位置、血量、動畫、幀條、優勢已恢復 | FrameCounter 重置至 0")
 
+func _stun_logic_frames_to_seconds(stun_duration: float) -> float:
+	return max(0.0, stun_duration) / 60.0
+
 func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool) -> void:
 	var hit_time_ms = Time.get_ticks_msec()
 	
@@ -755,7 +763,10 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		else:
 			current_combo = 1
 			combo_target = target
-		combo_reset_timer = stun_duration + COMBO_BUFFER
+		# hit_detected passes hitstun/blockstun in 60 FPS logic frames.
+		# combo_reset_timer is seconds, so convert once here; otherwise a
+		# 24-frame hitstun incorrectly keeps the combo label alive for 24s.
+		combo_reset_timer = _stun_logic_frames_to_seconds(stun_duration) + COMBO_BUFFER
 		update_combo_label()
 		
 		attacker = player_a if target == player_b.name else player_b
