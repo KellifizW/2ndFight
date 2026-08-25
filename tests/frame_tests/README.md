@@ -31,6 +31,9 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | test_10_hitstun_decrement | hitstop 期間凍結、之後 48 次逐幀遞減至 0 |
 | test_11_landing_lock_frames | 無輸入著地狀態精確持續 23 物理幀 |
 | test_12_dash_frames | 雙擊前衝精確持續 42 物理幀 |
+| test_13_combo_requires_active_stun | 非 hitstun 內的下一次命中不可延續 combo counter |
+| test_14_dash_window_expires | double-tap dash window 36 物理幀後必須清除 |
+| test_15_vfx_preloader_character_vfx | 遊戲載入時預載/預熱 hit、block、spawnfire、火球 VFX |
 
 ## 設計規則（寫新用例時請遵守）
 

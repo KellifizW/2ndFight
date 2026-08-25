@@ -12,17 +12,18 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 	var seat = movement_node.seat if "seat" in movement_node else "?"
 	if debug_dash and Engine.get_physics_frames() % 30 == 0 and input_dir != 0:  # 每 30 幀輸出一次（0.25秒）
 		Debug.log("[DASH DEBUG] %s | input_dir=%d | neutral_timer=%.1f | pending_dir=%d | last_input=%d | conditions: on_floor=%s, attacking=%s, dashing=%s" % [
-			seat, input_dir, movement_node.neutral_timer, movement_node.pending_dash_dir, 
+			seat, input_dir, movement_node.neutral_timer, movement_node.pending_dash_dir,
 			movement_node.last_input_dir, movement_node.is_on_floor(), movement_node.is_attacking, movement_node.is_dashing
 		])
 	
-	if movement_node.is_on_floor() and not movement_node.is_attacking and not movement_node.is_dashing and not movement_node.is_backdashing and not is_special_moving and not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.is_layground) and not movement_node.is_crouching:
+	var is_landing_locked = "is_landing" in movement_node and movement_node.is_landing and "landing_lock_timer" in movement_node and movement_node.landing_lock_timer > 0
+	if movement_node.is_on_floor() and not is_landing_locked and not movement_node.is_attacking and not movement_node.is_dashing and not movement_node.is_backdashing and not is_special_moving and not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.is_layground) and not movement_node.is_crouching:
 		
 		if movement_node.neutral_timer > 0 and input_dir != 0 and movement_node.pending_dash_dir == input_dir:
 			# 🟢 double-tap 被檢出！
 			if debug_dash:
 				Debug.log("[DASH DETECTED] %s | neutral_timer=%.1f | input_dir=%d | pending_dir=%d | facing=%.1f" % [
-					seat, movement_node.neutral_timer, input_dir, movement_node.pending_dash_dir, 
+					seat, movement_node.neutral_timer, input_dir, movement_node.pending_dash_dir,
 					movement_node.facing_direction
 				])
 			if input_dir * movement_node.facing_direction > 0:
@@ -34,7 +35,7 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 				movement_node.fixed_velocity.x = int(movement_node.dash_initial_speed)
 				if debug_dash:
 					Debug.log("[DASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
-					seat, movement_node.dash_timer, movement_node.fixed_velocity.x, movement_node.dash_initial_speed
+						seat, movement_node.dash_timer, movement_node.fixed_velocity.x, movement_node.dash_initial_speed
 					])
 				if movement_node.groundsmoke:
 					movement_node.groundsmoke.scale.x = movement_node.facing_direction
@@ -48,22 +49,22 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 				movement_node.fixed_velocity.x = int(movement_node.dash_initial_speed)
 				if debug_dash:
 					Debug.log("[BACKDASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
-					seat, movement_node.dash_timer, movement_node.fixed_velocity.x, movement_node.dash_initial_speed
+						seat, movement_node.dash_timer, movement_node.fixed_velocity.x, movement_node.dash_initial_speed
 					])
 				if movement_node.groundsmoke:
 					movement_node.groundsmoke.scale.x = movement_node.facing_direction
 					movement_node.groundsmoke.restart()
-			movement_node.neutral_timer = 0.0
+			movement_node.neutral_timer = 0
 			movement_node.pending_dash_dir = 0
 			movement_node.last_input_dir = 0
 			movement_node.landing_facing_lock = true
 		elif input_dir != movement_node.last_input_dir:
 			if movement_node.last_input_dir != 0 and input_dir == 0:
-				# � 鍵盤被釋放，開始 double-tap 窗口
+				# 鍵盤被釋放，開始 double-tap 窗口
 				movement_node.neutral_timer = int(round(movement_node.double_tap_timer * 120.0))
 				movement_node.pending_dash_dir = movement_node.last_input_dir
 				if debug_dash:
 					Debug.log("[DASH WINDOW START] %s | neutral_timer_frames=%d (%.2fs) | pending_dir=%d" % [
-					seat, movement_node.neutral_timer, movement_node.neutral_timer / 120.0, movement_node.pending_dash_dir
+						seat, movement_node.neutral_timer, movement_node.neutral_timer / 120.0, movement_node.pending_dash_dir
 					])
 			movement_node.last_input_dir = input_dir

@@ -10,7 +10,11 @@ func handle_timers(delta: float) -> void:
 	var _seat = movement_node.seat if "seat" in movement_node else "?"
 	
 	if movement_node.neutral_timer > 0:
-		movement_node.neutral_timer = max(0, movement_node.neutral_timer - delta)
+		# neutral_timer is an integer physics-frame counter (120 Hz).
+		# Do not subtract delta here: the timer was created from frame counts,
+		# and mixing seconds back in makes dash windows last the wrong amount
+		# of gameplay frames after the frame-system cleanup.
+		movement_node.neutral_timer = max(0, int(movement_node.neutral_timer) - 1)
 		if movement_node.neutral_timer == 0:
 			movement_node.pending_dash_dir = 0
 	
@@ -28,7 +32,7 @@ func handle_timers(delta: float) -> void:
 			movement_node.is_dashing = false
 			movement_node.is_backdashing = false
 			movement_node.fixed_velocity.x = 0
-			movement_node.neutral_timer = 0.0
+			movement_node.neutral_timer = 0
 			movement_node.pending_dash_dir = 0
 			movement_node.last_input_dir = 0
 			movement_node.landing_facing_lock = false
@@ -36,17 +40,17 @@ func handle_timers(delta: float) -> void:
 			movement_node.dash_total_time = 0.0
 	
 	if movement_node.jump_delay_timer > 0:
-		movement_node.jump_delay_timer = max(0, movement_node.jump_delay_timer - delta)
+		# jump_delay_timer is also frame-based. A 12-frame jump
+		# pre-jump must remain 12 physics ticks regardless of time_scale.
+		movement_node.jump_delay_timer = max(0, int(movement_node.jump_delay_timer) - 1)
 		if movement_node.jump_delay_timer == 0:
 			movement_node.fixed_velocity.y = int(movement_node.jump_vertical_speed * (movement_node.world.SIMULATION_SCALE if movement_node.world else 1000))
 			movement_node.just_jumped = true
 			movement_node.fixed_position.y = (movement_node.world.FLOOR_Y if movement_node.world else 200000) - 1
 	
-	if movement_node.air_hit_backjump_timer > 0:
-		movement_node.air_hit_backjump_timer = max(0, movement_node.air_hit_backjump_timer - delta)
-		if movement_node.air_hit_backjump_timer == 0:
-			movement_node.is_air_hit_backjump = false
-			movement_node.fixed_velocity = Vector2i.ZERO
+	# air_hit_backjump_timer is decremented by KnockflyHandler, which also
+	# owns that state's gravity/friction and cleanup. Do not decrement it
+	# here or the state expires twice as fast.
 	
 	# 【著地動畫計時器】Frame-based landing animation duration
 	# 【新規則】2幀強制landing，之後檢查輸入中斷
@@ -110,7 +114,7 @@ func handle_timers(delta: float) -> void:
 			movement_node._landing_checkpoint_executed = false
 			movement_node._landing_forced_frames = 0
 			# 【新增】清除中斷標記
-			if "landing_interrupted_by_input" in movement_node:
+			if "_landing_interrupted_by_input" in movement_node:
 				movement_node._landing_interrupted_by_input = false
 			if movement_node.has_method("update_facing_direction"):
 				movement_node.update_facing_direction()

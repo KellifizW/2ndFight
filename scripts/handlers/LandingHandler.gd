@@ -94,10 +94,11 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	movement_node.fixed_velocity.x = 0
 	
 	# 重置相關狀態
-	movement_node.neutral_timer = 0.0
+	movement_node.neutral_timer = 0
 	movement_node.pending_dash_dir = 0
 	movement_node.last_input_dir = 0
 	movement_node.landing_facing_lock = false
+	movement_node._landing_interrupted_by_input = false
 	movement_node.jump_delay_timer = 0  # 【關鍵】清除跳躍延遲，準備下一次跳躍
 	
 	# 【新規則】總是播放至少2幀的landing動畫（無論輸入狀態）
