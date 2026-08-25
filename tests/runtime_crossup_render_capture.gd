@@ -82,7 +82,7 @@ func _snapshot(player: Node, opponent: Node, anim: String) -> String:
 	var canvas_transform: Transform2D = player.get_viewport().get_canvas_transform()
 	var player_screen: Vector2 = canvas_transform * player.global_position
 	var opponent_screen: Vector2 = canvas_transform * opponent.global_position
-	return "frame=%d state=%s player_anim=%s tree_active=%s sprite_anim=%s:%d root=(%.1f,%.1f) screen=(%.1f,%.1f) sprite=(%.1f,%.1f) sprite_offset=(%.1f,%.1f) opp=%.1f opp_screen_x=%.1f facing=%.1f root_scale=%.3f sprite_sign=%.1f landing=%s timer=%.4f" % [
+	return "frame=%d state=%s player_anim=%s tree_active=%s sprite_anim=%s:%d root=(%.1f,%.1f) screen=(%.1f,%.1f) sprite=(%.1f,%.1f) sprite_offset=(%.1f,%.1f) opp=%.1f opp_screen_x=%.1f facing=%.1f root_scale=%.3f sprite_sign=%.1f landing=%s lock=%df" % [
 		Engine.get_physics_frames(),
 		anim,
 		player_anim,
@@ -103,7 +103,7 @@ func _snapshot(player: Node, opponent: Node, anim: String) -> String:
 		player.scale.x,
 		_sprite_global_x_sign(player),
 		player.is_landing,
-		player.landing_lock_timer,
+		player.landing_lock_frames,
 	]
 
 func _sprite_global_x_sign(player: Node) -> float:

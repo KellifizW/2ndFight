@@ -71,7 +71,7 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	2. 清除jump狀態
 	3. 【新增】總是播放至少2幀的landing動畫（強制landing lock）
 	4. 2幀後，檢查輸入：
-	   - 無輸入 → 繼續完整landing動畫（landing_duration）
+	   - 無輸入 → 繼續完整landing動畫（landing_duration 換算的幀數）
 	   - 有輸入 → 中斷landing，進入輸入狀態
 	5. 播放著地效果音和粒子
 	6. 更新動畫狀態
@@ -98,19 +98,18 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	movement_node.pending_dash_dir = 0
 	movement_node.last_input_dir = 0
 	movement_node.landing_facing_lock = false
-	movement_node._landing_interrupted_by_input = false
 	movement_node.jump_delay_timer = 0  # 【關鍵】清除跳躍延遲，準備下一次跳躍
 	
 	# 【新規則】總是播放至少2幀的landing動畫（無論輸入狀態）
 	movement_node.is_landing = true
-	movement_node.landing_lock_timer = 2.0 / 60.0  # 2 frames at 60 FPS = 0.0333秒
+	movement_node.landing_lock_frames = Movement.LANDING_FORCED_LOCK_FRAMES
 	movement_node._landing_timer_initialized = false  # 【新增】標記此timer剛設置，下一frame才能檢查
 	movement_node._landing_checkpoint_executed = false  # 【新增】重置checkpoint執行標記
 	movement_node._landing_forced_frames = 0  # 【新增】重置強制幀數計數器
 	if movement_node.has_method("force_update_facing_direction"):
 		movement_node.force_update_facing_direction()
 	
-	Debug.log("[LANDING_START] %s: is_landing=true, timer=2f, checkpoint_reset" % [seat])
+	Debug.log("[LANDING_START] %s: is_landing=true, lock=%df, checkpoint_reset" % [seat, movement_node.landing_lock_frames])
 	
 	# 【視覺效果】著地時播放粒子和sound
 	if movement_node.groundsmoke:
@@ -118,14 +117,14 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 		movement_node.groundsmoke.restart()
 	
 	# 【重點】保存landing timer，然後更新動畫狀態，再恢復timer
-	var saved_landing_timer = movement_node.landing_lock_timer
+	var saved_landing_frames = movement_node.landing_lock_frames
 	var saved_is_landing = movement_node.is_landing
 	
 	# 更新動畫狀態以觸發landing動畫
 	movement_node._update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 	
 	# 恢復landing狀態（防止被其他狀態覆蓋）
-	movement_node.landing_lock_timer = saved_landing_timer
+	movement_node.landing_lock_frames = saved_landing_frames
 	movement_node.is_landing = saved_is_landing
 	
 	# 【推擠系統】處理著地時的pushbox碰撞

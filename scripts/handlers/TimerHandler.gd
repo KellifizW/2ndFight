@@ -6,7 +6,15 @@ var movement_node: Node
 func _init(movement: Node) -> void:
 	movement_node = movement
 
-func handle_timers(delta: float) -> void:
+## 著地完整動畫的物理幀數（由 landing_duration 秒換算，唯一轉換點）
+func _full_landing_frames() -> int:
+	var landing_duration: float = movement_node.landing_duration \
+			if "landing_duration" in movement_node else 0.2
+	return Movement.seconds_to_lock_frames(landing_duration)
+
+# 【Stage 1】handle_timers 現在完全是幀制，不再需要 delta。
+# 保留參數是為了不動 Movement._physics_process 的呼叫端簽章。
+func handle_timers(_delta: float) -> void:
 	var _seat = movement_node.seat if "seat" in movement_node else "?"
 	
 	if movement_node.neutral_timer > 0:
@@ -54,7 +62,7 @@ func handle_timers(delta: float) -> void:
 	
 	# 【著地動畫計時器】Frame-based landing animation duration
 	# 【新規則】2幀強制landing，之後檢查輸入中斷
-	if "landing_lock_timer" in movement_node and movement_node.landing_lock_timer > 0:
+	if "landing_lock_frames" in movement_node and movement_node.landing_lock_frames > 0:
 		# 【計數幀數】每次handle_timers被調用時計數（相當於每frame）
 		movement_node._landing_forced_frames += 1
 		
@@ -74,8 +82,9 @@ func handle_timers(delta: float) -> void:
 			movement_node._landing_checkpoint_executed = true
 			
 			var seat = movement_node.get_meta("player_seat") if movement_node.has_meta("player_seat") else "unknown"
-			var timer_desc = "0.001s (interrupted)" if has_input else "0.2s (full animation)"
-			Debug.log("[LANDING_CHECKPOINT] %s: input_detected=%s, landing_timer will be: %s" % [
+			var timer_desc = "%df (interrupted)" % Movement.LANDING_INTERRUPT_FRAMES if has_input \
+					else "%df (full animation)" % _full_landing_frames()
+			Debug.log("[LANDING_CHECKPOINT] %s: input_detected=%s, landing_frames will be: %s" % [
 				seat, has_input, timer_desc
 			])
 			
@@ -91,21 +100,20 @@ func handle_timers(delta: float) -> void:
 			movement_node.landing_facing_lock = saved_landing_facing_lock
 			
 			if has_input:
-				# 【關鍵】設置極小的timer值，但不立即設為0
+				# 【關鍵】留 1 幀而非立即歸零
 				# 這樣下一幀才會將 is_landing=false，JumpHandler 才會在下一幀處理跳躍延遲
-				movement_node.landing_lock_timer = 0.001
-				# 【新增】標記著地被輸入中斷，下一幀設置 is_landing=false
-				movement_node._landing_interrupted_by_input = true
+				movement_node.landing_lock_frames = Movement.LANDING_INTERRUPT_FRAMES
 			else:
-				var landing_duration = movement_node.landing_duration if "landing_duration" in movement_node else 0.2
-				movement_node.landing_lock_timer = landing_duration
+				movement_node.landing_lock_frames = _full_landing_frames()
 		
 		# 【關鍵修正】移除早期return，讓timer正常遞減
-		# 正常計時器遞減（每幀都要執行）
-		movement_node.landing_lock_timer = max(0, movement_node.landing_lock_timer - delta)
+		# 【Stage 1】每個物理幀固定 -1，不再用 delta：
+		# hitstop 期間 Engine.time_scale=0.02 會把 delta 縮小 50 倍，
+		# 舊的秒制寫法會讓著地鎖定被拉長，幀制則完全不受影響。
+		movement_node.landing_lock_frames = max(0, movement_node.landing_lock_frames - 1)
 		
 		# 檢查著地是否完成
-		if movement_node.landing_lock_timer <= 0:
+		if movement_node.landing_lock_frames <= 0:
 			Debug.log("[%s] ✓ Landing COMPLETE, is_landing=false" % [_seat])
 			movement_node.is_landing = false
 			movement_node.is_jumping = false  # 【關鍵】著地完成時清除 is_jumping，完全解除著地狀態
@@ -113,8 +121,5 @@ func handle_timers(delta: float) -> void:
 			movement_node._landing_timer_initialized = false
 			movement_node._landing_checkpoint_executed = false
 			movement_node._landing_forced_frames = 0
-			# 【新增】清除中斷標記
-			if "_landing_interrupted_by_input" in movement_node:
-				movement_node._landing_interrupted_by_input = false
 			if movement_node.has_method("update_facing_direction"):
 				movement_node.update_facing_direction()

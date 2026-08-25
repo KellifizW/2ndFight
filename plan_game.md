@@ -48,7 +48,7 @@
 | 階段 | 目標 | 狀態 | 估算 |
 |---|---|---|---|
 | Stage 0 | 止血 + 安全網(DebugLogger / frame 測試 / frame data 表 / 守則) | ✅ 已併入 main | — |
-| Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | 🔄 進行中(安全網 12/12) | 1~2 週末 |
+| Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | 🔄 進行中(安全網 16 用例; landing family 已遷移) | 1~2 週末 |
 | Stage 2 | 顯式狀態機(消除 34 旗標) | ⏳ | 2~4 週末 |
 | Stage 3 | FrameData 收攏 + 數據問題清理 | ⏳ | 1~2 週末 |
 | Stage 4 | 輸入系統收斂(單一 ActionMapper) | ⏳ | 1~2 週末 |
@@ -258,7 +258,7 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | Stage 2 | 13 狀態機不變式(隨機輸入 600 幀) |
 | Stage 3 | 14 每角色每招式 frame 斷言 / 100p 四段 |
 | Stage 4 | 15 QCF 宏 / 16 DP 宏 / 17 摔投窗口 / 18 AI 對稱性 |
-| Stage 5 | CI 化(無新用例, 全部進 CI) |
+| Stage 5 | CI 化(無新用例, 全部進 CI) — workflow 已寫好待啟用, 見 §12.2 |
 ### 10.5 寫新用例的規則(詳見 `tests/frame_tests/README.md`)
 1. 每個用例獨立 world(狀態隔離), 不需要清理
 2. 計時用物理幀(`await_frames`), 1 邏輯幀 = 2 物理幀, 不用真實秒數
@@ -276,7 +276,7 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 ## 11. 風險清單與緩解
 | 風險 | 等級 | 緩解 |
 |---|---|---|
-| 無 CI 前的驗證依賴使用者本地(沙箱下不到 Godot) | 高 | 每階段開頭先跑全量測試; 測試腳本一行命令; Stage 5 建 CI |
+| 無 CI 前的驗證依賴使用者本地(沙箱下不到 Godot) | 高 → 待啟用後緩解 | CI workflow 已寫好(`ci/frame-tests.yml`, 容器 `barichello/godot-ci:4.7.2`); 搬入 `.github/workflows/` 後每次 push/PR 自動跑 |
 | Godot 4.6→4.7.2 升級的引擎行為差異 | 中 | 升級後已跑過 Stage 0 測試(使用者確認中); 之後每階段都重跑 |
 | Stage 1 大規模計時器遷移的隱性行為漂移 | 高 | 12 個用例 + 逐子系統遷移(一次一個計時器族) + FrameData 表比對 |
 | Stage 2 狀態機遷移期間長(2~4 週末) | 中 | 按子系統切 3 段, 每段独立可驗證; 旗標與狀態並行期間用測試對齊 |
@@ -286,10 +286,23 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 ---
 ## 12. 立即下一步
 1. **[已完成]** Godot 4.7.2 baseline 9/9 PASS; `test_10~12` 安全網完成, **12/12 PASS**
-2. **[Stage 1 遷移]** 按 §5 工作項目逐計時器族遷移, 每族跑一次 12 用例
-3. 第一個遷移切片: landing timer family (`landing_lock_timer` / `landing_duration`) 改 int 物理幀,
-  保持無輸入 `is_landing` 23 幀行為不變
-4. 每階段結束: 更新本文件狀態欄 + `FRAME_DATA_TABLE.md` + commit
+2. **[待啟用]** CI 化提前(原 Stage 5): workflow 已寫好, 暫放 `ci/frame-tests.yml`,
+  用容器 `barichello/godot-ci:4.7.2` 跑全部 frame 用例 + gdtoolkit 靜態解析。
+  **尚未生效** —— 開此 PR 的自動化以 GitHub App 身分認證且無 `workflows` 權限,
+  無法寫入 `.github/workflows/`。有寫入權限者執行
+  `git mv ci/frame-tests.yml .github/workflows/frame-tests.yml` 即可啟用。
+3. **[已完成]** 第一個遷移切片: landing timer family →
+  `landing_lock_timer: float`(秒) 改為 `landing_lock_frames: int`(物理幀),
+  26 處讀寫點全數更新; 新增 `test_16` 釘住轉換公式; 順帶刪除死變數
+  `_landing_interrupted_by_input` 並抽出 `Player._enter_landing_state()`(消除三份複製)。
+  **轉換公式踩雷紀錄**: 舊的 `timer -= delta` 迴圈在 0.2s 下實際跑 **25** 幀而非數學上的 24
+  (24 次浮點相減後殘值 5.2e-17 > 0)。因此換算用 `floor(sec*fps)+1`
+  (`Movement.seconds_to_lock_frames`), 若用 `round()` 會少一幀而改變行為。
+4. **[下一切片]** `knockfly_timer` / `hit_timer` / `block_timer` / `block_push_timer`
+  (`PushManager.gd:278-310` 的 `-= delta` 群)。這族的實質收益: `fighter.gd:90-95`
+  在 hitstop 期間早退, 但 PushManager 的 delta 遞減不受該早退保護, 目前秒型計時器
+  在 hitstop 下仍會前進 —— 改幀制後自動修正。
+5. 每階段結束: 更新本文件狀態欄 + `FRAME_DATA_TABLE.md` + commit
 ---
 ## 附錄 A: 關鍵代碼位置(供各階段參考)
 | 系統 | 檔案 |

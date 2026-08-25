@@ -32,6 +32,7 @@ const CASES: Array = [
 	"res://tests/frame_tests/cases/test_13_combo_requires_active_stun.gd",
 	"res://tests/frame_tests/cases/test_14_dash_window_expires.gd",
 	"res://tests/frame_tests/cases/test_15_vfx_preloader_character_vfx.gd",
+	"res://tests/frame_tests/cases/test_16_landing_lock_is_frame_based.gd",
 ]
 
 var _passed: int = 0

@@ -26,16 +26,27 @@ var timer_handler: TimerHandler
 var landing_handler: LandingHandler
 
 # ── 著地系統 ────────────────────────────
+# 【Stage 1 時間域統一】landing 計時器改為 int 物理幀（120 Hz），
+# 每個 _physics_process 遞減 1。舊版是 float 秒 `-= delta`，
+# 在 hitstop（Engine.time_scale = 0.02）期間 delta 會被縮放，
+# 導致著地鎖定時間隨 time_scale 漂移；改幀後與 time_scale 完全無關。
 var is_landing: bool = false
-var landing_lock_timer: float = 0.0  # Timer in seconds (managed by TimerHandler)
+var landing_lock_frames: int = 0  # 物理幀計數（由 TimerHandler 遞減）
 var is_airborne: bool = false  # 【新增】統一的空中狀態追蹤
 var _landing_timer_initialized: bool = false  # 【新增】防止same-frame checkpoint執行
 var _landing_checkpoint_executed: bool = false  # 【新增】追蹤checkpoint是否已執行，防止重複執行
 var _landing_forced_frames: int = 0  # 【新增】追蹤著地強制幀數，確保至少2幀
-var _landing_interrupted_by_input: bool = false  # 【新增】標記著地是否被輸入中斷，延遲一幀才解除著地狀態
+
+## 著地開始時的強制鎖定幀數（等價於舊值 2.0/60.0 秒）。
+## checkpoint 在第 2 幀就會覆寫它，所以只在 checkpoint 未觸發時才用得到。
+const LANDING_FORCED_LOCK_FRAMES: int = 5
+## 著地被輸入中斷時剩餘的幀數（等價於舊的 0.001 秒魔數）。
+## 不設 0 的原因：要留 1 幀讓 is_landing 在下一幀才解除，
+## JumpHandler 才有機會在該幀處理跳躍延遲。
+const LANDING_INTERRUPT_FRAMES: int = 1
 
 # ── 基本狀態 ──────────────────────────────
-@export var landing_duration: float = 0.2
+@export var landing_duration: float = 0.2  # 秒（設計師調參用；經 seconds_to_lock_frames 轉幀）
 @export var layground_duration: float = 0.2
 var is_layground: bool = false
 var layground_timer: int = 0  # Frame-based timer
@@ -178,6 +189,20 @@ var anim_resets: Dictionary = {
 	"st_mp": func(): _reset_attack()
 }
 
+## 秒 → 著地鎖定物理幀數（Stage 1：landing family 的唯一轉換邊界）。
+##
+## 為什麼是 floor(s * fps) + 1 而不是 round(s * fps)：
+## 舊實作是 `timer = max(0, timer - delta)`，迴圈條件為 `timer > 0`，
+## 也就是「要讓 timer 降到 0 需要幾次遞減」。0.2 秒 / (1/120) 數學上是 24，
+## 但 24 次浮點相減後殘值為 5.2e-17 > 0，於是實際會多跑第 25 幀。
+## 直接用 round() 會得到 24，讓著地整整短一幀 —— 正是「重構期間行為必須不變」
+## 要防的漂移。floor()+1 精確重現舊的浮點格數（0.2→25、2/60→5、0.001→1）。
+static func seconds_to_lock_frames(seconds: float) -> int:
+	if seconds <= 0.0:
+		return 0
+	var fps: float = float(Engine.physics_ticks_per_second)
+	return int(floor(seconds * fps)) + 1
+
 func _reset_layground() -> void:
 	is_layground = false
 	is_knockfly = false
@@ -298,7 +323,7 @@ func _physics_process(delta: float) -> void:
 	# 【關鍵】Only use dash_pressed/backdash_pressed for AI - human players use dash_handler's double-tap detection
 	var has_dash_pressed = (player and player.is_ai_controlled and input_data.get("dash_pressed", false))
 	var has_backdash_pressed = (player and player.is_ai_controlled and input_data.get("backdash_pressed", false))
-	var is_landing_locked = is_landing and landing_lock_timer > 0
+	var is_landing_locked = is_landing and landing_lock_frames > 0
 	
 	if has_dash_pressed and is_on_floor() and not is_landing_locked and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and not is_crouching:
 		# AI wants to dash forward
@@ -366,7 +391,7 @@ func _physics_process(delta: float) -> void:
 		if floor_snap_immunity_timer <= 0:
 			is_immune_to_floor_snap = false
 	
-	var is_landing_state: bool = ("is_landing" in self and self.is_landing and "landing_lock_timer" in self and self.landing_lock_timer > 0)
+	var is_landing_state: bool = ("is_landing" in self and self.is_landing and "landing_lock_frames" in self and self.landing_lock_frames > 0)
 	if not (is_attacking or landing_facing_lock or is_landing_state):
 		update_facing_direction()
 	if is_on_floor() and was_in_air and not is_landing_state and not is_special_moving and not is_jumping and not landing_facing_lock:
@@ -377,7 +402,7 @@ func _physics_process(delta: float) -> void:
 	
 	prev_position = global_position
 	
-	if not ("landing_lock_timer" in self and self.landing_lock_timer > 0) and not is_layground:
+	if not ("landing_lock_frames" in self and self.landing_lock_frames > 0) and not is_layground:
 		_update_animation_state(input_dir, crouch_pressed)
 	
 	post_physics_process(delta)

@@ -16,7 +16,7 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 			movement_node.last_input_dir, movement_node.is_on_floor(), movement_node.is_attacking, movement_node.is_dashing
 		])
 	
-	var is_landing_locked = "is_landing" in movement_node and movement_node.is_landing and "landing_lock_timer" in movement_node and movement_node.landing_lock_timer > 0
+	var is_landing_locked = "is_landing" in movement_node and movement_node.is_landing and "landing_lock_frames" in movement_node and movement_node.landing_lock_frames > 0
 	if movement_node.is_on_floor() and not is_landing_locked and not movement_node.is_attacking and not movement_node.is_dashing and not movement_node.is_backdashing and not is_special_moving and not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.is_layground) and not movement_node.is_crouching:
 		
 		if movement_node.neutral_timer > 0 and input_dir != 0 and movement_node.pending_dash_dir == input_dir:
