@@ -43,30 +43,30 @@ func compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, ani
 	# 【業界標準】但在特殊招式期間，不播放landing動畫（由extended move animation包含）
 	var seat = movement_node.seat if "seat" in movement_node else "?"
 	
-	if "is_landing" in movement_node and movement_node.is_landing and "landing_lock_timer" in movement_node and movement_node.landing_lock_timer > 0:
+	if "is_landing" in movement_node and movement_node.is_landing and "landing_lock_frames" in movement_node and movement_node.landing_lock_frames > 0:
 		var move_set_for_landing = movement_node.get_node_or_null("MoveSet")
 		var is_spmove_active = move_set_for_landing and move_set_for_landing.is_spmove
 		var active_move = move_set_for_landing.get_active_move_name() if move_set_for_landing and move_set_for_landing.has_method("get_active_move_name") else "none"
 		
 		if not is_spmove_active:  # 【重要】只在特殊招式結束後播放
-			Debug.log("[LANDING_ANIMATION_PLAY] %s | move=%s | lock_timer=%.3f | spmove=%s" % [
-				seat, active_move, movement_node.landing_lock_timer, is_spmove_active
+			Debug.log("[LANDING_ANIMATION_PLAY] %s | move=%s | lock_frames=%d | spmove=%s" % [
+				seat, active_move, movement_node.landing_lock_frames, is_spmove_active
 			])
 			return "landing"
 		else:
-			Debug.log("[LANDING_BLOCKED_BY_SPMOVE] %s | move=%s | lock_timer=%.3f" % [
-				seat, active_move, movement_node.landing_lock_timer
+			Debug.log("[LANDING_BLOCKED_BY_SPMOVE] %s | move=%s | lock_frames=%d" % [
+				seat, active_move, movement_node.landing_lock_frames
 			])
-	elif "is_landing" in movement_node and movement_node.is_landing and "landing_lock_timer" in movement_node and movement_node.landing_lock_timer <= 0:
+	elif "is_landing" in movement_node and movement_node.is_landing and "landing_lock_frames" in movement_node and movement_node.landing_lock_frames <= 0:
 		# 【檢測】landing 被中斷
-		Debug.log("[LANDING_INTERRUPTED] %s: is_landing=true but timer=%.3f (should be false)" % [
-			seat, movement_node.landing_lock_timer
+		Debug.log("[LANDING_INTERRUPTED] %s: is_landing=true but lock_frames=%d (should be false)" % [
+			seat, movement_node.landing_lock_frames
 		])
-	elif "is_landing" in movement_node and movement_node.is_landing and ("landing_lock_timer" not in movement_node or movement_node.landing_lock_timer <= 0):
+	elif "is_landing" in movement_node and movement_node.is_landing and ("landing_lock_frames" not in movement_node or movement_node.landing_lock_frames <= 0):
 		# 【檢測】沒進入 landing 狀態的原因
-		var timer_val = movement_node.landing_lock_timer if "landing_lock_timer" in movement_node else "N/A"
-		Debug.log("[LANDING_NOT_PLAYING] %s: is_landing=true, timer=%s, jumping=%s, knockfly=%s" % [
-			seat, timer_val, movement_node.is_jumping, movement_node.is_knockfly
+		var lock_val = movement_node.landing_lock_frames if "landing_lock_frames" in movement_node else "N/A"
+		Debug.log("[LANDING_NOT_PLAYING] %s: is_landing=true, lock_frames=%s, jumping=%s, knockfly=%s" % [
+			seat, lock_val, movement_node.is_jumping, movement_node.is_knockfly
 		])
 	
 	var move_set = movement_node.get_node_or_null("MoveSet")
@@ -119,7 +119,7 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	
 	var seat_str = movement_node.seat if "seat" in movement_node else "?"
 	var is_landing = movement_node.is_landing if "is_landing" in movement_node else false
-	var landing_timer = movement_node.landing_lock_timer if "landing_lock_timer" in movement_node else 0.0
+	var landing_lock = movement_node.landing_lock_frames if "landing_lock_frames" in movement_node else 0
 	var move_set = movement_node.get_node_or_null("MoveSet")
 	var is_spmove = move_set.is_spmove if move_set else false
 	
@@ -132,7 +132,7 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 			# 🟢 去重：只打印新的狀態轉換（不是上一幀已經打過的相同轉換）
 			var transition_key = "%s→%s" % [curr_state, target_state]
 			if last_printed_transition != transition_key:
-				Debug.log("[STATE_CHANGE] %s: '%s' → '%s' (spmove=%s is_landing=%s timer=%.3f)" % [seat_str, curr_state, target_state, is_spmove, is_landing, landing_timer])
+				Debug.log("[STATE_CHANGE] %s: '%s' → '%s' (spmove=%s is_landing=%s lock_frames=%d)" % [seat_str, curr_state, target_state, is_spmove, is_landing, landing_lock])
 				last_printed_transition = transition_key
 	
 	var ui_root = movement_node.get_tree().get_first_node_in_group("ui")

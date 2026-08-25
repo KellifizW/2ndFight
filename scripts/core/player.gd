@@ -99,7 +99,7 @@ func reset_landing_state() -> void:
 		return
 	
 	self.is_landing = false
-	self.landing_lock_timer = 0
+	self.landing_lock_frames = 0
 	self.landing_facing_lock = false
 	self.update_facing_direction()
 	# 获取当前真实的输入状态，保持蹲状态
@@ -108,7 +108,7 @@ func reset_landing_state() -> void:
 
 func reset_air_state() -> void:
 	# 【重點】如果正在著地期間，不要修改landing狀態
-	if self.is_landing and self.landing_lock_timer > 0:
+	if self.is_landing and self.landing_lock_frames > 0:
 		return
 	
 	if not self.is_on_floor():
@@ -130,16 +130,7 @@ func reset_air_state() -> void:
 			self.fixed_position.y = self.world.FLOOR_Y
 			self.global_position = self.world.to_scaled_vector2(self.fixed_position)
 		self.fixed_velocity.y = 0
-		var input_data = get_input()
-		self.is_landing = true
-		self.landing_lock_timer = 2.0 / 60.0
-		self.landing_facing_lock = false
-		self._landing_timer_initialized = false
-		self._landing_checkpoint_executed = false
-		self._landing_forced_frames = 0
-		self.force_update_facing_direction()
-		Debug.log("[AIR LANDING DEBUG] is_landing set | forced timer: %.4fs" % self.landing_lock_timer)
-		self._update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+		_enter_landing_state("AIR LANDING DEBUG")
 
 func reset_special_state() -> void:
 	var move_name = move_set.get_active_move_name() if move_set and move_set.has_method("get_active_move_name") else "UNKNOWN"
@@ -335,16 +326,7 @@ func _physics_process(delta: float) -> void:
 			fixed_position.y = world.FLOOR_Y
 			global_position = world.to_scaled_vector2(fixed_position)
 		fixed_velocity.y = 0
-		var air_input_data = get_input()
-		is_landing = true
-		landing_lock_timer = 2.0 / 60.0
-		landing_facing_lock = false
-		_landing_timer_initialized = false
-		_landing_checkpoint_executed = false
-		_landing_forced_frames = 0
-		force_update_facing_direction()
-		Debug.log("[ON FLOOR LANDING DEBUG] Landing triggered | forced timer: %.4fs" % landing_lock_timer)
-		_update_animation_state(air_input_data.input_dir, air_input_data.crouch_pressed)
+		_enter_landing_state("ON FLOOR LANDING DEBUG")
 
 	var input_data = get_input()
 	input_data.merge(special_input_data, true)
@@ -357,7 +339,7 @@ func _physics_process(delta: float) -> void:
 	#     input_data.st_mp_pressed = false
 	#     input_data.st_mk_pressed = false
 
-	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup and not is_layground and not (is_landing and landing_lock_timer > 0.001)
+	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup and not is_layground and not (is_landing and landing_lock_frames > Movement.LANDING_INTERRUPT_FRAMES)
 
 	if move_set and move_set.is_spmove:
 		is_attacking = false
@@ -452,17 +434,17 @@ func _physics_process(delta: float) -> void:
 		])
 	elif not is_ai_controlled and has_ground_attack_input and not is_valid_ground_state:
 		var frames_held2 = Engine.get_physics_frames() - last_executed_attack_frame
-		var land_timer_val = landing_lock_timer if "landing_lock_timer" in self else -1.0
-		Debug.log("[LOCK_TRACE:INVALID_STATE] F=%d Seat=%s | Input blocked by is_valid_ground_state=false | is_attacking=%s is_dashing=%s is_landing=%s land_timer=%.3f | since_last: %d physF=%.1f logicF" % [
+		var land_lock_val = landing_lock_frames if "landing_lock_frames" in self else -1
+		Debug.log("[LOCK_TRACE:INVALID_STATE] F=%d Seat=%s | Input blocked by is_valid_ground_state=false | is_attacking=%s is_dashing=%s is_landing=%s land_lock=%df | since_last: %d physF=%.1f logicF" % [
 			Engine.get_physics_frames(), seat,
-			is_attacking, is_dashing, is_landing, land_timer_val,
+			is_attacking, is_dashing, is_landing, land_lock_val,
 			frames_held2, frames_held2 / 2.0
 		])
 
 	# 【著地攻擊取消】著地動畫可被攻擊指令取消（強制2幀後）
 	if has_ground_attack_input and is_landing and _landing_forced_frames >= 2:
 		is_landing = false
-		landing_lock_timer = 0
+		landing_lock_frames = 0
 		landing_facing_lock = false
 		has_air_attacked = false
 		# 重新計算 is_valid_ground_state（is_landing 已清除）
@@ -494,7 +476,7 @@ func _physics_process(delta: float) -> void:
 		if attack_executor:
 			attack_executor.debug_air_attack_blocked(input_data, self)
 
-	# 【重點】landing_lock_timer 現在由 TimerHandler 管理，不在這裡遞減
+	# 【重點】landing_lock_frames 現在由 TimerHandler 管理，不在這裡遞減
 
 	# Countdown wakeup timer (FRAME-BASED)
 	if wakeup_timer > 0:
@@ -506,7 +488,7 @@ func _physics_process(delta: float) -> void:
 			attack_duration_timer = 0
 			update_facing_direction()
 	
-	if not (landing_lock_timer > 0):
+	if not (landing_lock_frames > 0):
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 	
 	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
@@ -579,7 +561,7 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 	if is_blocking:
 		return "cr_block" if is_crouch_blocking and crouch_input else "block"
 
-	if is_landing and landing_lock_timer > 0:
+	if is_landing and landing_lock_frames > 0:
 		return "landing"
 
 	# Air attack animation logic - only when actually in the air
@@ -656,21 +638,12 @@ func _on_animation_player_finished(anim_name: String) -> void:
 func _reset_jump_state() -> void:
 	"""跳躍動畫結束重置"""
 	# 【重點】如果正在著地期間，不要修改landing狀態
-	if is_landing and landing_lock_timer > 0:
+	if is_landing and landing_lock_frames > 0:
 		return
 	
 	if is_on_floor():
 		is_jumping = false
-		var input_data = get_input()
-		is_landing = true
-		landing_lock_timer = 2.0 / 60.0
-		landing_facing_lock = false
-		_landing_timer_initialized = false
-		_landing_checkpoint_executed = false
-		_landing_forced_frames = 0
-		force_update_facing_direction()
-		Debug.log("[AIR LANDING DEBUG] is_landing set | forced timer: %.4fs" % landing_lock_timer)
-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+		_enter_landing_state("AIR LANDING DEBUG")
 
 func _reset_landing_anim() -> void:
 	"""著地動畫結束重置"""
@@ -679,7 +652,7 @@ func _reset_landing_anim() -> void:
 		return
 	
 	is_landing = false
-	# 【重點】landing_lock_timer 由 TimerHandler 統一管理，不在這裡重置
+	# 【重點】landing_lock_frames 由 TimerHandler 統一管理，不在這裡重置
 	has_air_attacked = false
 	var input_data = get_input()
 	_update_animation_state(0, input_data.crouch_pressed)
@@ -738,6 +711,26 @@ func get_facing_multiplier() -> float:
 func update_facing_direction() -> void:
 	if is_facing_locked: return
 	super.update_facing_direction()
+
+## 進入著地狀態（Stage 1：統一原本散落在三處的相同 8 行 pattern）。
+##
+## 原本 player.gd 有三段一字不差的複製：空中重置、on-floor 分支、跳躍動畫結束。
+## 任何一處漏改都會造成著地行為不一致 —— 這正是 Stage 1 要消滅的耦合。
+## LandingHandler._handle_normal_landing 另有一份變體（多了 neutral_timer 等重置），
+## 保持獨立，因為它額外負責清 pending_dash_dir 與播放粒子。
+##
+## debug_tag 只影響 log 前綴，不影響行為。
+func _enter_landing_state(debug_tag: String) -> void:
+	var input_data = get_input()
+	is_landing = true
+	landing_lock_frames = LANDING_FORCED_LOCK_FRAMES
+	landing_facing_lock = false
+	_landing_timer_initialized = false
+	_landing_checkpoint_executed = false
+	_landing_forced_frames = 0
+	force_update_facing_direction()
+	Debug.log("[%s] is_landing set | forced lock: %df" % [debug_tag, landing_lock_frames])
+	_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func force_update_facing_direction() -> void:
 	if facing_handler:

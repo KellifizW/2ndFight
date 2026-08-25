@@ -47,11 +47,11 @@ func _run() -> void:
 			break
 
 	var anim = player.animation_state.get_current_node() if player.animation_state else "none"
-	print("[AIR_TEST_RESULT] landed_frame=%d anim=%s is_landing=%s landing_timer=%.4f is_jumping=%s is_air_attacking=%s has_air_attacked=%s is_attacking=%s attack_type=%s" % [
+	print("[AIR_TEST_RESULT] landed_frame=%d anim=%s is_landing=%s landing_lock=%df is_jumping=%s is_air_attacking=%s has_air_attacked=%s is_attacking=%s attack_type=%s" % [
 		landed_frame,
 		anim,
 		player.is_landing,
-		player.landing_lock_timer,
+		player.landing_lock_frames,
 		player.is_jumping,
 		player.is_air_attacking,
 		player.has_air_attacked,

@@ -97,7 +97,7 @@ func _is_landing_active(player: Node, current_anim: String) -> bool:
 func _snapshot(player: Node, opponent: Node, expected_facing: float, anim: String, sprite_sign: float) -> String:
 	var animated_sprite = player.get_node_or_null("AnimatedSprite2D")
 	var local_sprite_scale = animated_sprite.scale if animated_sprite else Vector2.ZERO
-	return "frame=%d anim=%s x=%.1f opp=%.1f expected=%.1f facing=%.1f root_scale=%.3f sprite_local=(%.3f,%.3f) sprite_global_x_sign=%.1f landing=%s timer=%.4f lock=%s attacking=%s" % [
+	return "frame=%d anim=%s x=%.1f opp=%.1f expected=%.1f facing=%.1f root_scale=%.3f sprite_local=(%.3f,%.3f) sprite_global_x_sign=%.1f landing=%s lock=%df facelock=%s attacking=%s" % [
 		Engine.get_physics_frames(),
 		anim,
 		player.global_position.x,
@@ -109,7 +109,7 @@ func _snapshot(player: Node, opponent: Node, expected_facing: float, anim: Strin
 		local_sprite_scale.y,
 		sprite_sign,
 		player.is_landing,
-		player.landing_lock_timer,
+		player.landing_lock_frames,
 		player.landing_facing_lock,
 		player.is_attacking,
 	]

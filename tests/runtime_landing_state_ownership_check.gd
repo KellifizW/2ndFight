@@ -47,7 +47,7 @@ func _run() -> void:
 	var current_anim: String = dav.animation_state.get_current_node() if dav.animation_state else "none"
 	var sprite = dav.get_node_or_null("AnimatedSprite2D")
 	var sprite_anim: String = str(sprite.animation) if sprite else "none"
-	var passed: bool = dav.is_landing and dav.landing_lock_timer > 0.0 and (current_anim == "landing" or sprite_anim == "jumpV") and dav.facing_direction == -1.0
+	var passed: bool = dav.is_landing and dav.landing_lock_frames > 0 and (current_anim == "landing" or sprite_anim == "jumpV") and dav.facing_direction == -1.0
 	print("[LANDING_OWNERSHIP_RESULT] passed=%s touchdown=%s landing_frame=%s" % [
 		passed,
 		after_touchdown,
@@ -63,7 +63,7 @@ func _snapshot(player: Node, opponent: Node) -> String:
 	var sprite_frame: int = sprite.frame if sprite else -1
 	var player_anim: String = player.animation_player.current_animation if player.animation_player else "none"
 	var tree_active: bool = player.animation_tree.active if player.animation_tree else false
-	return "frame=%d state=%s player_anim=%s tree_active=%s sprite=%s:%d x=%.1f opp=%.1f on_floor=%s jumping=%s landing=%s timer=%.4f lock=%s facing=%.1f scale=%.1f has_start=%s" % [
+	return "frame=%d state=%s player_anim=%s tree_active=%s sprite=%s:%d x=%.1f opp=%.1f on_floor=%s jumping=%s landing=%s lock=%df facelock=%s facing=%.1f scale=%.1f has_start=%s" % [
 		Engine.get_physics_frames(),
 		anim,
 		player_anim,
@@ -75,7 +75,7 @@ func _snapshot(player: Node, opponent: Node) -> String:
 		player.is_on_floor(),
 		player.is_jumping,
 		player.is_landing,
-		player.landing_lock_timer,
+		player.landing_lock_frames,
 		player.landing_facing_lock,
 		player.facing_direction,
 		player.scale.x,

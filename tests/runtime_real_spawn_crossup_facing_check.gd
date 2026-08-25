@@ -98,7 +98,7 @@ func _is_landing_active(player: Node, current_anim: String) -> bool:
 
 func _snapshot(player: Node, opponent: Node, expected_facing: float, anim: String) -> String:
 	var player_anim: String = player.animation_player.current_animation if player.animation_player else ""
-	return "frame=%d state=%s player_anim=%s x=%.1f opp=%.1f expected=%.1f facing=%.1f root_scale=%.3f sprite_sign=%.1f landing=%s timer=%.4f lock=%s attacking=%s" % [
+	return "frame=%d state=%s player_anim=%s x=%.1f opp=%.1f expected=%.1f facing=%.1f root_scale=%.3f sprite_sign=%.1f landing=%s lock=%df facelock=%s attacking=%s" % [
 		Engine.get_physics_frames(),
 		anim,
 		player_anim,
@@ -109,7 +109,7 @@ func _snapshot(player: Node, opponent: Node, expected_facing: float, anim: Strin
 		player.scale.x,
 		_sprite_global_x_sign(player),
 		player.is_landing,
-		player.landing_lock_timer,
+		player.landing_lock_frames,
 		player.landing_facing_lock,
 		player.is_attacking,
 	]
