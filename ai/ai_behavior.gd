@@ -133,7 +133,7 @@ func _ready() -> void:
 	# old code deferred BOTH animation loading and subsystem creation, so an early
 	# toggle made get_ai_input() call null subsystems and the player stopped
 	# receiving AI input.
-	_init_subsystems()
+	_ensure_runtime_dependencies()
 
 	# AnimationPlayer is initialized by the parent during its _ready().  Loading
 	# animation durations can safely wait one frame, but must not delay the AI
@@ -149,6 +149,15 @@ func _ready() -> void:
 
 func _init_subsystems() -> void:
 	"""初始化所有子系統"""
+	if threat_system and decision_layers and frame_data and combo_system and space_control:
+		decision_layers.threat_system = threat_system
+		decision_layers.frame_data = frame_data
+		decision_layers.combo_system = combo_system
+		decision_layers.space_control = space_control
+		decision_layers.debug_block_trace = debug_block_trace
+		decision_layers.restricted_moves = restricted_moves
+		return
+
 	threat_system = ThreatAssessment.new()
 	add_child(threat_system)
 	
@@ -170,8 +179,19 @@ func _init_subsystems() -> void:
 	decision_layers.combo_system = combo_system
 	decision_layers.space_control = space_control
 	decision_layers.debug_block_trace = debug_block_trace
+	decision_layers.restricted_moves = restricted_moves
 	
 	# Move restrictions initialized by CPUController
+
+func _ensure_runtime_dependencies() -> void:
+	if not parent:
+		parent = get_parent()
+	if not world:
+		world = get_tree().get_first_node_in_group("world")
+	if not threat_system or not decision_layers or not frame_data or not combo_system or not space_control:
+		_init_subsystems()
+	if parent and not opponent:
+		find_opponent()
 
 func _load_animation_durations_from_player() -> void:
 	"""
@@ -256,14 +276,17 @@ func _process(delta: float) -> void:
 			if Engine.get_physics_frames() % 30 == 0:
 				Debug.log("[AI._process] Frame=%d | opponent search result: %s" % [
 					Engine.get_physics_frames(),
-					opponent.name if opponent else "NOT FOUND"
+					str(opponent.name) if opponent else "NOT FOUND"
 				])
 
 func set_ai_enabled(enabled: bool) -> void:
 	ai_enabled = enabled
+	if enabled:
+		_ensure_runtime_dependencies()
+		decision_cooldown = 0.0
 	_invalidate_cached_input()
 	if debug_mode:
-		var parent_name = parent.name if parent else "unknown"
+		var parent_name := str(parent.name) if parent else "unknown"
 		Debug.log("[AI] AI %s for %s" % ["enabled" if enabled else "disabled", parent_name])
 
 func set_move_restrictions(restricted: Array[String], enable: bool) -> void:
@@ -280,7 +303,7 @@ func set_move_restrictions(restricted: Array[String], enable: bool) -> void:
 	
 	if debug_mode and startup_logs:
 		var restriction_str = "None" if restricted.is_empty() else str(restricted)
-		var parent_name = parent.name if parent else "unknown"
+		var parent_name := str(parent.name) if parent else "unknown"
 		Debug.log("[AI.set_move_restrictions] %s - Restricted moves: %s (enabled: %s)" % [
 			parent_name,
 			restriction_str,
@@ -313,6 +336,9 @@ func _compute_ai_input() -> Dictionary:
 	"""Main entry point - Industry standard implementation"""
 	var current_frame = Engine.get_physics_frames()
 	var seat = parent.seat if parent and "seat" in parent else "?"
+	if ai_enabled:
+		_ensure_runtime_dependencies()
+		seat = parent.seat if parent and "seat" in parent else seat
 
 	# Be defensive around scene startup.  In a Web export the first physics
 	# tick may occur before an awaited _ready() continuation resumes.  Returning
@@ -366,9 +392,9 @@ func _compute_ai_input() -> Dictionary:
 			state_str = "⏳ COOLDOWN (%.2fs)" % decision_cooldown
 		else:
 			state_str = "🤔 EVALUATING NEW DECISION"
-		var distance = abs(parent.global_position.x - opponent.global_position.x)
+		var summary_distance = abs(parent.global_position.x - opponent.global_position.x)
 		Debug.log("[AI SUMMARY] Frame=%d Seat=%s | %s | dist=%.0f opp=%s" % [
-			current_frame, seat, state_str, distance, 
+			current_frame, seat, state_str, summary_distance, 
 			opponent.attack_type if opponent.is_attacking else ("blocking" if opponent.is_blocking else "idle")
 		])
 	
@@ -380,7 +406,7 @@ func _compute_ai_input() -> Dictionary:
 	var opponent_move_set = opponent.get_node_or_null("MoveSet") if opponent else null
 	var opponent_doing_special = opponent_move_set != null and "is_spmove" in opponent_move_set and opponent_move_set.is_spmove
 	if opponent and (opponent.is_attacking or opponent_doing_special):
-		var distance = abs(parent.global_position.x - opponent.global_position.x)
+		var attack_distance = abs(parent.global_position.x - opponent.global_position.x)
 		var attack_type = opponent.attack_type if "attack_type" in opponent else "st_mp"
 		# 火球必殺技的威脅由 projectile 系統處理，不在近身範圍觸發 emergency block
 		var is_projectile_special = attack_type in ["fireball", "spm2"]
@@ -389,7 +415,7 @@ func _compute_ai_input() -> Dictionary:
 			if threat_system and threat_system.has_method("get_attack_range_for"):
 				attack_range = threat_system.get_attack_range_for(opponent, attack_type)
 			
-			if distance <= attack_range + 20.0:
+			if attack_distance <= attack_range + 20.0:
 				# Cancel any dash state
 				_cancel_dash_state()
 				
@@ -406,7 +432,7 @@ func _compute_ai_input() -> Dictionary:
 				
 				if debug_mode or debug_block_trace:
 					Debug.log("[AI EMERGENCY BLOCK] attack=%s dist=%.1f range=%.1f input_dir=%d facing=%.1f" % [
-						attack_type, distance, attack_range, input_dir, parent.facing_direction
+						attack_type, attack_distance, attack_range, input_dir, parent.facing_direction
 					])
 				
 				return block_input
@@ -418,23 +444,23 @@ func _compute_ai_input() -> Dictionary:
 	# This prevents jittery behavior and ensures smooth action completion
 	if commitment_timer > 0:
 		# Allow defensive override on high/critical threats or imminent contact
-		var threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
+		var commitment_threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
 		var imminent_contact = _is_attack_in_block_range(opponent)
 		# 火球只有進入實際反應窗口後才中斷承諾，避免遠距火球造成過早跳躍或抖動。
-		var has_fireball_threat = threat != null and threat.source == "fireball" and threat.level >= ThreatAssessment.ThreatLevel.MEDIUM
+		var has_fireball_threat = commitment_threat != null and commitment_threat.source == "fireball" and commitment_threat.level >= ThreatAssessment.ThreatLevel.MEDIUM
 		
 		# 🔴 【新增】 Tactical situation interrupt: If committed to approach (dash/walk) but entered throw range
 		# Re-evaluate instead of blindly continuing approach
-		var distance = abs(parent.global_position.x - opponent.global_position.x)
+		var commitment_distance = abs(parent.global_position.x - opponent.global_position.x)
 		var should_check_throw = current_committed_action in ["dash_forward", "walk_forward", "backdash", "walk_backward"]
-		var entered_throw_range = should_check_throw and distance < 120.0  # Throw range
+		var entered_throw_range = should_check_throw and commitment_distance < 120.0  # Throw range
 		
 		if Engine.get_physics_frames() % 60 == 0 and should_check_throw:
 			Debug.log("[AI COMMIT CHECK] Frame=%d | action='%s' | dist=%.0f | throw_range=%s | opp_attacking=%s" % [
-				Engine.get_physics_frames(), current_committed_action, distance, entered_throw_range, opponent.is_attacking if opponent else "?"
+				Engine.get_physics_frames(), current_committed_action, commitment_distance, entered_throw_range, str(opponent.is_attacking) if opponent else "?"
 			])
 		
-		if (threat and threat.level >= ThreatAssessment.ThreatLevel.MEDIUM) or imminent_contact or has_fireball_threat:
+		if (commitment_threat and commitment_threat.level >= ThreatAssessment.ThreatLevel.MEDIUM) or imminent_contact or has_fireball_threat:
 			if current_committed_action in ["dash_forward", "backdash"]:
 				_cancel_dash_state()
 			if current_committed_action not in ["stand_block", "crouch_block"]:
@@ -444,7 +470,7 @@ func _compute_ai_input() -> Dictionary:
 			# 【DEBUG】當進入投擲範圍但對手未攻擊時，中斷承諾以重新評估
 			if Engine.get_physics_frames() % 30 == 0:
 				Debug.log("[AI INTERRUPT] Frame=%d Seat=%s | Committed to '%s' but entered throw range (dist=%.0f) → Re-evaluating" % [
-					Engine.get_physics_frames(), seat, current_committed_action, distance
+					Engine.get_physics_frames(), seat, current_committed_action, commitment_distance
 				])
 			commitment_timer = 0.0
 			committed_input = {}
@@ -515,14 +541,14 @@ func _compute_ai_input() -> Dictionary:
 		decision_cooldown -= delta
 		# 【DEBUG】每15幀顯示一次決策冷卻狀態（0.125秒）
 		if Engine.get_physics_frames() % 15 == 0:
-			var threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
-			var threat_str = "NONE"
-			if threat:
+			var cooldown_threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
+			var cooldown_threat_str = "NONE"
+			if cooldown_threat:
 				var threat_levels = ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
-				threat_str = threat_levels[min(threat.level, 4)] if threat.level >= 0 else "NONE"
-			var distance = abs(parent.global_position.x - opponent.global_position.x)
+				cooldown_threat_str = threat_levels[min(cooldown_threat.level, 4)] if cooldown_threat.level >= 0 else "NONE"
+			var cooldown_distance = abs(parent.global_position.x - opponent.global_position.x)
 			Debug.log("[AI COOLDOWN] Frame=%d Seat=%s | ⏳ %.2fs remaining | action='%s' | threat=%s | dist=%.0f" % [
-				Engine.get_physics_frames(), seat, decision_cooldown, current_committed_action, threat_str, distance
+				Engine.get_physics_frames(), seat, decision_cooldown, current_committed_action, cooldown_threat_str, cooldown_distance
 			])
 		return committed_input if committed_input.size() > 0 else _neutral_input()
 	
@@ -552,7 +578,7 @@ func _compute_ai_input() -> Dictionary:
 			opp_state = "IDLE"
 	
 	Debug.log("[AI EVAL] Frame=%d Seat=%s | 🎯 Evaluating... | opponent=%s(%s) | dist=%.0f | threat=%s" % [
-		Engine.get_physics_frames(), seat, opponent.name if opponent else "none", opp_state, distance, threat_str
+		Engine.get_physics_frames(), seat, str(opponent.name) if opponent else "none", opp_state, distance, threat_str
 	])
 	
 	var decision = decision_layers.get_best_decision(parent, opponent)
@@ -666,17 +692,17 @@ func _commit_action(action: String, duration: float) -> Dictionary:
 	
 	# 【DEBUG】顯示承諾什麼動作（不受debug_mode限制）
 	var special_keys = ["throw_pressed", "spm1_pressed", "spm2_pressed", "spm3_pressed", "dp_pressed"]
-	var special_input = ""
+	var _special_input = ""
 	for key in special_keys:
 		if committed_input.get(key, false):
-			special_input = key.replace("_pressed", "")
+			_special_input = key.replace("_pressed", "")
 			break
 	
-	var movement = ""
+	var _movement = ""
 	if committed_input.get("input_dir", 0) != 0:
-		movement = "→" if committed_input.get("input_dir", 0) > 0 else "←"
+		_movement = "→" if committed_input.get("input_dir", 0) > 0 else "←"
 	if committed_input.get("crouch_pressed", false):
-		movement += "↓"
+		_movement += "↓"
 	
 	var action_icon = ""
 	if action in ["st_lp", "st_mp", "st_hp", "cr_lp", "cr_mp", "cr_hp"]:
@@ -859,7 +885,7 @@ func _action_to_input(action: String) -> Dictionary:
 				var dist = abs(parent.global_position.x - opponent.global_position.x) if opponent else 0
 				Debug.log("[AI ACTION→INPUT] Frame=%d | jump_forward | dir=%d | dist=%.1f | opponent_y=%.1f | self_y=%.1f" % [
 					frame_count, int(relative_dir), dist, 
-					opponent.global_position.y if opponent else 0,
+					opponent.global_position.y if opponent else 0.0,
 					parent.global_position.y
 				])
 		"jump_backward":
@@ -876,7 +902,7 @@ func _action_to_input(action: String) -> Dictionary:
 				var dist = abs(parent.global_position.x - opponent.global_position.x) if opponent else 0
 				Debug.log("[AI ACTION→INPUT] Frame=%d | jump_neutral | dist=%.1f | opponent_y=%.1f | self_y=%.1f" % [
 					frame_count, dist,
-					opponent.global_position.y if opponent else 0,
+					opponent.global_position.y if opponent else 0.0,
 					parent.global_position.y
 				])
 		"walk_forward":
