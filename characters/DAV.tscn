@@ -35,13 +35,13 @@ metadata/_custom_type_script = "uid://c4qqdmb1sci8y"
 size = Vector2(90, 270)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_x536s"]
-size = Vector2(135, 40)
+size = Vector2(30, 60)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_md12c"]
 size = Vector2(80, 20)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_3pafw"]
-size = Vector2(130, 40)
+size = Vector2(250, 80)
 
 [sub_resource type="Animation" id="Animation_nf08n"]
 resource_name = "100pH"
@@ -5041,10 +5041,10 @@ tracks/4/path = NodePath("AnimatedSprite2D:offset")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
+"times": PackedFloat32Array(0, 0.1, 0.13333334),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
-"values": [Vector2(0, 0)]
+"values": [Vector2(0, 0), Vector2(0, 40), Vector2(0, 80)]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
@@ -5404,9 +5404,9 @@ tracks/11/path = NodePath("AnimatedSprite2D:frame")
 tracks/11/interp = 1
 tracks/11/loop_wrap = true
 tracks/11/keys = {
-"times": PackedFloat32Array(0, 0.1, 0.2, 0.26666668, 0.33333334, 0.43333334, 0.53333336, 0.56666666, 0.6333333, 0.7, 0.76666665, 0.8666667),
+"times": PackedFloat32Array(0, 0.1, 0.16666667, 0.23333333, 0.3, 0.4, 0.46666667, 0.53333336, 0.6666667, 0.73333335, 0.8, 0.8666667),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
-"update": 0,
+"update": 1,
 "values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 }
 tracks/12/type = "value"
@@ -5418,7 +5418,7 @@ tracks/12/loop_wrap = true
 tracks/12/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
-"update": 0,
+"update": 1,
 "values": [&"powerkk"]
 }
 tracks/13/type = "value"
@@ -5645,7 +5645,7 @@ tracks/14/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_yev3d"]
-size = Vector2(145, 40)
+size = Vector2(130, 60)
 
 [sub_resource type="Animation" id="Animation_t485y"]
 resource_name = "st_hp"
@@ -5742,10 +5742,10 @@ tracks/7/path = NodePath("AnimatedSprite2D:offset")
 tracks/7/interp = 1
 tracks/7/loop_wrap = true
 tracks/7/keys = {
-"times": PackedFloat32Array(0, 0.1, 0.15, 0.21666667),
-"transitions": PackedFloat32Array(1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.1, 0.21666667),
+"transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [Vector2(-10, 0), Vector2(0, 0), Vector2(20, 10), Vector2(0, 0)]
+"values": [Vector2(-10, 0), Vector2(0, 0), Vector2(0, 0)]
 }
 tracks/8/type = "value"
 tracks/8/imported = false
@@ -5756,8 +5756,8 @@ tracks/8/loop_wrap = true
 tracks/8/keys = {
 "times": PackedFloat32Array(0, 0.15, 0.21666667),
 "transitions": PackedFloat32Array(1, 1, 1),
-"update": 0,
-"values": [Vector2(0.48, 0.48), Vector2(0.46, 0.46), Vector2(0.48, 0.48)]
+"update": 1,
+"values": [Vector2(0.8, 0.8), Vector2(0.8, 0.8), Vector2(0.8, 0.8)]
 }
 tracks/9/type = "value"
 tracks/9/imported = false
@@ -5766,10 +5766,10 @@ tracks/9/path = NodePath("AnimatedSprite2D:frame")
 tracks/9/interp = 1
 tracks/9/loop_wrap = true
 tracks/9/keys = {
-"times": PackedFloat32Array(0, 0.016666668, 0.03333334, 0.049999997, 0.06666668, 0.11666667, 0.15, 0.21666667, 0.3, 0.41666666),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
-"update": 0,
-"values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.1, 0.11666667, 0.15, 0.2, 0.23333333, 0.28333333, 0.33333334, 0.43333334),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 }
 tracks/10/type = "value"
 tracks/10/imported = false
@@ -6723,6 +6723,7 @@ size = Vector2(30, 60)
 
 [sub_resource type="Animation" id="Animation_smpwk"]
 resource_name = "throw_seq"
+length = 1.45
 step = 0.016666668
 tracks/0/type = "value"
 tracks/0/imported = false
@@ -6779,10 +6780,10 @@ tracks/4/path = NodePath("AnimatedSprite2D:animation")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
-"times": PackedFloat32Array(0, 0.6),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [&"throw_seq", &"st_hk"]
+"values": [&"throw_seq"]
 }
 tracks/5/type = "value"
 tracks/5/imported = false
@@ -6791,10 +6792,10 @@ tracks/5/path = NodePath("AnimatedSprite2D:frame")
 tracks/5/interp = 1
 tracks/5/loop_wrap = true
 tracks/5/keys = {
-"times": PackedFloat32Array(0, 0.15, 0.33333334, 0.6, 0.7166667, 0.8333334, 0.93333334),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.11666667, 0.23333333, 0.33333334, 0.41666666, 0.51666665, 0.6, 0.7, 0.85, 0.95, 1.1666666, 1.3166667),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [0, 1, 2, 3, 4, 5, 6]
+"values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 10, 9]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
@@ -6803,10 +6804,10 @@ tracks/6/path = NodePath("AnimatedSprite2D:offset")
 tracks/6/interp = 1
 tracks/6/loop_wrap = true
 tracks/6/keys = {
-"times": PackedFloat32Array(0, 0.083333336, 0.15, 0.6),
-"transitions": PackedFloat32Array(1, 1, 1, 1),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(100, 0), Vector2(110, 0), Vector2(90, 0), Vector2(60, 0)]
+"values": [Vector2(0, -20)]
 }
 tracks/7/type = "method"
 tracks/7/imported = false
@@ -6821,6 +6822,18 @@ tracks/7/keys = {
 "args": [],
 "method": &"throw_release"
 }]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("AnimatedSprite2D:scale")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0, 1.1666666),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [Vector2(0.85, 0.85), Vector2(0.88, 0.88)]
 }
 
 [sub_resource type="Animation" id="Animation_g4e5n"]
@@ -7386,11 +7399,10 @@ animation = &"Reset"
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1846523726]
 visible = false
-scale = Vector2(0.9, 0.9)
+scale = Vector2(1e-05, 1e-05)
 texture = ExtResource("4_0wmxw")
 hframes = 10
 vframes = 19
-frame = 100
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=1779273482]
 position = Vector2(0, 10)
