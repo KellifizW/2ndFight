@@ -127,12 +127,20 @@ func _ready() -> void:
 		push_warning("Warning: AIBehavior parent not found")
 		return
 	
-	# 【FIX】Defer animation loading to first frame - Parent's animation_player not ready in _ready()
-	# Godot execution order: Parent's children _ready() called before parent's _ready()
+	# Initialize the decision subsystems synchronously.  The AI can be enabled by
+	# a button/key during the first rendered frame (especially in Web exports,
+	# where the first frame can be delayed while assets are being uploaded).  The
+	# old code deferred BOTH animation loading and subsystem creation, so an early
+	# toggle made get_ai_input() call null subsystems and the player stopped
+	# receiving AI input.
+	_init_subsystems()
+
+	# AnimationPlayer is initialized by the parent during its _ready().  Loading
+	# animation durations can safely wait one frame, but must not delay the AI
+	# itself from becoming usable.
 	await get_tree().process_frame
 	_load_animation_durations_from_player()
 	
-	_init_subsystems()
 	opponent_search_timer = 0.1
 	decision_cooldown = 0.0  # 【FIX】立即進行第一次決策評估，不要延遲
 	
@@ -305,6 +313,15 @@ func _compute_ai_input() -> Dictionary:
 	"""Main entry point - Industry standard implementation"""
 	var current_frame = Engine.get_physics_frames()
 	var seat = parent.seat if parent and "seat" in parent else "?"
+
+	# Be defensive around scene startup.  In a Web export the first physics
+	# tick may occur before an awaited _ready() continuation resumes.  Returning
+	# neutral input is preferable to throwing on a null subsystem, but normal
+	# startup now initializes these synchronously above.
+	if not threat_system or not decision_layers or not frame_data or not combo_system or not space_control:
+		if current_frame % 120 == 0:
+			Debug.log("[AI] Frame=%d Seat=%s | subsystems still initializing" % [current_frame, seat])
+		return _neutral_input()
 	
 	# 【DEBUG】顯示初始狀態（每秒一次）
 	if current_frame % 120 == 0:
