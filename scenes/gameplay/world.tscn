@@ -21,6 +21,7 @@
 [ext_resource type="Shader" uid="uid://di8lua7wssr65" path="res://assets/shaders/shadow.gdshader" id="17_cbp6q"]
 [ext_resource type="SpriteFrames" uid="uid://dgdawo56n6mld" path="res://assets/sprite_frames/player1.tres" id="18_26xuy"]
 [ext_resource type="SpriteFrames" uid="uid://5q7cfeoprqup" path="res://assets/sprite_frames/player2.tres" id="19_bc84e"]
+[ext_resource type="Script" path="res://scripts/ui/AIToggleButtons.gd" id="20_aitog"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_2u3nc"]
 
@@ -276,6 +277,50 @@ grow_horizontal = 0
 grow_vertical = 2
 track_player = "Player B"
 
+[node name="AIToggleButtons" type="Control" parent="UI" unique_id=2019000001]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("20_aitog")
+
+[node name="P1AIButton" type="Button" parent="UI/AIToggleButtons" unique_id=2019000002]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -180.0
+offset_right = 264.0
+offset_bottom = -96.0
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 26
+text = "P1 AI: OFF"
+
+[node name="P2AIButton" type="Button" parent="UI/AIToggleButtons" unique_id=2019000003]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -264.0
+offset_top = -180.0
+offset_right = -24.0
+offset_bottom = -96.0
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 26
+text = "P2 AI: OFF"
+
 [node name="CPUController" type="Node" parent="." unique_id=172666553]
 script = ExtResource("6_dwbse")
 enable_restrictions_a = true
@@ -312,3 +357,7 @@ position = Vector2(0, 120)
 scale = Vector2(0.48, 0.07)
 sprite_frames = ExtResource("19_bc84e")
 offset = Vector2(0, -25.98)
+
+[connection signal="pressed" from="UI/AIToggleButtons/P1AIButton" to="CPUController" method="toggle_ai_a"]
+[connection signal="pressed" from="UI/AIToggleButtons/P2AIButton" to="CPUController" method="toggle_ai_b"]
+[connection signal="ai_state_changed" from="CPUController" to="UI/AIToggleButtons" method="_on_ai_state_changed"]
