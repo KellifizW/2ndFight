@@ -181,6 +181,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# 處理計時器
+	var in_hitstop: bool = _is_hitstop_active()
 	for player in players:
 		if player.is_push_back:
 			if player.push_back_frames > 0:
@@ -272,42 +273,49 @@ func _physics_process(delta: float) -> void:
 				player.fixed_velocity.x = 0
 		
 		# ────────────────────────────────────────────────────────────────────────
-		# ── 【Hitstun 和 Hit_timer（舊的Delta系統，保留用於兼容）】──
+		# ── 【Stage 1】hit/block/knockfly lock 計時器：int 物理幀 ──
+		# fighter.gd 在 hitstop 期間早退，但 PushManager 仍會跑。
+		# 舊的 `-= delta` 會被 Engine.time_scale=0.02 拉長最多 50×；
+		# 改幀後每物理幀 -1，並在 hitstop 期間凍結，與 hitstun_frames 對齊。
 		# ────────────────────────────────────────────────────────────────────────
 		if player.is_hit:
-			if player.hit_timer > 0:
-				player.hit_timer -= delta
-				
-				# ── Hitstun結束檢查 (與knockback獨立) ──
-				if player.hit_timer <= 0:
+			if player.hit_lock_frames > 0 and not in_hitstop:
+				player.hit_lock_frames -= 1
+				if player.hit_lock_frames <= 0:
 					player.is_hit = false
 					player.initial_hitstun = 0.0
-					player.hit_timer = 0.0
-		if player.block_timer > 0:
-			player.block_timer -= delta
-			# @deprecated 舊的 Delta-based block pushblock 邏輯（保留向後兼容）
-			if player.block_push_timer > 0:
-				player.block_push_timer -= delta
-			if player.block_timer <= 0:
+					player.hit_lock_frames = 0
+		if player.block_lock_frames > 0:
+			if not in_hitstop:
+				player.block_lock_frames -= 1
+				# @deprecated 舊 block push 計時器，與 block_lock 同步遞減
+				if player.block_push_frames > 0:
+					player.block_push_frames -= 1
+			if player.block_lock_frames <= 0:
 				player.is_blocking = false
 				player.is_crouch_blocking = false
 				player.block_type = "none"
-				player.block_push_timer = 0.0  # @deprecated
+				player.block_push_frames = 0
 				player.block_push_velocity = 0.0  # @deprecated
 				player.initial_blockstun = 0.0  # @deprecated
 				# 注意：block_knockback_frames 的遞減現在在 Fighter._physics_process 中處理
-		if player.knockfly_timer > 0:
-			player.knockfly_timer -= delta
+		if player.knockfly_frames > 0:
+			if not in_hitstop:
+				player.knockfly_frames -= 1
+			var duration_frames: int = player.knockfly_duration_frames
+			if duration_frames <= 0:
+				duration_frames = 1
+			var remaining_ratio: float = float(player.knockfly_frames) / float(duration_frames)
 			if player.is_air_hit_knockfly:
-				player.fixed_velocity.x = int(player.knockfly_velocity_x * (player.knockfly_timer / player.knockfly_duration))
+				player.fixed_velocity.x = int(player.knockfly_velocity_x * remaining_ratio)
 			else:
-				player.fixed_velocity.x = int(player.knockfly_velocity_x * pow(player.knockfly_timer / player.knockfly_duration, 2))
+				player.fixed_velocity.x = int(player.knockfly_velocity_x * pow(remaining_ratio, 2))
 			var delta_x = abs(player.global_position.x - player.prev_position.x)
 			player.knockfly_accumulated_distance += delta_x
 			if player.knockfly_accumulated_distance >= player.knockfly_max_distance:
 				player.fixed_velocity.x = 0
 				player.knockfly_velocity_x = 0.0
-			if player.knockfly_timer <= 0 and player.is_knockfly:
+			if player.knockfly_frames <= 0 and player.is_knockfly:
 				var healthbar = get_tree().get_first_node_in_group("ui").get_node("%sHealthbar" % player.name) if get_tree().get_first_node_in_group("ui") else null
 				if healthbar and healthbar.current_health <= 0:
 					pass
@@ -542,6 +550,13 @@ func _physics_process(delta: float) -> void:
 		player.fixed_position.x = clampi(player.fixed_position.x, arena_left_fixed + half_fixed, arena_right_fixed - half_fixed)
 		player.global_position.x = player.fixed_position.x / SIMULATION_SCALE
 		player.skip_pushbox = false
+
+func _is_hitstop_active() -> bool:
+	var world_node = get_tree().get_first_node_in_group("world")
+	if world_node == null:
+		return false
+	var slowmo = world_node.get_node_or_null("SlowMoController")
+	return slowmo != null and bool(slowmo.get("is_hit_slowmo"))
 
 func is_at_corner(player: Node) -> bool:
 	var epsilon_fixed = round(collision_epsilon * SIMULATION_SCALE)

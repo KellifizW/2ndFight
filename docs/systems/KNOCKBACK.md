@@ -120,9 +120,9 @@ if player.knockback_frames > 0:            # ← 獨立條件檢查！
 # ── 【Hitstun 和 Hit_timer - 獨立管理】──
 # ────────────────────────────────────────────────────────────────────────
 if player.is_hit:
-    if player.hit_timer > 0:
-        player.hit_timer -= delta
-        if player.hit_timer <= 0:
+    if player.hit_lock_frames > 0 and not in_hitstop:
+        player.hit_lock_frames -= 1
+        if player.hit_lock_frames <= 0:
             player.is_hit = false  # ← 不再影響 knockback
 ```
 

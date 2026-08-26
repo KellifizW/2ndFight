@@ -40,7 +40,7 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 		return
 
 	if movement_node.is_knockfly:
-		# 【重要】knockfly_timer 由 PushManager._physics_process() 管理（delta 遞減）
+		# 【重要】knockfly_frames 由 PushManager._physics_process() 管理（每物理幀 -1，hitstop 凍結）
 		# 不在此處遞減以避免重複遞減
 		# 【重要】重力現在由 GravityHandler 統一管理，在 Movement._handle_gravity() 中應用
 		# 此處不再重複應用重力，避免計算重複
@@ -59,9 +59,9 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 		var on_floor = movement_node.is_on_floor()
 		var vel_y = movement_node.fixed_velocity.y
 		var vel_x = movement_node.fixed_velocity.x
-		var timer = movement_node.knockfly_timer
+		var timer = movement_node.knockfly_frames
 		var seat = movement_node.seat if "seat" in movement_node else "?"
-		Debug.log("[KNOCKFLY_CHECK] %s | timer=%.3f | vel_x=%d vel_y=%d | on_floor=%s | timer<=0=%s" % [
+		Debug.log("[KNOCKFLY_CHECK] %s | frames=%d | vel_x=%d vel_y=%d | on_floor=%s | frames<=0=%s" % [
 			seat, timer, vel_x, vel_y, on_floor, timer <= 0
 		])
 
@@ -121,7 +121,8 @@ func _enter_layground(reason: String = "unknown") -> void:
 	Debug.log("[LAYGROUND ENTER] %s | reason=%s" % [movement_node.name, reason])
 	movement_node.fixed_velocity = Vector2i.ZERO
 	movement_node.knockfly_velocity_x = 0.0  # 🟢 重置 knockfly_velocity_x，確保下次跳躍不會繼承
-	movement_node.knockfly_timer = 0  # 🟢 完全清除 timer
+	movement_node.knockfly_frames = 0  # 🟢 完全清除 timer
+	movement_node.knockfly_duration_frames = 0
 	movement_node.is_knockfly = false  # 🟢 【關鍵修復】清除 is_knockfly，停止重力累積
 	movement_node.is_knockfly_animation_finished = false  # 🟢 先清除 flag，再進入 layground
 	
@@ -149,7 +150,8 @@ func reset_layground_with_health_check() -> void:
 		movement_node.is_layground = true
 		movement_node.is_knockfly = false
 		movement_node.knockfly_velocity_x = 0.0  # 🟢 確保完全清除
-		movement_node.knockfly_timer = 0  # 🟢 確保 timer 清除
+		movement_node.knockfly_frames = 0  # 🟢 確保 timer 清除
+		movement_node.knockfly_duration_frames = 0
 		movement_node.is_knockfly_animation_finished = false
 		return
 	
@@ -158,7 +160,8 @@ func reset_layground_with_health_check() -> void:
 	movement_node.is_layground = false
 	movement_node.is_knockfly = false
 	movement_node.knockfly_velocity_x = 0.0  # 🟢 確保完全清除
-	movement_node.knockfly_timer = 0  # 🟢 確保 timer 清除
+	movement_node.knockfly_frames = 0  # 🟢 確保 timer 清除
+	movement_node.knockfly_duration_frames = 0
 	movement_node.is_knockfly_animation_finished = false
 	
 	if "is_wakeup" in movement_node and "is_wakeup_locked" in movement_node:

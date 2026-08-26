@@ -429,7 +429,7 @@ func _calculate_block_advantage() -> void:
 		var recovered = false
 		if blocker.has_method("is_in_blockstun"):
 			recovered = not blocker.is_in_blockstun()
-		elif "block_timer" in blocker and blocker.block_timer <= 0.0:
+		elif "block_lock_frames" in blocker and blocker.block_lock_frames <= 0:
 			recovered = true
 		else:
 			var anim = blocker.animation_state.get_current_node() if blocker.animation_state else ""
@@ -657,9 +657,11 @@ func reset_players() -> void:
 		player.is_landing = false
 		player.is_wakeup = false
 		player.is_wakeup_locked = false
-		player.hit_timer = 0.0
-		player.block_timer = 0.0
-		player.knockfly_timer = 0.0
+		player.hit_lock_frames = 0
+		player.block_lock_frames = 0
+		player.knockfly_frames = 0
+		player.knockfly_duration_frames = 0
+		player.block_push_frames = 0
 		player.current_mode = "ground_stand"
 		player.attack_type = "none"
 		player.update_facing_direction()

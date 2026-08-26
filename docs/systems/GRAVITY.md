@@ -35,7 +35,7 @@ else:
 **目的**: 移除重複的重力應用，只負責狀態管理  
 **修改內容**:
 - 移除 `fixed_velocity.y += int(knockfly_gravity * delta)` 的直接重力應用
-- 保留 `knockfly_timer` 的遞減邏輯
+- 保留 knockfly 計時（現為 `knockfly_frames`，由 PushManager 遞減）
 - 保留狀態轉換邏輯（knockfly → layground → walk）
 - 保留空中受擊回跳的獨立重力邏輯（`is_air_hit_backjump`）
 
@@ -203,7 +203,7 @@ movement_node.fixed_velocity.y += int(float(gravity_to_apply) * delta)
 ### 執行順序（Movement._physics_process）
 
 ```
-1. _handle_knockfly_layground(delta, floor_y)   // 更新 knockfly_timer
+1. _handle_knockfly_layground(delta, floor_y)   // 讀取 knockfly_frames
 2. _handle_gravity(delta, move_set)             // 統一應用重力
 3. fixed_position += velocity * delta            // 應用位移
 ```

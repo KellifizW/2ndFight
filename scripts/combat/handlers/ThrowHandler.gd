@@ -375,10 +375,11 @@ func release_opponent() -> void:
 	var knockfly_seconds = float(hitstun_physics) / float(physics_fps)
 	if "default_knockfly_duration" in grabbed_opponent:
 		knockfly_seconds = max(knockfly_seconds, float(grabbed_opponent.default_knockfly_duration))
-	if "knockfly_timer" in grabbed_opponent:
-		grabbed_opponent.knockfly_timer = knockfly_seconds
-	if "knockfly_duration" in grabbed_opponent:
-		grabbed_opponent.knockfly_duration = knockfly_seconds
+	if grabbed_opponent.has_method("start_knockfly_timer"):
+		grabbed_opponent.start_knockfly_timer(knockfly_seconds)
+	elif "knockfly_frames" in grabbed_opponent:
+		grabbed_opponent.knockfly_frames = Movement.seconds_to_lock_frames(knockfly_seconds)
+		grabbed_opponent.knockfly_duration_frames = grabbed_opponent.knockfly_frames
 	if "knockfly_velocity_x" in grabbed_opponent:
 		grabbed_opponent.knockfly_velocity_x = grabbed_opponent.fixed_velocity.x
 	if "knockfly_accumulated_distance" in grabbed_opponent:
