@@ -32,5 +32,6 @@ AIBehavior (主控制器)
 AI系統自動附加到Player場景中，可通過以下方式控制：
 - 按 **C** 鍵切換 Player A 的AI
 - 按 **V** 鍵切換 Player B 的AI
+- 對戰畫面左下 / 右下的 **P1 AI / P2 AI** 觸碰按鈕，滑鼠或觸控都可直接切換（Web 版也適用）
 
 詳細文檔請參考項目根目錄的 AI_SYSTEM_README.md
