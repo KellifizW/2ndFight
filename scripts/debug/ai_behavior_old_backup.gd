@@ -1,4 +1,4 @@
-class_name AIBehavior extends Node
+extends Node
 
 # ============================================================
 # AI BEHAVIOR - Layered Decision Architecture

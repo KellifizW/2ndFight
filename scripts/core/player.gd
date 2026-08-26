@@ -268,7 +268,12 @@ func get_input() -> Dictionary:
 		return default_input.duplicate()
 	if is_ai_controlled:
 		var ai = $AIBehavior if has_node("AIBehavior") else null
-		if ai: return ai.get_ai_input()
+		if ai and ai.has_method("get_ai_input"):
+			var ai_input: Dictionary = default_input.duplicate()
+			ai_input.merge(ai.get_ai_input(), true)
+			return ai_input
+		push_warning("[Player] %s is AI-controlled but AIBehavior input provider is unavailable" % seat)
+		return default_input.duplicate()
 	if player_controller:
 		var data = player_controller.get_input_data()
 		data.super_pressed = Input.is_key_pressed(KEY_P)
