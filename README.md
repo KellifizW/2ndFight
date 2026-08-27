@@ -21,7 +21,7 @@ structural problems that make every new feature more expensive than the last:
 | Problem | Symptom |
 |---|---|
 | Four coexisting time domains | Seconds, 60 FPS logical frames, 120 FPS physics frames, and a `FrameCounter` all mixed together, with dozens of scattered `*2` / `*120` / `/2.0` conversions |
-| ~34 boolean state flags | `is_hit`, `is_knockfly`, `is_blocking`, `is_attacking`, `is_dashing`… combinations are unenforceable, so illegal states are reachable |
+| ~34 boolean state flags | `is_hit`, `is_knockfly`, `is_blocking`, `is_attacking`, `is_dashing`… combinations are unenforceable, so illegal states are reachable. Stage 2 slice 1 brought the three core scripts from 37 to 31 and added a state layer that makes the remainder testable |
 | Frame data spread across sources | The same numbers live in scripts, scenes, and tables, so they drift apart |
 | Two overlapping input paths | `InputManager` and `PlayerController` both interpret input, with different buffering rules |
 
@@ -51,12 +51,12 @@ These are non-negotiable and apply to every contribution:
 | Stage | Goal | Status |
 |---|---|---|
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
-| **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated; frame tests 24, local acceptance pending) |
-| **2** | **Explicit state machine** — replace the ~34 boolean flags | ⏳ Planned |
+| **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated) |
+| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slice 1 landed (read-only state layer + 14 dead flags/vars removed; 37 → 31 flags) |
 | **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | ⏳ Planned |
 | **4** | **Converge input handling** — a single `ActionMapper` | ⏳ Planned |
 | **5** | **Cleanup** — dead code, docs, scene splitting | ⏳ Planned |
-| — | **CI** — run frame tests on every push/PR | 🟡 Written, needs activation (see below) |
+| — | **CI** — run frame tests on every push/PR | ✅ Active (`.github/workflows/frame-tests.yml`) |
 
 ---
 
@@ -146,12 +146,78 @@ camera, BGM, tweens) stay seconds per the ground rules.
 > The two families must **not** be swapped: `seconds_to_frames_nearest` exists because
 > seed-based timers (dash!) were *born* rounding — using lock-style there makes dash 43.
 
-### Stage 2 — Explicit state machine ⏳
+### Stage 2 — Explicit state machine 🔄
 
-Replace the ~34 booleans with one explicit state enum plus a transition table, so
+Replace the booleans with one explicit state enum plus a transition table, so
 illegal combinations become unrepresentable rather than merely discouraged.
 Migrate subsystem by subsystem; during the transition, flags and states run in
 parallel and the tests keep them aligned.
+
+**Slice 1 — the state layer exists and is pinned (landed)**
+
+The order matters here: writing a state machine *first* and porting the control
+flow to it *second* is what makes each later slice reviewable. So slice 1 adds
+the state layer as a **read-only derivation** and changes no behavior at all.
+
+- ✅ **`FighterState`** (`scripts/core/FighterState.gd`) — a 19-value `State`
+  enum plus `resolve(fighter)`, a **pure function** that derives "exactly one
+  active state" from today's flags. It writes nothing; the control flow still
+  reads flags. Entry points: `Fighter.get_fighter_state()` /
+  `get_fighter_state_name()`.
+- ✅ **The priority order is now written down.** `resolve()` deliberately
+  replicates the two existing animation chains
+  (`Player._compute_target_state` → `AnimationManager.compute_target_state`),
+  because those chains *are* this game's de-facto state priority. Previously
+  that order lived only as an implicit convention split across two files; now
+  `test_26` fails the moment they drift apart.
+- ✅ **14 dead flags/variables deleted**, each proven unread by a
+  comment-stripped read/write analysis over every `.gd`/`.tscn`/`.tres`
+  (checking for dynamic `get`/`set` and scene overrides too):
+  - Flags: `is_crouch_transition_played`, `is_crouch_held`, `is_airborne`,
+    `_landing_timer_initialized`, `is_being_pushed`, `is_air_hit_knockfly`
+  - Variables: `current_mode`, `cancel_window_duration`, `powerkk_blockstun`,
+    `knockback_start_x`, `last_hit_attack_name`, `initial_blockstun_frames`,
+    `initial_hitstun`, `knockback_total_time`, `hit_push_timer`,
+    `hit_push_offset`, `dash_direction`, `pending_jump_b_seek`,
+    `air_hit_backjump_up_speed`, and the `@deprecated` seconds-domain push pair
+    `initial_blockstun` / `block_push_velocity`
+- ✅ **Two unreachable code paths removed** (this is the part that was actually
+  hiding bugs, not just noise):
+  - The whole **`is_push_back` family** (`push_back_velocity` / `push_back_frames`
+    / `initial_push_back_frames` / `push_back_timer`). Its only assignment
+    repo-wide was `= false`, inside the very branch it guards — so the
+    "push-apart deceleration" path was dead from the start, yet `is_push_back`
+    still appeared as a fake mutual-exclusion term in **five** guard conditions
+    (Dash / Jump / Walk ×2 / AI-dash). Removing it leaves those conditions
+    identically valued.
+  - The **linear knockfly decay branch** in `PushManager`, selected by
+    `is_air_hit_knockfly` — a flag never set to `true` anywhere, so the
+    quadratic curve was always the one running.
+- ✅ Boolean state flags in the three core scripts: **37 → 31**.
+
+**Disclosed divergences (found, not introduced)**
+
+Brute-forcing `resolve()` against both animation chains over 55k+ flag
+combinations turned up exactly two places where they disagree. Both are gaps in
+the *animation* layer, not transcription errors — and fixing them would change
+behavior, which slice 1 is not allowed to do (ground rule 2). They are modeled
+honestly in the state layer, documented in `FighterState.gd`, and skipped **by
+explicit state condition** in `test_26` (skips are counted and printed, so a
+genuinely new divergence can't hide inside the exemption):
+
+1. **`is_being_thrown` has no animation branch at all.** The victim keeps
+   playing whatever animation was active when grabbed (walk/attack/crouch);
+   `ThrowHandler` takes over position to paper over it. The state layer reports
+   `BEING_THROWN`, which is what the frame actually means (input is discarded,
+   position is externally driven).
+2. **Airborne with both `is_jumping` and `is_air_attacking` false** falls
+   through to `return "Walk"` — a walk animation while off the ground. Reachable
+   e.g. for the few frames after an air-hit backjump ends before landing. The
+   state layer reports `JUMP`.
+
+**Next slices**: port the control flow subsystem by subsystem to read the state
+instead of flag combinations (attacks → movement → hit reactions), with
+`test_25`/`test_26` as the net. Only then do the flags actually disappear.
 
 ### Stage 3 — Consolidate frame data ⏳
 
@@ -188,20 +254,17 @@ pip install "gdtoolkit==4.*"
 find scripts ai tests characters data -name '*.gd' | sort | xargs gdparse
 ```
 
-A ready-to-run GitHub Actions workflow lives at [`ci/frame-tests.yml`](ci/frame-tests.yml).
-It runs both commands above on every push and pull request, inside the
-`barichello/godot-ci:4.7.2` container.
+**CI is active.** [`.github/workflows/frame-tests.yml`](.github/workflows/frame-tests.yml)
+runs on every push and pull request, in two jobs:
 
-> **It is parked, not active.** The automation that added it authenticates as a
-> GitHub App without the `workflows` permission, so it could not write into
-> `.github/workflows/`. To turn it on:
->
-> ```bash
-> git mv ci/frame-tests.yml .github/workflows/frame-tests.yml
-> git commit -m "Activate frame-test CI"
-> ```
->
-> Until then, run the frame tests locally before merging anything.
+| Job | What it runs |
+|---|---|
+| `static-check` | `gdparse` over every `.gd`, plus `ci/check_signatures.py` — a parent/child override signature check that catches the class of hard compile error `gdparse` cannot see (see PR #20) |
+| `frame-tests` | The full harness on real Godot 4.7.2 headless, in `barichello/godot-ci:4.7.2` |
+
+This is what makes the agent-sandbox limitation below stop mattering: the
+physics-frame assertions now get verified by the engine on every push, not by
+hand.
 
 **When writing new cases**, read [`tests/frame_tests/README.md`](tests/frame_tests/README.md) first.
 The rules that bite hardest:
@@ -211,17 +274,30 @@ The rules that bite hardest:
 - Measure in physics frames, never seconds. 1 logical frame = 2 physics frames.
 - Leave generous wait windows around hits — hitstop slows physics-frame advance by 50×.
 
-Frame tests currently cover 24 cases (`test_01`–`test_24`), including the Stage 1
-landing, PushManager stun-lock, and closing-slice families: `test_21` combo-window frame
-counting, `test_22` the three conversion boundaries (including the "families must not be
-swapped" guard), `test_23` AI decision/commitment tick semantics, and `test_24` the
-36-tick double-tap window.
+Frame tests currently cover 26 cases (`test_01`–`test_26`). Stage 1 contributed
+the landing, PushManager stun-lock and conversion-boundary families (`test_21`
+combo-window frame counting, `test_22` the three conversion boundaries including
+the "families must not be swapped" guard, `test_23` AI decision/commitment tick
+semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
+
+- **`test_25`** — 600 frames of seeded random input (`seed=20260827`, so a
+  failure is reproducible). Every frame it asserts the resolver is a pure
+  function, returns a defined state, and that the structural invariants hold
+  (dash/backdash mutually exclusive; `is_landing` always accompanied by lock
+  frames; `is_wakeup_locked` always accompanied by a running `wakeup_timer`).
+  It also prints the observed state distribution and requires ≥4 distinct
+  states — otherwise "standing still" would pass it trivially.
+- **`test_26`** — frame-by-frame comparison of the state layer against the
+  animation layer, so the two priority chains cannot silently drift.
 
 ### Not yet covered (honest disclosure)
 
 - Motion-input macros (Stage 4)
 - Full air-attack / throw / knockfly flows (Stages 2–4)
 - Corner-pushing and other extreme coordinate cases (after Stage 3)
+- The two disclosed state/animation divergences above are *documented and
+  skipped*, not fixed — they are behavior changes, so they belong to a later
+  Stage 2 slice
 
 ### Why the agent sandbox cannot run the engine (and what it does instead)
 
@@ -237,21 +313,25 @@ machine) can**:
 | Linux build, committed to the repo | Deliverable inside GitHub's 100 MB per-file limit **only as the zip** (~60 MB; the ~150 MB binary does not qualify). It still will not start: `godot --headless` hard-links `libXcursor`, `libXinerama`, `libXi`, `libGL`, `libxkbcommon` (+ `libdrm`/`libgbm`/`libharfbuzz`), which this container lacks with no reachable package source to install them |
 | Source build | No X11/Wayland dev headers, no `pkg-config`, apt sources dead |
 
-**What automated review can honestly claim without CI**: full-project engine compile
-via the *active* `deploy-web` workflow (`--export-release "Web"` parses/compiles every
-non-excluded `.gd` with the real Godot 4.7.2) + `gdtoolkit` `gdparse`/`gdlint` +
-float64-identical conversion simulations (Python doubles ≡ Godot floats; used in
-PR #19 to prove every routed seed reproduces the old tick counts). **What only CI or
-local runs can claim**: the 24 physics-frame assertions. This asymmetry is the whole
-argument for activating the parked workflow above — after that, the sandbox's
-inability stops mattering entirely.
+**What automated review can honestly claim in-sandbox**: `gdtoolkit`
+`gdparse`/`gdlint`, `ci/check_signatures.py`, and exhaustive *logic simulations*
+in Python — float64-identical conversion checks (Python doubles ≡ Godot floats,
+used in PR #19 to prove every routed seed reproduces the old tick counts), and
+in Stage 2 a brute-force of the state resolver against both animation chains
+across 55k+ flag combinations, which is what surfaced the two divergences
+disclosed above. **What only the engine can claim**: the physics-frame
+assertions themselves.
+
+Since the workflow was activated that gap is closed automatically — every push
+runs the 26 cases on real Godot 4.7.2, so the sandbox's inability no longer
+gates correctness.
 
 ---
 
 ## Project layout
 
 ```
-scripts/core/        Player, Fighter, Movement, World, PushManager, TimerManager
+scripts/core/        Player, Fighter, Movement, FighterState, World, PushManager, TimerManager
 scripts/handlers/    Per-concern handlers (timers, landing, dash, jump, gravity, animation…)
 scripts/combat/      Move sets, attack execution, cancel windows, hit response, throws
 scripts/input/       InputManager, PlayerController, InputBuffer
@@ -267,5 +347,17 @@ plan_game.md         The full six-stage refactor plan
 ## Known limitations
 
 - **Hitstop uses `Engine.time_scale`.** It works, and after Stage 1 every gameplay timer counts physics ticks instead of scaled `delta`, so the remaining exposure is UI-only (labels/`FrameCounter`). Documented as an accepted limitation rather than fixed.
+- **The state layer is read-only so far.** `FighterState.resolve()` derives the
+  active state, but the control flow still branches on flag combinations. Until
+  the later Stage 2 slices port it, illegal states remain *detectable* (and are
+  detected by `test_25`) rather than *unrepresentable*.
+- **Two state/animation divergences are known and unfixed** — `is_being_thrown`
+  has no animation branch, and being airborne without `is_jumping` falls through
+  to the walk animation. Documented in `FighterState.gd`, skipped-with-counting
+  in `test_26`; fixing them changes behavior, so they wait for their own slice.
+- **Some flag overlaps are still reachable** — e.g. `hitstun_frames` and
+  `blockstun_frames` can both be non-zero (getting hit during blockstun).
+  `FighterState.known_illegal_overlaps()` enumerates these as a Stage 2 to-do
+  list rather than pretending they are already impossible.
 - **WOO is incomplete** and its future is a Stage 3 decision.
 - **Some frame data is wrong** — see the "known data issues" section of `FRAME_DATA_TABLE.md`.
