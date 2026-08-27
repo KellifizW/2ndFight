@@ -6,7 +6,7 @@ func run() -> bool:
 	await await_frames(5)
 	await tap("move_right")
 
-	# Wait longer than DOUBLE_TAP_TIME (0.3s = 36 physics frames).
+	# Wait longer than the double-tap window (DOUBLE_TAP_WINDOW_SECONDS = 0.3s = 36 physics frames).
 	await await_frames(45)
 
 	Input.action_press("move_right")

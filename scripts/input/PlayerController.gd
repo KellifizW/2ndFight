@@ -11,8 +11,12 @@ var input_buffer: InputBuffer = null
 
 # Dash / Backdash 雙擊偵測變數
 var last_input_dir: int = 0
-var double_tap_timer: float = 0.0
-const DOUBLE_TAP_TIME: float = 0.3  # 雙擊時間窗口（秒），與 Movement 原設定一致
+# Stage 1：雙擊窗口改為 int 物理幀（tick 制，每個 _physics_process -1）。
+# 舊版是 float 秒並在 _process 以真實渲染 delta 倒數 —— 窗口長度依賴渲染幀率
+# 與 Engine.time_scale（hitstop 會被拉長 50×），headless/測試環境下不可復現。
+# 0.3s @120Hz = 36 物理幀，與 DashHandler 的 neutral_timer 窗口種子同源同值。
+var double_tap_frames: int = 0
+const DOUBLE_TAP_WINDOW_SECONDS: float = 0.3  # 設計者秒數種子（只在邊界轉換一次）
 
 # 【NEW】Throw detection with lenient timing window
 const THROW_DETECTION_WINDOW: int = 3  # 3 frames @ 120 FPS = 25ms window
@@ -121,12 +125,13 @@ func _physics_process(_delta: float) -> void:
 			input_buffer.record_input(detected_special)
 			# print("[PlayerController] Detected and buffered special move: %s" % detected_special)
 
-# 每幀更新雙擊計時器
-func _process(delta: float) -> void:
-	if double_tap_timer > 0:
-		double_tap_timer -= delta
-		if double_tap_timer <= 0:
-			double_tap_timer = 0.0
+	# Stage 1：雙擊窗口每個物理幀 -1，取代舊版在 _process 以真實渲染 delta 倒數。
+	# 遞減發生在本 tick 輸入已被 Player._physics_process 讀取之後（子節點晚於父節點），
+	# 視窗涵蓋「首次點按起算 36 個物理 tick」。
+	if double_tap_frames > 0:
+		double_tap_frames -= 1
+		if double_tap_frames <= 0:
+			double_tap_frames = 0
 			last_input_dir = 0
 
 func get_input_data() -> Dictionary:
@@ -165,7 +170,7 @@ func get_input_data() -> Dictionary:
 	
 	if input_dir != 0:
 		# 判斷是否為雙擊（方向相同且在時間窗口內）
-		if input_dir == last_input_dir and double_tap_timer > 0:
+		if input_dir == last_input_dir and double_tap_frames > 0:
 			# 取得角色目前面對方向（從父節點取得）
 			var facing: float = get_parent().facing_direction if get_parent() and "facing_direction" in get_parent() else 1.0
 			if input_dir * facing > 0:
@@ -173,12 +178,12 @@ func get_input_data() -> Dictionary:
 			else:
 				backdash_pressed = true  # 後衝
 			# 觸發後立即重置，避免同一雙擊重複觸發
-			double_tap_timer = 0.0
+			double_tap_frames = 0
 			last_input_dir = 0
 		else:
-			# 開始或更新雙擊計時
+			# 開始或更新雙擊計時（秒種子 → 物理幀，唯一轉換邊界）
 			last_input_dir = input_dir
-			double_tap_timer = DOUBLE_TAP_TIME
+			double_tap_frames = Movement.seconds_to_frames_nearest(DOUBLE_TAP_WINDOW_SECONDS)
 	
 	# 攻擊按鍵 - Check buffered inputs (don't consume yet, let player.gd decide)
 	var st_lp_pressed = input_buffer.is_input_buffered("st_lp")
