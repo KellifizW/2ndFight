@@ -27,6 +27,9 @@
 [ext_resource type="AudioStream" uid="uid://bfpiw2smfeyu2" path="res://assets/audio/hk_hit.mp3" id="25_vhewk"]
 [ext_resource type="AudioStream" uid="uid://bjne6dtrx2f7l" path="res://assets/audio/lwhoosh.mp3" id="26_qpqbf"]
 [ext_resource type="AudioStream" uid="uid://duhprpw6tcr5j" path="res://assets/audio/mwhoosh.mp3" id="27_c623c"]
+[ext_resource type="AudioStream" uid="uid://ducpgeflcy1gy" path="res://assets/audio/den_grunt_l.mp3" id="28_sckc3"]
+[ext_resource type="AudioStream" uid="uid://dhjowa8cwcodt" path="res://assets/audio/den_grunt_m.mp3" id="29_ifeu2"]
+[ext_resource type="AudioStream" uid="uid://c0bjul7hfpktq" path="res://assets/audio/den_grunt_h2.mp3" id="30_muuk7"]
 
 [sub_resource type="Resource" id="Resource_4lg2u"]
 script = ExtResource("3_jo7nc")
@@ -6464,3 +6467,12 @@ stream = ExtResource("27_c623c")
 [node name="HWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=386761792]
 stream = ExtResource("27_c623c")
 pitch_scale = 0.7
+
+[node name="AttackGrunt_l1" type="AudioStreamPlayer" parent="." unique_id=1261581827]
+stream = ExtResource("28_sckc3")
+
+[node name="AttackGrunt_m1" type="AudioStreamPlayer" parent="." unique_id=1732209105]
+stream = ExtResource("29_ifeu2")
+
+[node name="AttackGrunt_h1" type="AudioStreamPlayer" parent="." unique_id=2004736949]
+stream = ExtResource("30_muuk7")

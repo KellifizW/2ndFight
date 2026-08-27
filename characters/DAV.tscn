@@ -7555,7 +7555,7 @@ pitch_scale = 1.2
 
 [node name="HPSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1067238421]
 stream = ExtResource("10_xvg5s")
-pitch_scale = 0.73
+pitch_scale = 0.84
 
 [node name="LKSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=835384224]
 stream = ExtResource("24_nf08n")
@@ -7566,7 +7566,7 @@ stream = ExtResource("25_61jl7")
 
 [node name="HKSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=549654001]
 stream = ExtResource("26_opo8r")
-pitch_scale = 0.8
+pitch_scale = 0.83
 
 [node name="LWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1422729277]
 stream = ExtResource("27_nf08n")
