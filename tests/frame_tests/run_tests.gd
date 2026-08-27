@@ -100,7 +100,20 @@ func _run_all() -> void:
 		for name in _failed_names:
 			print("   - " + name)
 	print("======================================================================")
+
+	# 收尾：釋放測試期間手動補上的 autoload 替身並等待 queue_free 生效，
+	# 降低 Godot 結束時的節點/資源洩漏警告（不影響任何測試結果）。
+	await _release_autoload_stubs()
 	quit(1 if _failed > 0 else 0)
+
+## 釋放 _ensure_autoloads 補上的根節點替身（SelectedCharacters / Debug）
+func _release_autoload_stubs() -> void:
+	for stub_name in ["SelectedCharacters", "Debug"]:
+		var stub: Node = root.get_node_or_null(stub_name)
+		if stub:
+			stub.queue_free()
+	await physics_frame
+	await physics_frame
 
 ## 生成全新 world；失敗回傳 null
 func _spawn_world() -> Node:
