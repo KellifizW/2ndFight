@@ -124,4 +124,5 @@ func _check_ready() -> void:
 	
 	if p1_ready and p2_ready:
 		Debug.log("兩人都確認完成，自動跳轉 world.tscn")
-		get_tree().change_scene_to_file("res://scenes/gameplay/world.tscn")
+		set_process(false)
+		SceneTransition.transition_to("res://scenes/gameplay/world.tscn")

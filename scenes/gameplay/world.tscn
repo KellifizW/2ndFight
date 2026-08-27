@@ -22,6 +22,7 @@
 [ext_resource type="SpriteFrames" uid="uid://dgdawo56n6mld" path="res://assets/sprite_frames/player1.tres" id="18_26xuy"]
 [ext_resource type="SpriteFrames" uid="uid://5q7cfeoprqup" path="res://assets/sprite_frames/player2.tres" id="19_bc84e"]
 [ext_resource type="Script" path="res://scripts/ui/AIToggleButtons.gd" id="20_aitog"]
+[ext_resource type="PackedScene" path="res://scenes/ui/PauseMenu.tscn" id="21_pause"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_2u3nc"]
 
@@ -342,6 +343,8 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 8
 theme_override_font_sizes/font_size = 22
 text = "RESET"
+
+[node name="PauseMenu" parent="." instance=ExtResource("21_pause")]
 
 [node name="CPUController" type="Node" parent="." unique_id=172666553]
 script = ExtResource("6_dwbse")

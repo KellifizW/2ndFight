@@ -23,6 +23,7 @@ config/icon="uid://b2flvbdt0uir3"
 
 SelectedCharacters="*res://characters/CharacterSelectData.gd"
 Debug="*res://scripts/core/DebugLogger.gd"
+SceneTransition="*res://scripts/ui/SceneTransition.gd"
 
 [display]
 
