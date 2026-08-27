@@ -30,7 +30,9 @@ func run() -> bool:
 
 	# On the very first frame of touchdown, is_landing must be FALSE
 	# (instant interrupt — no landing state entered at all).
-	var in_landing_state := me.is_landing and me.landing_lock_frames > 0
+	# 型別必須明寫：p1 宣告為 Node，屬性存取是 Variant，`:=` 無法推導型別
+	# （Cannot infer the type ...），腳本會編譯失敗。
+	var in_landing_state: bool = bool(me.is_landing) and int(me.landing_lock_frames) > 0
 	check(not in_landing_state,
 		"Landing with held input must NOT enter landing lock; is_landing=%s lock=%d"
 		% [me.is_landing, me.landing_lock_frames])
@@ -38,7 +40,7 @@ func run() -> bool:
 	# The character should be free to act immediately — verify horizontal
 	# velocity is applied by WalkHandler (we're holding move_right).
 	await await_frames(1)
-	var is_still_landing := me.is_landing and me.landing_lock_frames > 0
+	var is_still_landing: bool = bool(me.is_landing) and int(me.landing_lock_frames) > 0
 	check(not is_still_landing,
 		"One frame after landing with input, landing lock must still be clear (is_landing=%s lock=%d)"
 		% [me.is_landing, me.landing_lock_frames])
