@@ -21,7 +21,7 @@ name: Frame tests
 #
 # 兩個 job：
 #   static-check — gdtoolkit 解析全部 .gd（快，秒級，抓語法錯）
-#   frame-tests  — 真 Godot 跑 15 個 frame 用例（慢，抓行為漂移）
+#   frame-tests  — 真 Godot 跑 24 個 frame 用例（慢，抓行為漂移）
 
 on:
   push:

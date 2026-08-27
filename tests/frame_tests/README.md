@@ -39,6 +39,10 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | test_18_stun_lock_is_frame_based | knockfly 0.4s→49 幀、每物理幀 -1 |
 | test_19_hit_lock_freezes_in_hitstop | `hit_lock_frames` 與 hitstun 對齊，hitstop 期間凍結 |
 | test_20_block_lock_is_frame_based | `block_lock_frames` 與 blockstun 對齊，hitstop 期間凍結 |
+| test_21_combo_window_is_frame_based | `combo_reset_frames` 種子 73 幀、每幀恰 -1、歸零當幀 reset_combo |
+| test_22_time_conversion_boundaries | 三個轉換邊界（lock 式 floor+1 / 種子式 round / 邏輯×2）釘死，兩族不可互換 |
+| test_23_ai_decision_timers_in_frames | AI `decision_cooldown_frames`/`commitment_frames` 為 int 幀，冷卻路徑每呼 -1、歸零後重種 |
+| test_24_double_tap_window_frames | 雙擊窗口恰 36 個物理 tick，歸零同幀清除 `last_input_dir` |
 
 ## 設計規則（寫新用例時請遵守）
 
