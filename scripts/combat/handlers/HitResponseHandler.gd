@@ -303,21 +303,24 @@ func _get_multi_hit_phase(active_move, target: Node, elapsed_frames: int):
 	return phase_data
 
 func _play_hit_sound(is_blocked: bool, damage: float = 10.0) -> void:
-	"""播放擊中/格擋音效 - 根據傷害值選擇普通或強力音效"""
-	var is_heavy_hit = damage >= 8.0
+	"""
+	播放擊中/格擋音效
+
+	- 擊中：按「攻擊類型」播放專屬音效（st_lp/cr_lp/jump_lp → LPSoundPlayer，
+	  hk 系列 → HKSoundPlayer，如此類推）。
+	  特殊招式或角色場景未加設專屬節點時，回退到舊有的
+	  HitSoundPlayer / HeavyHitSoundPlayer（按傷害判定）。
+	- 格擋：維持原本的 BlockSoundPlayer / HeavyBlockSoundPlayer（按傷害判定）。
+	"""
+	if parent_player == null:
+		return
 	
 	if is_blocked:
-		# 格擋時：傷害 >= 8 播放 HeavyBlockSoundPlayer，否則播放 BlockSoundPlayer
-		var sound_player_name = "HeavyBlockSoundPlayer" if is_heavy_hit else "BlockSoundPlayer"
-		var block_sound = parent_player.get_node_or_null(sound_player_name)
-		if block_sound and block_sound.has_method("play"):
-			block_sound.play()
-	else:
-		# 擊中時：傷害 >= 8 播放 HeavyHitSoundPlayer，否則播放 HitSoundPlayer
-		var sound_player_name = "HeavyHitSoundPlayer" if is_heavy_hit else "HitSoundPlayer"
-		var hit_sound = parent_player.get_node_or_null(sound_player_name)
-		if hit_sound and hit_sound.has_method("play"):
-			hit_sound.play()
+		AttackSoundResolver.play_block_sound(parent_player, damage)
+		return
+	
+	var attack_type: String = str(parent_player.attack_type) if "attack_type" in parent_player else ""
+	AttackSoundResolver.play_hit_sound(parent_player, attack_type, damage)
 
 func _calculate_contact_point(area: Area2D) -> Vector2:
 	"""計算碰撞接觸點"""
