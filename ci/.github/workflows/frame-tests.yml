@@ -1,0 +1,81 @@
+name: Frame tests
+
+# 重構安全網 CI（plan_game.md §10）
+#
+# 為什麼需要這個 workflow：
+#   plan_game.md §11 風險表第一列寫著「無 CI 前的驗證依賴使用者本地」。
+#   Stage 1 起的計時器遷移每一刀都要求「遊戲行為一幀不變」，
+#   靠人手跑測試不可靠。這裡讓 tests/frame_tests 在真正的
+#   Godot 4.7.2 headless 上跑，PR 沒綠就不合併。
+#
+# 兩個 job：
+#   static-check — gdtoolkit 解析全部 .gd（快，秒級，抓語法錯）
+#   frame-tests  — 真 Godot 跑 24 個 frame 用例（慢，抓行為漂移）
+
+on:
+  push:
+    branches:
+      - main
+      - 'arena/**'
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: frame-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-check:
+    name: GDScript static check
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install gdtoolkit
+        run: pip install "gdtoolkit==4.*"
+
+      - name: Parse every GDScript file
+        shell: bash
+        run: |
+          mapfile -t files < <(find scripts ai tests characters data \
+            -name '*.gd' -type f | sort)
+          echo "Parsing ${#files[@]} GDScript files..."
+          gdparse "${files[@]}"
+          echo "All ${#files[@]} files parsed successfully."
+
+      # gdparse 只驗語法；覆寫簽名不匹配（如 fighter.gd:52 那次事故：
+      # 非 static + int 覆寫 static + float）是 gdtoolkit 看不見的編譯錯誤。
+      - name: Parent/child signature consistency check
+        run: python ci/check_signatures.py
+
+  frame-tests:
+    name: Frame tests (Godot 4.7.2 headless)
+    runs-on: ubuntu-24.04
+    container:
+      image: barichello/godot-ci:4.7.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Report Godot version
+        shell: bash
+        run: godot --headless --version
+
+      # 首次匯入資產。Godot 在空的 .godot/ 上執行腳本會邊跑邊匯入，
+      # 可能干擾第一個用例的時序，所以先單獨跑一次匯入。
+      - name: Import project assets
+        shell: bash
+        run: |
+          godot --headless --path . --import || true
+
+      - name: Run frame tests
+        shell: bash
+        run: bash tests/frame_tests/run_frame_tests.sh
