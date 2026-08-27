@@ -31,8 +31,9 @@ func run() -> bool:
 	check(Movement.logic_frames_to_physics_frames(10) == 20, "10 邏輯幀應 20 物理幀")
 	check(Movement.logic_frames_to_physics_frames(1) == 2, "1 邏輯幀應 2 物理幀")
 	check(Movement.logic_frames_to_physics_frames(0) == 0, "0 幀應為 0")
-	# Fighter 上的委托入口必須與邊界同值（舊三套實作已收攏）
-	check(p2.logic_frames_to_physics_frames(24) == 48, "Fighter 委托入口應與 Movement 邊界一致")
+	# Fighter 上的委托入口必須與邊界同值（舊三套實作已收攏）。
+	# 注意用類別名呼叫（static），避免 STATIC_CALLED_ON_INSTANCE 警告。
+	check(Fighter.logic_frames_to_physics_frames(24) == 48, "Fighter 委托入口應與 Movement 邊界一致")
 
 	# ── 角色身上的設計秒數種子與轉換結果相符 ──
 	check(p1.double_tap_window_seconds == 0.3, "double-tap 種子應為 0.3 秒（改名自 double_tap_timer）")

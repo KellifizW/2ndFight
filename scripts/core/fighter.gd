@@ -49,8 +49,12 @@ var last_hit_attack_name: String = ""  # 🟢 【新增】記錄最近一次受�
 # Stage 1：秒↔幀 / 邏輯↔物理轉換已收攏至 Movement
 # （seconds_to_lock_frames / seconds_to_frames_nearest / logic_frames_to_physics_frames）。
 # 舊的 logic_seconds_to_physics_frames / sec_to_frames 為無人呼叫的重複實作，已移除。
-func logic_frames_to_physics_frames(logic_frames: int) -> int:
-	"""將邏輯幀（60 FPS）轉換為物理幀（實際 FPS）— Movement 邊界的委托入口。"""
+static func logic_frames_to_physics_frames(logic_frames: float) -> int:
+	"""將邏輯幀（60 FPS）轉換為物理幀 — Movement 邊界的委托入口。
+
+	簽名必須與 Movement 完全一致（static + float 參數）：
+	GDScript 覆寫不允許任何差異（含 int→float），否則編譯失敗。
+	"""
 	return Movement.logic_frames_to_physics_frames(logic_frames)
 
 func _ready() -> void:
