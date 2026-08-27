@@ -52,7 +52,7 @@ var blockstun_active_frames: int = 0
 var _last_hitstun_frames: int = 0
 var _hitstun_start_logged: bool = false
 var _initial_hitstun_frames: int = 0  # 🟢 【新增】記錄初始 hitstun 值
-var _last_block_timer: float = 0.0
+var _last_block_lock_frames: int = 0
 var _blockstun_start_logged: bool = false
 
 # 🟢 【新增】Hit stop 追蹤變數
@@ -182,18 +182,18 @@ func _process(delta: float) -> void:
 			_hitstun_start_logged = false
 		_last_hitstun_frames = cur_frames
 	
-	# ── 除錯：blockstun（舊版 timer）追蹤 ─────────────────────
-	if "block_timer" in target_player:
-		var cur_timer = target_player.block_timer
-		if cur_timer > 0 and not _blockstun_start_logged:
-			Debug.log("[BLOCKSTUN] %s 進入 blockstun → %.3f秒 (約 %d 幀)" % [
-				target_player.name, cur_timer, int(cur_timer * Engine.physics_ticks_per_second)
+	# ── 除錯：blockstun（幀制 lock）追蹤 ─────────────────────
+	if "block_lock_frames" in target_player:
+		var cur_frames: int = int(target_player.block_lock_frames)
+		if cur_frames > 0 and not _blockstun_start_logged:
+			Debug.log("[BLOCKSTUN] %s 進入 blockstun → %d 物理幀" % [
+				target_player.name, cur_frames
 			])
 			_blockstun_start_logged = true
-		elif cur_timer <= 0 and _blockstun_start_logged:
+		elif cur_frames <= 0 and _blockstun_start_logged:
 			Debug.log("[BLOCKSTUN] %s blockstun 結束" % target_player.name)
 			_blockstun_start_logged = false
-		_last_block_timer = cur_timer
+		_last_block_lock_frames = cur_frames
 	
 	var flags := _get_player_flags()
 	var timer_driven: bool = flags.blocking or flags.hit or flags.knockfly or \

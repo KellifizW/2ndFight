@@ -1,5 +1,5 @@
 # 2ndFight 重構與測試計劃
-> 建立: 2026-08-21 | 最後更新: 2026-08-21
+> 建立: 2026-08-21 | 最後更新: 2026-08-26
 > 狀態圖例: ✅ 已完成(已併入 main) | 🔄 進行中 | ⏳ 待開始
 > 目前基準: `main` (Godot 4.7.2, physics 120 FPS)
 >
@@ -48,7 +48,7 @@
 | 階段 | 目標 | 狀態 | 估算 |
 |---|---|---|---|
 | Stage 0 | 止血 + 安全網(DebugLogger / frame 測試 / frame data 表 / 守則) | ✅ 已併入 main | — |
-| Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | 🔄 進行中(安全網 16 用例; landing family 已遷移) | 1~2 週末 |
+| Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | 🔄 進行中(landing + PushManager stun-lock 已遷移; 20 用例) | 1~2 週末 |
 | Stage 2 | 顯式狀態機(消除 34 旗標) | ⏳ | 2~4 週末 |
 | Stage 3 | FrameData 收攏 + 數據問題清理 | ⏳ | 1~2 週末 |
 | Stage 4 | 輸入系統收斂(單一 ActionMapper) | ⏳ | 1~2 週末 |
@@ -82,7 +82,7 @@
   `failure_report()` 移除不支援的 list comprehension
 - [x] 進入 Stage 1
 ---
-## 5. Stage 1: 統一時間域 ⏳
+## 5. Stage 1: 統一時間域 🔄
 **問題**: 遊戲邏輯混用四個時間域, 62 處 `*2`/`*120`/`/2.0` 分散轉換, 是反覆出 bug 的根源
 (代碼中「🔴【關鍵修復】…需轉換為 ×120」類注释即證據)。
 **目標不變式**:
@@ -94,24 +94,29 @@
 1. 盤點所有計時器並分類(目前已知混用點):
    - 物理幀型(對): `hitstun_frames` `blockstun_frames` `knockback_frames` `attack_duration_timer`
      `wakeup_timer` `layground_timer` `dash_timer` `current_move_state.timer`
-   - 秒型(需遷移): `knockfly_timer` `hit_timer` `block_timer` `initial_hitstun`
-     `landing_lock_timer` `jump_delay_timer` `neutral_timer` `floor_snap_immunity_timer`
-     `dash_time`/`backdash_time` `combo_reset_timer` `decision_cooldown`(AI)
+   - 秒型(需遷移): `combo_reset_timer` `decision_cooldown`(AI)
+     `double_tap_timer`(`PlayerController`) `jump_timer`(`SpecialMoveBase`)
+   - 已遷移: `landing_lock_frames` `knockfly_frames` `hit_lock_frames`
+     `block_lock_frames` `block_push_frames`；`jump_delay_timer`/`neutral_timer`/
+     `floor_snap_immunity_timer` 已是 int 幀（種子公式尚未收攏）
    - 混合(需拆): `air_hit_backjump_timer`(int 但初始化用 `* LOGIC_FPS * 2`)
 2. 每個秒型計時器: 改為 int 物理幀, 更新所有讀取點
 3. 收攏轉換: 所有 `logic_frames_to_physics_frames` / `* 2` / `* 120` 調用 →
    只剩數據載入邊界一處
 4. hitstop 的 `Engine.time_scale` 方案保留(已可工作), 但 File 記為已知限制
 **測試方法**:
-- 既有 9 用例必須全綠(尤其 05/06 的 hitstun/blockstun 幀數斷言)
-- **新增** frame-precise 用例:
+- 既有用例必須全綠(尤其 05/06/10 的 hitstun/blockstun 幀數斷言)
+- **已新增** frame-precise 用例:
   - `test_10_hitstun_decrement`: 命中後逐幀記錄 `hitstun_frames`, 斷言 hitstop 期間不遞減、
     結束後每物理幀 -1、精確 48 幀歸零
   - `test_11_landing_lock_frames`: 著地後 `is_landing` 無輸入時精確持續 23 物理幀
   - `test_12_dash_frames`: dash 持續 42 物理幀(0.35s×120)
+  - `test_18_stun_lock_is_frame_based`: knockfly 0.4s→49 幀, 每物理幀 -1
+  - `test_19_hit_lock_freezes_in_hitstop`: `hit_lock_frames` 與 `hitstun_frames` 對齊並在 hitstop 凍結
+  - `test_20_block_lock_is_frame_based`: `block_lock_frames` 與 `blockstun_frames` 對齊並在 hitstop 凍結
 - 比對 `FRAME_DATA_TABLE.md` 實測值不變
 **驗收(DoD)**:
-- [ ] 9+3 用例全綠
+- [x] landing + PushManager stun-lock 兩族已遷移; 對應 frame tests 已寫好（使用者本地驗收）
 - [ ] `grep` 遊戲邏輯中無 `float` 計時器(秒域只剩 UI/camera/BGM/tween)
 - [ ] 邏輯幀↔物理幀轉換只剩 1 處
 - [ ] FRAME_DATA_TABLE 實測值無變化
@@ -211,7 +216,7 @@ ActionMapper 同時供人類輸入與 AI(合成 InputFrame)使用
 **死代碼清單(已知)**:
 - `player.gd::_physics_process_jump`(從未被呼叫, 跳躍走 JumpHandler)
 - `post_physics_process()` / `update_hitbox_position()` / `_process_projectile_spawn()` 等 pass 方法
-- `@deprecated` 變數(`initial_blockstun` `block_push_timer` `block_push_velocity`...)
+- `@deprecated` 變數(`initial_blockstun` `block_push_frames` `block_push_velocity`...)
 - `scripts/debug/ai_behavior_old_backup.gd`、`ai/cpu_controller.gd` + `ai/specs/`(殘骸, 先確認無引用)
 - `data/attacks/*.tres` 孤兒資源(Stage 3 刪)
 - 根目錄 `AIR_PUSHBOX_QUICK_DIAGNOSIS.md` / `QUICK_DIAGNOSIS_CARD.md`(內容過時, 由 Debug logger 取代)
@@ -254,7 +259,7 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 ### 10.4 各階段擴展計劃
 | 階段 | 新增用例 |
 |---|---|
-| Stage 1 | 10 hitstun 遞減精確性 / 11 landing lock 幀數 / 12 dash 幀數 |
+| Stage 1 | 10 hitstun 遞減 / 11 landing lock / 12 dash / 16 landing 轉換公式 / 18 knockfly 幀制 / 19 hit_lock hitstop 凍結 / 20 block_lock |
 | Stage 2 | 13 狀態機不變式(隨機輸入 600 幀) |
 | Stage 3 | 14 每角色每招式 frame 斷言 / 100p 四段 |
 | Stage 4 | 15 QCF 宏 / 16 DP 宏 / 17 摔投窗口 / 18 AI 對稱性 |
@@ -278,7 +283,7 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 |---|---|---|
 | 無 CI 前的驗證依賴使用者本地(沙箱下不到 Godot) | 高 → 待啟用後緩解 | CI workflow 已寫好(`ci/frame-tests.yml`, 容器 `barichello/godot-ci:4.7.2`); 搬入 `.github/workflows/` 後每次 push/PR 自動跑 |
 | Godot 4.6→4.7.2 升級的引擎行為差異 | 中 | 升級後已跑過 Stage 0 測試(使用者確認中); 之後每階段都重跑 |
-| Stage 1 大規模計時器遷移的隱性行為漂移 | 高 | 12 個用例 + 逐子系統遷移(一次一個計時器族) + FrameData 表比對 |
+| Stage 1 大規模計時器遷移的隱性行為漂移 | 高 | 20 個用例 + 逐子系統遷移(一次一個計時器族) + FrameData 表比對 |
 | Stage 2 狀態機遷移期間長(2~4 週末) | 中 | 按子系統切 3 段, 每段独立可驗證; 旗標與狀態並行期間用測試對齊 |
 | DEN spnk / DAV dpM/dpH 數據損毀(動畫 0f) | 中 | Stage 3 處理; 處理前若觸發該招式先標記 skip |
 | WOO 角色不完整 | 低 | Stage 3 決定去留 |
@@ -298,11 +303,18 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
   **轉換公式踩雷紀錄**: 舊的 `timer -= delta` 迴圈在 0.2s 下實際跑 **25** 幀而非數學上的 24
   (24 次浮點相減後殘值 5.2e-17 > 0)。因此換算用 `floor(sec*fps)+1`
   (`Movement.seconds_to_lock_frames`), 若用 `round()` 會少一幀而改變行為。
-4. **[下一切片]** `knockfly_timer` / `hit_timer` / `block_timer` / `block_push_timer`
-  (`PushManager.gd:278-310` 的 `-= delta` 群)。這族的實質收益: `fighter.gd:90-95`
-  在 hitstop 期間早退, 但 PushManager 的 delta 遞減不受該早退保護, 目前秒型計時器
-  在 hitstop 下仍會前進 —— 改幀制後自動修正。
-5. 每階段結束: 更新本文件狀態欄 + `FRAME_DATA_TABLE.md` + commit
+4. **[已完成]** PushManager stun-lock family:
+   `knockfly_timer`/`hit_timer`/`block_timer`/`block_push_timer` →
+   `knockfly_frames`/`hit_lock_frames`/`block_lock_frames`/`block_push_frames`。
+   遞減仍在 PushManager（與 knockfly 速度曲線同一處），但 hitstop 期間凍結。
+   knockfly 秒數種子走 `Movement.start_knockfly_timer()` → `seconds_to_lock_frames`
+   （0.4s→49）；hit/block lock 直接用已轉換的物理幀，與 `hitstun_frames`/
+   `blockstun_frames` 對齊。新增 `test_18`/`test_19`/`test_20`。
+5. **[下一切片]** 收攏剩餘秒型計時器: `combo_reset_timer`、
+   `decision_cooldown`、`double_tap_timer`（目前在 `_process` 用 delta）、
+   `SpecialMoveBase.jump_timer`；並把 `air_hit_backjump_timer` 的
+   `* LOGIC_FPS * 2` 種子改走單一轉換點。
+6. 每階段結束: 更新本文件狀態欄 + `FRAME_DATA_TABLE.md` + commit
 ---
 ## 附錄 A: 關鍵代碼位置(供各階段參考)
 | 系統 | 檔案 |

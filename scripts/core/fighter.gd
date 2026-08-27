@@ -144,7 +144,7 @@ func _physics_process(delta: float) -> void:
 			corner_push_velocity = 0.0
 			fixed_velocity.x = 0
 
-	# ── super 先執行（舊的 block_timer 仍然會被減，但我們不再依賴它控制狀態）──
+	# ── super 先執行（block_lock_frames 仍由 PushManager 遞減，狀態以 blockstun_frames 為準）──
 	super._physics_process(delta)
 
 	# ── 【攻擊輸入檢查】保持舊版──
@@ -217,8 +217,8 @@ func take_hit(
 		is_crouch_blocking = input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0
 		blockstun_frames = physics_blockstun  # ✅ 使用轉換後的物理幀
 		initial_blockstun_frames = physics_blockstun
-		initial_blockstun = physics_blockstun / float(PHYSICS_FPS)  # 轉換回秒數用於其他計算
-		block_timer = physics_blockstun / float(PHYSICS_FPS)
+		initial_blockstun = physics_blockstun / float(PHYSICS_FPS)  # @deprecated 秒數，僅供舊 block_push_velocity
+		block_lock_frames = physics_blockstun
 		
 		# 🟢 【修正】強制重置垂直速度和位置，確保完全在地面上（避免 DP 跳躍條件失敗）
 		# ⚠️  注意：這只清零防禦方的速度，不應影響攻擊方
@@ -239,8 +239,11 @@ func take_hit(
 			initial_block_knockback_frames = physics_blockstun  # 保存初始幀數用於衰減計算
 			
 			# @deprecated 保留舊變數以維持向後兼容
-			block_push_timer = initial_blockstun
-			block_push_velocity = 2.0 * push_distance * world.SIMULATION_SCALE / initial_blockstun
+			block_push_frames = physics_blockstun
+			if initial_blockstun > 0.0:
+				block_push_velocity = 2.0 * push_distance * world.SIMULATION_SCALE / initial_blockstun
+			else:
+				block_push_velocity = 0.0
 		
 		block_detected.emit(name, block_type)
 		_update_animation_state(0, input_data.crouch_pressed)
@@ -291,11 +294,9 @@ func take_hit(
 		params.merge(knockfly_params, true)
 		
 		is_knockfly = true
-		# � 【統一修復】knockfly_timer 使用秒數，由 PushManager 以 delta 遞減
-		knockfly_timer = params.duration  # ✅ 使用秒數，不是幀數
-		Debug.log("[KNOCKFLY DEBUG] Started | params.duration: %.3fs -> knockfly_timer: %.3fs" % [params.duration, knockfly_timer])
-		# 🟢 【關鍵修復】同時設置 knockfly_duration，確保 PushManager 的速度計算正確
-		knockfly_duration = params.duration  # ✅ knockfly_duration 也用秒數
+		# Stage 1：秒 → 物理幀，由 PushManager 每幀 -1（hitstop 期間凍結）
+		start_knockfly_timer(float(params.duration))
+		Debug.log("[KNOCKFLY DEBUG] Started | params.duration: %.3fs -> knockfly_frames: %d" % [params.duration, knockfly_frames])
 		is_immune_to_floor_snap = true
 		floor_snap_immunity_timer = int(round(floor_snap_immunity_duration * LOGIC_FPS * 2))  # 這個是幀數
 		
@@ -362,8 +363,8 @@ func take_hit(
 			hitstun_frames = hit_frames
 			initial_hitstun = hitstun_seconds
 		
-		# hit_timer = hitstun時間，確保knockback完整執行
-		hit_timer = hitstun_seconds
+		# 舊 hit_timer 的幀制版：與 hitstun_frames 同長度，由 PushManager 遞減
+		hit_lock_frames = hit_frames
 		
 		if not is_on_floor():
 			# 空中普通攻擊：強制使用後跳邏輯，垂直速度為正常跳躍的 0.7 倍
@@ -411,10 +412,9 @@ func take_knockfly() -> void:
 		if is_spmove:
 			move_set.stop_special_move()
 		is_knockfly = true
-		# � 【統一修復】knockfly_timer 使用秒數，由 PushManager 以 delta 遞減
-		knockfly_timer = max(default_knockfly_duration, min_hitstun_duration)
-		knockfly_duration = knockfly_timer  # 同步 knockfly_duration
-		Debug.log("[KNOCKFLY TAKE DEBUG] default_knockfly_duration: %.3fs -> knockfly_timer: %.3fs (seconds)" % [default_knockfly_duration, knockfly_timer])
+		# Stage 1：秒 → 物理幀
+		start_knockfly_timer(max(default_knockfly_duration, min_hitstun_duration))
+		Debug.log("[KNOCKFLY TAKE DEBUG] default_knockfly_duration: %.3fs -> knockfly_frames: %d" % [default_knockfly_duration, knockfly_frames])
 		_update_animation_state(0, is_crouching)
 
 func get_contact_point(hit_area: Area2D, hurt_area: Area2D) -> Vector2:
@@ -491,10 +491,12 @@ func _apply_pending_hit_effect() -> void:
 	# 啟動 hitstun（blockstun 只在格擋時設置）
 	Debug.log("[DEBUG _apply_pending_hit_effect] 執行前: hitstun_frames=%d, 即將設置為 %d" % [hitstun_frames, hit_frames])
 	hitstun_frames = hit_frames
+	hit_lock_frames = hit_frames
 	Debug.log("[DEBUG _apply_pending_hit_effect] 執行後: hitstun_frames=%d" % hitstun_frames)
 	if blockstun > 0:
 		blockstun_frames = blockstun
 		initial_blockstun_frames = blockstun
+		block_lock_frames = blockstun
 	
 	# 啟動 knockback（如果不跳過 push）
 	if not skip_push:

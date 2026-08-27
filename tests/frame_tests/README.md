@@ -34,6 +34,11 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | test_13_combo_requires_active_stun | 非 hitstun 內的下一次命中不可延續 combo counter |
 | test_14_dash_window_expires | double-tap dash window 36 物理幀後必須清除 |
 | test_15_vfx_preloader_character_vfx | 遊戲載入時預載/預熱 hit、block、spawnfire、火球 VFX |
+| test_16_landing_lock_is_frame_based | `seconds_to_lock_frames` 公式 + landing 每幀 -1 |
+| test_17_ai_toggle_drives_player | AI 開關能驅動角色 |
+| test_18_stun_lock_is_frame_based | knockfly 0.4s→49 幀、每物理幀 -1 |
+| test_19_hit_lock_freezes_in_hitstop | `hit_lock_frames` 與 hitstun 對齊，hitstop 期間凍結 |
+| test_20_block_lock_is_frame_based | `block_lock_frames` 與 blockstun 對齊，hitstop 期間凍結 |
 
 ## 設計規則（寫新用例時請遵守）
 

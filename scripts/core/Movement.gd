@@ -100,12 +100,12 @@ var knockfly_gravity: float = 1700000.0
 var knockfly_vertical_speed: float = -400.0
 var knockfly_horizontal_speed: float = 6000.0
 var air_friction: float = 200.0
-var knockfly_duration: float = 0.4
+var knockfly_duration_frames: int = 0  # 原始時長（物理幀），供 PushManager 速度曲線當分母
 var knockfly_velocity_x: float = 0.0
 var knockfly_accumulated_distance: float = 0.0
 var knockfly_max_distance: float = 150.0
 var is_knockfly: bool = false
-var knockfly_timer: float = 0.0  # 秒數，由 PushManager 以 delta 遞減
+var knockfly_frames: int = 0  # 剩餘物理幀，由 PushManager 每幀 -1（hitstop 期間凍結）
 var just_thrown: bool = false
 var is_being_thrown: bool = false
 
@@ -120,9 +120,9 @@ var is_air_hit_knockfly: bool = false
 
 # ── 傷害與防禦 ────────────────────────────
 var is_hit: bool = false
-var hit_timer: float = 0.0
+var hit_lock_frames: int = 0  # 舊 hit_timer 的幀制版；與 hitstun_frames 並行，由 PushManager 遞減
 var is_blocking: bool = false
-var block_timer: float = 0.0
+var block_lock_frames: int = 0  # 舊 block_timer 的幀制版；與 blockstun_frames 並行
 var is_holding_back: bool = false
 var is_crouch_blocking: bool = false
 var is_proximity_blocking: bool = false
@@ -148,14 +148,14 @@ var hit_push_offset: int = 0  # Knockback每幀的position offset (fixed-point�
 # @deprecated 舊的 Delta-based 變數（保留向後兼容，將逐步棄用）
 var initial_blockstun: float = 0.0  # @deprecated - 使用 blockstun_frames 代替
 var block_push_velocity: float = 0.0  # @deprecated - 使用 block_push_initial_velocity 代替
-var block_push_timer: float = 0.0  # @deprecated - 使用 block_knockback_frames 代替
+var block_push_frames: int = 0  # @deprecated - 使用 block_knockback_frames 代替
 
 var block_push_initial_velocity: float = 0.0  # Block 推擊初始速度
 var push_back_velocity: int = 0
 var push_back_frames: int = 0  # Frame counter (replace push_back_timer)
 var initial_push_back_frames: int = 0  # Initial frame count (replace initial_push_back)
 var is_immune_to_floor_snap: bool = false
-var floor_snap_immunity_timer: float = 0.0
+var floor_snap_immunity_timer: int = 0  # 物理幀（早已按幀遞減，型別從 float 對齊）
 
 # ── 核心物理 ──────────────────────────────
 var fixed_position: Vector2i = Vector2i.ZERO
@@ -189,7 +189,7 @@ var anim_resets: Dictionary = {
 	"st_mp": func(): _reset_attack()
 }
 
-## 秒 → 著地鎖定物理幀數（Stage 1：landing family 的唯一轉換邊界）。
+## 秒 → 物理幀數（Stage 1：landing / knockfly 等「舊 float 倒數」族的轉換邊界）。
 ##
 ## 為什麼是 floor(s * fps) + 1 而不是 round(s * fps)：
 ## 舊實作是 `timer = max(0, timer - delta)`，迴圈條件為 `timer > 0`，
@@ -202,6 +202,12 @@ static func seconds_to_lock_frames(seconds: float) -> int:
 		return 0
 	var fps: float = float(Engine.physics_ticks_per_second)
 	return int(floor(seconds * fps)) + 1
+
+## Stage 1：把秒數 knockfly 時長轉成物理幀，並同步曲線分母。
+## 轉換走 seconds_to_lock_frames，重現舊的 `timer -= delta` / `timer > 0` 格數。
+func start_knockfly_timer(duration_seconds: float) -> void:
+	knockfly_frames = seconds_to_lock_frames(duration_seconds)
+	knockfly_duration_frames = knockfly_frames
 
 func _reset_layground() -> void:
 	is_layground = false
@@ -275,7 +281,8 @@ func _ready() -> void:
 	prev_position = global_position
 	fixed_position = Vector2i(int(global_position.x * (world.SIMULATION_SCALE if world else 1000)), world.FLOOR_Y if world else 200000)
 	update_facing_direction()
-	knockfly_timer = 0
+	knockfly_frames = 0
+	knockfly_duration_frames = 0
 	layground_timer = 0
 	is_knockfly_animation_finished = false
 

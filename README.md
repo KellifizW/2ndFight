@@ -51,7 +51,7 @@ These are non-negotiable and apply to every contribution:
 | Stage | Goal | Status |
 |---|---|---|
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
-| **1** | **Unify the time domain** — all gameplay logic in integer physics frames | 🔄 In progress |
+| **1** | **Unify the time domain** — all gameplay logic in integer physics frames | 🔄 In progress (landing + PushManager stun-lock families) |
 | **2** | **Explicit state machine** — replace the ~34 boolean flags | ⏳ Planned |
 | **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | ⏳ Planned |
 | **4** | **Converge input handling** — a single `ActionMapper` | ⏳ Planned |
@@ -80,14 +80,18 @@ seconds silently stretches by up to 50×. Frame-counted timers are immune.
 - ✅ `landing` timer family: `landing_lock_timer: float` (seconds) → `landing_lock_frames: int` (physics frames), across all 26 read/write sites.
 - ✅ Removed the write-only dead flag `_landing_interrupted_by_input`.
 - ✅ Extracted `Player._enter_landing_state()`, collapsing three byte-identical copies of the landing-entry block.
+- ✅ PushManager stun-lock family: `knockfly_timer` / `hit_timer` / `block_timer` / `block_push_timer` (`float` seconds, `-= delta`) → `knockfly_frames` / `hit_lock_frames` / `block_lock_frames` / `block_push_frames` (`int` physics frames, `-1` per tick). PushManager still owns the decrement so knockfly velocity interpolation stays atomic, but it now **freezes during hitstop** — the old `-= delta` path kept advancing while `fighter.gd` returned early.
+- ✅ Knockfly duration conversion goes through `Movement.start_knockfly_timer()` → `seconds_to_lock_frames()` (0.4s → 49). Hit/block locks seed from the already-converted physics-frame counts (`hitstun_frames` / `blockstun_frames`), so they stay aligned.
+- ✅ `floor_snap_immunity_timer` type corrected to `int` (it was already decremented by 1).
+- ✅ New frame tests `test_18` / `test_19` / `test_20` pin the conversion formula and the hitstop freeze.
 
 **Remaining timer families**
 
-- `knockfly_timer`, `hit_timer`, `block_timer`, `block_push_timer` — the `-= delta` group in `PushManager.gd`. These are the clearest instance of the hitstop bug above: `fighter.gd` returns early during hitstop, but `PushManager` runs outside that guard.
-- `jump_delay_timer`, `neutral_timer`, `floor_snap_immunity_timer`
-- `dash_time` / `backdash_time`, `combo_reset_timer`
-- `decision_cooldown` (AI), `double_tap_timer` (`PlayerController`), `jump_timer` (`SpecialMoveBase`)
-- `air_hit_backjump_timer` — currently an `int`, but seeded via `* LOGIC_FPS * 2`; needs splitting.
+- `jump_delay_timer`, `neutral_timer` — already `int` physics frames; conversion still uses `round(sec * 120)` rather than `seconds_to_lock_frames`.
+- `dash_time` / `backdash_time` — designer seconds that seed the already-frame-based `dash_timer` (`round(0.35*120)=42`; do **not** switch this seed to `seconds_to_lock_frames` or dash becomes 43).
+- `combo_reset_timer` (world / combo label)
+- `decision_cooldown` (AI), `double_tap_timer` (`PlayerController`, currently decremented in `_process`), `jump_timer` (`SpecialMoveBase`, leftover unused path)
+- `air_hit_backjump_timer` — already an `int`, but seeded via `* LOGIC_FPS * 2`; needs splitting.
 
 > ⚠️ **Conversion gotcha, learned the hard way.** The legacy pattern
 > `timer = max(0, timer - delta)` looping while `timer > 0` does **not** run
@@ -161,6 +165,9 @@ The rules that bite hardest:
 - Lambdas may only capture locals (`var me = p1`, then pass `me`).
 - Measure in physics frames, never seconds. 1 logical frame = 2 physics frames.
 - Leave generous wait windows around hits — hitstop slows physics-frame advance by 50×.
+
+Frame tests currently cover 20 cases (`test_01`–`test_20`), including the Stage 1
+landing and PushManager stun-lock families.
 
 ### Not yet covered (honest disclosure)
 

@@ -43,7 +43,7 @@ func _check_player_state(player: Node, name: String) -> void:
 	var is_layground: bool = player.is_layground if "is_layground" in player else false
 	var is_wakeup: bool = player.is_wakeup if "is_wakeup" in player else false
 	
-	var knockfly_timer: float = player.knockfly_timer if "knockfly_timer" in player else 0
+	var knockfly_frames: int = player.knockfly_frames if "knockfly_frames" in player else 0
 	var layground_timer: int = player.layground_timer if "layground_timer" in player else 0
 	var wakeup_timer: int = player.wakeup_timer if "wakeup_timer" in player else 0
 	
@@ -56,7 +56,7 @@ func _check_player_state(player: Node, name: String) -> void:
 	if is_knockfly and not _last_knockfly_state:
 		_knockfly_entered_frame = Engine.get_physics_frames()
 		Debug.log("\n🔴 [%s] KNOCKFLY STARTED (Frame %d)" % [name, _knockfly_entered_frame])
-		Debug.log("  📍 knockfly_timer: %.3f seconds" % knockfly_timer)
+		Debug.log("  📍 knockfly_frames: %d" % knockfly_frames)
 		Debug.log("  🎬 Animation: %s" % curr_anim)
 	
 	elif is_layground and not _last_layground_state and not is_knockfly:
@@ -83,12 +83,12 @@ func _check_player_state(player: Node, name: String) -> void:
 	
 	# Verbose frame-by-frame logging
 	if verbose_mode and (is_knockfly or is_layground or is_wakeup):
-		Debug.log("[%s-Frame%d] KF:%s LG:%s WU:%s | KF_timer:%.3f LG_timer:%d WU_timer:%d | Anim:%s" % [
+		Debug.log("[%s-Frame%d] KF:%s LG:%s WU:%s | KF_frames:%d LG_timer:%d WU_timer:%d | Anim:%s" % [
 			name, Engine.get_physics_frames(),
 			"✓" if is_knockfly else "✗",
 			"✓" if is_layground else "✗",
 			"✓" if is_wakeup else "✗",
-			knockfly_timer, layground_timer, wakeup_timer,
+			knockfly_frames, layground_timer, wakeup_timer,
 			curr_anim
 		])
 	

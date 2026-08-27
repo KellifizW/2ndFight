@@ -34,6 +34,9 @@ const CASES: Array = [
 	"res://tests/frame_tests/cases/test_15_vfx_preloader_character_vfx.gd",
 	"res://tests/frame_tests/cases/test_16_landing_lock_is_frame_based.gd",
 	"res://tests/frame_tests/cases/test_17_ai_toggle_drives_player.gd",
+	"res://tests/frame_tests/cases/test_18_stun_lock_is_frame_based.gd",
+	"res://tests/frame_tests/cases/test_19_hit_lock_freezes_in_hitstop.gd",
+	"res://tests/frame_tests/cases/test_20_block_lock_is_frame_based.gd",
 ]
 
 var _passed: int = 0
