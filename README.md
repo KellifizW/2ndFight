@@ -223,6 +223,29 @@ swapped" guard), `test_23` AI decision/commitment tick semantics, and `test_24` 
 - Full air-attack / throw / knockfly flows (Stages 2–4)
 - Corner-pushing and other extreme coordinate cases (after Stage 3)
 
+### Why the agent sandbox cannot run the engine (and what it does instead)
+
+Verified in-sandbox while landing the Stage 1 closing slice (PR #19) — recorded so
+nobody re-litigates it, and so PR descriptions honestly say *how* they were checked.
+A Linux agent sandbox cannot substitute for the harness; **only real CI (or your
+machine) can**:
+
+| Gate | Measured fact |
+|---|---|
+| Binary download | The sandbox egress allowlist permits `github.com` / `api.github.com` / `codeload` / PyPI / npm — nothing that serves the engine. Release-asset CDNs, `godotengine.org`, `downloads.tuxfamily.org`, Docker registries and apt mirrors all die mid-TLS (`SSL_ERROR_SYSCALL`). No PyPI/npm package ships a Godot binary either |
+| Windows `.exe` | The sandbox is Linux x86_64 without Wine → an uploaded `Godot.exe` would *arrive* (repo files flow over the permitted git hosts) but could never *execute* |
+| Linux build, committed to the repo | Deliverable inside GitHub's 100 MB per-file limit **only as the zip** (~60 MB; the ~150 MB binary does not qualify). It still will not start: `godot --headless` hard-links `libXcursor`, `libXinerama`, `libXi`, `libGL`, `libxkbcommon` (+ `libdrm`/`libgbm`/`libharfbuzz`), which this container lacks with no reachable package source to install them |
+| Source build | No X11/Wayland dev headers, no `pkg-config`, apt sources dead |
+
+**What automated review can honestly claim without CI**: full-project engine compile
+via the *active* `deploy-web` workflow (`--export-release "Web"` parses/compiles every
+non-excluded `.gd` with the real Godot 4.7.2) + `gdtoolkit` `gdparse`/`gdlint` +
+float64-identical conversion simulations (Python doubles ≡ Godot floats; used in
+PR #19 to prove every routed seed reproduces the old tick counts). **What only CI or
+local runs can claim**: the 24 physics-frame assertions. This asymmetry is the whole
+argument for activating the parked workflow above — after that, the sandbox's
+inability stops mattering entirely.
+
 ---
 
 ## Project layout
