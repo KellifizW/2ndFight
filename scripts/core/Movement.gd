@@ -184,6 +184,38 @@ var anim_resets: Dictionary = {
 	"st_mp": func(): _reset_attack()
 }
 
+## 「這一幀玩家有沒有下任何可執行的指令」判定用的按鍵鍵名清單。
+##
+## 只列**動作**輸入（方向由 input_dir 另外判定）。三個著地路徑
+## （LandingHandler、Player._enter_landing_state、TimerHandler checkpoint）
+## 以前各自抄了一份 or 串，漏鍵就會出現「某個鍵中斷不了著地」的不一致；
+## 現在全部走 has_actionable_input()，清單只有這一份。
+const ACTIONABLE_INPUT_KEYS: Array = [
+	"crouch_pressed",
+	"jump_pressed",
+	"st_lp_pressed", "st_mp_pressed", "st_hp_pressed",
+	"st_lk_pressed", "st_mk_pressed", "st_hk_pressed",
+	"spm1_pressed", "spm2_pressed", "spm3_pressed",
+	"fireballL_pressed", "fireballM_pressed", "fireballH_pressed",
+	"dp_pressed", "super_pressed",
+	"dash_pressed", "backdash_pressed",
+	"throw_pressed", "100p_pressed",
+]
+
+## 這一幀的輸入字典裡是否含有任何「可執行動作」的輸入（含方向）。
+##
+## 回傳型別明確為 bool：呼叫端可以安全地用 `var x: bool = ...`。
+## 直接把 `input_data.get(...)` 串成 `or` 鏈會得到 Variant，
+## GDScript 的靜態分析無法推導型別（`var x := (a or b)` 會編譯失敗：
+## "Cannot infer the type of variable because the value doesn't have a set type"）。
+static func has_actionable_input(input_data: Dictionary) -> bool:
+	if int(input_data.get("input_dir", 0)) != 0:
+		return true
+	for key in ACTIONABLE_INPUT_KEYS:
+		if bool(input_data.get(key, false)):
+			return true
+	return false
+
 ## 秒 → 物理幀數（Stage 1：landing / knockfly 等「舊 float 倒數」族的轉換邊界）。
 ##
 ## 為什麼是 floor(s * fps) + 1 而不是 round(s * fps)：

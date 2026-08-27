@@ -742,25 +742,13 @@ func _enter_landing_state(debug_tag: String) -> void:
 
 	# 【關鍵修正】與 LandingHandler 一致：著地瞬間若玩家已有輸入，
 	# 直接跳過 landing 動畫與鎖定時間（零硬直）。物理/旗標重置已由呼叫端完成。
-	var has_immediate_input := (
-		input_data.get("input_dir", 0) != 0
-		or input_data.get("crouch_pressed", false)
-		or input_data.get("jump_pressed", false)
-		or input_data.get("st_lp_pressed", false)
-		or input_data.get("st_mp_pressed", false)
-		or input_data.get("st_hp_pressed", false)
-		or input_data.get("st_lk_pressed", false)
-		or input_data.get("st_mk_pressed", false)
-		or input_data.get("st_hk_pressed", false)
-		or input_data.get("spm1_pressed", false)
-		or input_data.get("spm2_pressed", false)
-		or input_data.get("dp_pressed", false)
-		or input_data.get("super_pressed", false)
-		or input_data.get("dash_pressed", false)
-		or input_data.get("backdash_pressed", false)
-		or input_data.get("throw_pressed", false)
-		or input_data.get("100p_pressed", false)
-	)
+	#
+	# 判定走 Movement.has_actionable_input()（唯一鍵名清單，回傳型別為 bool）。
+	# 原本這裡是一長串 `input_data.get(...) or ...` 並用 `:=` 推導型別，
+	# 但 Dictionary.get() 的靜態型別是 Variant，整條 or 鏈同樣是 Variant，
+	# GDScript 會直接編譯失敗（Cannot infer the type of "has_immediate_input"），
+	# 造成 player.gd 整個腳本載入不了 —— 遊戲一啟動就壞。
+	var has_immediate_input: bool = Movement.has_actionable_input(input_data)
 
 	if has_immediate_input:
 		Debug.log("[%s] input detected at landing — skipping landing state entirely (no stun)" % debug_tag)
@@ -769,9 +757,18 @@ func _enter_landing_state(debug_tag: String) -> void:
 		landing_facing_lock = false
 		_landing_checkpoint_executed = false
 		_landing_forced_frames = 0
+		# 【與 LandingHandler 對齊】跳過著地狀態時沒有 landing 動畫結束回呼
+		# （_reset_landing_anim），空中攻擊旗標必須在這裡自行清乾淨，
+		# 否則 has_air_attacked 會殘留到下一次跳躍前，讓 WalkHandler/AttackExecutor
+		# 誤判角色「這一跳已經攻擊過」。
+		is_air_attacking = false
+		has_air_attacked = false
 		# 確保 animation tree 是激活的（可能因上次 landing 被停掉）
 		if animation_tree and not animation_tree.active:
 			animation_tree.active = true
+		# 這一幀不會再由 landing 分支更新動畫，直接把動畫狀態推到輸入對應的狀態，
+		# 避免殘留跳躍動畫一幀。
+		_update_animation_state(int(input_data.get("input_dir", 0)), bool(input_data.get("crouch_pressed", false)))
 		return
 
 	is_landing = true

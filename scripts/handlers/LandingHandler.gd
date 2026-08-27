@@ -104,25 +104,12 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	# 【關鍵修正】著地瞬間若玩家已有輸入，直接跳過 landing 動畫與鎖定時間。
 	# 否則即使視覺上被中斷，仍會殘留 ~2 幀的鎖（硬直），違反「輸入中斷 = 零等待」的預期。
 	# 物理狀態（位置、速度、旗標）已在上方重置完畢，此處只需要決定是否進入 landing 狀態。
-	var has_immediate_input := (
-		input_data.get("input_dir", 0) != 0
-		or input_data.get("crouch_pressed", false)
-		or input_data.get("jump_pressed", false)
-		or input_data.get("st_lp_pressed", false)
-		or input_data.get("st_mp_pressed", false)
-		or input_data.get("st_hp_pressed", false)
-		or input_data.get("st_lk_pressed", false)
-		or input_data.get("st_mk_pressed", false)
-		or input_data.get("st_hk_pressed", false)
-		or input_data.get("spm1_pressed", false)
-		or input_data.get("spm2_pressed", false)
-		or input_data.get("dp_pressed", false)
-		or input_data.get("super_pressed", false)
-		or input_data.get("dash_pressed", false)
-		or input_data.get("backdash_pressed", false)
-		or input_data.get("throw_pressed", false)
-		or input_data.get("100p_pressed", false)
-	)
+	#
+	# 判定統一走 Movement.has_actionable_input()（回傳 bool，鍵名清單只有一份）。
+	# 原本這裡展開成一長串 `input_data.get(...) or ...` 並用 `:=` 推導，
+	# 但 Dictionary.get() 是 Variant，or 鏈也是 Variant → GDScript 無法推導型別，
+	# 腳本會編譯失敗。
+	var has_immediate_input: bool = Movement.has_actionable_input(input_data)
 	
 	if has_immediate_input:
 		Debug.log("[LANDING_INTERRUPT_INSTANT] %s: input detected at landing moment — skipping landing animation AND lock (no stun)" % seat)
