@@ -1,6 +1,6 @@
 [gd_scene load_steps=4 format=3 uid="uid://i5216voksqg8"]
 
-[ext_resource type="Script" uid="uid://orrhoo48jjao" path="res://ui/CharacterSelect.gd" id="1_7p8hu"]
+[ext_resource type="Script" uid="uid://orrhoo48jjao" path="res://scripts/ui/CharacterSelect.gd" id="1_7p8hu"]
 [ext_resource type="Texture2D" uid="uid://cnu4x72p5rv62" path="res://assets/ui/char.sele.png" id="1_x0por"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_7p8hu"]

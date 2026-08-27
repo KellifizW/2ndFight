@@ -1,0 +1,132 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/PauseMenu.gd" id="1_pause"]
+[ext_resource type="FontFile" path="res://assets/fonts/RZ Musashi.ttf" id="2_font"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_panel"]
+bg_color = Color(0.055, 0.06, 0.08, 0.97)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.8, 0.16, 0.1, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+shadow_color = Color(0, 0, 0, 0.65)
+shadow_size = 18
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_button"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_right = 7
+corner_radius_bottom_left = 7
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+
+[node name="PauseMenu" type="CanvasLayer"]
+layer = 50
+process_mode = 3
+script = ExtResource("1_pause")
+
+[node name="MenuRoot" type="Control" parent="."]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dimmer" type="ColorRect" parent="MenuRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.015, 0.02, 0.03, 0.72)
+
+[node name="Center" type="CenterContainer" parent="MenuRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="MenuRoot/Center"]
+custom_minimum_size = Vector2(510, 330)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBox_panel")
+
+[node name="Margin" type="MarginContainer" parent="MenuRoot/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 54
+theme_override_constants/margin_top = 32
+theme_override_constants/margin_right = 54
+theme_override_constants/margin_bottom = 32
+
+[node name="Content" type="VBoxContainer" parent="MenuRoot/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="MenuRoot/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.86, 0.7, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 8
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 48
+text = "暫停"
+horizontal_alignment = 1
+
+[node name="ResumeButton" type="Button" parent="MenuRoot/Center/Panel/Margin/Content"]
+custom_minimum_size = Vector2(400, 68)
+layout_mode = 2
+focus_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_focus_color = Color(1, 1, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 30
+theme_override_styles/normal = SubResource("StyleBox_button")
+theme_override_styles/hover = SubResource("StyleBox_button")
+theme_override_styles/pressed = SubResource("StyleBox_button")
+theme_override_styles/focus = SubResource("StyleBox_button")
+text = "繼續"
+
+[node name="CharacterSelectButton" type="Button" parent="MenuRoot/Center/Panel/Margin/Content"]
+custom_minimum_size = Vector2(400, 68)
+layout_mode = 2
+focus_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_focus_color = Color(1, 1, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 30
+theme_override_styles/normal = SubResource("StyleBox_button")
+theme_override_styles/hover = SubResource("StyleBox_button")
+theme_override_styles/pressed = SubResource("StyleBox_button")
+theme_override_styles/focus = SubResource("StyleBox_button")
+text = "回到角色選擇畫面"
+
+[node name="Hint" type="Label" parent="MenuRoot/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.76, 0.78, 0.82, 1)
+theme_override_font_sizes/font_size = 17
+text = "方向鍵選擇  ·  輕腳確認  ·  ESC繼續"
+horizontal_alignment = 1
