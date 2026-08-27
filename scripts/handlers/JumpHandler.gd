@@ -17,7 +17,7 @@ func handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor_
 	if is_being_thrown:
 		return
 	
-	if jump_pressed and movement_node.is_on_floor() and not movement_node.is_crouching and not movement_node.is_dashing and not movement_node.is_backdashing and not movement_node.is_attacking and not is_special_moving and not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_push_back or movement_node.is_layground) and movement_node.jump_delay_timer <= 0:
+	if jump_pressed and movement_node.is_on_floor() and not movement_node.is_crouching and not movement_node.is_dashing and not movement_node.is_backdashing and not movement_node.is_attacking and not is_special_moving and not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_layground) and movement_node.jump_delay_timer <= 0:
 		
 		movement_node.jump_dir = input_dir
 		movement_node.is_jumping = true

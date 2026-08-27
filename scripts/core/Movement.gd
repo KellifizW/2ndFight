@@ -2,7 +2,6 @@ class_name Movement extends Node2D
 
 @onready var player: Player = owner as Player
 
-var is_crouch_transition_played: bool = false
 var healthbar: Node = null
 var world: Node
 
@@ -32,8 +31,6 @@ var landing_handler: LandingHandler
 # 導致著地鎖定時間隨 time_scale 漂移；改幀後與 time_scale 完全無關。
 var is_landing: bool = false
 var landing_lock_frames: int = 0  # 物理幀計數（由 TimerHandler 遞減）
-var is_airborne: bool = false  # 【新增】統一的空中狀態追蹤
-var _landing_timer_initialized: bool = false  # 【新增】防止same-frame checkpoint執行
 var _landing_checkpoint_executed: bool = false  # 【新增】追蹤checkpoint是否已執行，防止重複執行
 var _landing_forced_frames: int = 0  # 【新增】追蹤著地強制幀數，確保至少2幀
 
@@ -54,7 +51,6 @@ var is_knockfly_animation_finished: bool = false
 
 # ── 蹲姿 ──────────────────────────────────
 var was_crouching_last_frame: bool = false
-var is_crouch_held: bool = false
 var is_crouching: bool = false
 var was_hit_while_crouching: bool = false  # 記錄被擊中時是否處於蹲姿
 
@@ -75,7 +71,6 @@ var backdash_speed: float = 1000.0
 var dash_time: float = 0.35
 var backdash_time: float = 0.35
 var dash_timer: int = 0  # Frame-based timer
-var dash_direction: float = 0.0
 # Stage 1：這是「設計者秒數種子」，不是倒數計時器。double-tap 計數窗口位於
 # PlayerController.double_tap_frames（物理幀）與 neutral_timer（DashHandler 由此種子換算）。
 var double_tap_window_seconds: float = 0.3
@@ -116,9 +111,10 @@ var is_air_hit_backjump: bool = false
 var air_hit_backjump_timer: int = 0  # Frame-based timer
 @export var air_hit_backjump_speed: float = 400.0
 @export var air_hit_backjump_duration: float = 0.2
-@export var air_hit_backjump_up_speed: float = -800.0
-var pending_jump_b_seek: float = -1.0
-var is_air_hit_knockfly: bool = false
+# Stage 2：`air_hit_backjump_up_speed` / `pending_jump_b_seek` /
+# `is_air_hit_knockfly` 已刪除（零讀取或零寫入，且未被任何場景覆寫）。
+# 其中 `is_air_hit_knockfly` 從未被設為 true，卻在 PushManager 裡選擇
+# knockfly 速度曲線 —— 那條「線性衰減」分支自始不可達，實際永遠走二次衰減。
 
 # ── 傷害與防禦 ────────────────────────────
 var is_hit: bool = false
@@ -136,26 +132,19 @@ var block_type: String = "none"
 @export var block_push_distance: float = 250.0
 @export var hit_push_distance: float = 250.0
 @export var floor_snap_immunity_duration: float = 0.1
-@export var knockback_deceleration: float = 0.75   # Knockback減速率 (每幀乘以此值，越小減速越明顯)
 
-var initial_hitstun: float = 0.0
-var knockback_total_time: float = 0.0  # Knockback總時間（等於hitstun時間）
 var knockback_start_time: float = 0.0  # Knockback開始時間（用於統計）
 var hit_push_velocity: float = 0.0
-var hit_push_timer: float = 0.0
 var hit_push_initial_velocity: float = 0.0  # 初始knockback速度 (用於減速計算)
-var hit_push_offset: int = 0  # Knockback每幀的position offset (fixed-point單位)
 
-# ── Block Knockback 系統（新增）──────────────────────────────────────────
-# @deprecated 舊的 Delta-based 變數（保留向後兼容，將逐步棄用）
-var initial_blockstun: float = 0.0  # @deprecated - 使用 blockstun_frames 代替
-var block_push_velocity: float = 0.0  # @deprecated - 使用 block_push_initial_velocity 代替
-var block_push_frames: int = 0  # @deprecated - 使用 block_knockback_frames 代替
+# ── Block Knockback 系統 ────────────────────────────────────────────────
+# Stage 2：`initial_blockstun`（秒）與 `block_push_velocity` 這組 @deprecated
+# 的秒制推擠變數已刪除 —— 兩者都只被寫入、從無讀取點（實際 block knockback
+# 走 block_push_initial_velocity + block_knockback_frames 幀制路徑）。
+# `block_push_frames` 保留：test_18 用它釘住「舊 block push 計時器仍是 int」。
+var block_push_frames: int = 0  # @deprecated - 實際推擠用 block_knockback_frames
 
 var block_push_initial_velocity: float = 0.0  # Block 推擊初始速度
-var push_back_velocity: int = 0
-var push_back_frames: int = 0  # Frame counter (replace push_back_timer)
-var initial_push_back_frames: int = 0  # Initial frame count (replace initial_push_back)
 var is_immune_to_floor_snap: bool = false
 var floor_snap_immunity_timer: int = 0  # 物理幀（早已按幀遞減，型別從 float 對齊）
 
@@ -170,8 +159,12 @@ var was_in_air: bool = false
 
 # ── 狀態旗標 ──────────────────────────────
 var is_attacking: bool = false
-var is_push_back: bool = false
-var push_back_timer: float = 0.0
+# Stage 2：`is_push_back` 及其計時器族（push_back_velocity / push_back_frames /
+# initial_push_back_frames / push_back_timer）已刪除。
+# 理由：全倉庫只有一處寫入且寫的是 `false`（PushManager 的過期分支），
+# 沒有任何地方把它設為 true —— 也就是說那條「推開後減速」路徑自始至終
+# 不可達，卻仍出現在 Dash/Jump/Walk/AI-dash 五條守衛條件裡當作假的互斥項。
+# 移除後這些條件恆等（`not false` = true），行為一幀不變。
 var landing_facing_lock: bool = false
 
 # ── 動畫條件（已替換 Crouch 為 cr_down 和 cr_idle） ──
@@ -324,13 +317,11 @@ func _physics_process(delta: float) -> void:
 	var scale_factor: float = world.SIMULATION_SCALE if world else 1000.0
 	var floor_y: int = world.FLOOR_Y if world else 200000
 	
-	# ── 蹲姿狀態檢測（加強版：確保從任何狀態進入蹲下都強制播放 cr_down） ──
-	if is_on_floor() and crouch_pressed and not is_blocking:
-		if not was_crouching_last_frame:
-			is_crouch_transition_played = false
-			is_crouch_held = true
-		else:
-			is_crouch_transition_played = false
+	# ── 蹲姿狀態檢測 ──
+	# Stage 2：原本這裡有一段 if/else，兩個分支都只是把 `is_crouch_transition_played`
+	# 設成 false（外加 `is_crouch_held = true`）。兩個旗標都沒有任何讀取點，
+	# 整段等價於單獨更新 was_crouching_last_frame —— 而那才是真正被讀的東西
+	# （AnimationManager 用它決定要不要 travel 到 cr_down）。
 	was_crouching_last_frame = (is_on_floor() and crouch_pressed and not is_blocking)
 	
 	timer_handler.handle_timers(delta)
@@ -357,7 +348,7 @@ func _physics_process(delta: float) -> void:
 	var has_backdash_pressed = (player and player.is_ai_controlled and input_data.get("backdash_pressed", false))
 	var is_landing_locked = is_landing and landing_lock_frames > 0
 	
-	if has_dash_pressed and is_on_floor() and not is_landing_locked and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground) and not is_crouching:
+	if has_dash_pressed and is_on_floor() and not is_landing_locked and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_layground) and not is_crouching:
 		# AI wants to dash forward
 		if input_dir * facing_direction > 0:
 			# Same direction as facing - forward dash
@@ -379,7 +370,7 @@ func _physics_process(delta: float) -> void:
 			if groundsmoke:
 				groundsmoke.scale.x = facing_direction
 				groundsmoke.restart()
-	elif has_backdash_pressed and is_on_floor() and not is_landing_locked and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground):
+	elif has_backdash_pressed and is_on_floor() and not is_landing_locked and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_layground):
 		# AI wants to backdash
 		is_backdashing = true
 		dash_timer = Movement.seconds_to_frames_nearest(backdash_time)
@@ -443,7 +434,6 @@ func _on_animation_player_finished(anim_name: String) -> void:
 	if anim_name in anim_resets:
 		anim_resets[anim_name].call()
 	if anim_name == "cr_down":
-		is_crouch_transition_played = true
 		if animation_state:
 			animation_state.travel("cr_idle")
 
