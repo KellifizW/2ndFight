@@ -79,11 +79,17 @@ func run() -> bool:
 	await await_frames(10)
 
 	# ── 4. 地面攻擊：ATTACK ────────────────────────────────────────
+	# 【必要】先清空輸入歷史再按攻擊鍵。
+	# 上面第 2/3 段剛按過「右」與「下」，若立刻補一個拳，
+	# InputManager 會把 右→下→拳 當成方向指令宏（DP/fireball 之類）而發特殊招 ——
+	# CI 第一次跑就是這樣掛的：is_attacking 沒設起來、狀態變成 SPECIAL_MOVE，
+	# 連帶後面的 JUMP/LANDING 斷言一起崩（DP 自帶著地，不會進 landing 狀態）。
 	var me = p1
+	await _flush_motion_history()
 	Input.action_press("st_mp")
 	var attacking: bool = await wait_until(func(): return me.is_attacking, 20)
 	Input.action_release("st_mp")
-	check(attacking, "st_mp 應進入攻擊狀態")
+	check(attacking, "st_mp 應進入攻擊狀態（狀態=%s）" % p1.get_fighter_state_name())
 	if attacking:
 		check(p1.get_fighter_state_name() == "ATTACK",
 			"地面攻擊應為 ATTACK，實為 %s" % p1.get_fighter_state_name())
@@ -91,6 +97,8 @@ func run() -> bool:
 	await await_frames(10)
 
 	# ── 5. 跳躍：JUMP（三個方向動畫都收斂到同一狀態）──────────────
+	# 同樣先清歷史：避免上一段的攻擊輸入與跳躍組成宏。
+	await _flush_motion_history()
 	await tap("jump")
 	var airborne: bool = await wait_until(func(): return not me.is_on_floor(), 120)
 	check(airborne, "跳躍應離地")
@@ -116,6 +124,11 @@ func run() -> bool:
 	var mismatches: Array = []
 	var compared: int = 0
 	var skipped_known: int = 0
+	# 【1 幀容差】AnimationTree.travel() 是延遲生效的：狀態旗標在第 N 幀改變，
+	# animation_state.get_current_node() 要到第 N+1 幀才反映。因此比對時
+	# 只要「當前狀態」或「上一幀狀態」其一符合該動畫即算通過。
+	# 這不會放過真正的分岔 —— 持續超過 1 幀的不一致仍然會失敗。
+	var prev_state: Dictionary = {}
 	Input.action_press("move_right")
 	for frame in 240:
 		if frame == 40:
@@ -131,6 +144,10 @@ func run() -> bool:
 		await await_frames(1)
 
 		for fighter in [p1, p2]:
+			var actual: String = fighter.get_fighter_state_name()
+			var previous: String = str(prev_state.get(fighter.name, actual))
+			prev_state[fighter.name] = actual
+
 			var anim: String = _current_anim(fighter)
 			if not ANIM_TO_STATES.has(anim):
 				continue
@@ -139,10 +156,12 @@ func run() -> bool:
 				continue
 			compared += 1
 			var expected: Array = ANIM_TO_STATES[anim]
-			var actual: String = fighter.get_fighter_state_name()
-			if not (actual in expected) and mismatches.size() < 6:
-				mismatches.append("frame %d %s: 動畫 '%s' 期望 %s，狀態層給 %s" % [
-					frame, fighter.name, anim, str(expected), actual])
+			# 容許動畫落後狀態 1 幀（travel 延遲），見上方說明。
+			if (actual in expected) or (previous in expected):
+				continue
+			if mismatches.size() < 6:
+				mismatches.append("frame %d %s: 動畫 '%s' 期望 %s，狀態層給 %s（前一幀 %s）" % [
+					frame, fighter.name, anim, str(expected), actual, previous])
 	Input.action_release("move_right")
 	Input.action_release("st_hp")
 	Input.action_release("st_mk_p2")
@@ -167,6 +186,17 @@ func _is_known_divergence(fighter: Node) -> bool:
 	if not on_floor and not jumping and not air_attacking:
 		return true
 	return false
+
+## 等待足夠久，讓 InputManager 的方向指令宏視窗過期。
+##
+## `InputManager.MAX_TOTAL_FRAMES = 120`（1 秒 @120Hz）是整段宏的匹配上限，
+## 因此只要中間隔了 >120 幀的中立輸入，先前按過的方向就不可能再與後續按鍵
+## 組成宏。這裡取 130 幀留一點餘裕。
+##
+## 為什麼不能只 await 幾幀：本用例按順序測 走路(右) → 蹲下(下) → 攻擊(拳)，
+## 這個序列本身就長得像 DP（右→下→右下+拳）。不隔開的話會發特殊招而非普通攻擊。
+func _flush_motion_history() -> void:
+	await await_frames(130)
 
 ## 目前的動畫節點名（AnimationTree 播放中的狀態；landing 走 AnimationPlayer）
 func _current_anim(fighter: Node) -> String:
