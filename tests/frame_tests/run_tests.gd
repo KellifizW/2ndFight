@@ -44,6 +44,7 @@ const CASES: Array = [
 	"res://tests/frame_tests/cases/test_25_state_machine_invariants.gd",
 	"res://tests/frame_tests/cases/test_26_state_matches_animation_chain.gd",
 	"res://tests/frame_tests/cases/test_27_crossup_facing_after_landing.gd",
+	"res://tests/frame_tests/cases/test_28_landing_input_instant_skip.gd",
 ]
 
 var _passed: int = 0

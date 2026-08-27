@@ -739,6 +739,41 @@ func update_facing_direction() -> void:
 ## debug_tag 只影響 log 前綴，不影響行為。
 func _enter_landing_state(debug_tag: String) -> void:
 	var input_data = get_input()
+
+	# 【關鍵修正】與 LandingHandler 一致：著地瞬間若玩家已有輸入，
+	# 直接跳過 landing 動畫與鎖定時間（零硬直）。物理/旗標重置已由呼叫端完成。
+	var has_immediate_input := (
+		input_data.get("input_dir", 0) != 0
+		or input_data.get("crouch_pressed", false)
+		or input_data.get("jump_pressed", false)
+		or input_data.get("st_lp_pressed", false)
+		or input_data.get("st_mp_pressed", false)
+		or input_data.get("st_hp_pressed", false)
+		or input_data.get("st_lk_pressed", false)
+		or input_data.get("st_mk_pressed", false)
+		or input_data.get("st_hk_pressed", false)
+		or input_data.get("spm1_pressed", false)
+		or input_data.get("spm2_pressed", false)
+		or input_data.get("dp_pressed", false)
+		or input_data.get("super_pressed", false)
+		or input_data.get("dash_pressed", false)
+		or input_data.get("backdash_pressed", false)
+		or input_data.get("throw_pressed", false)
+		or input_data.get("100p_pressed", false)
+	)
+
+	if has_immediate_input:
+		Debug.log("[%s] input detected at landing — skipping landing state entirely (no stun)" % debug_tag)
+		is_landing = false
+		landing_lock_frames = 0
+		landing_facing_lock = false
+		_landing_checkpoint_executed = false
+		_landing_forced_frames = 0
+		# 確保 animation tree 是激活的（可能因上次 landing 被停掉）
+		if animation_tree and not animation_tree.active:
+			animation_tree.active = true
+		return
+
 	is_landing = true
 	landing_lock_frames = LANDING_FORCED_LOCK_FRAMES
 	landing_facing_lock = false

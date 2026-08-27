@@ -66,14 +66,15 @@ func handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
 func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
 	"""Handle landing from regular jump or completed DP/special move
 	
-	著地處理流程（新規則）：
+	著地處理流程（修復後規則）：
 	1. 重置位置和速度
 	2. 清除jump狀態
-	3. 【新增】總是播放至少2幀的landing動畫（強制landing lock）
-	4. 2幀後，檢查輸入：
-	   - 無輸入 → 繼續完整landing動畫（landing_duration 換算的幀數）
+	3. 【關鍵】若著地當下已有玩家輸入 → 直接跳過landing動畫與鎖定（零硬直），
+	   讓後續handler（walk/jump/attack/dash）在同一幀即處理輸入。
+	4. 否則進入landing狀態：2幀強制鎖定後由checkpoint決定後續
+	   - 仍然無輸入 → 播放完整landing動畫（landing_duration 換算的幀數）
 	   - 有輸入 → 中斷landing，進入輸入狀態
-	5. 播放著地效果音和粒子
+	5. 播放著地煙霧粒子（視覺回饋不論是否跳過動畫都會播放）
 	6. 更新動畫狀態
 	"""
 	
@@ -100,7 +101,51 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	movement_node.landing_facing_lock = false
 	movement_node.jump_delay_timer = 0  # 【關鍵】清除跳躍延遲，準備下一次跳躍
 	
-	# 【新規則】總是播放至少2幀的landing動畫（無論輸入狀態）
+	# 【關鍵修正】著地瞬間若玩家已有輸入，直接跳過 landing 動畫與鎖定時間。
+	# 否則即使視覺上被中斷，仍會殘留 ~2 幀的鎖（硬直），違反「輸入中斷 = 零等待」的預期。
+	# 物理狀態（位置、速度、旗標）已在上方重置完畢，此處只需要決定是否進入 landing 狀態。
+	var has_immediate_input := (
+		input_data.get("input_dir", 0) != 0
+		or input_data.get("crouch_pressed", false)
+		or input_data.get("jump_pressed", false)
+		or input_data.get("st_lp_pressed", false)
+		or input_data.get("st_mp_pressed", false)
+		or input_data.get("st_hp_pressed", false)
+		or input_data.get("st_lk_pressed", false)
+		or input_data.get("st_mk_pressed", false)
+		or input_data.get("st_hk_pressed", false)
+		or input_data.get("spm1_pressed", false)
+		or input_data.get("spm2_pressed", false)
+		or input_data.get("dp_pressed", false)
+		or input_data.get("super_pressed", false)
+		or input_data.get("dash_pressed", false)
+		or input_data.get("backdash_pressed", false)
+		or input_data.get("throw_pressed", false)
+		or input_data.get("100p_pressed", false)
+	)
+	
+	if has_immediate_input:
+		Debug.log("[LANDING_INTERRUPT_INSTANT] %s: input detected at landing moment — skipping landing animation AND lock (no stun)" % seat)
+		# 不設 is_landing / landing_lock_frames：直接讓後續 handler 在同一幀處理輸入。
+		# 仍需清除 air-attack 殘留旗標（避免觸發 _physics_process 裡的 air-attack landing 分支）。
+		if "is_air_attacking" in movement_node:
+			movement_node.is_air_attacking = false
+		if "has_air_attacked" in movement_node:
+			movement_node.has_air_attacked = false
+		# 恢復 animation tree（可能因上次 landing 被停掉），讓這一幀的動畫更新正確走到新狀態。
+		if movement_node.animation_tree and not movement_node.animation_tree.active:
+			movement_node.animation_tree.active = true
+		# 仍然播放著地煙霧（視覺回饋不因跳過動畫而消失）。
+		if movement_node.groundsmoke:
+			movement_node.groundsmoke.scale.x = movement_node.facing_direction
+			movement_node.groundsmoke.restart()
+		# 【推擠系統】處理著地時的pushbox碰撞
+		var push_manager2 = movement_node.get_tree().get_first_node_in_group("push_manager")
+		if push_manager2:
+			push_manager2._physics_process(delta)
+		return
+	
+	# 【新規則】無輸入時才播放 landing 動畫（2幀強制 → checkpoint 決定後續）
 	movement_node.is_landing = true
 	movement_node.landing_lock_frames = Movement.LANDING_FORCED_LOCK_FRAMES
 	movement_node._landing_checkpoint_executed = false  # 【新增】重置checkpoint執行標記

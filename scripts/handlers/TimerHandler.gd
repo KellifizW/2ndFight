@@ -70,13 +70,19 @@ func handle_timers(_delta: float) -> void:
 		# 【重點】在遞減timer之前執行checkpoint，否則會被跳過
 		if movement_node._landing_forced_frames >= 2 and not movement_node._landing_checkpoint_executed:
 			# 強制2幀已結束，檢查是否有輸入
-			# 【關鍵】著地2幀強制鎖定期間，檢查任何輸入（包括跳躍和攻擊）
+			# 【關鍵】著地2幀強制鎖定期間，檢查任何輸入（包括跳躍、攻擊、特殊、衝刺、摔投）
 			var input_data = movement_node.get_input() if movement_node.has_method("get_input") else {}
-			var has_input = input_data.get("input_dir", 0) != 0 or input_data.get("crouch_pressed", false) or input_data.get("jump_pressed", false) \
+			var has_input = input_data.get("input_dir", 0) != 0 \
+					or input_data.get("crouch_pressed", false) \
+					or input_data.get("jump_pressed", false) \
 					or input_data.get("st_lp_pressed", false) or input_data.get("st_mp_pressed", false) or input_data.get("st_hp_pressed", false) \
 					or input_data.get("st_lk_pressed", false) or input_data.get("st_mk_pressed", false) or input_data.get("st_hk_pressed", false) \
-					or input_data.get("spm1_pressed", false) or input_data.get("spm2_pressed", false) or input_data.get("dp_pressed", false)
-			# 【改進】現在包括 jump_pressed 和攻擊檢查，這樣連續跳躍或攻擊時著地動畫會被立即中斷
+					or input_data.get("spm1_pressed", false) or input_data.get("spm2_pressed", false) or input_data.get("dp_pressed", false) \
+					or input_data.get("super_pressed", false) \
+					or input_data.get("dash_pressed", false) or input_data.get("backdash_pressed", false) \
+					or input_data.get("throw_pressed", false) \
+					or input_data.get("100p_pressed", false)
+			# 【改進】包含所有可能的動作輸入，確保衝刺/摔投/超殺同樣能中斷landing鎖
 			
 			# 【重點】標記checkpoint已執行，防止重複執行
 			movement_node._landing_checkpoint_executed = true
