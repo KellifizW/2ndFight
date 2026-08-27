@@ -209,7 +209,7 @@ func _ready() -> void:
 		Debug.log("Warning: Advantage labels not found in UI")
 	if bgm_player:
 		is_bgm_enabled = true
-		bgm_player.volume_db = -80.0
+		bgm_player.volume_db = -120.0
 		# Web browsers block autoplay until a user gesture. The first key, mouse,
 		# touch, or gamepad input starts the BGM from inside the input callback.
 		if not OS.has_feature("web"):
@@ -263,7 +263,7 @@ func _start_bgm(fade_time: float = 1.0) -> void:
 		return
 
 	_bgm_started = true
-	bgm_player.volume_db = -80.0
+	bgm_player.volume_db = -200.0
 	bgm_player.play()
 	var tween = create_tween()
 	tween.tween_property(bgm_player, "volume_db", bgm_max_volume_db, fade_time)
@@ -339,7 +339,7 @@ func _process(delta: float) -> void:
 			slowmo_triggered = true
 			if bgm_player:
 				var tween = create_tween()
-				tween.tween_property(bgm_player, "volume_db", -80.0, 2.0)
+				tween.tween_property(bgm_player, "volume_db", -120.0, 2.0)
 				tween.tween_callback(bgm_player.stop)
 				tween.play()
 				is_fading_out = true
@@ -700,14 +700,14 @@ func reset_players() -> void:
 	if bgm_player:
 		bgm_player.stop()
 		if is_bgm_enabled:
-			bgm_player.volume_db = -80.0
+			bgm_player.volume_db = -120.0
 			bgm_player.play()
 			var tween = create_tween()
 			tween.tween_property(bgm_player, "volume_db", bgm_max_volume_db, 3.0)
 			tween.play()
 			Debug.log("Debug: BGM reset and fade-in started at %s ms" % Time.get_ticks_msec())
 		else:
-			bgm_player.volume_db = -80.0
+			bgm_player.volume_db = -120.0
 			Debug.log("Debug: BGM reset but kept off at %s ms" % Time.get_ticks_msec())
 		is_fading_out = false
 	
@@ -866,7 +866,7 @@ func toggle_bgm() -> void:
 	var tween = create_tween()
 	
 	if is_bgm_enabled:
-		tween.tween_property(bgm_player, "volume_db", -80.0, 1.0)
+		tween.tween_property(bgm_player, "volume_db", -120.0, 1.0)
 		tween.tween_callback(bgm_player.stop)
 		is_bgm_enabled = false
 		Debug.log("Debug: BGM fading out and stopping at %s ms" % Time.get_ticks_msec())

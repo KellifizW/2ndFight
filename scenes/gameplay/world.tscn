@@ -21,7 +21,7 @@
 [ext_resource type="Shader" uid="uid://di8lua7wssr65" path="res://assets/shaders/shadow.gdshader" id="17_cbp6q"]
 [ext_resource type="SpriteFrames" uid="uid://dgdawo56n6mld" path="res://assets/sprite_frames/player1.tres" id="18_26xuy"]
 [ext_resource type="SpriteFrames" uid="uid://5q7cfeoprqup" path="res://assets/sprite_frames/player2.tres" id="19_bc84e"]
-[ext_resource type="Script" path="res://scripts/ui/AIToggleButtons.gd" id="20_aitog"]
+[ext_resource type="Script" uid="uid://cu3x2bx6f8c6f" path="res://scripts/ui/AIToggleButtons.gd" id="20_aitog"]
 [ext_resource type="PackedScene" path="res://scenes/ui/PauseMenu.tscn" id="21_pause"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_2u3nc"]
@@ -115,7 +115,6 @@ label_settings = SubResource("LabelSettings_aqk2v")
 horizontal_alignment = 1
 
 [node name="AnimationLabel" type="Label" parent="UI" unique_id=1970574334]
-layout_direction = 1
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
@@ -126,6 +125,7 @@ offset_top = -23.0
 offset_right = 25.0
 grow_horizontal = 2
 grow_vertical = 0
+layout_direction = 1
 text = "Ani:"
 
 [node name="FPS" type="Label" parent="UI" unique_id=1114723953]
@@ -141,11 +141,11 @@ grow_vertical = 0
 label_settings = SubResource("LabelSettings_aqk2v")
 
 [node name="PlayerAHealthbar" parent="UI" unique_id=1225296043 instance=ExtResource("4_036b0")]
-layout_direction = 3
 offset_left = 678.0
 offset_top = 35.0
 offset_right = 1143.0
 offset_bottom = 85.0
+layout_direction = 3
 value = 100.0
 fill_mode = 1
 nine_patch_stretch = true
@@ -227,7 +227,6 @@ size_flags_horizontal = 4
 size_flags_vertical = 8
 theme_override_font_sizes/font_size = 12
 script = ExtResource("12_cbp6q")
-enabled = false
 
 [node name="HitboxDebugP1" type="Label" parent="UI" unique_id=1220062444]
 visible = false
@@ -242,7 +241,6 @@ script = ExtResource("13_26xuy")
 
 [node name="HitboxDebugP2" type="Label" parent="UI" unique_id=308506981]
 visible = false
-layout_direction = 2
 anchors_preset = 6
 anchor_left = 1.0
 anchor_top = 0.5
@@ -253,6 +251,7 @@ offset_top = -150.0
 offset_bottom = 150.0
 grow_horizontal = 0
 grow_vertical = 2
+layout_direction = 2
 script = ExtResource("13_26xuy")
 target_player_seat = "player_b"
 
@@ -264,7 +263,6 @@ offset_top = -160.0
 offset_bottom = -160.0
 
 [node name="InputHistoryP2" parent="UI" unique_id=923989271 instance=ExtResource("15_wukud")]
-layout_direction = 2
 anchors_preset = 6
 anchor_left = 1.0
 anchor_top = 0.5
@@ -276,6 +274,7 @@ offset_right = 40.0
 offset_bottom = 440.0
 grow_horizontal = 0
 grow_vertical = 2
+layout_direction = 2
 track_player = "Player B"
 
 [node name="AIToggleButtons" type="Control" parent="UI" unique_id=2019000001]
@@ -297,6 +296,7 @@ offset_left = 24.0
 offset_top = -180.0
 offset_right = 264.0
 offset_bottom = -96.0
+grow_vertical = 0
 mouse_default_cursor_shape = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
@@ -315,6 +315,8 @@ offset_left = -264.0
 offset_top = -180.0
 offset_right = -24.0
 offset_bottom = -96.0
+grow_horizontal = 0
+grow_vertical = 0
 mouse_default_cursor_shape = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
@@ -344,7 +346,8 @@ theme_override_constants/outline_size = 8
 theme_override_font_sizes/font_size = 22
 text = "RESET"
 
-[node name="PauseMenu" parent="." instance=ExtResource("21_pause")]
+[node name="PauseMenu" parent="." unique_id=1984830895 instance=ExtResource("21_pause")]
+visible = false
 
 [node name="CPUController" type="Node" parent="." unique_id=172666553]
 script = ExtResource("6_dwbse")
@@ -362,7 +365,6 @@ knockback_deceleration_mode = 2
 
 [node name="BGMPlayer" type="AudioStreamPlayer" parent="." unique_id=2000188195]
 stream = ExtResource("12_k3n1d")
-autoplay = false
 
 [node name="PlayerAShadowSprite" type="AnimatedSprite2D" parent="." unique_id=1618088426]
 modulate = Color(0.16078432, 0.16078432, 0.16078432, 1)
@@ -383,7 +385,7 @@ scale = Vector2(0.48, 0.07)
 sprite_frames = ExtResource("19_bc84e")
 offset = Vector2(0, -25.98)
 
-[connection signal="pressed" from="UI/AIToggleButtons/ResetButton" to="." method="reset_players"]
 [connection signal="pressed" from="UI/AIToggleButtons/P1AIButton" to="CPUController" method="toggle_ai_a"]
 [connection signal="pressed" from="UI/AIToggleButtons/P2AIButton" to="CPUController" method="toggle_ai_b"]
+[connection signal="pressed" from="UI/AIToggleButtons/ResetButton" to="." method="reset_players"]
 [connection signal="ai_state_changed" from="CPUController" to="UI/AIToggleButtons" method="_on_ai_state_changed"]
