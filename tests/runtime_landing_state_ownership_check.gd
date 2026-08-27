@@ -47,7 +47,9 @@ func _run() -> void:
 	var current_anim: String = dav.animation_state.get_current_node() if dav.animation_state else "none"
 	var sprite = dav.get_node_or_null("AnimatedSprite2D")
 	var sprite_anim: String = str(sprite.animation) if sprite else "none"
-	var passed: bool = dav.is_landing and dav.landing_lock_frames > 0 and (current_anim == "landing" or sprite_anim == "jumpV") and dav.facing_direction == -1.0
+	# 【面向規則】著地鎖期間**維持**跳躍時的面向（+1）；翻面要等 landing 動畫
+	# 播完、landing_lock_frames 歸零後才由 TimerHandler 執行。
+	var passed: bool = dav.is_landing and dav.landing_lock_frames > 0 and (current_anim == "landing" or sprite_anim == "jumpV") and dav.facing_direction == 1.0
 	print("[LANDING_OWNERSHIP_RESULT] passed=%s touchdown=%s landing_frame=%s" % [
 		passed,
 		after_touchdown,

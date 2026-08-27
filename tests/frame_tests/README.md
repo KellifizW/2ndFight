@@ -45,6 +45,7 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | test_24_double_tap_window_frames | 雙擊窗口恰 36 個物理 tick，歸零同幀清除 `last_input_dir` |
 | test_25_state_machine_invariants | 固定種子隨機輸入 600 幀：解析器為純函數、狀態已定義、結構性互斥不變式成立；並要求覆蓋 >=4 種狀態 |
 | test_26_state_matches_animation_chain | 狀態層 vs 動畫層逐幀對齊（兩處已知分岔以明確條件跳過並計數） |
+| test_27_crossup_facing_after_landing | cross-up 前跳越過對手：空中與 landing 鎖期間都不翻面，著地動畫播完才翻 |
 
 ## 設計規則（寫新用例時請遵守）
 

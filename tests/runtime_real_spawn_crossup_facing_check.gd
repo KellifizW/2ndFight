@@ -62,7 +62,11 @@ func _run() -> void:
 			crossed = true
 		if dav.is_on_floor() and landed_frame == -1 and Engine.get_physics_frames() > 40:
 			landed_frame = Engine.get_physics_frames()
-		if landed_frame != -1:
+		# 【面向規則】翻面時機是「著地 + landing 動畫（著地鎖）跑完」之後。
+		# 著地鎖期間（is_landing / landing_lock_frames > 0）仍維持舊面向是正確行為，
+		# 因此只在著地鎖結束後才檢查左右一致性。
+		var landing_lock_active: bool = dav.is_landing or dav.landing_lock_frames > 0
+		if landed_frame != -1 and not landing_lock_active:
 			var logical_ok: bool = dav.facing_direction == expected_facing
 			var root_ok: bool = sign(dav.scale.x) == expected_facing
 			var visual_ok: bool = _sprite_global_x_sign(dav) == expected_facing

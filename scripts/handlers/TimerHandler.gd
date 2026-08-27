@@ -88,17 +88,14 @@ func handle_timers(_delta: float) -> void:
 				seat, has_input, timer_desc
 			])
 			
-			# 【面向更新】在2幀強制鎖定完成時立即更新面向
-			# 【關鍵】臨時禁用 is_landing 標記和 landing_facing_lock，使得 FacingHandler 能夠執行
-			var saved_is_landing = movement_node.is_landing
-			var saved_landing_facing_lock = movement_node.landing_facing_lock
-			movement_node.is_landing = false
-			movement_node.landing_facing_lock = false
-			if movement_node.has_method("update_facing_direction"):
-				movement_node.update_facing_direction()
-			movement_node.is_landing = saved_is_landing
-			movement_node.landing_facing_lock = saved_landing_facing_lock
-			
+			# 【面向規則】著地 checkpoint **不**更新面向。
+			#
+			# 這裡原本會暫時把 is_landing / landing_facing_lock 清成 false，
+			# 再呼叫 update_facing_direction() ——等於在著地第 2 幀就強制翻面，
+			# 而完整著地動畫要 25 幀。cross-up 跳過對手後，玩家看到的就是
+			# 「人幾乎還在落地的瞬間就轉身」。正確時機是下面的收尾段：
+			# landing_lock_frames 歸零（著地動畫播完）時才更新面向。
+
 			if has_input:
 				# 【關鍵】留 1 幀而非立即歸零
 				# 這樣下一幀才會將 is_landing=false，JumpHandler 才會在下一幀處理跳躍延遲
