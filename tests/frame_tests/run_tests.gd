@@ -90,9 +90,11 @@ func _run_all() -> void:
 			print("  ✓ PASS")
 		else:
 			_failed += 1
-			_failed_names.append(script.resource_path.get_file().get_basename())
+			var case_name: String = script.resource_path.get_file().get_basename()
+			_failed_names.append(case_name)
 			print("  ✗ FAIL")
 			print(tc.failure_report())
+			_emit_ci_annotation(case_name, tc.failure_report(), script.resource_path)
 
 		await _free_world(world)
 		# 清空殘留輸入，避免污染下一用例
@@ -107,10 +109,36 @@ func _run_all() -> void:
 			print("   - " + name)
 	print("======================================================================")
 
+	# 摘要也送一份到 annotations，讓 job 頁面直接看得到「哪幾個掛了」。
+	if _failed > 0 and OS.get_environment("GITHUB_ACTIONS") == "true":
+		print("::error title=frame tests: %d/%d failed::%s" % [
+			_failed, CASES.size(), ", ".join(_failed_names)])
+
 	# 收尾：釋放測試期間手動補上的 autoload 替身並等待 queue_free 生效，
 	# 降低 Godot 結束時的節點/資源洩漏警告（不影響任何測試結果）。
 	await _release_autoload_stubs()
 	quit(1 if _failed > 0 else 0)
+
+## 以 GitHub Actions workflow command 形式輸出失敗，讓它出現在 job 的
+## ANNOTATIONS 區塊（而不只是埋在 raw log 裡）。
+##
+## 為什麼需要：raw job log 存放在 Azure blob CDN，某些受限網路環境
+## （例如 agent sandbox 的 egress allowlist）抓不到，只能看到
+## 「Process completed with exit code 1」而不知道哪個用例、為什麼失敗。
+## annotation 走 GitHub API，取得成本低得多，能大幅縮短除錯迴圈。
+##
+## 只在 CI 環境（GITHUB_ACTIONS=true）輸出，本地執行不受影響。
+func _emit_ci_annotation(case_name: String, report: String, res_path: String) -> void:
+	if OS.get_environment("GITHUB_ACTIONS") != "true":
+		return
+	# workflow command 必須單行：換行以 %0A 編碼，並跳脫 % 與 CR。
+	var message: String = report.strip_edges()
+	if message.is_empty():
+		message = "case reported failure without detail"
+	message = message.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+	var file_hint: String = res_path.replace("res://", "")
+	print("::error file=%s,title=frame test failed: %s::%s" % [
+		file_hint, case_name, message])
 
 ## 釋放 _ensure_autoloads 補上的根節點替身（SelectedCharacters / Debug）
 func _release_autoload_stubs() -> void:
