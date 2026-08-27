@@ -590,11 +590,11 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 		is_wakeup = true
 		is_wakeup_locked = true
 		fixed_velocity = Vector2i.ZERO
-		# Set wakeup timer based on animation length (converted to frame count @60FPS - LOGIC_FPS)
+		# Set wakeup timer based on animation length (seconds → physics frames via Movement)
 		if animation_player and animation_player.has_animation("wakeup"):
 			var wakeup_duration = animation_player.get_animation("wakeup").length
-			# 🔴 【關鍵修復】wakeup_timer 需轉換爲 ×120 幀數（120 FPS 物理中逅減）
-			wakeup_timer = int(round(wakeup_duration * 120))
+			# Stage 1：秒→幀統一經唯一邊界 Movement.seconds_to_frames_nearest
+			wakeup_timer = Movement.seconds_to_frames_nearest(wakeup_duration)
 			Debug.log("[WAKEUP DEBUG] wakeup_duration: %.3fs -> wakeup_timer: %d frames @120 FPS physics" % [wakeup_duration, wakeup_timer])
 		else:
 			wakeup_timer = 60  # 1.0 second = 60 frames @60FPS logic = 120 frames @120 FPS physics

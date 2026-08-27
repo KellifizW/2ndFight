@@ -51,7 +51,7 @@ These are non-negotiable and apply to every contribution:
 | Stage | Goal | Status |
 |---|---|---|
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
-| **1** | **Unify the time domain** — all gameplay logic in integer physics frames | 🔄 In progress (landing + PushManager stun-lock families) |
+| **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated; frame tests 24, local acceptance pending) |
 | **2** | **Explicit state machine** — replace the ~34 boolean flags | ⏳ Planned |
 | **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | ⏳ Planned |
 | **4** | **Converge input handling** — a single `ActionMapper` | ⏳ Planned |
@@ -62,7 +62,7 @@ These are non-negotiable and apply to every contribution:
 
 ## Roadmap
 
-### Stage 1 — Unify the time domain 🔄
+### Stage 1 — Unify the time domain ✅
 
 **Target invariants**
 
@@ -84,14 +84,57 @@ seconds silently stretches by up to 50×. Frame-counted timers are immune.
 - ✅ Knockfly duration conversion goes through `Movement.start_knockfly_timer()` → `seconds_to_lock_frames()` (0.4s → 49). Hit/block locks seed from the already-converted physics-frame counts (`hitstun_frames` / `blockstun_frames`), so they stay aligned.
 - ✅ `floor_snap_immunity_timer` type corrected to `int` (it was already decremented by 1).
 - ✅ New frame tests `test_18` / `test_19` / `test_20` pin the conversion formula and the hitstop freeze.
+- ✅ **Closing slice** — the remaining timer families, all landed:
+  - Every designer-seconds seed now flows through `Movement.seconds_to_frames_nearest()`,
+    replacing the ~12 scattered `int(round(sec * 120))` sites (jump delay 0.1→12, double-tap
+    window 0.3→36, dash 0.35→42, layground 0.2→24, wake-up, attack movement, air-hit backjump
+    0.2→24, floor-snap immunity 0.1→12). Bit-identical values at 120 Hz.
+  - `air_hit_backjump_timer` / `floor_snap_immunity_timer` seeds no longer spell
+    `* LOGIC_FPS * 2`; the split is gone.
+  - Logic↔physics conversion consolidated to **one** function,
+    `Movement.logic_frames_to_physics_frames()`. Duplicates removed: Fighter's two unused
+    second-based helpers deleted (one kept as a thin delegate), ThrowHandler's private copy
+    deleted, `HitResponseHandler` and `world.gd` inline `×2`/`×FPS_RATIO` formulas routed here.
+  - `combo_reset_timer` (float seconds, `-= delta`) → `combo_reset_frames` (int ticks):
+    seeded as `hitstun_logic × 2 + seconds_to_lock_frames(0.2)` (24-frame hitstun → 48+25 = 73),
+    −1 per tick, immune to `time_scale`.
+  - AI pacing timers → physics frames: `decision_cooldown` → `decision_cooldown_frames`,
+    `commitment_timer` → `commitment_frames`, `opponent_search_timer` → `opponent_search_frames`
+    (with `AIBehavior` moving from `_process` to `_physics_process`). Seeds 0.033s→4 ticks,
+    0.016s→2, 0.05s→6 — exactly the "2/1/3 logical frames" the original comments *intended*;
+    previously the real tick count drifted with render framerate and `time_scale`.
+    The blockstun clamp also simplified: `min(commitment_frames, blockstun_frames)` — same
+    integer domain, no more `÷120` round-trip.
+  - `PlayerController` double-tap window: `double_tap_timer: float` decremented in `_process`
+    (real-time!) → `double_tap_frames: int` in `_physics_process`, exactly 36 ticks, matching
+    the `neutral_timer` window it feeds. `Movement.double_tap_timer` (a *duration*, not a
+    countdown) renamed to `double_tap_window_seconds` to kill the name collision.
+  - Dead class `SpecialMoveBase` (zero references repo-wide; hosted the leftover
+    `jump_timer`/`timer` second-domain paths) removed.
 
-**Remaining timer families**
+**Conversion boundaries (the only ones that remain in gameplay logic)**
 
-- `jump_delay_timer`, `neutral_timer` — already `int` physics frames; conversion still uses `round(sec * 120)` rather than `seconds_to_lock_frames`.
-- `dash_time` / `backdash_time` — designer seconds that seed the already-frame-based `dash_timer` (`round(0.35*120)=42`; do **not** switch this seed to `seconds_to_lock_frames` or dash becomes 43).
-- `combo_reset_timer` (world / combo label)
-- `decision_cooldown` (AI), `double_tap_timer` (`PlayerController`, currently decremented in `_process`), `jump_timer` (`SpecialMoveBase`, leftover unused path)
-- `air_hit_backjump_timer` — already an `int`, but seeded via `* LOGIC_FPS * 2`; needs splitting.
+| Function (`static`, all on `Movement`) | Semantics | Families |
+|---|---|---|
+| `seconds_to_lock_frames(sec)` | `floor(sec×fps)+1` — reproduces the legacy `-= delta` float countdown | landing lock, knockfly duration, combo buffer |
+| `seconds_to_frames_nearest(sec)` | `round(sec×fps)` — legacy *seed* arithmetic, values unchanged | dash / jump delay / double-tap / layground / wake-up / attack movement / air-hit backjump / AI intervals |
+| `logic_frames_to_physics_frames(f)` | logic (60 FPS) → physics frames, single ×2 implementation | hitstun / blockstun / move durations / throw windows |
+
+**Disclosed one-frame deltas (intentional, test-pinned)**
+
+- The combo-label window used to be drained by a float loop whose last subtraction
+  sometimes crossed zero a frame early (24-frame hitstun measured 72 ticks; other stun
+  values 73). The frame-based seed is a constant `stun×2 + 25`. Only the label's lifetime
+  moves ±1 tick (8 ms); combo *counting* is unaffected (it reads the fighters' actual stun
+  frames). `test_13` / `test_21` pin the new value.
+- AI decision cadence was previously measured in render-frame deltas — i.e. not
+  deterministic across environments to begin with. It is now fixed in physics ticks.
+
+**Deferred (explicitly beyond Stage 1)**: the three AI *subsystem* pacing timers
+(`AIComboSystem.combo_timer`, `AIDecisionLayers.cache_timer`/`special_cooldown_timer`,
+`ThreatAssessment.projectile_check_timer`) and the unused generic `TimerManager` fold
+into Stage 4 (AI/input convergence). UI-only seconds domains (`FrameCounter`, labels,
+camera, BGM, tweens) stay seconds per the ground rules.
 
 > ⚠️ **Conversion gotcha, learned the hard way.** The legacy pattern
 > `timer = max(0, timer - delta)` looping while `timer > 0` does **not** run
@@ -100,6 +143,8 @@ seconds silently stretches by up to 50×. Frame-counted timers are immune.
 > extra frame. Converting with `round()` silently shortens the state by a frame.
 > Use `Movement.seconds_to_lock_frames()` — `floor(sec * fps) + 1` — which
 > reproduces the old counts exactly (`0.2→25`, `2/60→5`, `0.001→1`).
+> The two families must **not** be swapped: `seconds_to_frames_nearest` exists because
+> seed-based timers (dash!) were *born* rounding — using lock-style there makes dash 43.
 
 ### Stage 2 — Explicit state machine ⏳
 
@@ -166,8 +211,11 @@ The rules that bite hardest:
 - Measure in physics frames, never seconds. 1 logical frame = 2 physics frames.
 - Leave generous wait windows around hits — hitstop slows physics-frame advance by 50×.
 
-Frame tests currently cover 20 cases (`test_01`–`test_20`), including the Stage 1
-landing and PushManager stun-lock families.
+Frame tests currently cover 24 cases (`test_01`–`test_24`), including the Stage 1
+landing, PushManager stun-lock, and closing-slice families: `test_21` combo-window frame
+counting, `test_22` the three conversion boundaries (including the "families must not be
+swapped" guard), `test_23` AI decision/commitment tick semantics, and `test_24` the
+36-tick double-tap window.
 
 ### Not yet covered (honest disclosure)
 
@@ -195,6 +243,6 @@ plan_game.md         The full six-stage refactor plan
 
 ## Known limitations
 
-- **Hitstop uses `Engine.time_scale`.** It works, but it scales `delta` globally, which is exactly why second-based timers must go. Documented as an accepted limitation rather than fixed.
+- **Hitstop uses `Engine.time_scale`.** It works, and after Stage 1 every gameplay timer counts physics ticks instead of scaled `delta`, so the remaining exposure is UI-only (labels/`FrameCounter`). Documented as an accepted limitation rather than fixed.
 - **WOO is incomplete** and its future is a Stage 3 decision.
 - **Some frame data is wrong** — see the "known data issues" section of `FRAME_DATA_TABLE.md`.

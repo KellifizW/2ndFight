@@ -51,8 +51,12 @@ var initial_player_b_pos: Vector2
 var slowmo_triggered: bool = false
 var current_combo: int = 0
 var combo_target: String = ""
-var combo_reset_timer: float = 0.0
-const COMBO_BUFFER: float = 0.2
+# Stage 1：連段標籤視窗改為 int 物理幀（每個 _physics_process -1）。
+# 舊版是 float 秒 + `-= delta`：delta 受 Engine.time_scale 縮放，hitstop 期間
+# 遞減速度只剩 2%，計數視窗被拉長最多 50×；幀制後與 time_scale 完全脫鉤。
+var combo_reset_frames: int = 0
+# 設計者秒數種子：只在命中訊號載入邊界經 Movement 轉換一次，不在遞減迴圈中出現。
+const COMBO_BUFFER_SECONDS: float = 0.2
 
 # Hit Advantage (改用幀計數器)
 var hit_time: float = 0.0
@@ -352,10 +356,11 @@ func _process(delta: float) -> void:
 			int(b_pos.x), int(b_pos.y)
 		]
 
-func _physics_process(delta: float) -> void:
-	if combo_reset_timer > 0:
-		combo_reset_timer -= delta
-		if combo_reset_timer <= 0:
+func _physics_process(_delta: float) -> void:
+	if combo_reset_frames > 0:
+		# Stage 1：每個物理幀固定 -1（不再用 delta，hitstop 不影響計數）
+		combo_reset_frames -= 1
+		if combo_reset_frames <= 0:
 			reset_combo()
 	
 	if attacker and target_player and not advantage_calculated:
@@ -680,9 +685,9 @@ func reset_players() -> void:
 	for player in [player_a, player_b]:
 		if player.has_node("AIBehavior"):
 			var ai_behavior = player.get_node("AIBehavior")
-			# Reset commitment and decision timers
-			ai_behavior.commitment_timer = 0.0
-			ai_behavior.decision_cooldown = 0.0
+			# Reset commitment and decision timers（Stage 1：物理幀計數，0 = 立即解除）
+			ai_behavior.commitment_frames = 0
+			ai_behavior.decision_cooldown_frames = 0
 			ai_behavior.current_committed_action = ""
 			ai_behavior.committed_input = {}
 	
@@ -754,9 +759,6 @@ func reset_players() -> void:
 	
 	Debug.log("[WORLD] ✓ 玩家重置完成 - 位置、血量、動畫、幀條、優勢已恢復 | FrameCounter 重置至 0")
 
-func _stun_logic_frames_to_seconds(stun_duration: float) -> float:
-	return max(0.0, stun_duration) / 60.0
-
 func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, was_in_stun: bool) -> void:
 	var hit_time_ms = Time.get_ticks_msec()
 	
@@ -768,10 +770,11 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 		else:
 			current_combo = 1
 			combo_target = target
-		# hit_detected passes hitstun/blockstun in 60 FPS logic frames.
-		# combo_reset_timer is seconds, so convert once here; otherwise a
-		# 24-frame hitstun incorrectly keeps the combo label alive for 24s.
-		combo_reset_timer = _stun_logic_frames_to_seconds(stun_duration) + COMBO_BUFFER
+		# hit_detected 傳入的是 60 FPS 邏輯幀（hitstun/blockstun）。Stage 1：
+		# 在訊號載入邊界一次性轉成物理幀窗口 = stun×2 + 0.2s 緩衝（lock 式 +1），
+		# 24 邏輯幀 → 48+25=73 物理幀。舊秒制曾把 24 誤當 24 秒或依赖 delta，皆已不存在。
+		combo_reset_frames = Movement.logic_frames_to_physics_frames(stun_duration) \
+			+ Movement.seconds_to_lock_frames(COMBO_BUFFER_SECONDS)
 		update_combo_label()
 		
 		attacker = player_a if target == player_b.name else player_b
@@ -795,8 +798,8 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 					target_player.name, hitstun_frames, hitstun_frames / frame_counter.FPS_RATIO
 				])
 			else:
-				# 備用：轉換信號的 stun_duration（邏輯幀）→ 物理幀
-				hitstun_frames = int(stun_duration * frame_counter.FPS_RATIO)
+				# 備用：轉換信號的 stun_duration（邏輯幀）→ 物理幀（唯一邊界）
+				hitstun_frames = Movement.logic_frames_to_physics_frames(stun_duration)
 			
 			# 🟢 【修復】記錄攻擊的完整持續時間（物理幀）
 			# 用於在 _calculate_hit_advantage() 中準確計算恢復時間
@@ -806,7 +809,7 @@ func _on_hit_detected(target: String, stun_duration: float, is_blocked: bool, wa
 				var attack_type = attacker.attack_type
 				if anim_player and anim_player.has_animation(attack_type):
 					var anim_length = anim_player.get_animation(attack_type).length
-					attack_duration_frames = int(round(anim_length * frame_counter.PHYSICS_FPS))
+					attack_duration_frames = Movement.seconds_to_frames_nearest(anim_length)
 
 		
 		attacker_recover_frame = -1

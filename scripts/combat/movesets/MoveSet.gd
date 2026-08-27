@@ -289,15 +289,15 @@ func _start_special(move_name: String) -> void:
 		parent.hit_response_handler.reset_multi_hit_state()
 	
 	current_move_state.active_move = move_data
-	# 那輯幀 * 2 = 物理幀數 (120 FPS)
-	# ★ 若為 0，自動使用動畫長度（叏應 duration_frames=0 設計）
-	var duration_physics_frames := int(round(move_data.duration * 2.0))
+	# Stage 1：邏輯幀→物理幀統一經唯一邊界 Movement.logic_frames_to_physics_frames（×2）
+	# ★ 若為 0，自動使用動畫長度（對應 duration_frames=0 設計）
+	var duration_physics_frames := Movement.logic_frames_to_physics_frames(move_data.duration)
 	if duration_physics_frames == 0 and animation_player and animation_player.has_animation(move_name):
 		var _anim_for_dur = animation_player.get_animation(move_name)
-		duration_physics_frames = int(round(_anim_for_dur.length * PHYSICS_FPS))
+		duration_physics_frames = Movement.seconds_to_frames_nearest(_anim_for_dur.length)
 	current_move_state.timer = duration_physics_frames
-	# 🔴 jump_delay 也是那輯幀數，需要乘以 2
-	var jump_delay_physics_frames = int(round(move_data.jump_delay * 2.0))
+	# jump_delay 也是邏輯幀數 → 同一轉換邊界
+	var jump_delay_physics_frames = Movement.logic_frames_to_physics_frames(move_data.jump_delay)
 	current_move_state.jump_timer = jump_delay_physics_frames
 	current_move_state.has_jumped = false
 	current_move_state.initial_facing = parent.facing_direction
@@ -306,7 +306,7 @@ func _start_special(move_name: String) -> void:
 	
 	var seat = parent.seat if "seat" in parent else "?"
 	if move_data.jump_delay > 0:
-		Debug.log("[DP_START_SPECIAL] %s: %s | jump_delay=%.0f frames | jump_timer=%.4f sec | jump_speed=%.0f" % [
+		Debug.log("[DP_START_SPECIAL] %s: %s | jump_delay=%.0f frames | jump_timer=%d physics frames | jump_speed=%.0f" % [
 			seat, move_name, move_data.jump_delay, current_move_state.jump_timer, move_data.jump_speed
 		])
 	
@@ -580,7 +580,7 @@ func stop_special_move() -> void:
 		
 		# 【關鍵新增】當特殊招式（例如DP）著地時，也要清除dash狀態
 		# 否則會導致著地後的輸入誤觸發dash
-		parent.neutral_timer = 0.0
+		parent.neutral_timer = 0
 		parent.pending_dash_dir = 0
 		parent.last_input_dir = 0
 		parent.landing_facing_lock = false

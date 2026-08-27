@@ -19,6 +19,10 @@ func run() -> bool:
 	world._on_hit_detected(p2.name, 24, false, true)
 	check(world.current_combo == 2, "hitstun 內命中才應增加 combo，實為 %d" % world.current_combo)
 
-	# Timer is seconds, not raw frame count: 24 logic frames = 0.4s + 0.2 buffer.
-	check(abs(world.combo_reset_timer - 0.6) < 0.001, "combo_reset_timer 應為 0.6 秒，實為 %.3f" % world.combo_reset_timer)
+	# Stage 1：連段視窗是 int 物理幀倒數（舊秒制 `combo_reset_timer` 已淘汰）。
+	# 種子 = 24 邏輯 hitstun ×2 + 0.2s 緩衝（lock 式 floor×120+1 = 25）= 73 物理幀。
+	check(typeof(world.combo_reset_frames) == TYPE_INT,
+		"combo_reset_frames 必須是 int，實為 %s" % type_string(typeof(world.combo_reset_frames)))
+	check(world.combo_reset_frames == 73,
+		"combo_reset_frames 應為 73（48 stun + 25 buffer），實為 %d" % world.combo_reset_frames)
 	return not has_failures()

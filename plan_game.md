@@ -48,7 +48,7 @@
 | 階段 | 目標 | 狀態 | 估算 |
 |---|---|---|---|
 | Stage 0 | 止血 + 安全網(DebugLogger / frame 測試 / frame data 表 / 守則) | ✅ 已併入 main | — |
-| Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | 🔄 進行中(landing + PushManager stun-lock 已遷移; 20 用例) | 1~2 週末 |
+| Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | ✅ 完成(六族計時器全數遷移; 24 用例; 待本地 frame-test 驗收) | 已完成 |
 | Stage 2 | 顯式狀態機(消除 34 旗標) | ⏳ | 2~4 週末 |
 | Stage 3 | FrameData 收攏 + 數據問題清理 | ⏳ | 1~2 週末 |
 | Stage 4 | 輸入系統收斂(單一 ActionMapper) | ⏳ | 1~2 週末 |
@@ -82,7 +82,7 @@
   `failure_report()` 移除不支援的 list comprehension
 - [x] 進入 Stage 1
 ---
-## 5. Stage 1: 統一時間域 🔄
+## 5. Stage 1: 統一時間域 ✅（2026-08-27 收尾，待本地 24 用例驗收）
 **問題**: 遊戲邏輯混用四個時間域, 62 處 `*2`/`*120`/`/2.0` 分散轉換, 是反覆出 bug 的根源
 (代碼中「🔴【關鍵修復】…需轉換為 ×120」類注释即證據)。
 **目標不變式**:
@@ -94,12 +94,17 @@
 1. 盤點所有計時器並分類(目前已知混用點):
    - 物理幀型(對): `hitstun_frames` `blockstun_frames` `knockback_frames` `attack_duration_timer`
      `wakeup_timer` `layground_timer` `dash_timer` `current_move_state.timer`
-   - 秒型(需遷移): `combo_reset_timer` `decision_cooldown`(AI)
-     `double_tap_timer`(`PlayerController`) `jump_timer`(`SpecialMoveBase`)
-   - 已遷移: `landing_lock_frames` `knockfly_frames` `hit_lock_frames`
+   - ✅ 已遷移(本切片 2026-08-27): `combo_reset_frames`(原 `combo_reset_timer` 秒制)、
+     `decision_cooldown_frames`/`commitment_frames`/`opponent_search_frames`(AI，原 `_process`
+     真實秒制)、`double_tap_frames`(`PlayerController`，原 `_process` 秒制)；
+     `SpecialMoveBase`(含死路徑 `jump_timer`)整檔刪除(全倉庫零呼叫點)
+   - ✅ 已遷移: `landing_lock_frames` `knockfly_frames` `hit_lock_frames`
      `block_lock_frames` `block_push_frames`；`jump_delay_timer`/`neutral_timer`/
-     `floor_snap_immunity_timer` 已是 int 幀（種子公式尚未收攏）
-   - 混合(需拆): `air_hit_backjump_timer`(int 但初始化用 `* LOGIC_FPS * 2`)
+     `floor_snap_immunity_timer`（種子公式已收攏至 `Movement.seconds_to_frames_nearest`）
+   - ✅ 已拆: `air_hit_backjump_timer` 種子改經唯一邊界，`* LOGIC_FPS * 2` 字面式消失
+   - 殘留(非 hitstop 敏感、併入 Stage 4 AI 收攏): `AIComboSystem.combo_timer`、
+     `AIDecisionLayers.cache_timer`/`special_cooldown_timer`、
+     `ThreatAssessment.projectile_check_timer`，以及未被玩法使用的 `TimerManager` 工具
 2. 每個秒型計時器: 改為 int 物理幀, 更新所有讀取點
 3. 收攏轉換: 所有 `logic_frames_to_physics_frames` / `* 2` / `* 120` 調用 →
    只剩數據載入邊界一處
@@ -114,12 +119,17 @@
   - `test_18_stun_lock_is_frame_based`: knockfly 0.4s→49 幀, 每物理幀 -1
   - `test_19_hit_lock_freezes_in_hitstop`: `hit_lock_frames` 與 `hitstun_frames` 對齊並在 hitstop 凍結
   - `test_20_block_lock_is_frame_based`: `block_lock_frames` 與 `blockstun_frames` 對齊並在 hitstop 凍結
+- **收尾切片新增**: `test_21` combo 視窗幀制 / `test_22` 三個轉換邊界公式釘選 /
+  `test_23` AI 決策計時器 int 幀與每幀 -1 / `test_24` 雙擊窗口恰 36 tick 歸零
 - 比對 `FRAME_DATA_TABLE.md` 實測值不變
 **驗收(DoD)**:
 - [x] landing + PushManager stun-lock 兩族已遷移; 對應 frame tests 已寫好（使用者本地驗收）
-- [ ] `grep` 遊戲邏輯中無 `float` 計時器(秒域只剩 UI/camera/BGM/tween)
-- [ ] 邏輯幀↔物理幀轉換只剩 1 處
-- [ ] FRAME_DATA_TABLE 實測值無變化
+- [x] 收尾切片: combo/AI/雙擊/SpecialMoveBase/種子收攏完成（本 PR; `run_frame_tests.sh` 24 用例待本地驗收）
+- [x] `grep` 遊戲邏輯中無 `float` 計時器(秒域只剩 UI/camera/BGM/tween 與上列 AI 子系統併入 Stage 4 的小計時器)
+- [x] 邏輯幀↔物理幀轉換只剩 1 處(`Movement.logic_frames_to_physics_frames`);
+  秒↔幀統一為 `seconds_to_lock_frames` / `seconds_to_frames_nearest` 兩式
+  （語義不同的兩族舊計時器，見 `Movement.gd` 轉換邊界註解與 `test_22`）
+- [ ] FRAME_DATA_TABLE 實測值無變化（驗收時確認）
 ---
 ## 6. Stage 2: 顯式狀態機 ⏳
 **問題**: ~34 個 bool 旗標(`is_hit` `is_knockfly` `is_blocking` `is_attacking` `is_dashing`
@@ -310,10 +320,19 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
    knockfly 秒數種子走 `Movement.start_knockfly_timer()` → `seconds_to_lock_frames`
    （0.4s→49）；hit/block lock 直接用已轉換的物理幀，與 `hitstun_frames`/
    `blockstun_frames` 對齊。新增 `test_18`/`test_19`/`test_20`。
-5. **[下一切片]** 收攏剩餘秒型計時器: `combo_reset_timer`、
-   `decision_cooldown`、`double_tap_timer`（目前在 `_process` 用 delta）、
-   `SpecialMoveBase.jump_timer`；並把 `air_hit_backjump_timer` 的
-   `* LOGIC_FPS * 2` 種子改走單一轉換點。
+5. **[已完成]** Stage 1 收尾切片: `combo_reset_timer` → `combo_reset_frames`（物理幀，
+   每 tick -1，歸零當幀 reset_combo）；AI `decision_cooldown`/`commitment_timer`/
+   `opponent_search_timer` → int 幀計數（種子 0.033s→4、0.016s→2、0.05s→6 物理 tick，
+   與原註解意圖一致；舊 `_process` 真實 delta 制隨渲染幀率浮動的問題根除）；
+   `PlayerController.double_tap_timer` → `double_tap_frames`（0.3s = 恰 36 tick，
+   遞減移到 `_physics_process`）；死類 `SpecialMoveBase` 整檔刪除；
+   `air_hit_backjump_timer`/`floor_snap_immunity_timer` 種子收攏至
+   `Movement.seconds_to_frames_nearest`；jump_delay/neutral/dash/layground/wakeup/
+   attack-movement 全部 `int(round(sec*120))` 站點同收攏（位元級同值）。
+   新增 `test_21`~`test_24`，改寫 `test_13` 斷言為幀制。
+   **行為差異披露**: combo 標籤視窗舊浮點迴圈對部分 stun 值會因殘值少走 1 幀
+   （如 24 邏輯幀舊測得 72 tick）；幀制版恆為 stun×2+25=73，標籤寿命 ±1 幀，
+   不影響 combo 計數（計數走 fighter 實際 stun 幀）。
 6. 每階段結束: 更新本文件狀態欄 + `FRAME_DATA_TABLE.md` + commit
 ---
 ## 附錄 A: 關鍵代碼位置(供各階段參考)

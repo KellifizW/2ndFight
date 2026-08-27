@@ -76,7 +76,9 @@ var dash_time: float = 0.35
 var backdash_time: float = 0.35
 var dash_timer: int = 0  # Frame-based timer
 var dash_direction: float = 0.0
-var double_tap_timer: float = 0.3
+# Stage 1：這是「設計者秒數種子」，不是倒數計時器。double-tap 計數窗口位於
+# PlayerController.double_tap_frames（物理幀）與 neutral_timer（DashHandler 由此種子換算）。
+var double_tap_window_seconds: float = 0.3
 var last_input_dir: int = 0
 var pending_dash_dir: int = 0
 var neutral_timer: int = 0  # Frame-based timer
@@ -203,6 +205,30 @@ static func seconds_to_lock_frames(seconds: float) -> int:
 	var fps: float = float(Engine.physics_ticks_per_second)
 	return int(floor(seconds * fps)) + 1
 
+## 秒 → 物理幀數，四捨五入版（Stage 1：設計者秒數「種子」的唯一轉換邊界）。
+##
+## 適用對象：本來就是 `int(round(sec * 120))` 種子、以每幀 -1 遞減的整數幀計時器
+## （dash 0.35→42、跳躍延遲 0.1→12、double-tap 窗口 0.3→36、layground 0.2→24、
+## wakeup、attack-movement 位移、空中受擊後跳 0.2→24）。
+## 這些計時器從未用 `-= delta` 倒數，舊行為就是「四捨五入到最近幀」，
+## 所以收攏時必須保持 round 語義 —— 改用 seconds_to_lock_frames 會無謂地多一幀
+## （dash 42→43、double-tap 36→37）。
+## 兩個函數分別對應兩族舊語義；全代碼不允許再出現第三種秒→幀算法。
+static func seconds_to_frames_nearest(seconds: float) -> int:
+	if seconds <= 0.0:
+		return 0
+	var fps: float = float(Engine.physics_ticks_per_second)
+	return int(round(seconds * fps))
+
+## 邏輯幀（60 FPS）→ 物理幀（Stage 1：全代碼唯一的邏輯↔物理轉換點）。
+## 其他副本（Fighter.logic_frames_to_physics_frames、ThrowHandler._logic_...）
+## 已全部收攏到這裡。幀比 120/60 = 2 在整數輸入下無捨入歧義。
+static func logic_frames_to_physics_frames(logic_frames: float) -> int:
+	if logic_frames <= 0.0:
+		return 0
+	var ratio: float = float(Engine.physics_ticks_per_second) / float(60.0)
+	return int(round(logic_frames * ratio))
+
 ## Stage 1：把秒數 knockfly 時長轉成物理幀，並同步曲線分母。
 ## 轉換走 seconds_to_lock_frames，重現舊的 `timer -= delta` / `timer > 0` 格數。
 func start_knockfly_timer(duration_seconds: float) -> void:
@@ -220,9 +246,8 @@ func _reset_knockfly() -> void:
 		fixed_velocity = Vector2i.ZERO
 		is_knockfly = false
 		is_layground = true
-		# 轉換 layground_duration（秒）為幀數（@120 FPS 物理幀）
-		# layground_timer 在 _physics_process 每幀遞減，所以應×120 而非×60
-		layground_timer = int(round(layground_duration * 120.0)) if "layground_duration" in self else 24
+		# 轉換 layground_duration（秒）為物理幀（唯一秒→幀邊界 Movement.seconds_to_frames_nearest）
+		layground_timer = Movement.seconds_to_frames_nearest(layground_duration) if "layground_duration" in self else 24
 		is_knockfly_animation_finished = false
 		_update_animation_state(0, false)
 	else:
@@ -337,7 +362,7 @@ func _physics_process(delta: float) -> void:
 		if input_dir * facing_direction > 0:
 			# Same direction as facing - forward dash
 			is_dashing = true
-			dash_timer = int(round(dash_time * 120.0))
+			dash_timer = Movement.seconds_to_frames_nearest(dash_time)
 			dash_total_time = dash_timer
 			dash_initial_speed = dash_speed * scale_factor * input_dir
 			fixed_velocity.x = int(dash_initial_speed)
@@ -347,7 +372,7 @@ func _physics_process(delta: float) -> void:
 		else:
 			# Opposite direction - backdash
 			is_backdashing = true
-			dash_timer = int(round(backdash_time * 120.0))
+			dash_timer = Movement.seconds_to_frames_nearest(backdash_time)
 			dash_total_time = dash_timer
 			dash_initial_speed = backdash_speed * scale_factor * input_dir
 			fixed_velocity.x = int(dash_initial_speed)
@@ -357,7 +382,7 @@ func _physics_process(delta: float) -> void:
 	elif has_backdash_pressed and is_on_floor() and not is_landing_locked and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_push_back or is_layground):
 		# AI wants to backdash
 		is_backdashing = true
-		dash_timer = int(round(backdash_time * 120.0))
+		dash_timer = Movement.seconds_to_frames_nearest(backdash_time)
 		dash_total_time = dash_timer
 		dash_initial_speed = backdash_speed * scale_factor * (-int(facing_direction))
 		fixed_velocity.x = int(dash_initial_speed)

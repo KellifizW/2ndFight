@@ -52,9 +52,9 @@ func start_movement(attack_name: String, attack_table: Dictionary) -> void:
 	movement_timer = 0
 	is_movement_active = true
 	
-	# 🔴 【關鍵修復】轉換為幀數：執行於 120 FPS 物理上下文，所以應乘以 120 而非 60
-	movement_duration_frames = int(round(active_movement.duration * 120.0))
-	movement_start_delay_frames = int(round(active_movement.start_delay * 120.0))
+	# Stage 1：秒→物理幀收攏至唯一邊界 Movement.seconds_to_frames_nearest（幀制種子，每幀 -1 遞減）
+	movement_duration_frames = Movement.seconds_to_frames_nearest(active_movement.duration)
+	movement_start_delay_frames = Movement.seconds_to_frames_nearest(active_movement.start_delay)
 
 func process_movement(_delta: float) -> void:
 	"""每幀更新攻擊移動（在 _physics_process 中調用）"""

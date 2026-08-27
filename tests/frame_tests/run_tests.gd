@@ -37,6 +37,10 @@ const CASES: Array = [
 	"res://tests/frame_tests/cases/test_18_stun_lock_is_frame_based.gd",
 	"res://tests/frame_tests/cases/test_19_hit_lock_freezes_in_hitstop.gd",
 	"res://tests/frame_tests/cases/test_20_block_lock_is_frame_based.gd",
+	"res://tests/frame_tests/cases/test_21_combo_window_is_frame_based.gd",
+	"res://tests/frame_tests/cases/test_22_time_conversion_boundaries.gd",
+	"res://tests/frame_tests/cases/test_23_ai_decision_timers_in_frames.gd",
+	"res://tests/frame_tests/cases/test_24_double_tap_window_frames.gd",
 ]
 
 var _passed: int = 0

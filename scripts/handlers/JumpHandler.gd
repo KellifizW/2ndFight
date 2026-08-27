@@ -24,7 +24,7 @@ func handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor_
 		movement_node.landing_facing_lock = true
 		# 【跳躍延遲】設置延遲計時器，使垂直速度延遲應用
 		# jump_delay_duration 預設 0.067s = ~6 幀 @90FPS 或 ~8 幀 @120 FPS
-		movement_node.jump_delay_timer = int(round(movement_node.jump_delay_duration * 120))
+		movement_node.jump_delay_timer = Movement.seconds_to_frames_nearest(movement_node.jump_delay_duration)
 		Debug.log("[JUMP DEBUG] Jump started | jump_delay_duration: %.3fs -> jump_delay_timer: %d frames @120 FPS" % [movement_node.jump_delay_duration, movement_node.jump_delay_timer])
 		movement_node.fixed_position.y = floor_y - 1
 		movement_node.fixed_velocity.y = 0

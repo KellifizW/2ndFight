@@ -132,9 +132,8 @@ func _enter_layground(reason: String = "unknown") -> void:
 	Debug.log("[LAYGROUND POSITION_RESET] fixed_position.y set to floor_y: %d" % floor_y)
 	
 	movement_node.is_layground = true
-	# 轉換 layground_duration（秒）為幀數（@120 FPS 物理幀）
-	# layground_frames 在 _physics_process 每幀遞減，所以應×120 而非×60
-	var layground_frames = int(round(movement_node.layground_duration * 120.0)) if "layground_duration" in movement_node else 24
+	# 轉換 layground_duration（秒）為物理幀（唯一秒→幀邊界 Movement.seconds_to_frames_nearest）
+	var layground_frames = Movement.seconds_to_frames_nearest(movement_node.layground_duration) if "layground_duration" in movement_node else 24
 	movement_node.layground_timer = layground_frames
 	Debug.log("[LAYGROUND INIT] duration: %.3fs → timer: %d frames" % [movement_node.layground_duration, layground_frames])
 	movement_node._update_animation_state(0, false)
@@ -171,7 +170,7 @@ func reset_layground_with_health_check() -> void:
 		# 【關鍵】Initialize wakeup_timer based on animation duration (120 FPS physics frames)
 		if "animation_player" in movement_node and movement_node.animation_player and movement_node.animation_player.has_animation("wakeup"):
 			var wakeup_duration = movement_node.animation_player.get_animation("wakeup").length
-			movement_node.wakeup_timer = int(round(wakeup_duration * 120.0))
+			movement_node.wakeup_timer = Movement.seconds_to_frames_nearest(wakeup_duration)
 			Debug.log("[WAKEUP TIMER] wakeup_duration: %.3fs -> wakeup_timer: %d frames @120 FPS physics" % [wakeup_duration, movement_node.wakeup_timer])
 		else:
 			# Fallback: 1.0 second = 120 frames @120 FPS physics
