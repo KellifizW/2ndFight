@@ -37,14 +37,19 @@ const SPECIAL_MOVE_ACTIONS = ["fireball", "fireballL", "fireballM", "fireballH",
 # ACTION COMMITMENT SYSTEM
 # ============================================================
 var current_committed_action: String = ""
-var commitment_timer: float = 0.0
+# Stage 1：承諾視窗改為 int 物理幀（每個 get_ai_input tick -1）。
+# 舊版以 _process 的真實秒 delta 倒數、每物理 tick 扣一次 —— 時間域混用，
+# 行為隨渲染幀率漂移（60fps ≈ 2 tick/0.033s，headless 下更不可預測）。
+var commitment_frames: int = 0
 var committed_input: Dictionary = {}
 var commitment_one_time_sent: bool = false  # 【FIX】追蹤是否已發送過單幀命令（throw/special moves）
 var _cached_input_frame: int = -1
 var _cached_input_result: Dictionary = {}
 
 # Decision cooldown (simulates human thinking time)
-var decision_cooldown: float = 0.0
+# Stage 1：int 物理幀計數；設計者秒數（DECISION_INTERVAL / INTERVAL_*）只在
+# 種子邊界經 Movement.seconds_to_frames_nearest 轉換一次。
+var decision_cooldown_frames: int = 0
 const DECISION_INTERVAL: float = 0.033  # 【FIX】 Re-evaluate every 2 frames (~33ms at 60 FPS) - reduced from 0.08 for responsiveness
 
 @export var decision_interval_override: float = 0.0  # Allow tuning in Inspector; set to 0 to use DECISION_INTERVAL, >0 for custom, <0 for immediate updates
@@ -91,11 +96,11 @@ const ACTION_DURATIONS_FALLBACK = {
 	"default": {"min": 0.3, "max": 0.3},
 }
 
-# 對手搜尋計時器
-var opponent_search_timer: float = 0.0
+# 對手搜尋計時器（Stage 1：int 物理幀；種子秒數僅在邊界轉換）
+var opponent_search_frames: int = 0
+const OPPONENT_SEARCH_DELAY: float = 0.1  # 首次搜尋延遲（秒）
+const OPPONENT_RETRY_DELAY: float = 0.5   # 找不到對手時的重試間隔（秒）
 
-# Internal delta tracking for commitment system
-var _last_delta: float = 1.0/60.0
 var _last_block_trace_attack_frame: int = -1
 var _last_block_trace_action: String = ""
 
@@ -141,8 +146,8 @@ func _ready() -> void:
 	await get_tree().process_frame
 	_load_animation_durations_from_player()
 	
-	opponent_search_timer = 0.1
-	decision_cooldown = 0.0  # 【FIX】立即進行第一次決策評估，不要延遲
+	opponent_search_frames = Movement.seconds_to_frames_nearest(OPPONENT_SEARCH_DELAY)
+	decision_cooldown_frames = 0  # 【FIX】立即進行第一次決策評估，不要延遲
 	
 	if debug_mode and startup_logs:
 		Debug.log("[AI] AIBehavior initialized for %s" % parent.name)
@@ -227,7 +232,7 @@ func _load_animation_durations_from_player() -> void:
 				Debug.log("[AI DynLoad] ✓ %s: %.3fs (120fps physics timer: %d frames)" % [
 					anim_name, 
 					anim.length,
-					int(round(anim.length * 120))
+					Movement.seconds_to_frames_nearest(anim.length)
 				])
 	
 	var char_id = parent.character_data.short_id if parent.character_data else "Unknown"
@@ -263,18 +268,17 @@ func get_action_duration(action: String) -> float:
 		push_warning("[AI] Unknown action duration: '%s', using 0.3s default" % action)
 	return 0.3
 
-func _process(delta: float) -> void:
-	# Track delta for commitment system
-	_last_delta = delta
-	
-	if not opponent and opponent_search_timer > 0:
-		opponent_search_timer -= delta
-		if opponent_search_timer <= 0:
+# Stage 1：對手搜尋由「_process 秒制」改為「_physics_process 物理幀制」，
+# 與 AI 其餘計時器同一時間域（120 Hz tick，與渲染幀率脫鉤）。
+func _physics_process(_delta: float) -> void:
+	if not opponent and opponent_search_frames > 0:
+		opponent_search_frames -= 1
+		if opponent_search_frames <= 0:
 			find_opponent()
-			opponent_search_timer = 0.5
+			opponent_search_frames = Movement.seconds_to_frames_nearest(OPPONENT_RETRY_DELAY)
 			# 【DEBUG】每次搜尋後顯示是否找到對手
 			if Engine.get_physics_frames() % 30 == 0:
-				Debug.log("[AI._process] Frame=%d | opponent search result: %s" % [
+				Debug.log("[AI._physics_process] Frame=%d | opponent search result: %s" % [
 					Engine.get_physics_frames(),
 					str(opponent.name) if opponent else "NOT FOUND"
 				])
@@ -283,7 +287,7 @@ func set_ai_enabled(enabled: bool) -> void:
 	ai_enabled = enabled
 	if enabled:
 		_ensure_runtime_dependencies()
-		decision_cooldown = 0.0
+		decision_cooldown_frames = 0
 	_invalidate_cached_input()
 	if debug_mode:
 		var parent_name := str(parent.name) if parent else "unknown"
@@ -381,15 +385,13 @@ func _compute_ai_input() -> Dictionary:
 	if not ai_enabled or not opponent or not parent:
 		return _neutral_input()
 	
-	var delta = _last_delta  # Use tracked delta from _process
-	
 	# 【DEBUG】每30幀顯示一次AI完整狀態摘要（0.25秒）
 	if current_frame % 30 == 0 and current_frame > 0:
 		var state_str = ""
-		if commitment_timer > 0:
-			state_str = "🔄 EXECUTING '%s' (%.2fs)" % [current_committed_action, commitment_timer]
-		elif decision_cooldown > 0:
-			state_str = "⏳ COOLDOWN (%.2fs)" % decision_cooldown
+		if commitment_frames > 0:
+			state_str = "🔄 EXECUTING '%s' (%d frames)" % [current_committed_action, commitment_frames]
+		elif decision_cooldown_frames > 0:
+			state_str = "⏳ COOLDOWN (%d frames)" % decision_cooldown_frames
 		else:
 			state_str = "🤔 EVALUATING NEW DECISION"
 		var summary_distance = abs(parent.global_position.x - opponent.global_position.x)
@@ -442,7 +444,7 @@ func _compute_ai_input() -> Dictionary:
 	# ============================================================
 	# If currently committed to an action, continue executing it
 	# This prevents jittery behavior and ensures smooth action completion
-	if commitment_timer > 0:
+	if commitment_frames > 0:
 		# Allow defensive override on high/critical threats or imminent contact
 		var commitment_threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
 		var imminent_contact = _is_attack_in_block_range(opponent)
@@ -464,7 +466,7 @@ func _compute_ai_input() -> Dictionary:
 			if current_committed_action in ["dash_forward", "backdash"]:
 				_cancel_dash_state()
 			if current_committed_action not in ["stand_block", "crouch_block"]:
-				commitment_timer = 0.0
+				commitment_frames = 0
 				committed_input = {}
 		elif entered_throw_range and opponent and not opponent.is_attacking:
 			# 【DEBUG】當進入投擲範圍但對手未攻擊時，中斷承諾以重新評估
@@ -472,23 +474,23 @@ func _compute_ai_input() -> Dictionary:
 				Debug.log("[AI INTERRUPT] Frame=%d Seat=%s | Committed to '%s' but entered throw range (dist=%.0f) → Re-evaluating" % [
 					Engine.get_physics_frames(), seat, current_committed_action, commitment_distance
 				])
-			commitment_timer = 0.0
+			commitment_frames = 0
 			committed_input = {}
-			decision_cooldown = 0.0  # 【FIX】Also clear cooldown to allow immediate re-evaluation
+			decision_cooldown_frames = 0  # 【FIX】Also clear cooldown to allow immediate re-evaluation
 			current_committed_action = ""
 		else:
 			# Release block commitment once blockstun ends to allow punish
 			if current_committed_action in ["stand_block", "crouch_block"] and parent and not parent.is_blocking:
-				commitment_timer = 0.0
+				commitment_frames = 0
 				committed_input = {}
 				current_committed_action = ""
 			else:
 				if current_committed_action in ["stand_block", "crouch_block"] and parent and "blockstun_frames" in parent:
-					var remaining = float(parent.blockstun_frames) / max(1.0, float(Engine.physics_ticks_per_second))
-					commitment_timer = min(commitment_timer, remaining)
-				commitment_timer -= delta
+					# Stage 1：blockstun 已是物理幀，直接同域鉗制（舊版要先 ÷120 換秒）
+					commitment_frames = min(commitment_frames, parent.blockstun_frames)
+				commitment_frames = max(0, commitment_frames - 1)
 				if debug_mode and Engine.get_physics_frames() % 60 == 0:
-					Debug.log("[AI] Committed: %s (%.2fs remaining)" % [current_committed_action, commitment_timer])
+					Debug.log("[AI] Committed: %s (%d frames remaining)" % [current_committed_action, commitment_frames])
 				
 				# 🔴 【FIX】Special moves and throws need different handling:
 				# - throw: One-time button press (send once, then clear)
@@ -514,11 +516,11 @@ func _compute_ai_input() -> Dictionary:
 				return output
 	
 	# 承諾動作剛剛自然結束：清除舊輸入，避免持續走路/重複按鍵
-	if current_committed_action != "" and commitment_timer <= 0.0:
+	if current_committed_action != "" and commitment_frames <= 0:
 		committed_input = _neutral_input()
 		current_committed_action = ""
 		commitment_one_time_sent = false  # 【FIX】重置單次命令標記
-		decision_cooldown = 0.0  # 立即重新評估下一個動作
+		decision_cooldown_frames = 0  # 立即重新評估下一個動作
 
 	# ============================================================
 	# LAYER 2: COMBO PROTECTION (Special State)
@@ -537,8 +539,8 @@ func _compute_ai_input() -> Dictionary:
 	# LAYER 3: DECISION COOLDOWN
 	# ============================================================
 	# Don't re-evaluate every frame - simulates human reaction time
-	if decision_cooldown > 0:
-		decision_cooldown -= delta
+	if decision_cooldown_frames > 0:
+		decision_cooldown_frames -= 1
 		# 【DEBUG】每15幀顯示一次決策冷卻狀態（0.125秒）
 		if Engine.get_physics_frames() % 15 == 0:
 			var cooldown_threat = threat_system.evaluate_threats(parent, opponent) if threat_system else null
@@ -547,8 +549,8 @@ func _compute_ai_input() -> Dictionary:
 				var threat_levels = ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
 				cooldown_threat_str = threat_levels[min(cooldown_threat.level, 4)] if cooldown_threat.level >= 0 else "NONE"
 			var cooldown_distance = abs(parent.global_position.x - opponent.global_position.x)
-			Debug.log("[AI COOLDOWN] Frame=%d Seat=%s | ⏳ %.2fs remaining | action='%s' | threat=%s | dist=%.0f" % [
-				Engine.get_physics_frames(), seat, decision_cooldown, current_committed_action, cooldown_threat_str, cooldown_distance
+			Debug.log("[AI COOLDOWN] Frame=%d Seat=%s | ⏳ %d frames remaining | action='%s' | threat=%s | dist=%.0f" % [
+				Engine.get_physics_frames(), seat, decision_cooldown_frames, current_committed_action, cooldown_threat_str, cooldown_distance
 			])
 		return committed_input if committed_input.size() > 0 else _neutral_input()
 	
@@ -631,7 +633,10 @@ func _compute_ai_input() -> Dictionary:
 		active_interval = 0.0
 	if frame_data and frame_data.get_punish_window_logic(parent, opponent) > 0:
 		active_interval = min(active_interval, INTERVAL_CRITICAL)
-	decision_cooldown = active_interval
+	# Stage 1：設計者秒數 → 物理幀種子，經唯一邊界轉換（0.033s → 4 tick ≈ 2 邏輯幀，
+	# 0.016s → 2，0.05s → 6，與註解的意圖一致；舊版依 _process 真實 delta 遞減，
+	# 實際 tick 數隨渲染幀率浮動）。負 override → max(0, round(...)) = 0（立即重評）。
+	decision_cooldown_frames = Movement.seconds_to_frames_nearest(active_interval)
 	
 	# ============================================================
 	# 增強的調試輸出
@@ -686,7 +691,8 @@ func _commit_action(action: String, duration: float) -> Dictionary:
 		_cancel_dash_state()
 
 	current_committed_action = action
-	commitment_timer = duration
+	# Stage 1：承諾時長（動畫秒）→ 物理幀種子，經唯一邊界轉換
+	commitment_frames = Movement.seconds_to_frames_nearest(duration)
 	committed_input = _action_to_input(action)
 	commitment_one_time_sent = false  # 【FIX】重置單次命令標記，確保新承諾時能正確發送
 	
@@ -966,7 +972,7 @@ func clear_special_move_commitment() -> void:
 	清除 AI 的特殊招式承諾，防止無限重複發射（如 fireball）
 	
 	根本原因：
-	- AI commitment_timer 是為「決策時長」而設計（e.g., 0.8秒）
+	- AI commitment_frames 是為「決策時長」而設計（e.g., 0.8s ≈ 96 物理幀）
 	- 但特殊招式的動畫比 commitment 短（e.g., 0.783秒）
 	- 動畫完成後，commitment 仍在運行，導致 get_ai_input() 繼續返回 spm2_pressed=true
 	- 結果：同一特殊招式無限重複執行
@@ -989,11 +995,11 @@ func clear_special_move_commitment() -> void:
 		])
 		
 		# 清除所有特殊招式輸入（防止重複）
-		commitment_timer = 0.0
+		commitment_frames = 0
 		committed_input = _neutral_input()
 		current_committed_action = ""
 		commitment_one_time_sent = false
-		decision_cooldown = 0.0  # 立即重新評估，允許下一個決策
+		decision_cooldown_frames = 0  # 立即重新評估，允許下一個決策
 		_invalidate_cached_input()
 
 func _invalidate_cached_input() -> void:
