@@ -366,7 +366,7 @@ func release_opponent() -> void:
 	
 	# 設置 hitstun
 	var hitstun_frames = throw_data.get("hitstun", 36)
-	var hitstun_physics = _logic_frames_to_physics_frames(hitstun_frames)
+	var hitstun_physics = Movement.logic_frames_to_physics_frames(hitstun_frames)
 	grabbed_opponent.hitstun_frames = hitstun_physics
 	grabbed_opponent.is_knockfly = true
 	
@@ -435,7 +435,7 @@ func check_throw_escape() -> bool:
 	var elapsed_frames = current_frame - escape_check_frame_start
 	
 	# 窗口已關閉
-	if elapsed_frames > _logic_frames_to_physics_frames(escape_window_end_frame):
+	if elapsed_frames > Movement.logic_frames_to_physics_frames(escape_window_end_frame):
 		escape_window_active = false
 		if debug_enabled:
 			Debug.log("[ThrowHandler] Escape window closed | inputs: %d/%d" % [escape_input_count, escape_mash_threshold])
@@ -466,7 +466,7 @@ func _count_recent_inputs(input_buffer: Node, frame_window: int) -> int:
 	
 	var buffer = input_buffer.get_buffer()
 	var count = 0
-	var physics_window = _logic_frames_to_physics_frames(frame_window)
+	var physics_window = Movement.logic_frames_to_physics_frames(frame_window)
 	
 	for i in range(min(physics_window, buffer.size())):
 		var input_entry = buffer[i]
@@ -491,10 +491,10 @@ func _execute_escape() -> void:
 	# 對手逃脫成功
 	grabbed_opponent.is_being_thrown = false
 	grabbed_opponent.is_knockfly = false
-	grabbed_opponent.hitstun_frames = _logic_frames_to_physics_frames(10)  # 10 幀硬直
+	grabbed_opponent.hitstun_frames = Movement.logic_frames_to_physics_frames(10)  # 10 幀硬直
 	
 	# 攻擊者也進入硬直
-	player_node.attack_duration_timer = _logic_frames_to_physics_frames(15)  # 15 幀硬直（較長）
+	player_node.attack_duration_timer = Movement.logic_frames_to_physics_frames(15)  # 15 幀硬直（較長）
 	
 	# 輕微推開雙方
 	var push_distance = 30000  # 30 像素 * SIMULATION_SCALE
@@ -548,7 +548,7 @@ func _handle_hold_phase(delta: float) -> void:
 	if hold_start_frame >= 0:
 		var throw_data = _get_throw_data()
 		var hold_frames = throw_data.get("hold_duration_frames", 30)
-		var hold_physics = _logic_frames_to_physics_frames(hold_frames)
+		var hold_physics = Movement.logic_frames_to_physics_frames(hold_frames)
 		if Engine.get_physics_frames() - hold_start_frame >= hold_physics:
 			release_opponent()
 			return
@@ -692,9 +692,8 @@ func reset_throw_state() -> void:
 		Debug.log("[ThrowHandler] State reset")
 
 
-func _logic_frames_to_physics_frames(logic_frames: int) -> int:
-	"""轉換邏輯幀（60 FPS）到物理幀（120 FPS）"""
-	return int(round(logic_frames * 2.0))  # 120 / 60 = 2
+# Stage 1：邏輯↔物理幀轉換已收攏至 Movement.logic_frames_to_physics_frames（唯一轉換點）。
+# 舊的本檔私有副本 _logic_frames_to_physics_frames 已移除，呼叫端直接使用邊界函數。
 
 
 ## ═══════════════════════════════════════════════════════════════════════════

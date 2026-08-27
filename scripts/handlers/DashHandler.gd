@@ -29,7 +29,7 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 			if input_dir * movement_node.facing_direction > 0:
 				movement_node.is_dashing = true
 				# 🔴 【關鍵修復】轉換秒數為幀計數（在 120 FPS 物理上下文中遞減）
-				movement_node.dash_timer = int(round(movement_node.dash_time * 120.0))
+				movement_node.dash_timer = Movement.seconds_to_frames_nearest(movement_node.dash_time)
 				movement_node.dash_total_time = movement_node.dash_timer  # 保存初始幀數用於進度計算
 				movement_node.dash_initial_speed = movement_node.dash_speed * scale_factor * input_dir
 				movement_node.fixed_velocity.x = int(movement_node.dash_initial_speed)
@@ -43,7 +43,7 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 			elif not (movement_node.is_blocking and movement_node.is_opponent_proximity and movement_node.block_type == "proximity"):
 				movement_node.is_backdashing = true
 				# 🔴 【關鍵修復】轉換秒數為幀計數（在 120 FPS 物理上下文中遞減）
-				movement_node.dash_timer = int(round(movement_node.backdash_time * 120.0))
+				movement_node.dash_timer = Movement.seconds_to_frames_nearest(movement_node.backdash_time)
 				movement_node.dash_total_time = movement_node.dash_timer  # 保存初始幀數用於進度計算
 				movement_node.dash_initial_speed = movement_node.backdash_speed * scale_factor * input_dir
 				movement_node.fixed_velocity.x = int(movement_node.dash_initial_speed)
@@ -61,7 +61,7 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 		elif input_dir != movement_node.last_input_dir:
 			if movement_node.last_input_dir != 0 and input_dir == 0:
 				# 鍵盤被釋放，開始 double-tap 窗口
-				movement_node.neutral_timer = int(round(movement_node.double_tap_timer * 120.0))
+				movement_node.neutral_timer = Movement.seconds_to_frames_nearest(movement_node.double_tap_window_seconds)
 				movement_node.pending_dash_dir = movement_node.last_input_dir
 				if debug_dash:
 					Debug.log("[DASH WINDOW START] %s | neutral_timer_frames=%d (%.2fs) | pending_dir=%d" % [

@@ -258,7 +258,6 @@ func reset_multi_hit_state() -> void:
 func _get_multi_hit_phase(active_move, target: Node, elapsed_frames: int):
 	if elapsed_frames < 0:
 		return null
-	var physics_fps = parent_player.PHYSICS_FPS if "PHYSICS_FPS" in parent_player else 120
 	var hit_index = -1
 	var phase_data = null
 	
@@ -272,7 +271,7 @@ func _get_multi_hit_phase(active_move, target: Node, elapsed_frames: int):
 		var phase_frame = int(phase.frame)
 		if phase_frame < 0:
 			continue
-		var phase_physics = int(round(phase_frame * float(physics_fps) / 60.0))
+		var phase_physics = Movement.logic_frames_to_physics_frames(phase_frame)
 		Debug.log("    [Phase%d] frame(logic)=%d → phase_physics=%d (elapsed=%d, match=%s)" % [
 			i, phase_frame, phase_physics, elapsed_frames, elapsed_frames >= phase_physics
 		])
@@ -372,8 +371,8 @@ func _handle_corner_pushback(target: Node, stun_duration: float, knockback_dista
 	if corner_push_distance <= 0:
 		corner_push_distance = parent_player.corner_push_distance if "corner_push_distance" in parent_player else 250.0
 	
-	# 🟢 轉換 stun_duration（邏輯幀）為物理幀
-	var physics_push_frames = int(round(stun_duration * (parent_player.PHYSICS_FPS / 60.0)))
+	# 🟢 轉換 stun_duration（邏輯幀）為物理幀 — Stage 1 唯一邏輯↔物理邊界
+	var physics_push_frames = Movement.logic_frames_to_physics_frames(stun_duration)
 	
 	# 🟢 使用 PushManager 計算所需的初始速度
 	if push_manager and push_manager.has_method("calculate_required_knockback_velocity"):

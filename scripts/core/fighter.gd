@@ -46,17 +46,12 @@ var pending_hit_params: Dictionary = {}  # 存儲 take_hit 的所有參數
 var waiting_for_hit_stop_end: bool = false  # 標記是否在等待 hit stop 完成
 var last_hit_attack_name: String = ""  # 🟢 【新增】記錄最近一次受到的攻擊名稱（用於調試）
 
-# 🟢 邏輯幀到物理幀轉換函數
+# Stage 1：秒↔幀 / 邏輯↔物理轉換已收攏至 Movement
+# （seconds_to_lock_frames / seconds_to_frames_nearest / logic_frames_to_physics_frames）。
+# 舊的 logic_seconds_to_physics_frames / sec_to_frames 為無人呼叫的重複實作，已移除。
 func logic_frames_to_physics_frames(logic_frames: int) -> int:
-	"""將邏輯幀（60 FPS）轉換為物理幀（實際 FPS）"""
-	return int(round(logic_frames * float(PHYSICS_FPS) / float(LOGIC_FPS)))
-
-func logic_seconds_to_physics_frames(seconds: float) -> int:
-	"""將秒數轉換為物理幀"""
-	return int(round(seconds * float(PHYSICS_FPS)))
-
-func sec_to_frames(seconds: float) -> int:
-	return int(round(seconds * PHYSICS_FPS))
+	"""將邏輯幀（60 FPS）轉換為物理幀（實際 FPS）— Movement 邊界的委托入口。"""
+	return Movement.logic_frames_to_physics_frames(logic_frames)
 
 func _ready() -> void:
 	super._ready()
@@ -298,7 +293,7 @@ func take_hit(
 		start_knockfly_timer(float(params.duration))
 		Debug.log("[KNOCKFLY DEBUG] Started | params.duration: %.3fs -> knockfly_frames: %d" % [params.duration, knockfly_frames])
 		is_immune_to_floor_snap = true
-		floor_snap_immunity_timer = int(round(floor_snap_immunity_duration * LOGIC_FPS * 2))  # 這個是幀數
+		floor_snap_immunity_timer = Movement.seconds_to_frames_nearest(floor_snap_immunity_duration)  # 幀數（唯一秒→幀邊界）
 		
 		knockfly_gravity = params.gravity
 		knockfly_vertical_speed = params.vertical_speed
@@ -369,9 +364,9 @@ func take_hit(
 		if not is_on_floor():
 			# 空中普通攻擊：強制使用後跳邏輯，垂直速度為正常跳躍的 0.7 倍
 			is_air_hit_backjump = true
-			# 🔴 【關鍵修復】轉換秒數duration為幀數 基於 PHYSICS_FPS(120)
-			# air_hit_backjump_timer 在 _physics_process 每幀遞減，應×120 而非×60
-			air_hit_backjump_timer = int(round(air_hit_backjump_duration * LOGIC_FPS * 2))
+			# Stage 1：秒數種子統一經 Movement.seconds_to_frames_nearest 轉物理幀
+			# （0.2s×120=24，數值與舊式 round(dur*LOGIC_FPS*2) 完全相同，僅收攏轉換點）
+			air_hit_backjump_timer = Movement.seconds_to_frames_nearest(air_hit_backjump_duration)
 			is_jumping = true  # 確保 GravityHandler 正常懂用重力
 			just_jumped = true  # 防止 GravityHandler 重置速度為 0
 			fixed_velocity.x = int(-air_hit_backjump_speed * world.SIMULATION_SCALE * facing_mult)
@@ -379,8 +374,7 @@ func take_hit(
 			var normal_jump_speed = jump_vertical_speed if "jump_vertical_speed" in self else -2300.0
 			fixed_velocity.y = int(normal_jump_speed * 0.7 * world.SIMULATION_SCALE)
 			is_immune_to_floor_snap = true
-			# 🔴 【關鍵修復】轉換秒數duration為幀數 基於 PHYSICS_FPS(120)
-			floor_snap_immunity_timer = int(round(floor_snap_immunity_duration * LOGIC_FPS * 2))
+			floor_snap_immunity_timer = Movement.seconds_to_frames_nearest(floor_snap_immunity_duration)
 			Debug.log("[AIR HIT DEBUG] air_hit_backjump_timer: %.3fs -> %d frames, floor_snap_immunity_timer: %.3fs -> %d frames @120 FPS physics" % [air_hit_backjump_duration, air_hit_backjump_timer, floor_snap_immunity_duration, floor_snap_immunity_timer])
 			fixed_position.y -= 2
 			Debug.log("[AIR HIT] %s 空中受擊 → 後跳速度 x=%d, y=%d (0.7x 正常跳躍)" % [name, fixed_velocity.x, fixed_velocity.y])
