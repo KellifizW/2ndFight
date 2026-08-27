@@ -655,7 +655,18 @@ func _reset_landing_anim() -> void:
 	# 【重點】如果在強制2幀期間，不要重置
 	if _landing_forced_frames < 2:
 		return
-	
+
+	# 【Stage 1 不變量】landing 狀態的唯一權威計時是 TimerHandler 的幀計數器
+	# （每物理幀 -1，歸零時才清 is_landing）。landing 動畫（DAV/DEN 皆 0.2s）
+	# 會在 lock 歸零前幾幀先播完：若在這裡提前清 is_landing，會留下
+	# 「is_landing=false 但 landing_lock_frames>0」的殘留鎖 —— 不只凍結
+	# _update_animation_state（它只看 lock>0），也讓著地時長取決於動畫
+	# wall-clock 而非物理幀。動畫先播完時停在最後一幀，等 TimerHandler
+	# 遞減到 0 時統一收尾（與輸入中斷著地的收尾路徑完全相同）。
+	if is_landing and landing_lock_frames > 0:
+		Debug.log("[LANDING_ANIM_EARLY_FINISH] lock=%df remains; TimerHandler will finish landing" % landing_lock_frames)
+		return
+
 	is_landing = false
 	# 【重點】landing_lock_frames 由 TimerHandler 統一管理，不在這裡重置
 	has_air_attacked = false

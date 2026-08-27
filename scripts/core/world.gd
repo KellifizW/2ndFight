@@ -655,6 +655,9 @@ func reset_players() -> void:
 		player.is_jumping = false
 		player.is_crouching = false
 		player.is_landing = false
+		# 【同上】is_landing 被清除時 landing_lock_frames 必須一起歸零，
+		# 否則殘留鎖會凍結 _update_animation_state 最多 25 幀
+		player.landing_lock_frames = 0
 		player.is_wakeup = false
 		player.is_wakeup_locked = false
 		player.hit_lock_frames = 0

@@ -96,6 +96,11 @@ When timer reaches 0:
 
 4. `_reset_landing_anim()` (line 494)
    - Guard: `if _landing_forced_frames < 2: return`
+   - Guard: `if is_landing and landing_lock_frames > 0: return`
+     (TimerHandler is the sole authority: the 0.2s landing animation finishes
+     a few ticks before the 25-frame lock expires; cutting `is_landing` here
+     left a stale `landing_lock_frames > 0` that froze animation updates and
+     made the landing span depend on animation wall-clock instead of frames)
 
 5. Air attack landing (line 251)
    - Guard: `and not is_landing` in condition

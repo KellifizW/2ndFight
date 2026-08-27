@@ -159,6 +159,18 @@
 
 ---
 
+## 系統狀態計時（非招式動畫）
+
+| 狀態 | 時長（邏輯幀 / 物理幀） | 來源 |
+|---|---|---|
+| landing（無輸入） | 13f / 26 物理 | TimerHandler 幀鎖：著地 tick 種入 5f 強制鎖 → 第 2 個 timer tick checkpoint 換成 0.2s = 25f（`seconds_to_lock_frames`）→ 每物理幀 -1 歸零才清 `is_landing`（test_11/test_16） |
+| landing（有輸入中斷） | 2f 強制 + checkpoint 設 1f 後同 tick 歸零 | TimerHandler checkpoint |
+
+> 注意：landing「動畫」12f（0.2s）比狀態鎖先播完；動畫播完不再提前結束狀態
+> （`_reset_landing_anim` 有 lock guard），狀態時長一律以幀鎖為準。
+
+---
+
 ## ⚠️ 已知數據問題（重構時必須處理）
 
 1. **特殊招式雙真相來源**: `data/specials/*.tres` 與場景內嵌 `smd_*` 數值不同，
