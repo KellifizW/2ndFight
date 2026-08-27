@@ -103,7 +103,6 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	# 【新規則】總是播放至少2幀的landing動畫（無論輸入狀態）
 	movement_node.is_landing = true
 	movement_node.landing_lock_frames = Movement.LANDING_FORCED_LOCK_FRAMES
-	movement_node._landing_timer_initialized = false  # 【新增】標記此timer剛設置，下一frame才能檢查
 	movement_node._landing_checkpoint_executed = false  # 【新增】重置checkpoint執行標記
 	movement_node._landing_forced_frames = 0  # 【新增】重置強制幀數計數器
 	if movement_node.has_method("force_update_facing_direction"):

@@ -183,27 +183,21 @@ func _physics_process(delta: float) -> void:
 	# 處理計時器
 	var in_hitstop: bool = _is_hitstop_active()
 	for player in players:
-		if player.is_push_back:
-			if player.push_back_frames > 0:
-				# Calculate progress (0.0 to 1.0) for smooth deceleration
-				var progress = float(player.push_back_frames) / float(player.initial_push_back_frames)
-				player.fixed_velocity.x = int(-player.push_back_velocity * player.facing_direction * progress)
-				player.push_back_frames -= 1  # Decrement by 1 frame
-			else:
-				player.is_push_back = false
-				player.fixed_velocity.x = 0
-		
+		# Stage 2：此處原有一段 `if player.is_push_back:` 的推開減速分支，已刪除。
+		# `is_push_back` 全倉庫唯一的寫入點就在該分支自己的 else 裡（寫 false），
+		# 沒有任何程式碼把它設為 true，整段因此永不執行；
+		# 它引用的 push_back_velocity/frames 也同樣從未被賦值。
+
 		# ────────────────────────────────────────────────────────────────────────
 		# ── 【Knockback 執行 - 獨立於 hitstun，確保完整執行】──
 		# ────────────────────────────────────────────────────────────────────────
 		if player.knockback_frames > 0:
-			# 🔴 DEBUG: 首次執行 knockback 時記錄時間和初始位置
+			# 🔴 DEBUG: 首次執行 knockback 時記錄時間（供統計用）
+			# Stage 2：同處原本還會寫 `knockback_start_x`（起始位置），
+			# 但沒有任何地方讀它，一併刪除。
 			if player.knockback_start_time <= 0:
 				player.knockback_start_time = Time.get_ticks_msec() / 1000.0
-				
-				# 🟢 【重要】保存 knockback 開始時的位置，用於計算實際移動距離
-				player.knockback_start_x = player.position.x
-				
+
 		# 計算衰減倍數（二次方衰減曲線）
 			# 使用 initial_knockback_frames（初始值，固定不變），而非 hitstun_frames（會變動）
 			var total_knockback_frames = player.initial_knockback_frames
@@ -283,7 +277,6 @@ func _physics_process(delta: float) -> void:
 				player.hit_lock_frames -= 1
 				if player.hit_lock_frames <= 0:
 					player.is_hit = false
-					player.initial_hitstun = 0.0
 					player.hit_lock_frames = 0
 		if player.block_lock_frames > 0:
 			if not in_hitstop:
@@ -296,8 +289,6 @@ func _physics_process(delta: float) -> void:
 				player.is_crouch_blocking = false
 				player.block_type = "none"
 				player.block_push_frames = 0
-				player.block_push_velocity = 0.0  # @deprecated
-				player.initial_blockstun = 0.0  # @deprecated
 				# 注意：block_knockback_frames 的遞減現在在 Fighter._physics_process 中處理
 		if player.knockfly_frames > 0:
 			if not in_hitstop:
@@ -306,10 +297,10 @@ func _physics_process(delta: float) -> void:
 			if duration_frames <= 0:
 				duration_frames = 1
 			var remaining_ratio: float = float(player.knockfly_frames) / float(duration_frames)
-			if player.is_air_hit_knockfly:
-				player.fixed_velocity.x = int(player.knockfly_velocity_x * remaining_ratio)
-			else:
-				player.fixed_velocity.x = int(player.knockfly_velocity_x * pow(remaining_ratio, 2))
+			# Stage 2：原本這裡依 `is_air_hit_knockfly` 在線性/二次衰減之間二選一，
+			# 但該旗標全倉庫沒有任何寫入點（恆為 false），線性分支不可達。
+			# 直接保留實際生效的二次衰減曲線，行為一幀不變。
+			player.fixed_velocity.x = int(player.knockfly_velocity_x * pow(remaining_ratio, 2))
 			var delta_x = abs(player.global_position.x - player.prev_position.x)
 			player.knockfly_accumulated_distance += delta_x
 			if player.knockfly_accumulated_distance >= player.knockfly_max_distance:
@@ -334,7 +325,6 @@ func _physics_process(delta: float) -> void:
 		if move_set:
 			# Check if the active move is penetrable
 			is_penetrable = move_set.is_spmove and move_set.current_move_state.active_move and move_set.current_move_state.active_move.penetrable
-		parent.is_being_pushed = false
 		
 		# 🟢 【THROW SYSTEM FIX】Skip pushbox during throw
 		var parent_in_throw = false
@@ -520,8 +510,8 @@ func _physics_process(delta: float) -> void:
 				other.fixed_position.x = new_other_fixed_x
 				parent.global_position.x = new_self_fixed_x / SIMULATION_SCALE
 				other.global_position.x = new_other_fixed_x / SIMULATION_SCALE
-				parent.is_being_pushed = push_vec_self != 0
-				other.is_being_pushed = push_vec_other != 0
+				# Stage 2：原本這裡會寫 parent/other 的 `is_being_pushed`，
+				# 但該旗標沒有任何讀取點（Fighter 宣告後從未被查詢），已刪除。
 		if players.size() == 2:
 			var left_player = players[0] if players[0].fixed_position.x < players[1].fixed_position.x else players[1]
 			var right_player = players[1] if players[0].fixed_position.x < players[1].fixed_position.x else players[0]

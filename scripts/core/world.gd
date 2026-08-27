@@ -670,7 +670,6 @@ func reset_players() -> void:
 		player.knockfly_frames = 0
 		player.knockfly_duration_frames = 0
 		player.block_push_frames = 0
-		player.current_mode = "ground_stand"
 		player.attack_type = "none"
 		player.update_facing_direction()
 	

@@ -5,7 +5,8 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @export var character_data: CharacterData      # 在角色場景中拖入對應的 .character.tres
 @export var is_ai_controlled: bool = false
 @export var corner_push_distance: float = 250.0
-@export var cancel_window_duration: float = 0.3
+# Stage 2：`cancel_window_duration`（秒）已刪除 —— 取消窗口早已改為純
+# Call Method 軌道驅動（CancelWindowHandler 的 open/close），沒有計時器讀它。
 @export var skip_pushbox: bool = false
 @export var attack_data: AttackData
 @export var throw_data: ThrowData
@@ -18,7 +19,7 @@ const _ATTACK_NAMES: Array = [
 	"jump_lp","jump_mp","jump_hp","jump_lk","jump_mk","jump_hk",
 ]
 
-@export var powerkk_blockstun: float = 0.3833
+# Stage 2：`powerkk_blockstun` 已刪除（零讀取；powerkk 的 blockstun 走招式數據）。
 
 @onready var move_set = $MoveSet if has_node("MoveSet") else null
 @onready var player_controller = $PlayerController if has_node("PlayerController") else null
@@ -52,7 +53,7 @@ var last_executed_attack_frame: int = -999  # Frame when it was executed
 var attack_execution_lock_frames: int = 1  # Minimum frames between same attack re-execution
 
 # ── 狀態旗標 ─────────────────────
-var current_mode: String = "ground_stand"
+# Stage 2：`current_mode` 已刪除（只有 world.reset_players() 寫入，零讀取）。
 var attack_type: String = "none"
 var is_wakeup: bool = false
 var is_wakeup_locked: bool = false
@@ -460,7 +461,7 @@ func _physics_process(delta: float) -> void:
 		if attack_executor and attack_executor.try_execute_ground_attack(input_data, is_crouching):
 			# 攻擊已執行，只有在沒有攻擊移動激活時才清零速度
 			var has_active_movement = attack_movement_handler and attack_movement_handler.is_active()
-			if not is_push_back and not has_active_movement:
+			if not has_active_movement:
 				fixed_velocity.x = 0
 	
 	# 【NEW】Throw can interrupt normal attacks (check separately)
@@ -741,7 +742,6 @@ func _enter_landing_state(debug_tag: String) -> void:
 	is_landing = true
 	landing_lock_frames = LANDING_FORCED_LOCK_FRAMES
 	landing_facing_lock = false
-	_landing_timer_initialized = false
 	_landing_checkpoint_executed = false
 	_landing_forced_frames = 0
 	force_update_facing_direction()

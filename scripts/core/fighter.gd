@@ -17,7 +17,6 @@ var hitstop_debugger: HitStopTimingDebugger = null
 var push_manager: Node = null       # cached in _ready()
 var slow_mo_controller: Node = null  # cached in _ready()
 
-var is_being_pushed: bool = false
 var current_damage: float = 0.0
 @export var min_hitstun_duration: float = 8.0 / 60.0
 
@@ -26,7 +25,6 @@ var hitstun_frames: int = 0          # hitstun 固定幀數（物理幀）
 var blockstun_frames: int = 0        # blockstun 固定幀數（物理幀）
 var knockback_frames: int = 0        # knockback 固定幀數（物理幀）
 var initial_knockback_frames: int = 0  # ✅ 保存初始 knockback 幀數（物理幀）
-var initial_blockstun_frames: int = 0 # 用於 push 計算（物理幀）
 
 # ── Block Knockback 系統（新增）──
 var block_knockback_frames: int = 0  # block knockback 固定幀數（物理幀）
@@ -38,13 +36,12 @@ var initial_corner_push_frames: int = 0  # 保存初始 corner push 幀數（物
 var corner_push_start_x: float = 0.0  # Corner push 開始時的 X 位置（用於計算移動距離）
 var corner_push_velocity: float = 0.0  # Corner push 初始速度
 
-# ── Knockback 位置追踪（用於計算實際移動距離）──
-var knockback_start_x: float = 0.0  # 🟢 【新增】Knockback 開始時的 X 位置（用於計算移動距離）
+# Stage 2：`knockback_start_x` / `last_hit_attack_name` / `initial_blockstun_frames`
+# 已刪除 —— 三者都只被寫入、從未被讀取（純殘骸，非除錯開關）。
 
 # 🟢 待執行的 hit 參數（等待 hit stop 完成後才實際啟動）
 var pending_hit_params: Dictionary = {}  # 存儲 take_hit 的所有參數
 var waiting_for_hit_stop_end: bool = false  # 標記是否在等待 hit stop 完成
-var last_hit_attack_name: String = ""  # 🟢 【新增】記錄最近一次受到的攻擊名稱（用於調試）
 
 # Stage 1：秒↔幀 / 邏輯↔物理轉換已收攏至 Movement
 # （seconds_to_lock_frames / seconds_to_frames_nearest / logic_frames_to_physics_frames）。
@@ -56,6 +53,18 @@ static func logic_frames_to_physics_frames(logic_frames: float) -> int:
 	GDScript 覆寫不允許任何差異（含 int→float），否則編譯失敗。
 	"""
 	return Movement.logic_frames_to_physics_frames(logic_frames)
+
+## Stage 2：此刻的單一活動狀態（由現行旗標推導，**唯讀**）。
+##
+## 這是「旗標與狀態並行期」的觀測窗：控制流仍然讀旗標，但狀態層已經存在
+## 且被 test_25/test_26 釘住。等控制流逐段改為讀狀態後，旗標才會真正消失。
+## 純推導、無副作用，可以在任何時間點安全呼叫（含測試每幀取樣）。
+func get_fighter_state() -> int:
+	return FighterState.resolve(self)
+
+## 目前狀態的可讀名稱（除錯/測試輸出用）。
+func get_fighter_state_name() -> String:
+	return FighterState.state_name(get_fighter_state())
 
 func _ready() -> void:
 	super._ready()
@@ -215,8 +224,6 @@ func take_hit(
 		is_blocking = true
 		is_crouch_blocking = input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0
 		blockstun_frames = physics_blockstun  # ✅ 使用轉換後的物理幀
-		initial_blockstun_frames = physics_blockstun
-		initial_blockstun = physics_blockstun / float(PHYSICS_FPS)  # @deprecated 秒數，僅供舊 block_push_velocity
 		block_lock_frames = physics_blockstun
 		
 		# 🟢 【修正】強制重置垂直速度和位置，確保完全在地面上（避免 DP 跳躍條件失敗）
@@ -237,12 +244,8 @@ func take_hit(
 			block_knockback_frames = physics_blockstun  # Block knockback 持續時間 = blockstun 時間
 			initial_block_knockback_frames = physics_blockstun  # 保存初始幀數用於衰減計算
 			
-			# @deprecated 保留舊變數以維持向後兼容
+			# @deprecated 保留舊計時器以維持向後兼容（test_18 釘住其型別）
 			block_push_frames = physics_blockstun
-			if initial_blockstun > 0.0:
-				block_push_velocity = 2.0 * push_distance * world.SIMULATION_SCALE / initial_blockstun
-			else:
-				block_push_velocity = 0.0
 		
 		block_detected.emit(name, block_type)
 		_update_animation_state(0, input_data.crouch_pressed)
@@ -330,7 +333,6 @@ func take_hit(
 		# ── 普通受擊 → 空中/地面分別處理 ──
 		is_hit = true
 		var hit_frames = physics_hitstun  # ✅ 使用轉換後的物理幀
-		var hitstun_seconds = hit_frames / float(PHYSICS_FPS)
 		
 		# 🟢 檢查是否有 hit stop 正在進行
 		if slow_mo_controller and slow_mo_controller.is_hit_slowmo:
@@ -349,7 +351,6 @@ func take_hit(
 				var attacker = _find_attacker()
 				if attacker:
 					var attack_name = attacker.get("attack_type") if "attack_type" in attacker else "unknown"
-					last_hit_attack_name = attack_name
 					hitstop_debugger.start_hitstop_event(attacker, self, attack_name)
 			
 			# 計算 knockback 速度（必須在設置 pending_hit_params 之前）
@@ -360,7 +361,6 @@ func take_hit(
 		else:
 			# Hit stop 未進行或已完成 → 立即設置 hitstun/knockback/blockstun
 			hitstun_frames = hit_frames
-			initial_hitstun = hitstun_seconds
 		
 		# 舊 hit_timer 的幀制版：與 hitstun_frames 同長度，由 PushManager 遞減
 		hit_lock_frames = hit_frames
@@ -493,7 +493,6 @@ func _apply_pending_hit_effect() -> void:
 	Debug.log("[DEBUG _apply_pending_hit_effect] 執行後: hitstun_frames=%d" % hitstun_frames)
 	if blockstun > 0:
 		blockstun_frames = blockstun
-		initial_blockstun_frames = blockstun
 		block_lock_frames = blockstun
 	
 	# 啟動 knockback（如果不跳過 push）

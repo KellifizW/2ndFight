@@ -43,6 +43,8 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | test_22_time_conversion_boundaries | 三個轉換邊界（lock 式 floor+1 / 種子式 round / 邏輯×2）釘死，兩族不可互換 |
 | test_23_ai_decision_timers_in_frames | AI `decision_cooldown_frames`/`commitment_frames` 為 int 幀，冷卻路徑每呼 -1、歸零後重種 |
 | test_24_double_tap_window_frames | 雙擊窗口恰 36 個物理 tick，歸零同幀清除 `last_input_dir` |
+| test_25_state_machine_invariants | 固定種子隨機輸入 600 幀：解析器為純函數、狀態已定義、結構性互斥不變式成立；並要求覆蓋 >=4 種狀態 |
+| test_26_state_matches_animation_chain | 狀態層 vs 動畫層逐幀對齊（兩處已知分岔以明確條件跳過並計數） |
 
 ## 設計規則（寫新用例時請遵守）
 
@@ -57,6 +59,13 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
    不能直接寫 `p1`（self 成員）。先 `var me = p1` 再傳 lambda。
 6. **輸出**: 測試結果直接 `print`（不經過 Debug logger），確保 runner 輸出一定可見。
 7. **禁止**: 用例中修改全局設定、載入其他場景、依賴用例執行順序。
+8. **輸入務必成對釋放**: 每個 `Input.action_press` 都要有對應的 `action_release`
+   （含提早 `return` 的路徑）。runner 雖然在用例之間會 `_release_all_inputs()`，
+   但同一用例內殘留的按鍵會污染後續斷言。
+9. **隨機輸入請固定種子**: 用 `RandomNumberGenerator` 並明確設 `seed`（見 test_25），
+   否則失敗無法重現，違反守則第 6 條「先確定性重現再修」。
+10. **不要斷言「第 1 幀就生效」**: 輸入送出後，速度/狀態要等對應 handler
+    在該物理幀跑過才更新。取樣前先 `await await_frames(n)`（n>=2）。
 
 ## 新增用例步驟
 
@@ -69,3 +78,6 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 - 方向指令宏（QCF、DP 等）的輸入模擬尚未納入（test_07 用直接呼叫代替）。
 - 空中攻擊、dash、摔投、knockfly 完整流程的 frame 斷言留待後續階段擴充。
 - 多段招式（100p）的每段 hitstun 斷言尚未納入。
+- `test_26` 有兩處**已知分岔**被刻意跳過（被摔投時動畫層無對應分支；
+  在空中但 `is_jumping`/`is_air_attacking` 皆假時動畫層掉回 `Walk`）。
+  跳過次數會印出來，避免真正的新分岔藏在豁免裡。詳見 `FighterState.gd` 檔頭。

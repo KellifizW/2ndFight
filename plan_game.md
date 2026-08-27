@@ -1,5 +1,5 @@
 # 2ndFight 重構與測試計劃
-> 建立: 2026-08-21 | 最後更新: 2026-08-26
+> 建立: 2026-08-21 | 最後更新: 2026-08-27
 > 狀態圖例: ✅ 已完成(已併入 main) | 🔄 進行中 | ⏳ 待開始
 > 目前基準: `main` (Godot 4.7.2, physics 120 FPS)
 >
@@ -48,8 +48,8 @@
 | 階段 | 目標 | 狀態 | 估算 |
 |---|---|---|---|
 | Stage 0 | 止血 + 安全網(DebugLogger / frame 測試 / frame data 表 / 守則) | ✅ 已併入 main | — |
-| Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | ✅ 完成(六族計時器全數遷移; 24 用例; 待本地 frame-test 驗收) | 已完成 |
-| Stage 2 | 顯式狀態機(消除 34 旗標) | ⏳ | 2~4 週末 |
+| Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | ✅ 完成(六族計時器全數遷移; CI 已啟用並自動跑全部用例) | 已完成 |
+| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1 完成(唯讀狀態層 + 14 死旗標清除, 37→31) | 2~4 週末 |
 | Stage 3 | FrameData 收攏 + 數據問題清理 | ⏳ | 1~2 週末 |
 | Stage 4 | 輸入系統收斂(單一 ActionMapper) | ⏳ | 1~2 週末 |
 | Stage 5 | 清理(死代碼/文檔/tscn 拆分/CI) | ⏳ | 1 週末 |
@@ -131,7 +131,7 @@
   （語義不同的兩族舊計時器，見 `Movement.gd` 轉換邊界註解與 `test_22`）
 - [ ] FRAME_DATA_TABLE 實測值無變化（驗收時確認）
 ---
-## 6. Stage 2: 顯式狀態機 ⏳
+## 6. Stage 2: 顯式狀態機 🔄（切片 1 已完成 2026-08-27）
 **問題**: ~34 個 bool 旗標(`is_hit` `is_knockfly` `is_blocking` `is_attacking` `is_dashing`
 `is_backdashing` `is_jumping` `is_crouching` `is_landing` `is_layground` `is_wakeup`
 `is_wakeup_locked` `is_air_attacking` `is_air_hit_backjump` `is_facing_locked`
@@ -158,13 +158,58 @@
 2. **移動系統**: Walk/Dash/Jump/Landing
 3. **受擊系統**: Hitstun/Blockstun/Knockfly/Knockdown/Wakeup
 **測試方法**:
-- 既有 12 個用例(Stage 1 後)必須全綠 — 狀態機對外部行為透明
-- 新增: `test_13_state_machine_invariants` — 隨機輸入序列 600 幀,
-  每幀斷言「恰好一個狀態活動」+ 狀態轉換合法性表
+- 既有用例必須全綠 — 狀態機對外部行為透明
+- 新增: `test_25_state_machine_invariants`(原規劃編號 13, 因 13 已被 Stage 1
+  combo 用例佔用而改號) — 固定種子隨機輸入 600 幀, 每幀斷言解析器為純函數、
+  回傳已定義狀態、結構性互斥不變式成立; 另印狀態分布並要求 >=4 種
+- 新增: `test_26_state_matches_animation_chain` — 逐幀比對狀態層 vs 動畫層
 - `FRAME_DATA_TABLE.md` 實測值不變
+
+### 6.1 切片 1（已完成, 本輪）: 唯讀狀態層 + 死旗標清除
+**原則**: 先讓狀態層存在且被測試釘住, 再逐段改控制流。本切片**行為零變更**
+(純刪除無讀取點的變數 + 新增唯讀推導層), 因此可以安全地先落地。
+
+**交付**:
+1. `scripts/core/FighterState.gd` — `State` enum(19 態) + `resolve(fighter)`
+   純函數, 由現行旗標推導單一活動狀態; `check_invariants()` 回傳結構性違規;
+   `known_illegal_overlaps()` 列出「可達但不該存在」的重疊(Stage 2 待辦清單)。
+   入口: `Fighter.get_fighter_state()` / `get_fighter_state_name()`。
+2. 優先序**逐條複製**現行兩條動畫鏈(`Player._compute_target_state` →
+   `AnimationManager.compute_target_state`), 把隱性約定變成可測契約。
+3. 刪除 14 個死旗標/死變數(全部先以「註解剝除後的讀寫點分析」證明零讀取,
+   並確認無 `.tscn`/`.tres` 覆寫與動態 `get`/`set`):
+   - 旗標: `is_crouch_transition_played` `is_crouch_held` `is_airborne`
+     `_landing_timer_initialized` `is_being_pushed` `is_air_hit_knockfly`
+   - 變數: `current_mode` `cancel_window_duration` `powerkk_blockstun`
+     `knockback_start_x` `last_hit_attack_name` `initial_blockstun_frames`
+     `initial_hitstun` `knockback_total_time` `hit_push_timer` `hit_push_offset`
+     `dash_direction` `pending_jump_b_seek` `air_hit_backjump_up_speed`
+     以及 @deprecated 秒制推擠對 `initial_blockstun`/`block_push_velocity`
+4. 移除兩條**不可達路徑**(這部分才是真正藏 bug 的地方):
+   - `is_push_back` 整族: 全倉庫唯一寫入點就在它自己守衛的分支裡寫 `false`,
+     推開減速路徑自始不可達; 但它仍出現在 Dash/Jump/Walk×2/AI-dash **五條**
+     守衛條件裡當假的互斥項。移除後條件恆等。
+   - PushManager 依 `is_air_hit_knockfly` 選擇的線性 knockfly 衰減分支
+     (該旗標從未被設為 true, 實際永遠走二次衰減)。
+5. 核心三檔 bool 狀態旗標: **37 → 31**。
+
+**已知分岔(窮舉 55k+ 旗標組合對撞找出, 屬動畫層缺口, 非本切片修正範圍)**:
+1. `is_being_thrown` 在動畫層完全沒有分支 — 被摔者續播被抓前的動畫。
+2. 在空中但 `is_jumping`/`is_air_attacking` 皆假時, 動畫層掉回 `"Walk"`
+   (半空中播走路動畫); 可達路徑: 空中受擊後跳結束但尚未落地那幾幀。
+兩者在 `test_26` 以**明確狀態條件**跳過並計數(不是「失敗就原諒」),
+記錄於 `FighterState.gd` 檔頭, 待後續切片改控制流時一併處理。
+
+### 6.2 後續切片（待辦）
+依原訂順序把控制流從「讀旗標組合」改為「讀狀態」, 每段跑一次測試:
+1. **攻擊系統**(邊界最清楚): Attack* 狀態擁有 startup/active/recovery 計數
+2. **移動系統**: Walk/Dash/Jump/Landing
+3. **受擊系統**: Hitstun/Blockstun/Knockfly/Knockdown/Wakeup
+
 **驗收(DoD)**:
-- [ ] 全部 frame 測試全綠
-- [ ] 0 個新增 bool 狀態旗標; Movement/Fighter/Player 的旗標數 < 10
+- [x] 狀態層存在且被 frame 測試釘住(`test_25`/`test_26`)
+- [x] 死旗標/死變數清除; 核心三檔旗標數 37 → 31
+- [ ] 控制流改讀狀態(切片 2~4); Movement/Fighter/Player 的旗標數 < 10
 - [ ] `world.reset_players()` 簡化為單一 reset 調用
 - [ ] 新增一個攻擊只需: frame data 資源 + 動畫(不再改 8 處)
 ---
@@ -270,10 +315,10 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | 階段 | 新增用例 |
 |---|---|
 | Stage 1 | 10 hitstun 遞減 / 11 landing lock / 12 dash / 16 landing 轉換公式 / 18 knockfly 幀制 / 19 hit_lock hitstop 凍結 / 20 block_lock |
-| Stage 2 | 13 狀態機不變式(隨機輸入 600 幀) |
+| Stage 2 | 25 狀態機不變式(隨機輸入 600 幀) / 26 狀態層 vs 動畫層對齊 |
 | Stage 3 | 14 每角色每招式 frame 斷言 / 100p 四段 |
 | Stage 4 | 15 QCF 宏 / 16 DP 宏 / 17 摔投窗口 / 18 AI 對稱性 |
-| Stage 5 | CI 化(無新用例, 全部進 CI) — workflow 已寫好待啟用, 見 §12.2 |
+| Stage 5 | CI 化(無新用例, 全部進 CI) — ✅ 已啟用, 見 §12.2 |
 ### 10.5 寫新用例的規則(詳見 `tests/frame_tests/README.md`)
 1. 每個用例獨立 world(狀態隔離), 不需要清理
 2. 計時用物理幀(`await_frames`), 1 邏輯幀 = 2 物理幀, 不用真實秒數
@@ -291,7 +336,7 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 ## 11. 風險清單與緩解
 | 風險 | 等級 | 緩解 |
 |---|---|---|
-| 無 CI 前的驗證依賴使用者本地(沙箱下不到 Godot) | 高 → 待啟用後緩解 | CI workflow 已寫好(`ci/frame-tests.yml`, 容器 `barichello/godot-ci:4.7.2`); 搬入 `.github/workflows/` 後每次 push/PR 自動跑 |
+| 無 CI 前的驗證依賴使用者本地(沙箱下不到 Godot) | ✅ 已緩解 | `.github/workflows/frame-tests.yml` 已啟用: 每次 push/PR 在 `barichello/godot-ci:4.7.2` 跑全部 frame 用例 + gdparse + 簽名檢查 |
 | Godot 4.6→4.7.2 升級的引擎行為差異 | 中 | 升級後已跑過 Stage 0 測試(使用者確認中); 之後每階段都重跑 |
 | Stage 1 大規模計時器遷移的隱性行為漂移 | 高 | 20 個用例 + 逐子系統遷移(一次一個計時器族) + FrameData 表比對 |
 | Stage 2 狀態機遷移期間長(2~4 週末) | 中 | 按子系統切 3 段, 每段独立可驗證; 旗標與狀態並行期間用測試對齊 |
@@ -301,11 +346,10 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 ---
 ## 12. 立即下一步
 1. **[已完成]** Godot 4.7.2 baseline 9/9 PASS; `test_10~12` 安全網完成, **12/12 PASS**
-2. **[待啟用]** CI 化提前(原 Stage 5): workflow 已寫好, 暫放 `ci/frame-tests.yml`,
-  用容器 `barichello/godot-ci:4.7.2` 跑全部 frame 用例 + gdtoolkit 靜態解析。
-  **尚未生效** —— 開此 PR 的自動化以 GitHub App 身分認證且無 `workflows` 權限,
-  無法寫入 `.github/workflows/`。有寫入權限者執行
-  `git mv ci/frame-tests.yml .github/workflows/frame-tests.yml` 即可啟用。
+2. **[已完成]** CI 化提前(原 Stage 5): `.github/workflows/frame-tests.yml` 已啟用,
+  兩個 job —— `static-check`(gdparse 全檔 + `ci/check_signatures.py` 父子簽名檢查)
+  與 `frame-tests`(容器 `barichello/godot-ci:4.7.2` 跑全部 frame 用例)。
+  這解除了 §11 風險表第一列: 物理幀斷言不再依賴人手在本地跑。
 3. **[已完成]** 第一個遷移切片: landing timer family →
   `landing_lock_timer: float`(秒) 改為 `landing_lock_frames: int`(物理幀),
   26 處讀寫點全數更新; 新增 `test_16` 釘住轉換公式; 順帶刪除死變數
@@ -335,21 +379,28 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
    不影響 combo 計數（計數走 fighter 實際 stun 幀）。
 6. 每階段結束: 更新本文件狀態欄 + `FRAME_DATA_TABLE.md` + commit
 ---
+7. **[已完成 2026-08-27]** Stage 2 切片 1: 唯讀狀態層 `FighterState` +
+   清除 14 個死旗標/死變數 + 移除兩條不可達路徑(`is_push_back` 整族、
+   `is_air_hit_knockfly` 線性衰減分支); 核心三檔旗標 37→31;
+   新增 `test_25`/`test_26`(共 26 用例)。詳見 §6.1。
+   **行為零變更** —— 純刪除無讀取點的變數 + 新增唯讀推導層。
+---
 ## 附錄 A: 關鍵代碼位置(供各階段參考)
 | 系統 | 檔案 |
 |---|---|
-| 狀態旗標/物理 | `scripts/core/Movement.gd` (468 行, 28 旗標) |
-| hitstun/take_hit | `scripts/core/fighter.gd` (527 行) |
-| 攻擊生命週期/250 行 if 鏈 | `scripts/core/player.gd` (860 行) |
+| 狀態旗標/物理 | `scripts/core/Movement.gd` (516 行, 23 旗標) |
+| hitstun/take_hit | `scripts/core/fighter.gd` (526 行) |
+| 攻擊生命週期/250 行 if 鏈 | `scripts/core/player.gd` (869 行) |
 | 特殊招式 | `scripts/combat/movesets/MoveSet.gd` (1042 行) + `DAVMoveSet.gd`/`DENMoveSet.gd` |
 | 命中處理 | `scripts/combat/handlers/HitResponseHandler.gd` |
-| 推擠/knockback | `scripts/core/PushManager.gd` (558 行) |
+| 推擠/knockback | `scripts/core/PushManager.gd` (563 行) |
 | 輸入 | `scripts/input/InputManager.gd` + `PlayerController.gd` + `InputBuffer.gd` |
-| 世界/優勢計算 | `scripts/core/world.gd` (822 行) |
+| 世界/優勢計算 | `scripts/core/world.gd` (883 行) |
 | hitstop | `scripts/core/slow_mo_controller.gd` |
 | 幀數據資源 | `data/AttackData.gd` + `data/p1_attack_data.tres`(DAV/WOO) + `data/p2_attack_data.tres`(DEN) + `data/specials/*.tres` + 場景內嵌 `smd_*` |
 | AI | `ai/` (AIBehavior 為主; cpu_controller/specs 為殘骸) |
-| 測試 | `tests/frame_tests/` |
+| 顯式狀態層 | `scripts/core/FighterState.gd` (Stage 2 切片 1; 唯讀解析器) |
+| 測試 | `tests/frame_tests/` (26 用例) |
 | 行為基準 | `docs/systems/FRAME_DATA_TABLE.md` |
 ## 附錄 B: 已完成 commit 記錄(歷史參考)
 Stage 0 原始 5 commits + 修正 commit 已合併入 main, 並隨 Godot 4.7.2 升級
