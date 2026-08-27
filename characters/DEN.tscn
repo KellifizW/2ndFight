@@ -5,21 +5,21 @@
 [ext_resource type="SpriteFrames" uid="uid://5q7cfeoprqup" path="res://assets/sprite_frames/player2.tres" id="3_4lg2u"]
 [ext_resource type="Script" uid="uid://c4qqdmb1sci8y" path="res://data/ThrowData.gd" id="3_jo7nc"]
 [ext_resource type="Texture2D" uid="uid://bmg0ytsusin8c" path="res://assets/Dennis2.png" id="4_a1vnf"]
-[ext_resource type="Texture2D" uid="uid://bf08spa3gkec5" path="res://assets/texture/smoke/smoke_01.png" id="5_x0tr5"]
+[ext_resource type="Texture2D" uid="uid://dtrspm0lofn8v" path="res://assets/texture/smoke/smoke_01.png" id="5_x0tr5"]
 [ext_resource type="Script" uid="uid://ccvbblak3coev" path="res://scripts/combat/movesets/DENMoveSet.gd" id="7_jo7nc"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_wv6ou"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_808jx"]
 [ext_resource type="Script" uid="uid://um826wha4t60" path="res://data/HitPhaseData.gd" id="8_wv6ou"]
 [ext_resource type="Script" uid="uid://tld6w015ripa" path="res://data/SpecialMoveData.gd" id="9_808jx"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://scripts/input/InputManager.gd" id="9_mhb1e"]
-[ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://assets/audio/heavy_hit_sound.wav" id="10_bi6lw"]
-[ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://assets/audio/block_sound.wav" id="11_ysvx1"]
-[ext_resource type="AudioStream" uid="uid://tvuhpp3xdv6f" path="res://assets/audio/hurt_grunt_p2.wav" id="12_ydrny"]
-[ext_resource type="AudioStream" uid="uid://cll5h0p83t516" path="res://assets/audio/spnk_call.mp3" id="13_m8rlt"]
-[ext_resource type="AudioStream" uid="uid://byrh2qgg16h31" path="res://assets/audio/fireball_call_p2.wav" id="14_qpqbf"]
-[ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://assets/audio/loud3.mp3" id="16_x0tr5"]
-[ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="17_vym3m"]
-[ext_resource type="AudioStream" uid="uid://bd2f1ha4u0e6f" path="res://assets/audio/hurt_grunt3_p1.wav" id="18_wv6ou"]
+[ext_resource type="AudioStream" uid="uid://donxd3nqn4jt2" path="res://assets/audio/heavy_hit_sound.wav" id="10_bi6lw"]
+[ext_resource type="AudioStream" uid="uid://dbe6n06qwaw2i" path="res://assets/audio/block_sound.wav" id="11_ysvx1"]
+[ext_resource type="AudioStream" uid="uid://bhv42gpxxbp65" path="res://assets/audio/hurt_grunt_p2.wav" id="12_ydrny"]
+[ext_resource type="AudioStream" uid="uid://d0fb3axafbiwh" path="res://assets/audio/spnk_call.mp3" id="13_m8rlt"]
+[ext_resource type="AudioStream" uid="uid://to86tjkx51w6" path="res://assets/audio/fireball_call_p2.wav" id="14_qpqbf"]
+[ext_resource type="AudioStream" uid="uid://chf6ovrhyejma" path="res://assets/audio/loud3.mp3" id="16_x0tr5"]
+[ext_resource type="AudioStream" uid="uid://bdoof7d18fx5a" path="res://assets/audio/heavyblock.mp3" id="17_vym3m"]
+[ext_resource type="AudioStream" uid="uid://b20xi8m11rgxh" path="res://assets/audio/hurt_grunt3_p1.wav" id="18_wv6ou"]
 
 [sub_resource type="Resource" id="Resource_4lg2u"]
 script = ExtResource("3_jo7nc")
@@ -2836,7 +2836,7 @@ tracks/2/keys = {
 
 [sub_resource type="Animation" id="Animation_46qut"]
 resource_name = "davis_idle"
-length = 1.875
+length = 1.125
 loop_mode = 1
 step = 0.1333
 tracks/0/type = "value"
@@ -2870,7 +2870,7 @@ tracks/2/path = NodePath("AnimatedSprite2D:animation")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0, 1),
+"times": PackedFloat32Array(0, 0.625),
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [&"idle", &"newidle"]
@@ -2882,10 +2882,10 @@ tracks/3/path = NodePath("AnimatedSprite2D:frame")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1, 1.125, 1.25, 1.375, 1.5, 1.625, 1.75),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [0, 1, 2, 3, 4, 5, 6, 7, 2, 3, 4, 5, 6, 7, 8]
+"values": [0, 1, 2, 3, 2, 4, 6, 7, 8]
 }
 tracks/4/type = "value"
 tracks/4/imported = false
@@ -6312,7 +6312,7 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 140
+frame = 1
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
