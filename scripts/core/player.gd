@@ -744,7 +744,11 @@ func _enter_landing_state(debug_tag: String) -> void:
 	landing_facing_lock = false
 	_landing_checkpoint_executed = false
 	_landing_forced_frames = 0
-	force_update_facing_direction()
+	# 【面向規則】與 LandingHandler._handle_normal_landing 一致：
+	# 著地「開始」不翻面。cross-up 後的翻面統一由 TimerHandler 在
+	# landing_lock_frames 歸零（著地動畫播完）那一刻執行。
+	# 這裡原本的 force_update_facing_direction() 會繞過所有鎖，
+	# 造成「還沒完成著地就轉身」。
 	Debug.log("[%s] is_landing set | forced lock: %df" % [debug_tag, landing_lock_frames])
 	_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 

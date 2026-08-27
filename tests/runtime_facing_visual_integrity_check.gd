@@ -57,7 +57,10 @@ func _run() -> void:
 			saw_landing = true
 		if dav.is_on_floor() and landed_frame == -1 and Engine.get_physics_frames() > 20:
 			landed_frame = Engine.get_physics_frames()
-		if landed_frame != -1:
+		# 【面向規則】翻面時機是「著地 + landing 動畫（著地鎖）跑完」之後，
+		# 著地鎖期間維持舊面向是正確行為，不列入視覺一致性檢查。
+		var landing_lock_active: bool = dav.is_landing or dav.landing_lock_frames > 0
+		if landed_frame != -1 and not landing_lock_active:
 			var expected_facing: float = -1.0 if dav.global_position.x > opponent.global_position.x else 1.0
 			var root_sign: float = sign(dav.scale.x)
 			var sprite_sign: float = _sprite_global_x_sign(dav)

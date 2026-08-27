@@ -169,3 +169,40 @@ If logs don't match expected sequence:
    - Search for all `landing_lock_timer =` assignments (should only be in LandingHandler, TimerHandler, and guards)
    - Check if any Player.gd modifications are executing
 
+---
+
+## 面向（facing）與著地的關係 — 單一翻面時機
+
+**規則**：跳躍越過對手（cross-up）之後，角色的面向**只能**在
+「著地 → landing 動畫播完（`landing_lock_frames` 歸零）」那一刻改變。
+空中不翻面、著地鎖期間也不翻面。
+
+**唯一的翻面點**：`TimerHandler.handle_timers()` 的著地收尾段 —
+`landing_lock_frames <= 0` → 清 `is_landing` / `landing_facing_lock` →
+`update_facing_direction()`。
+
+### 曾經破壞這條規則的三處（皆已移除）
+
+| 位置 | 症狀 |
+|---|---|
+| `LandingHandler._handle_normal_landing()` 的 `force_update_facing_direction()` | 觸地當幀就翻面（繞過所有鎖） |
+| `Player._enter_landing_state()` 的 `force_update_facing_direction()` | 空中攻擊著地路徑同樣提前翻面 |
+| `TimerHandler` 著地 checkpoint 暫時清 `is_landing`/`landing_facing_lock` 後更新面向 | 著地第 2 幀翻面，比完整 25 幀動畫早 23 幀 |
+
+三者都用 `ignore_locks=true` 或臨時清旗標的方式**繞過**面向鎖，
+所以既有的 `landing_facing_lock` / `is_landing` 鎖完全擋不住。
+
+### 現行的三道鎖（由內到外）
+
+1. `FacingHandler._is_airborne_normal_jump()` — 普通跳躍在空中一律不翻面
+   （受擊 / 擊飛 / 被摔 / 特殊招式除外，那些由各自系統決定面向）。
+2. `landing_facing_lock` — 起跳、dash 期間鎖住。
+3. `is_landing and landing_lock_frames > 0` — 著地動畫期間鎖住。
+
+### 回歸測試
+
+`tests/frame_tests/cases/test_27_crossup_facing_after_landing.gd`
+逐幀斷言：空中不翻面、著地鎖期間不翻面、鎖歸零後必須翻成 -1。
+另有三個 runtime 診斷腳本（`runtime_real_spawn_crossup_facing_check.gd`、
+`runtime_facing_visual_integrity_check.gd`、`runtime_landing_state_ownership_check.gd`）
+同步改為以「著地鎖結束」為檢查起點。

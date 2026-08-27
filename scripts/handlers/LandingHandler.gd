@@ -105,8 +105,17 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	movement_node.landing_lock_frames = Movement.LANDING_FORCED_LOCK_FRAMES
 	movement_node._landing_checkpoint_executed = false  # 【新增】重置checkpoint執行標記
 	movement_node._landing_forced_frames = 0  # 【新增】重置強制幀數計數器
-	if movement_node.has_method("force_update_facing_direction"):
-		movement_node.force_update_facing_direction()
+	# 【面向規則】著地「開始」時**不**更新面向。
+	#
+	# 越過對手（cross-up）後，正確的翻面時機是「著地動畫播完、著地鎖歸零」那一刻
+	# ——由 TimerHandler 在 landing_lock_frames 歸零時統一執行（見 TimerHandler
+	# 收尾段的 update_facing_direction()）。這裡原本呼叫 force_update_facing_direction()
+	# 會**繞過**所有鎖（ignore_locks=true），讓角色在著地流程一開始（甚至在
+	# 觸地判定與畫面更新之間）就翻面，看起來像「人還沒落地就已經轉身」。
+	#
+	# 注意：landing_facing_lock 在上面已被清成 false，面向在著地期間改由
+	# `is_landing and landing_lock_frames > 0`（FacingHandler 的 is_landing_state）
+	# 這個鎖擋住，直到著地結束。
 	
 	Debug.log("[LANDING_START] %s: is_landing=true, lock=%df, checkpoint_reset" % [seat, movement_node.landing_lock_frames])
 	
