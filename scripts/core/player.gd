@@ -849,6 +849,12 @@ func _execute_attack(attack_name: String) -> void:
 	
 	Debug.log("[EXECUTE_ATTACK] Set is_attacking=true, attack_type=", attack_name)
 	
+	# ── 播放揮空音效（輕/中/重）─────────────────────────────
+	# 出招當下就播放，不論之後有否打中對手；摔投與特殊招式不適用
+	# （特殊招式由 MoveSet 的 sound_type 負責）。
+	if not is_throw_attack:
+		AttackSoundResolver.play_whoosh_sound(self, attack_name)
+	
 	# Immediately switch to attack animation
 	if animation_state:
 		animation_state.travel(attack_name)
