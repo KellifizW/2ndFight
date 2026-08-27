@@ -5,21 +5,28 @@
 [ext_resource type="SpriteFrames" uid="uid://5q7cfeoprqup" path="res://assets/sprite_frames/player2.tres" id="3_4lg2u"]
 [ext_resource type="Script" uid="uid://c4qqdmb1sci8y" path="res://data/ThrowData.gd" id="3_jo7nc"]
 [ext_resource type="Texture2D" uid="uid://bmg0ytsusin8c" path="res://assets/Dennis2.png" id="4_a1vnf"]
-[ext_resource type="Texture2D" uid="uid://dtrspm0lofn8v" path="res://assets/texture/smoke/smoke_01.png" id="5_x0tr5"]
+[ext_resource type="Texture2D" uid="uid://bf08spa3gkec5" path="res://assets/texture/smoke/smoke_01.png" id="5_x0tr5"]
 [ext_resource type="Script" uid="uid://ccvbblak3coev" path="res://scripts/combat/movesets/DENMoveSet.gd" id="7_jo7nc"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_wv6ou"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_808jx"]
 [ext_resource type="Script" uid="uid://um826wha4t60" path="res://data/HitPhaseData.gd" id="8_wv6ou"]
 [ext_resource type="Script" uid="uid://tld6w015ripa" path="res://data/SpecialMoveData.gd" id="9_808jx"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://scripts/input/InputManager.gd" id="9_mhb1e"]
-[ext_resource type="AudioStream" uid="uid://donxd3nqn4jt2" path="res://assets/audio/heavy_hit_sound.wav" id="10_bi6lw"]
-[ext_resource type="AudioStream" uid="uid://dbe6n06qwaw2i" path="res://assets/audio/block_sound.wav" id="11_ysvx1"]
-[ext_resource type="AudioStream" uid="uid://bhv42gpxxbp65" path="res://assets/audio/hurt_grunt_p2.wav" id="12_ydrny"]
-[ext_resource type="AudioStream" uid="uid://d0fb3axafbiwh" path="res://assets/audio/spnk_call.mp3" id="13_m8rlt"]
-[ext_resource type="AudioStream" uid="uid://to86tjkx51w6" path="res://assets/audio/fireball_call_p2.wav" id="14_qpqbf"]
-[ext_resource type="AudioStream" uid="uid://chf6ovrhyejma" path="res://assets/audio/loud3.mp3" id="16_x0tr5"]
-[ext_resource type="AudioStream" uid="uid://bdoof7d18fx5a" path="res://assets/audio/heavyblock.mp3" id="17_vym3m"]
-[ext_resource type="AudioStream" uid="uid://b20xi8m11rgxh" path="res://assets/audio/hurt_grunt3_p1.wav" id="18_wv6ou"]
+[ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://assets/audio/heavy_hit_sound.wav" id="10_bi6lw"]
+[ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://assets/audio/block_sound.wav" id="11_ysvx1"]
+[ext_resource type="AudioStream" uid="uid://tvuhpp3xdv6f" path="res://assets/audio/hurt_grunt_p2.wav" id="12_ydrny"]
+[ext_resource type="AudioStream" uid="uid://cll5h0p83t516" path="res://assets/audio/spnk_call.mp3" id="13_m8rlt"]
+[ext_resource type="AudioStream" uid="uid://byrh2qgg16h31" path="res://assets/audio/fireball_call_p2.wav" id="14_qpqbf"]
+[ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://assets/audio/loud3.mp3" id="16_x0tr5"]
+[ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="17_vym3m"]
+[ext_resource type="AudioStream" uid="uid://bd2f1ha4u0e6f" path="res://assets/audio/hurt_grunt3_p1.wav" id="18_wv6ou"]
+[ext_resource type="AudioStream" uid="uid://cjyux3vr0gxi7" path="res://assets/audio/lp_hit.mp3" id="20_ydrny"]
+[ext_resource type="AudioStream" uid="uid://bj0mp3vy56n32" path="res://assets/audio/mp_hit.mp3" id="21_m8rlt"]
+[ext_resource type="AudioStream" uid="uid://da7yrtnr4c1av" path="res://assets/audio/lk_hit.mp3" id="23_qpqbf"]
+[ext_resource type="AudioStream" uid="uid://c2o348aurqrai" path="res://assets/audio/mk_hit.mp3" id="24_c623c"]
+[ext_resource type="AudioStream" uid="uid://bfpiw2smfeyu2" path="res://assets/audio/hk_hit.mp3" id="25_vhewk"]
+[ext_resource type="AudioStream" uid="uid://bjne6dtrx2f7l" path="res://assets/audio/lwhoosh.mp3" id="26_qpqbf"]
+[ext_resource type="AudioStream" uid="uid://duhprpw6tcr5j" path="res://assets/audio/mwhoosh.mp3" id="27_c623c"]
 
 [sub_resource type="Resource" id="Resource_4lg2u"]
 script = ExtResource("3_jo7nc")
@@ -6312,7 +6319,6 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 1
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
@@ -6393,10 +6399,6 @@ script = ExtResource("8_808jx")
 [node name="InputManager" type="Node" parent="." unique_id=739049007]
 script = ExtResource("9_mhb1e")
 
-[node name="HitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=2042969070]
-stream = ExtResource("10_bi6lw")
-pitch_scale = 0.73
-
 [node name="BlockSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=618506389]
 stream = ExtResource("11_ysvx1")
 pitch_scale = 1.1
@@ -6425,3 +6427,40 @@ stream = ExtResource("17_vym3m")
 stream = ExtResource("18_wv6ou")
 volume_db = 1.763
 pitch_scale = 1.19
+
+[node name="LPSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=265701766]
+stream = ExtResource("20_ydrny")
+pitch_scale = 1.2
+
+[node name="MPSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=298531381]
+stream = ExtResource("21_m8rlt")
+pitch_scale = 1.2
+
+[node name="HPSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=2042969070]
+stream = ExtResource("10_bi6lw")
+pitch_scale = 0.73
+
+[node name="LKSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1520425974]
+stream = ExtResource("23_qpqbf")
+pitch_scale = 1.4
+
+[node name="MKSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1392199174]
+stream = ExtResource("24_c623c")
+
+[node name="HKSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1932176227]
+stream = ExtResource("25_vhewk")
+pitch_scale = 0.8
+
+[node name="HitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1940861008]
+stream = ExtResource("10_bi6lw")
+pitch_scale = 0.73
+
+[node name="LWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=2037532026]
+stream = ExtResource("26_qpqbf")
+
+[node name="MWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=604141119]
+stream = ExtResource("27_c623c")
+
+[node name="HWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=386761792]
+stream = ExtResource("27_c623c")
+pitch_scale = 0.7

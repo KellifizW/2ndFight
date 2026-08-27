@@ -21,6 +21,13 @@
 [ext_resource type="AudioStream" uid="uid://chhkw2i6yrqqj" path="res://assets/audio/hurt_grunt_p1.wav" id="17_t485y"]
 [ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="20_hshs3"]
 [ext_resource type="AudioStream" uid="uid://dyb7uascyla1g" path="res://assets/audio/dp.mp3" id="21_hshs3"]
+[ext_resource type="AudioStream" uid="uid://cjyux3vr0gxi7" path="res://assets/audio/lp_hit.mp3" id="22_2tjih"]
+[ext_resource type="AudioStream" uid="uid://bj0mp3vy56n32" path="res://assets/audio/mp_hit.mp3" id="23_smpwk"]
+[ext_resource type="AudioStream" uid="uid://da7yrtnr4c1av" path="res://assets/audio/lk_hit.mp3" id="24_nf08n"]
+[ext_resource type="AudioStream" uid="uid://c2o348aurqrai" path="res://assets/audio/mk_hit.mp3" id="25_61jl7"]
+[ext_resource type="AudioStream" uid="uid://bfpiw2smfeyu2" path="res://assets/audio/hk_hit.mp3" id="26_opo8r"]
+[ext_resource type="AudioStream" uid="uid://bjne6dtrx2f7l" path="res://assets/audio/lwhoosh.mp3" id="27_nf08n"]
+[ext_resource type="AudioStream" uid="uid://duhprpw6tcr5j" path="res://assets/audio/mwhoosh.mp3" id="28_61jl7"]
 
 [sub_resource type="Resource" id="Resource_7kano"]
 script = ExtResource("3_0wmxw")
@@ -7534,5 +7541,38 @@ pitch_scale = 1.11
 [node name="dpCallPlayer" type="AudioStreamPlayer" parent="." unique_id=233624374]
 stream = ExtResource("21_hshs3")
 volume_db = -5.0
+
+[node name="LPSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1315114117]
+stream = ExtResource("22_2tjih")
+pitch_scale = 1.2
+
+[node name="MPSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=2121678359]
+stream = ExtResource("23_smpwk")
+pitch_scale = 1.2
+
+[node name="HPSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1067238421]
+stream = ExtResource("10_xvg5s")
+pitch_scale = 0.73
+
+[node name="LKSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=835384224]
+stream = ExtResource("24_nf08n")
+pitch_scale = 1.4
+
+[node name="MKSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1156935913]
+stream = ExtResource("25_61jl7")
+
+[node name="HKSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=549654001]
+stream = ExtResource("26_opo8r")
+pitch_scale = 0.8
+
+[node name="LWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1422729277]
+stream = ExtResource("27_nf08n")
+
+[node name="MWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=217376597]
+stream = ExtResource("28_61jl7")
+
+[node name="HWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1047141288]
+stream = ExtResource("28_61jl7")
+pitch_scale = 0.7
 
 [editable path="spawnfire"]
