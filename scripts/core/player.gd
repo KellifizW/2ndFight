@@ -11,6 +11,8 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @export var attack_data: AttackData
 @export var throw_data: ThrowData
 @export var startup_logs: bool = false
+# 普通攻擊喊聲播放機率（0.0～1.0）。在角色場景 Inspector 調整即可，不需改程式。
+@export_range(0.0, 1.0, 0.05) var attack_grunt_chance: float = 0.5
 
 var ATTACK_TABLE: Dictionary = {}
 const _ATTACK_NAMES: Array = [
@@ -852,10 +854,10 @@ func _execute_attack(attack_name: String) -> void:
 	# ── 播放揮空音效 + 普通攻擊喊聲（輕/中/重）──────────────
 	# 出招當下就播放，不論之後有否打中對手；摔投與特殊招式不適用
 	# （特殊招式由 MoveSet 的 sound_type 負責）。
-	# 喊聲另有 50% 機率門檻；被對方打中時由 take_hit 中斷。
+	# 喊聲另有 attack_grunt_chance 機率門檻（編輯器可調）；被對方打中時由 take_hit 中斷。
 	if not is_throw_attack:
 		AttackSoundResolver.play_whoosh_sound(self, attack_name)
-		AttackSoundResolver.play_attack_grunt(self, attack_name)
+		AttackSoundResolver.play_attack_grunt(self, attack_name, attack_grunt_chance)
 	
 	# Immediately switch to attack animation
 	if animation_state:

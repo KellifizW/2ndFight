@@ -45,7 +45,6 @@ shader_parameter/blur_factor = 0.0
 
 [node name="World" type="Node2D" unique_id=530271091]
 script = ExtResource("1_aqk2v")
-bgm_max_volume_db = 0.0
 enable_performance_monitoring = false
 player_a_character = ExtResource("15_26xuy")
 player_b_character = ExtResource("17_bc84e")
@@ -365,6 +364,7 @@ knockback_deceleration_mode = 2
 
 [node name="BGMPlayer" type="AudioStreamPlayer" parent="." unique_id=2000188195]
 stream = ExtResource("12_k3n1d")
+volume_db = 0.0
 
 [node name="PlayerAShadowSprite" type="AnimatedSprite2D" parent="." unique_id=1618088426]
 modulate = Color(0.16078432, 0.16078432, 0.16078432, 1)

@@ -11,7 +11,9 @@ const GRAVITY: int = 7400000
 @export var startup_logs: bool = false
 
 @onready var position_label = $UI/PositionLabel
-@export var bgm_max_volume_db: float = -6.0
+# BGM 最大音量（dB）。實際值取自 BGMPlayer 節點在編輯器設定的 volume_db，
+# 於 _ready() 讀取，因此在編輯器調整 BGMPlayer 節點的 Volume Db 即可控制音量。
+var bgm_max_volume_db: float = -6.0
 
 # ============================================================
 # 調試熱重載系統
@@ -209,6 +211,10 @@ func _ready() -> void:
 		Debug.log("Warning: Advantage labels not found in UI")
 	if bgm_player:
 		is_bgm_enabled = true
+		# 以 BGMPlayer 節點在編輯器設定的 volume_db 作為 BGM 音量來源。
+		# 舊版用 @export 的 bgm_max_volume_db 覆寫節點音量，導致在編輯器
+		# 調整 BGMPlayer 節點的 Volume Db 完全無效。現在在覆寫成靜音前先記錄。
+		bgm_max_volume_db = bgm_player.volume_db
 		bgm_player.volume_db = -120.0
 		# Web browsers block autoplay until a user gesture. The first key, mouse,
 		# touch, or gamepad input starts the BGM from inside the input callback.
