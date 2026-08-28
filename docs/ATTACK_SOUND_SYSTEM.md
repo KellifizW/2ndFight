@@ -53,7 +53,9 @@
 
 兩條額外規則：
 
-1. **50% 機率**：每次出普通攻擊擲一次骰，只有一半機會真正播放。
+1. **機率門檻（可在編輯器調整）**：每次出普通攻擊擲一次骰，只有
+   `attack_grunt_chance`（角色場景 Inspector 的 `@export_range(0.0, 1.0)`，預設 0.5）
+   的機率真正播放。直接在角色 `.tscn` 根節點調這個滑桿即可，不需改程式。
    RNG 獨立於 AI 決策用的全域 `randf()`，避免影響戰鬥確定性。
 2. **被打中斷**：若喊聲還在播、角色被對方真正打中（非格擋），
    `Fighter.take_hit()` 會立刻 `stop()` 三個喊聲節點。
@@ -85,7 +87,8 @@
    `AttackGrunt_l1`、`AttackGrunt_m1`、`AttackGrunt_h1`
 2. 各自指定 `stream`（可用同一個檔案配不同 `pitch_scale`）
 3. 保留 `HitSoundPlayer` / `HeavyHitSoundPlayer` 作回退
-4. 無需改任何 GDScript
+4. 無需改任何 GDScript；攻擊喊聲機率可在根節點 Inspector 的
+   `Attack Grunt Chance`（0.0～1.0，預設 0.5）滑桿調整
 
 ## 6. 驗證
 

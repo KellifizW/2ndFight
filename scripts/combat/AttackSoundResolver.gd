@@ -22,7 +22,8 @@ class_name AttackSoundResolver extends RefCounted
 ## 3. 普通攻擊喊聲（Attack Grunt）— 按「攻擊強度」分開
 ##    輕(l) → AttackGrunt_l1、中(m) → AttackGrunt_m1、重(h) → AttackGrunt_h1
 ##    出招當下播放，不論有否打中對手。
-##    機制：50% 機率才播；若喊聲播放期間被對方打中則立刻中斷。
+##    機制：以角色 attack_grunt_chance（@export，預設 50%）機率才播；
+##    若喊聲播放期間被對方打中則立刻中斷。
 ##
 ## 向後兼容：
 ## - 若角色場景未加設對應節點（例如仍是舊設定的 WOO），
@@ -56,8 +57,8 @@ const GRUNT_SOUND_PLAYERS: Dictionary = {
 	"h": "AttackGrunt_h1",
 }
 
-# 普通攻擊喊聲播放機率（出招當下擲一次；與 AI 的全域 randf 隔離）
-const GRUNT_PLAY_CHANCE: float = 0.5
+# 普通攻擊喊聲播放機率改由角色場景的 `attack_grunt_chance`（@export，預設 0.5）
+# 控制，可在編輯器調整，程式不再寫死。預設值保留 0.5 以維持既有行為。
 
 # ── 舊有（回退用）音效節點 ────────────────────────────────
 const LEGACY_HIT_SOUND_PLAYER: String = "HitSoundPlayer"
@@ -180,25 +181,26 @@ static func play_whoosh_sound(owner_node: Node, attack_type: String) -> bool:
 	return play(owner_node, get_whoosh_sound_player_name(attack_type))
 
 
-static func _should_play_grunt() -> bool:
+static func _should_play_grunt(chance: float) -> bool:
 	if _grunt_rng == null:
 		_grunt_rng = RandomNumberGenerator.new()
 		_grunt_rng.randomize()
-	return _grunt_rng.randf() < GRUNT_PLAY_CHANCE
+	return _grunt_rng.randf() < chance
 
 
-static func play_attack_grunt(owner_node: Node, attack_type: String) -> bool:
+static func play_attack_grunt(owner_node: Node, attack_type: String, chance: float = 0.5) -> bool:
 	"""
 	播放普通攻擊喊聲（輕/中/重 → AttackGrunt_l1/m1/h1）。
 
 	不論之後有否打中對手；非普通攻擊（摔投、特殊招式）不播放。
-	50% 機率才真正播放。角色場景未加設對應節點時靜默略過。
+	以 `chance` 機率才真正播放（由角色的 attack_grunt_chance 傳入，編輯器可調）。
+	角色場景未加設對應節點時靜默略過。
 	若上一次喊聲尚未結束，先中斷再播新的，避免疊聲。
 	"""
 	var grunt_name: String = get_grunt_sound_player_name(attack_type)
 	if grunt_name.is_empty():
 		return false
-	if not _should_play_grunt():
+	if not _should_play_grunt(chance):
 		return false
 	stop_attack_grunts(owner_node)
 	return play(owner_node, grunt_name)

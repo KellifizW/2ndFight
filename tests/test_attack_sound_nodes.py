@@ -13,7 +13,7 @@ Test suite for the per-attack-type sound wiring in 2ndFight.
      對應的擊中音效節點、揮空音效節點與攻擊喊聲節點
   5. 重拳（*_hp）一律 HPSoundPlayer、重踢（*_hk）一律 HKSoundPlayer，絕不對調
   6. 特殊招式 / 摔投不會被誤判為普通攻擊（會回退到舊有音效節點）
-  7. 攻擊喊聲 50% 機率常數、出招呼叫、被打中中斷接線
+  7. 攻擊喊聲機率改為 @export（預設 50%）、出招呼叫、被打中中斷接線
 
 不需要 Godot，純文字解析，可直接執行：
     python3 tests/test_attack_sound_nodes.py
@@ -50,12 +50,13 @@ def parse_dict(source, const_name):
     return dict(re.findall(r'"([^"]+)"\s*:\s*"([^"]+)"', match.group(1)))
 
 
-def parse_float_const(source, const_name):
+def parse_export_float(source, var_name):
+    """從 GDScript 抽出 `@export* var NAME: float = 值`（含 @export_range 等變體）。"""
     match = re.search(
-        r"const\s+%s\s*:\s*float\s*=\s*([0-9.]+)" % const_name,
+        r"@export[^\n]*var\s+%s\s*:\s*float\s*=\s*([0-9.]+)" % var_name,
         source,
     )
-    assert match, "找不到常數 %s" % const_name
+    assert match, "找不到 @export 變數 %s" % var_name
     return float(match.group(1))
 
 
@@ -95,7 +96,7 @@ def run_all_tests():
     hit_players = parse_dict(resolver_src, "HIT_SOUND_PLAYERS")
     whoosh_players = parse_dict(resolver_src, "WHOOSH_SOUND_PLAYERS")
     grunt_players = parse_dict(resolver_src, "GRUNT_SOUND_PLAYERS")
-    grunt_chance = parse_float_const(resolver_src, "GRUNT_PLAY_CHANCE")
+    grunt_chance = parse_export_float(player_src, "attack_grunt_chance")
 
     print("=======================================================")
     print("Attack sound wiring tests")
@@ -161,11 +162,13 @@ def run_all_tests():
     # 6. 攻擊喊聲機制接線
     assert grunt_chance == 0.5, grunt_chance
     assert "play_attack_grunt" in player_src
+    assert "attack_grunt_chance" in player_src  # player.gd 把機率傳入 resolver
     assert "play_whoosh_sound" in player_src
     assert "stop_attack_grunts" in fighter_src
     assert "func stop_attack_grunts" in resolver_src
     assert "func play_attack_grunt" in resolver_src
-    print("✅ 6. 攻擊喊聲 50% 機率、出招播放、被打中中斷均已接線")
+    assert "GRUNT_PLAY_CHANCE" not in resolver_src  # 寫死的 const 已移除
+    print("✅ 6. 攻擊喊聲機率改為 @export（預設 50%）、出招播放、被打中中斷均已接線")
 
     print("\n=======================================================")
     print("🎉 ALL ATTACK SOUND WIRING TESTS PASSED! 🎉")
