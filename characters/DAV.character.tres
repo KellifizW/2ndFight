@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="CharacterData" load_steps=5 format=3 uid="uid://b8qgdymiybxrq"]
+[gd_resource type="Resource" script_class="CharacterData" format=3 uid="uid://b8qgdymiybxrq"]
 
-[ext_resource type="Texture2D" uid="uid://dhog3722ljxc" path="res://assets/ui/char/dav_XL.png" id="1_6ens3"]
+[ext_resource type="Texture2D" uid="uid://d061yqeqyfkg5" path="res://assets/cover/dav1.png" id="1_6ens3"]
 [ext_resource type="Texture2D" uid="uid://dndpcy71a5l83" path="res://assets/ui/char/dav.png" id="1_avcpt"]
 [ext_resource type="Script" uid="uid://biahbprhmtfti" path="res://characters/CharacterData.gd" id="1_h0pw7"]
 [ext_resource type="PackedScene" uid="uid://c1t3ukbrnos3c" path="res://characters/DAV.tscn" id="1_t8s6g"]

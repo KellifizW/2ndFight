@@ -1,8 +1,8 @@
-[gd_resource type="Resource" script_class="CharacterData" load_steps=5 format=3 uid="uid://bnbes5q0352er"]
+[gd_resource type="Resource" script_class="CharacterData" format=3 uid="uid://bnbes5q0352er"]
 
 [ext_resource type="Texture2D" uid="uid://dqfk3vnmo6u0p" path="res://assets/ui/char/den.png" id="1_ge76s"]
 [ext_resource type="PackedScene" uid="uid://b6x784i20q4tq" path="res://characters/DEN.tscn" id="1_hyr68"]
-[ext_resource type="Texture2D" uid="uid://cn1t1bdqptjtj" path="res://assets/ui/char/den_XL.png" id="1_qgrsi"]
+[ext_resource type="Texture2D" uid="uid://cjedktvxpdkos" path="res://assets/cover/den1.png" id="1_qgrsi"]
 [ext_resource type="Script" uid="uid://biahbprhmtfti" path="res://characters/CharacterData.gd" id="1_sm5l7"]
 
 [resource]
