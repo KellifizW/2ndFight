@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://scripts/core/world.gd" id="1_aqk2v"]
-[ext_resource type="Texture2D" uid="uid://bgcxk40jbx143" path="res://assets/stage.png" id="1_fj7yv"]
+[ext_resource type="Texture2D" uid="uid://dgde4231ic5cc" path="res://assets/stage.png" id="1_fj7yv"]
 [ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://scenes/gameplay/FollowCamera.tscn" id="3_gbfbk"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://scenes/ui/healthbar.tscn" id="4_036b0"]
-[ext_resource type="FontFile" uid="uid://dqxxky5sx8p1t" path="res://assets/fonts/RZ Musashi.ttf" id="6_bc84e"]
+[ext_resource type="FontFile" uid="uid://cj4hyo1deaafb" path="res://assets/fonts/RZ Musashi.ttf" id="6_bc84e"]
 [ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://ai/cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://scripts/core/slow_mo_controller.gd" id="7_pkg7o"]
@@ -65,7 +65,6 @@ texture = ExtResource("1_fj7yv")
 [node name="FollowCamera" parent="." unique_id=1002113294 instance=ExtResource("3_gbfbk")]
 position = Vector2(640, 360)
 scale = Vector2(1e-05, 1e-05)
-max_zoom = 1.5
 initial_zoom_factor = 1.5
 base_y_offset = 100.0
 comfort_distance = 700.0
@@ -346,7 +345,6 @@ theme_override_font_sizes/font_size = 22
 text = "RESET"
 
 [node name="PauseMenu" parent="." unique_id=1984830895 instance=ExtResource("21_pause")]
-visible = false
 
 [node name="CPUController" type="Node" parent="." unique_id=172666553]
 script = ExtResource("6_dwbse")
