@@ -46,6 +46,9 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | test_25_state_machine_invariants | 固定種子隨機輸入 600 幀：解析器為純函數、狀態已定義、結構性互斥不變式成立；並要求覆蓋 >=4 種狀態 |
 | test_26_state_matches_animation_chain | 狀態層 vs 動畫層逐幀對齊（兩處已知分岔以明確條件跳過並計數） |
 | test_27_crossup_facing_after_landing | cross-up 前跳越過對手：空中與 landing 鎖期間都不翻面，著地動畫播完才翻 |
+| test_28_landing_input_instant_skip | 著地瞬間已有輸入 → 完全不進入 landing 鎖（零硬直），下一幀仍不得殘留鎖 |
+| test_29_attack_state_is_paired | Stage 2 切片 2：`is_attacking` 為真時 `attack_type` 必須合法（孤兒攻擊不可達）；含舊第二攻擊入口窗口的針對性重現 + 600 幀隨機壓力 |
+| test_30_attack_gates_match_legacy | Stage 2 切片 2：`FighterState` 出招守衛與它取代的舊旗標表達式逐幀等價（對照組刻意保留舊寫法） |
 
 ## 設計規則（寫新用例時請遵守）
 
@@ -82,3 +85,9 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 - `test_26` 有兩處**已知分岔**被刻意跳過（被摔投時動畫層無對應分支；
   在空中但 `is_jumping`/`is_air_attacking` 皆假時動畫層掉回 `Walk`）。
   跳過次數會印出來，避免真正的新分岔藏在豁免裡。詳見 `FighterState.gd` 檔頭。
+- `test_30` 的對照組是「舊寫法的逐字重寫」，**不要**把它重構成呼叫
+  `FighterState` —— 否則用例會變成自己跟自己比，失去防漂移動力。
+- `test_29` 第一段直接把按鍵塞進 `InputBuffer`（而非只用 `Input.action_press`）：
+  `PlayerController` 是 `Player` 的子節點，子節點的 `_physics_process` 在父節點
+  之後跑，所以「這一幀按下的鍵」要到下一幀才進 buffer，會剛好錯過
+  「著地後第 1 物理幀」這個一個幀寬的窗口。

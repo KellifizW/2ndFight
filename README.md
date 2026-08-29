@@ -21,7 +21,7 @@ structural problems that make every new feature more expensive than the last:
 | Problem | Symptom |
 |---|---|
 | Four coexisting time domains | Seconds, 60 FPS logical frames, 120 FPS physics frames, and a `FrameCounter` all mixed together, with dozens of scattered `*2` / `*120` / `/2.0` conversions |
-| ~34 boolean state flags | `is_hit`, `is_knockfly`, `is_blocking`, `is_attacking`, `is_dashing`… combinations are unenforceable, so illegal states are reachable. Stage 2 slice 1 brought the three core scripts from 37 to 31 and added a state layer that makes the remainder testable |
+| ~34 boolean state flags | `is_hit`, `is_knockfly`, `is_blocking`, `is_attacking`, `is_dashing`… combinations are unenforceable, so illegal states are reachable. Stage 2 slice 1 added a state layer that makes the remainder testable and deleted 6 dead flags; slice 2 ported the attack subsystem onto it and deleted one more. Reproducible count (member-level `var x: bool` in `Movement`/`fighter`/`player`, excluding `@export` config and locals): **33 → 32** |
 | Frame data spread across sources | The same numbers live in scripts, scenes, and tables, so they drift apart |
 | Two overlapping input paths | `InputManager` and `PlayerController` both interpret input, with different buffering rules |
 
@@ -52,7 +52,7 @@ These are non-negotiable and apply to every contribution:
 |---|---|---|
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
 | **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated) |
-| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slice 1 landed (read-only state layer + 14 dead flags/vars removed; 37 → 31 flags) |
+| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–2 landed (read-only state layer, attack subsystem ported onto it; 7 dead flags deleted, 33 → 32 by the count in §Stage 2) |
 | **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | ⏳ Planned |
 | **4** | **Converge input handling** — a single `ActionMapper` | ⏳ Planned |
 | **5** | **Cleanup** — dead code, docs, scene splitting | ⏳ Planned |
@@ -215,9 +215,107 @@ genuinely new divergence can't hide inside the exemption):
    e.g. for the few frames after an air-hit backjump ends before landing. The
    state layer reports `JUMP`.
 
-**Next slices**: port the control flow subsystem by subsystem to read the state
-instead of flag combinations (attacks → movement → hit reactions), with
-`test_25`/`test_26` as the net. Only then do the flags actually disappear.
+**Slice 2 — the attack subsystem reads the state layer (landed)**
+
+Slice 1 built the state layer; slice 2 is the first slice that actually *routes
+control flow through it*. The attack subsystem goes first because its boundary is
+the cleanest (`plan_game.md` §6 migration order: attacks → movement → hit
+reactions).
+
+- ✅ **One attack entry point, not two.** `Fighter._physics_process` still
+  carried the pre-refactor attack check (`st_mp_pressed or st_mk_pressed` →
+  `is_attacking = true`). It ran *earlier* every frame than `AttackExecutor`,
+  used a **different** guard set (extra `not is_crouching`, missing
+  landing/wakeup/layground), ignored button priority, and never consumed the
+  input buffer. Its three observable effects were checked one by one before
+  removal:
+  | Effect | Verdict |
+  |---|---|
+  | `current_damage = 10.0` | Unobservable — the only reader (`HitResponseHandler._get_hit_parameters`) uses it as a default and then always overwrites it from `ATTACK_TABLE[attack_type].damage` / `active_move.damage`. Its `input_data.has("damage")` branch has no producer anywhere in the repo |
+  | `is_attacking = true` on a frame where `AttackExecutor` also fires | Duplicate write, same value |
+  | `is_attacking = true` on a frame where it does **not** | The only real difference — and it is a bug (see below) |
+- ✅ **The "orphan attack" state is now structurally impossible.** That third row
+  left `is_attacking = true` with `attack_type` still `"none"`: the animation
+  layer plays `"Walk"`, `MoveSet` refuses to start a special, the jump/dash
+  guards all block, and `attack_duration_timer` stays `0`, so no timer ever
+  reclaims it. Two windows reach it — the physics frame right after a no-input
+  touchdown (`landing_lock_frames` 5→4 with `_landing_forced_frames` still `1`,
+  so the landing-attack cancel cannot fire yet), and the frame an attack
+  animation ends (`reset_attack_state` just cleared `attack_type` while the
+  same-attack dedup lock blocks re-execution). Both are one frame wide and the
+  30-frame `InputBuffer` usually self-heals them on the next frame — narrow, but
+  not legal. With the entry point gone, `is_attacking = true` has exactly two
+  writers left (`Player._execute_attack`, `ThrowHandler` entering `throw_seq`),
+  and **both** write a valid `attack_type` in the same block; every
+  `attack_type = "none"` writer clears `is_attacking` in the same block. So
+  `FighterState.check_invariants()` gained a new rule — *attacking requires a
+  legal `attack_type`* — that holds **by construction**, not by convention, and
+  `test_25`/`test_29` assert it every frame.
+- ✅ **Attack gates consolidated 3 → 1.** "Can I attack right now" had three
+  non-identical copies: `Player.is_valid_ground_state`, the recomputed copy
+  inside the landing-attack-cancel branch (landing term dropped), and
+  `Fighter`'s legacy `is_valid_state`. The first two are now
+  `FighterState.can_start_ground_attack()`; the third is gone with its entry
+  point. `Player.is_valid_air_state` became `FighterState.can_start_air_attack()`.
+  All three new predicates are **value-identical** to the expressions they
+  replaced, verified by enumerating all 16,384 combinations of the 14 flags they
+  read (0 mismatches) and pinned per-frame in-engine by `test_30`.
+  The landing-cancel copy turned out to be provably redundant: it dropped the
+  landing term, but `is_landing`/`landing_lock_frames` are cleared two lines
+  earlier, so that term was already constant-true.
+- ✅ **Attack ids have one definition.** `st_*`/`cr_*`/`jump_*` lived in three
+  overlapping lists in `player.gd` (`_ATTACK_NAMES`, `GROUND_ATTACK_ANIMS`,
+  `AIR_ATTACK_ANIMS`) plus a fourth inline literal list in `AnimationManager`.
+  The three in `player.gd` are now `FighterState.GROUND_ATTACK_IDS` /
+  `AIR_ATTACK_IDS`; `AnimationManager`'s copy belongs to Stage 3 (it is an
+  animation-layer table and should move with the frame data).
+- ✅ **Throw detection consolidated.** `is_attacking and attack_type in
+  ["throw_enter", "throw_seq"]` was written out in 5 places (`Player` ×3,
+  `AttackExecutor`, `PushManager` ×2 as a bare string pair). Now
+  `FighterState.is_throw_in_progress(f)` / `is_throw_attack_id(id)`.
+- ✅ **One more dead flag removed: `_was_in_hitstop`.** Its only reader was a
+  hitstop edge-detector whose two branches were both no-ops (one assigned two
+  never-used locals, the other was `pass`). Deleted with the block; the only
+  live use of `is_in_hitstop` is the attack-duration freeze right below it.
+- ✅ **One more dead flag removed: `_was_in_hitstop`** (its only reader was a
+  hitstop edge-detector whose two branches were both no-ops).
+- ✅ Boolean state flags in the three core scripts: **33 → 32**.
+  > Counting rule, so the number is reproducible: member-level `var x: bool`
+  > declarations in `scripts/core/Movement.gd` + `fighter.gd` + `player.gd`,
+  > excluding `@export` config toggles (`is_ai_controlled`, `skip_pushbox`,
+  > `startup_logs`) and function-local variables — i.e.
+  > `grep -cE '^var [A-Za-z_]+: bool' <those three files>`.
+  > Slice 1's "37 → 31" used a different, undocumented rule (it is not
+  > reconstructible from the current tree), so the two series are **not**
+  > directly comparable; from here on this is the rule.
+
+**Disclosed findings (found while porting, deliberately *not* fixed here)**
+
+Each of these is a behavior change or belongs to another stage, so ground rules
+2 and 3 say hands off — but they are written down so they are not re-discovered:
+
+1. **`current_damage` is effectively write-only.** Every read path overwrites it
+   in the same expression. It should disappear when frame data becomes the
+   single source of truth (Stage 3).
+2. **`AttackBase` is a dead third attack entry point** — `class_name`, zero
+   references repo-wide (no scene, no script, no `.tres`). It was *not* deleted:
+   it carries exactly the `startup/active/recovery` counters `plan_game.md` §6
+   wants the Attack states to own, so Stage 3 should decide between reviving it
+   as that owner and deleting it.
+3. **The cancel window is human-only.** `check_cancel()` reads
+   `input_data.attack_type`, which `PlayerController.get_input_data()` provides
+   but the AI's `get_ai_input()` merge does not — so hit-confirm cancels can
+   never fire for a CPU fighter. That is Stage 4 (input convergence), where the
+   two input paths merge.
+4. **`get_input()` runs 3–4× per physics frame** (`Movement`, the `TimerHandler`
+   landing checkpoint, `Player`). For humans it is idempotent (the input buffer
+   is stateful, reads are not); for the AI each call re-queries
+   `get_ai_input()`. Also Stage 4.
+
+**Next slices**: movement (Walk/Dash/Jump/Landing), then hit reactions
+(Hitstun/Blockstun/Knockfly/Knockdown/Wakeup), same method — move the guard into
+`FighterState`, prove equivalence by enumeration, pin it per-frame with a
+`test_30`-style comparison. Only then do the flags actually disappear.
 
 ### Stage 3 — Consolidate frame data ⏳
 
@@ -274,7 +372,7 @@ The rules that bite hardest:
 - Measure in physics frames, never seconds. 1 logical frame = 2 physics frames.
 - Leave generous wait windows around hits — hitstop slows physics-frame advance by 50×.
 
-Frame tests currently cover 26 cases (`test_01`–`test_26`). Stage 1 contributed
+Frame tests currently cover 30 cases (`test_01`–`test_30`). Stage 1 contributed
 the landing, PushManager stun-lock and conversion-boundary families (`test_21`
 combo-window frame counting, `test_22` the three conversion boundaries including
 the "families must not be swapped" guard, `test_23` AI decision/commitment tick
@@ -284,11 +382,33 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   failure is reproducible). Every frame it asserts the resolver is a pure
   function, returns a defined state, and that the structural invariants hold
   (dash/backdash mutually exclusive; `is_landing` always accompanied by lock
-  frames; `is_wakeup_locked` always accompanied by a running `wakeup_timer`).
+  frames; `is_wakeup_locked` always accompanied by a running `wakeup_timer`;
+  since slice 2, `is_attacking` always accompanied by a legal `attack_type`).
   It also prints the observed state distribution and requires ≥4 distinct
   states — otherwise "standing still" would pass it trivially.
 - **`test_26`** — frame-by-frame comparison of the state layer against the
   animation layer, so the two priority chains cannot silently drift.
+- **`test_27`** / **`test_28`** — landing behavior regressions: cross-up facing
+  must not flip until the landing animation finishes, and landing while holding
+  an action must skip the landing lock entirely (zero stun).
+- **`test_29`** (slice 2) — the attack state must be *paired*. Part 1 reproduces
+  the removed legacy entry point's exact window: jump, land with no input, then
+  put `st_mp` in the buffer on the very next physics frame (it is seeded
+  directly into `InputBuffer` because a child node's `_physics_process` runs
+  after its parent's, so a same-frame keypress would land one frame late and
+  miss the window). It asserts no orphan attack appears and that the press still
+  produces the attack — removing the second entry point must not eat input.
+  Part 2 runs 600 frames of seeded random input (`seed=20260829`) asserting
+  `check_invariants()` is clean every frame, and prints the attack distribution
+  (≥3 distinct attacks required, so a green run cannot mean "never attacked").
+- **`test_30`** (slice 2) — the consolidated attack gates must stay
+  **value-identical** to the flag expressions they replaced. The legacy
+  expressions are rewritten verbatim in the test as a control group and compared
+  every frame against `FighterState.can_start_ground_attack()` /
+  `can_start_air_attack()` / `is_throw_in_progress()`; it also requires the
+  ground and air gates to be true at least once, so "both always false" cannot
+  pass. The control group must *not* be refactored to call `FighterState` —
+  that would make the test compare itself against itself.
 
 ### Not yet covered (honest disclosure)
 
@@ -323,7 +443,7 @@ disclosed above. **What only the engine can claim**: the physics-frame
 assertions themselves.
 
 Since the workflow was activated that gap is closed automatically — every push
-runs the 26 cases on real Godot 4.7.2, so the sandbox's inability no longer
+runs the 30 cases on real Godot 4.7.2, so the sandbox's inability no longer
 gates correctness.
 
 ---
@@ -347,10 +467,13 @@ plan_game.md         The full six-stage refactor plan
 ## Known limitations
 
 - **Hitstop uses `Engine.time_scale`.** It works, and after Stage 1 every gameplay timer counts physics ticks instead of scaled `delta`, so the remaining exposure is UI-only (labels/`FrameCounter`). Documented as an accepted limitation rather than fixed.
-- **The state layer is read-only so far.** `FighterState.resolve()` derives the
-  active state, but the control flow still branches on flag combinations. Until
-  the later Stage 2 slices port it, illegal states remain *detectable* (and are
-  detected by `test_25`) rather than *unrepresentable*.
+- **The state layer drives the attack subsystem only, so far.** Since slice 2 the
+  attack gates ("can I start a ground/air attack", "is a throw in progress",
+  "is this `attack_type` legal") live in `FighterState`, and the orphan-attack
+  state is structurally impossible. Everything else still branches on flag
+  combinations: movement and hit reactions wait for slices 3–4, so their illegal
+  states remain *detectable* (and are detected by `test_25`) rather than
+  *unrepresentable*.
 - **Two state/animation divergences are known and unfixed** — `is_being_thrown`
   has no animation branch, and being airborne without `is_jumping` falls through
   to the walk animation. Documented in `FighterState.gd`, skipped-with-counting
@@ -359,5 +482,14 @@ plan_game.md         The full six-stage refactor plan
   `blockstun_frames` can both be non-zero (getting hit during blockstun).
   `FighterState.known_illegal_overlaps()` enumerates these as a Stage 2 to-do
   list rather than pretending they are already impossible.
+- **`current_damage` is effectively write-only** — every read overwrites it in
+  the same expression, so the field only looks like a source of truth. It goes
+  away with Stage 3's frame-data consolidation.
+- **Hit-confirm cancels cannot fire for CPU fighters** — `check_cancel()` reads
+  `input_data.attack_type`, which `PlayerController` supplies but the AI input
+  merge does not. Stage 4 (input convergence).
+- **`get_input()` runs 3–4× per physics frame**, and for AI-controlled fighters
+  each call re-queries `get_ai_input()`. Harmless for the buffered human path,
+  unverified for the AI path. Stage 4.
 - **WOO is incomplete** and its future is a Stage 3 decision.
 - **Some frame data is wrong** — see the "known data issues" section of `FRAME_DATA_TABLE.md`.

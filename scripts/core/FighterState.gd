@@ -78,6 +78,49 @@ enum State {
 ## 摔投相關的 attack_type（攻擊方）。ThrowHandler 用這兩個字串驅動整段摔投。
 const THROW_ATTACK_TYPES: Array = ["throw_enter", "throw_seq"]
 
+# ── 攻擊 id 的唯一定義（Stage 2 切片 2）─────────────────────────────────
+##
+## 為什麼搬到狀態層：攻擊 id 同時是三種東西 —— 動畫名、`ATTACK_TABLE` 的鍵、
+## `attack_type` 的合法值。切片 2 之前它有四份抄本：
+##   1. `Player._ATTACK_NAMES`（建 ATTACK_TABLE 用）
+##   2. `Player.GROUND_ATTACK_ANIMS`（動畫結束時判斷要不要 reset）
+##   3. `Player.AIR_ATTACK_ANIMS`（空中攻擊動畫名 + 空中受擊分支）
+##   4. `AnimationManager.compute_target_state` 內嵌的字面值清單
+## 四份清單兩兩重疊，任何一份漏改都會讓某個招式在「某一層」失效
+## （例：動畫播得出來但 reset 不觸發 → is_attacking 卡住）。
+## 現在 1/2/3 全部指向這裡，AnimationManager 的清單留待 Stage 3
+## 與 frame data 一起收攏（它是動畫層的表，不是狀態層的）。
+const GROUND_ATTACK_IDS: Array = [
+	"st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk",
+	"cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk",
+]
+
+const AIR_ATTACK_IDS: Array = [
+	"jump_lp", "jump_mp", "jump_hp", "jump_lk", "jump_mk", "jump_hk",
+]
+
+## attack_type 是不是普通攻擊（地面或空中）。
+static func is_normal_attack_id(id: String) -> bool:
+	return id in GROUND_ATTACK_IDS or id in AIR_ATTACK_IDS
+
+## attack_type 是不是摔投階段（攻擊方）。
+## 收攏前這個字面值對在四個檔案裡各寫了一遍
+## （Player ×3、AttackExecutor、PushManager ×2）。
+static func is_throw_attack_id(id: String) -> bool:
+	return id in THROW_ATTACK_TYPES
+
+## attack_type 是不是「真的在出招」的合法值。
+static func is_attack_id(id: String) -> bool:
+	return is_normal_attack_id(id) or is_throw_attack_id(id)
+
+## 攻擊方是否正在執行摔投。
+##
+## 語意 = 舊的 `is_attacking and attack_type in ["throw_enter", "throw_seq"]`。
+## 這個組合代表「輸入被吃掉、位置由 ThrowHandler 接管」，
+## 與 resolve() 的 THROWING 是同一件事的兩種寫法。
+static func is_throw_in_progress(f: Node) -> bool:
+	return _flag(f, "is_attacking") and is_throw_attack_id(_string(f, "attack_type"))
+
 ## State → 可讀名稱（測試輸出與除錯用；不參與遊戲邏輯）。
 static func state_name(state: int) -> String:
 	match state:
@@ -154,7 +197,7 @@ static func resolve(f: Node) -> int:
 	if _flag(f, "is_proximity_blocking"):
 		return State.PROXIMITY_BLOCK
 	if _flag(f, "is_attacking"):
-		if _string(f, "attack_type") in THROW_ATTACK_TYPES:
+		if is_throw_attack_id(_string(f, "attack_type")):
 			return State.THROWING
 		return State.ATTACK
 	if _flag(f, "is_dashing"):
@@ -173,6 +216,52 @@ static func resolve(f: Node) -> int:
 	if "fixed_velocity" in f and f.fixed_velocity.x != 0:
 		return State.WALK
 	return State.IDLE
+
+## 這一幀能不能開始一個**地面**普通攻擊或摔投。
+##
+## 切片 2 之前這個判斷有三份互不相同的抄本：
+##   - `Player._physics_process` 的 `is_valid_ground_state`
+##   - 同函式裡「著地攻擊取消」之後的**重算版**（少掉 landing 那一項）
+##   - `Fighter._physics_process` 舊攻擊入口的 `is_valid_state`
+##     （多一項 `not is_crouching`、少 landing / wakeup / layground 三項）
+## 前兩份已收攏到這裡；第三份連同它所在的舊入口一起移除
+## （見 fighter.gd 的 Stage 2 註解）。
+##
+## 注意 landing 那一項刻意放行最後 `LANDING_INTERRUPT_FRAMES` 幀：
+## 著地鎖的尾巴本來就要能被攻擊取消，這是既有行為，不是新規則。
+static func can_start_ground_attack(f: Node) -> bool:
+	if f == null:
+		return false
+	var on_floor: bool = f.is_on_floor() if f.has_method("is_on_floor") else true
+	if not on_floor:
+		return false
+	if _flag(f, "is_dashing") or _flag(f, "is_backdashing") or _flag(f, "is_jumping"):
+		return false
+	if _flag(f, "is_blocking") or _flag(f, "is_knockfly") \
+			or _flag(f, "is_wakeup") or _flag(f, "is_layground"):
+		return false
+	if _flag(f, "is_landing") and _int(f, "landing_lock_frames") > Movement.LANDING_INTERRUPT_FRAMES:
+		return false
+	return true
+
+## 這一幀能不能開始一個**空中**普通攻擊。
+##
+## 語意 = 舊的 `Player.is_valid_air_state`（一字不差搬過來）。
+## 這裡刻意保留 `is_hit` 一項 —— 地面版沒有它，因為地面受擊時
+## `get_input()` 已經回傳空輸入；空中受擊（air_hit_backjump）則不然，
+## 這一項是空中版唯一的輸入防線，不能跟著地面版一起拿掉。
+static func can_start_air_attack(f: Node) -> bool:
+	if f == null:
+		return false
+	var on_floor: bool = f.is_on_floor() if f.has_method("is_on_floor") else true
+	if on_floor:
+		return false
+	if not _flag(f, "is_jumping") or _flag(f, "is_air_attacking") or _flag(f, "has_air_attacked"):
+		return false
+	if _flag(f, "is_blocking") or _flag(f, "is_knockfly") or _flag(f, "is_hit") \
+			or _flag(f, "is_wakeup") or _flag(f, "is_layground"):
+		return false
+	return true
 
 ## 這一刻旗標之間是否存在**結構性不可能**的組合。
 ##
@@ -201,6 +290,24 @@ static func check_invariants(f: Node) -> Array:
 	if _flag(f, "is_wakeup_locked") and _int(f, "wakeup_timer") <= 0:
 		broken.append("is_wakeup_locked 為真但 wakeup_timer=%d"
 			% _int(f, "wakeup_timer"))
+
+	# ── Stage 2 切片 2 新增：攻擊狀態必須「成對」出現 ──
+	# is_attacking 與 attack_type 是同一件事的兩半：前者說「在出招」，
+	# 後者說「出哪一招」。全倉庫每一個 `is_attacking = true` 的寫入點
+	# 都在同一個區塊裡寫入合法 attack_type（Player._execute_attack、
+	# ThrowHandler 進入 throw_seq），每一個 `attack_type = "none"` 的
+	# 寫入點也都在同一個區塊裡清掉 is_attacking（reset_attack_state /
+	# reset_air_state / stop_attack / spmove 分支 / world.reset_players /
+	# ThrowHandler 收尾）—— 所以這個組合**結構上不可達**。
+	#
+	# 唯一曾經能產生它的來源是 fighter.gd 裡的舊第二攻擊入口：
+	# 它只寫 is_attacking = true、完全不碰 attack_type，於是留下了
+	# 「在出招但不知道出哪一招」的孤兒狀態 —— 動畫層把它當 "Walk" 播、
+	# MoveSet 拒絕開新招、跳躍/衝刺守衛全部擋下，而 attack_duration_timer
+	# 仍是 0，沒有任何計時器會把它收回來。該入口已於本切片移除。
+	if _flag(f, "is_attacking") and not is_attack_id(_string(f, "attack_type")):
+		broken.append("is_attacking 為真但 attack_type='%s'（孤兒攻擊狀態）"
+			% _string(f, "attack_type"))
 
 	return broken
 

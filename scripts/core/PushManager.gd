@@ -330,7 +330,8 @@ func _physics_process(delta: float) -> void:
 		var parent_in_throw = false
 		if "is_being_thrown" in parent and parent.is_being_thrown and not parent.is_knockfly:
 			parent_in_throw = true  # Victim: being thrown (skip only when not knocked fly)
-		if "attack_type" in parent and (parent.attack_type == "throw_enter" or parent.attack_type == "throw_seq") and not parent.is_knockfly:
+		# Stage 2 切片 2：摔投 id 的字面值對收攏到 FighterState.is_throw_attack_id。
+		if "attack_type" in parent and FighterState.is_throw_attack_id(parent.attack_type) and not parent.is_knockfly:
 			parent_in_throw = true  # Attacker: executing throw (skip only when not knocked fly)
 		
 		if is_penetrable or parent.skip_pushbox or parent_in_throw:
@@ -348,7 +349,7 @@ func _physics_process(delta: float) -> void:
 			var other_in_throw = false
 			if "is_being_thrown" in other and other.is_being_thrown and not other.is_knockfly:
 				other_in_throw = true  # Victim: being thrown (skip only when not knocked fly)
-			if "attack_type" in other and (other.attack_type == "throw_enter" or other.attack_type == "throw_seq") and not other.is_knockfly:
+			if "attack_type" in other and FighterState.is_throw_attack_id(other.attack_type) and not other.is_knockfly:
 				other_in_throw = true  # Attacker: executing throw (skip only when not knocked fly)
 			
 			if other_is_penetrable or other.skip_pushbox or other_in_throw:
