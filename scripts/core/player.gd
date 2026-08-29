@@ -15,11 +15,8 @@ signal hit_detected(target: String, stun_duration: float, is_blocked: bool, was_
 @export_range(0.0, 1.0, 0.05) var attack_grunt_chance: float = 0.5
 
 var ATTACK_TABLE: Dictionary = {}
-const _ATTACK_NAMES: Array = [
-	"st_lp","st_mp","st_hp","st_lk","st_mk","st_hk",
-	"cr_lp","cr_mp","cr_hp","cr_lk","cr_mk","cr_hk",
-	"jump_lp","jump_mp","jump_hp","jump_lk","jump_mk","jump_hk",
-]
+# Stage 2 切片 2：攻擊 id 清單已收攏到 FighterState（原本這裡的 _ATTACK_NAMES
+# 與下面的 GROUND/AIR_ATTACK_ANIMS 是三份互相重疊的抄本）。
 
 # Stage 2：`powerkk_blockstun` 已刪除（零讀取；powerkk 的 blockstun 走招式數據）。
 
@@ -66,7 +63,8 @@ var attack_duration_timer: int = 0  # Frame-based timer for attack duration
 var attack_start_frame: int = -1  # 🟢 Frame when attack started (120 FPS physics frame)
 var wakeup_timer: int = 0  # Frame-based timer for wakeup duration
 var is_facing_locked: bool = false
-var _was_in_hitstop: bool = false
+# Stage 2：`_was_in_hitstop` 已刪除（死旗標；唯一的讀取點是一段兩個分支
+# 皆為空操作的 hitstop 邊緣偵測，見 _physics_process 裡的說明）。
 
 var special_input_data: Dictionary = {
 	"spm1_pressed": false,
@@ -177,9 +175,8 @@ func _spawn_fireball() -> void:
 		Debug.log("[_spawn_fireball] ⚠️ MoveSet not found or doesn't have execute_fireball_spawn! (Seat=%s)" % debug_seat)
 
 # ── 動畫重置分類（Phase 4 優化）──
-const GROUND_ATTACK_ANIMS = ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk",
-							  "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk"]
-const AIR_ATTACK_ANIMS = ["jump_lp", "jump_mp", "jump_hp", "jump_lk", "jump_mk", "jump_hk"]
+# Stage 2 切片 2：GROUND_ATTACK_ANIMS / AIR_ATTACK_ANIMS 已收攏到
+# FighterState.GROUND_ATTACK_IDS / AIR_ATTACK_IDS（同一份清單，不再各抄一份）。
 const JUMP_ANIMS = ["jump_v", "Jump_V", "Jump_F", "Jump_B"]
 const SPECIAL_ANIMS = ["fireball", "powerkk", "spnk", "dp", "hdk",
 					   "fireballL", "fireballM", "fireballH",
@@ -198,7 +195,7 @@ static func _has_attack_input(d: Dictionary) -> bool:
 		or d.get("throw_pressed", false)
 
 func _ready() -> void:
-	for a in _ATTACK_NAMES:
+	for a in FighterState.GROUND_ATTACK_IDS + FighterState.AIR_ATTACK_IDS:
 		ATTACK_TABLE[a] = attack_data.get_attack(a)
 	super._ready()
 	world = get_tree().get_first_node_in_group("world")
@@ -264,7 +261,7 @@ var default_input: Dictionary = {
 func get_input() -> Dictionary:
 	if is_knockfly or is_wakeup or is_hit or is_layground:
 		return default_input.duplicate()
-	if is_attacking and attack_type in ["throw_enter", "throw_seq"]:
+	if FighterState.is_throw_in_progress(self):
 		return default_input.duplicate()
 	# 被摔投期間禁止任何輸入（防止受害者在摔投期間生成攻擊）
 	if "is_being_thrown" in self and self.is_being_thrown:
@@ -284,7 +281,7 @@ func get_input() -> Dictionary:
 		
 		# 【NEW】Check for throw interrupt: if throw buffered while attacking regular move, cancel it
 		# This handles the case where throw is detected AFTER st_lk started in the same frame
-		if data.get("throw_pressed", false) and is_attacking and attack_type not in ["throw_enter", "throw_seq"]:
+		if data.get("throw_pressed", false) and not FighterState.is_throw_in_progress(self):
 			Debug.log("[THROW INTERRUPT] Frame=%d Seat=%s | Throw detected while attacking '%s', will interrupt" % [
 				Engine.get_physics_frames(), seat, attack_type
 			])
@@ -347,7 +344,9 @@ func _physics_process(delta: float) -> void:
 	#     input_data.st_mp_pressed = false
 	#     input_data.st_mk_pressed = false
 
-	var is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup and not is_layground and not (is_landing and landing_lock_frames > Movement.LANDING_INTERRUPT_FRAMES)
+	# Stage 2 切片 2：出招守衛的唯一定義在 FighterState（原本這裡與下面
+	# 「著地攻擊取消」後的重算版是兩份抄本，fighter.gd 的舊入口還有第三份變體）。
+	var is_valid_ground_state: bool = FighterState.can_start_ground_attack(self)
 
 	if move_set and move_set.is_spmove:
 		is_attacking = false
@@ -368,7 +367,7 @@ func _physics_process(delta: float) -> void:
 	# 在取消判定之後才清空按鈕輸入，避免影響特殊招檢測
 	# 【DEBUG ATTACK LOCK】追蹤攻擊輸入清除的原因
 	var _has_any_atk_input_pre_block = _has_attack_input(input_data)
-	if is_attacking and animation_state.get_current_node() in ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk", "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk"]:
+	if is_attacking and animation_state.get_current_node() in FighterState.GROUND_ATTACK_IDS:
 		if _has_any_atk_input_pre_block and not is_ai_controlled:
 			var frames_held = Engine.get_physics_frames() - last_executed_attack_frame
 			Debug.log("[LOCK_TRACE:IS_ATTACKING] F=%d Seat=%s | is_attacking=true anim_node='%s' attack_type='%s' | Input cleared (lock_frame=%d, held=%d physF=%.1f logicF)" % [
@@ -455,8 +454,11 @@ func _physics_process(delta: float) -> void:
 		landing_lock_frames = 0
 		landing_facing_lock = false
 		has_air_attacked = false
-		# 重新計算 is_valid_ground_state（is_landing 已清除）
-		is_valid_ground_state = is_on_floor() and not is_dashing and not is_backdashing and not is_jumping and not is_blocking and not is_knockfly and not is_wakeup and not is_layground
+		# 重新計算 is_valid_ground_state（is_landing 已清除）。
+		# 舊版把 landing 那一項整條抄掉重寫；其實 is_landing 剛被清成 false、
+		# landing_lock_frames 剛歸零，那一項本來就恆為 true —— 直接重呼同一個
+		# 函式即可，不需要第二份定義（兩式在所有旗標組合下等價）。
+		is_valid_ground_state = FighterState.can_start_ground_attack(self)
 
 	if has_ground_attack_input and is_valid_ground_state:
 		force_update_facing_direction()
@@ -467,7 +469,7 @@ func _physics_process(delta: float) -> void:
 				fixed_velocity.x = 0
 	
 	# 【NEW】Throw can interrupt normal attacks (check separately)
-	elif input_data.get("throw_pressed", false) and not is_crouching and is_attacking and attack_type not in ["throw_enter", "throw_seq"]:
+	elif input_data.get("throw_pressed", false) and not is_crouching and not FighterState.is_throw_in_progress(self):
 		Debug.log("[THROW INTERRUPT EXECUTION] Frame=%d Seat=%s | Interrupting '%s' with throw" % [
 			Engine.get_physics_frames(), seat, attack_type
 		])
@@ -475,7 +477,7 @@ func _physics_process(delta: float) -> void:
 			attack_executor.try_execute_ground_attack(input_data, is_crouching)
 
 	# ── 空中攻擊執行（使用 AttackExecutor Handler）──
-	var is_valid_air_state = not is_on_floor() and is_jumping and not is_air_attacking and not is_blocking and not is_knockfly and not is_hit and not is_wakeup and not has_air_attacked and not is_layground
+	var is_valid_air_state: bool = FighterState.can_start_air_attack(self)
 	
 	if is_valid_air_state and attack_executor:
 		attack_executor.try_execute_air_attack(input_data)
@@ -501,13 +503,13 @@ func _physics_process(delta: float) -> void:
 	
 	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
 	var is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo
-	if is_in_hitstop and not _was_in_hitstop:
-		var anim_name = animation_player.current_animation if animation_player else ""
-		var anim_pos = animation_player.current_animation_position if animation_player else 0.0
-	elif not is_in_hitstop and _was_in_hitstop:
-		pass
-	_was_in_hitstop = is_in_hitstop
-	
+	# Stage 2 切片 2：`_was_in_hitstop` 已刪除（死旗標）。
+	# 它唯一的讀取點是一段 hitstop 邊緣偵測：進入 hitstop 的那一幀讀取
+	# animation_player.current_animation / current_animation_position 存進兩個
+	# **從未被使用**的區域變數，離開 hitstop 的那一幀則是 `pass`。
+	# 兩個分支都是空操作，所以整段連同旗標一起移除，行為一幀不變。
+	# （真正需要 is_in_hitstop 的地方只有下面攻擊計時器的凍結判斷。）
+
 	# Countdown attack duration timer (FRAME-BASED, only when actually attacking)
 	if is_attacking and attack_duration_timer > 0 and not is_in_hitstop:
 		attack_duration_timer -= 1
@@ -574,7 +576,7 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 
 	# Air attack animation logic - only when actually in the air
 	if not on_floor and (is_jumping or is_air_attacking):
-		if is_air_attacking and attack_type in AIR_ATTACK_ANIMS:
+		if is_air_attacking and attack_type in FighterState.AIR_ATTACK_IDS:
 			return attack_type
 		if anim_jump_dir > 0: return "Jump_F"
 		elif anim_jump_dir < 0: return "Jump_B"
@@ -612,11 +614,11 @@ func _on_animation_player_finished(anim_name: String) -> void:
 	Debug.log("[✓ ANIM_FINISHED] '%s' | Seat: %s | F=%d | is_spmove=%s | is_attacking=%s | since_last=%d physF(%.1f logicF)" % [anim_name, seat_str, Engine.get_physics_frames(), is_special_move, is_attacking, frames_since_last, frames_since_last / 2.0])
 	
 	# 地面攻擊重置
-	if anim_name in GROUND_ATTACK_ANIMS:
+	if anim_name in FighterState.GROUND_ATTACK_IDS:
 		Debug.log("  → Ground attack reset")
 		reset_attack_state()
 	# 空中攻擊重置
-	elif anim_name in AIR_ATTACK_ANIMS:
+	elif anim_name in FighterState.AIR_ATTACK_IDS:
 		Debug.log("  → Air attack reset")
 		reset_air_state()
 	# 跳躍重置

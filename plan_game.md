@@ -49,7 +49,7 @@
 |---|---|---|---|
 | Stage 0 | 止血 + 安全網(DebugLogger / frame 測試 / frame data 表 / 守則) | ✅ 已併入 main | — |
 | Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | ✅ 完成(六族計時器全數遷移; CI 已啟用並自動跑全部用例) | 已完成 |
-| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1 完成(唯讀狀態層 + 14 死旗標清除, 37→31) | 2~4 週末 |
+| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1~2 完成(唯讀狀態層 → 攻擊子系統改讀狀態; 37→30) | 2~4 週末 |
 | Stage 3 | FrameData 收攏 + 數據問題清理 | ⏳ | 1~2 週末 |
 | Stage 4 | 輸入系統收斂(單一 ActionMapper) | ⏳ | 1~2 週末 |
 | Stage 5 | 清理(死代碼/文檔/tscn 拆分/CI) | ⏳ | 1 週末 |
@@ -200,16 +200,74 @@
 兩者在 `test_26` 以**明確狀態條件**跳過並計數(不是「失敗就原諒」),
 記錄於 `FighterState.gd` 檔頭, 待後續切片改控制流時一併處理。
 
-### 6.2 後續切片（待辦）
+### 6.2 切片 2（已完成, 本輪 2026-08-29）: 攻擊子系統改讀狀態
+**原則**: 第一個真正「改控制流」的切片 —— 攻擊系統邊界最清楚, 先做。
+做法固定為三步, 後續切片沿用: **守衛搬進 FighterState → 窮舉證明等價 →
+frame 測試逐幀釘住**。
+
+**交付**:
+1. **攻擊入口收攏為一個**。`fighter.gd` 裡重構前的舊攻擊檢查
+   (`st_mp_pressed or st_mk_pressed` → `is_attacking = true`) 移除。
+   它每幀比 AttackExecutor 早跑、守衛條件不同(多 `not is_crouching`,
+   少 landing/wakeup/layground)、不走按鈕優先序、不消耗 buffer。
+   三個可觀測效果逐一確認: `current_damage = 10.0` 不可觀測
+   (唯一讀取點 `HitResponseHandler._get_hit_parameters` 一律用
+   ATTACK_TABLE / active_move 覆寫; `input_data.has("damage")` 全倉庫無來源);
+   與 AttackExecutor 同幀出招時是重複寫入; **唯一真差異**是
+   「它出招、AttackExecutor 沒出招」的幀 —— 那是 bug(見下)。
+2. **「孤兒攻擊」狀態變成結構上不可能**。上述差異幀會留下
+   `is_attacking = true` + `attack_type = "none"`: 動畫層當 "Walk" 播、
+   MoveSet 拒開新招、跳躍/衝刺守衛全擋、`attack_duration_timer = 0`
+   所以沒有計時器會收回來。可達窗口兩個、各 1 物理幀:
+   (a) 無輸入著地後第 1 幀(lock 5→4、`_landing_forced_frames=1 < 2`,
+   著地攻擊取消還不能觸發); (b) 攻擊動畫結束當幀(reset 剛清 attack_type,
+   同幀去重鎖擋掉重出招)。移除後 `is_attacking = true` 只剩兩個寫入點
+   (`Player._execute_attack`、`ThrowHandler` 進 throw_seq), 兩者都在同一區塊
+   寫入合法 attack_type; 每個 `attack_type = "none"` 寫入點也都在同一區塊
+   清掉 is_attacking → `check_invariants()` 新增的「攻擊必須成對」不變式
+   **由結構保證**, 不再靠約定。
+3. **出招守衛 3 份 → 1 份**: `Player.is_valid_ground_state`、著地攻擊取消後的
+   重算版、`Fighter.is_valid_state` → `FighterState.can_start_ground_attack()`;
+   `is_valid_air_state` → `can_start_air_attack()`。
+   等價性以**窮舉 14 個相關旗標全 16,384 種組合**驗證(0 分岔),
+   並由 `test_30` 在引擎內逐幀比對舊表達式。
+   重算版被證明是冗餘的: 它抄掉 landing 項, 但呼叫前兩行剛把
+   `is_landing`/`landing_lock_frames` 清零, 該項本來就恆真。
+4. **攻擊 id 一份定義**: `player.gd` 的 `_ATTACK_NAMES` /
+   `GROUND_ATTACK_ANIMS` / `AIR_ATTACK_ANIMS` 三份重疊清單 →
+   `FighterState.GROUND_ATTACK_IDS` / `AIR_ATTACK_IDS`。
+   (`AnimationManager` 內嵌的第四份屬動畫層, 留給 Stage 3 與 frame data 一起搬。)
+5. **摔投判定收攏**: `is_attacking and attack_type in ["throw_enter","throw_seq"]`
+   在 5 處各寫一遍(Player ×3、AttackExecutor、PushManager ×2 純字面值對) →
+   `FighterState.is_throw_in_progress()` / `is_throw_attack_id()`。
+6. 再清一個死旗標 `_was_in_hitstop`: 唯一讀取點是 hitstop 邊緣偵測,
+   兩個分支皆空操作(一支賦值給兩個未使用區域變數, 另一支 `pass`)。
+7. 核心三檔 bool 狀態旗標 **31 → 30**。
+   新增 `test_29`(攻擊狀態成對; 含針對性重現舊入口窗口) /
+   `test_30`(守衛 vs 舊表達式逐幀等價), 共 **30** 用例。
+
+**本切片找出但刻意不修的(披露)**:
+1. `current_damage` 實質上只寫不讀(每個讀取點都在同一式裡覆寫) → Stage 3。
+2. `AttackBase` 是死的第三個攻擊入口(全倉庫零引用), **未刪除**:
+   它正好帶著 §6 要 Attack 狀態擁有的 startup/active/recovery 計數,
+   由 Stage 3 決定「復活成 Attack 狀態的計數擁有者」或刪除。
+3. 取消窗口對 CPU 失效: `check_cancel()` 讀 `input_data.attack_type`,
+   `PlayerController` 有給、AI 的 `get_ai_input()` merge 沒有 → Stage 4。
+4. `get_input()` 每物理幀被呼叫 3~4 次(Movement / TimerHandler 著地
+   checkpoint / Player); 對 AI 每次都會重問 `get_ai_input()` → Stage 4。
+
+### 6.3 後續切片（待辦）
 依原訂順序把控制流從「讀旗標組合」改為「讀狀態」, 每段跑一次測試:
-1. **攻擊系統**(邊界最清楚): Attack* 狀態擁有 startup/active/recovery 計數
+1. ~~**攻擊系統**~~ ✅ 切片 2 完成(守衛已收攏; Attack* 狀態擁有
+   startup/active/recovery 計數的部分併入 Stage 3, 見 §6.2 披露 2)
 2. **移動系統**: Walk/Dash/Jump/Landing
 3. **受擊系統**: Hitstun/Blockstun/Knockfly/Knockdown/Wakeup
 
 **驗收(DoD)**:
 - [x] 狀態層存在且被 frame 測試釘住(`test_25`/`test_26`)
-- [x] 死旗標/死變數清除; 核心三檔旗標數 37 → 31
-- [ ] 控制流改讀狀態(切片 2~4); Movement/Fighter/Player 的旗標數 < 10
+- [x] 死旗標/死變數清除; 核心三檔旗標數 37 → 31 → **30**
+- [x] 攻擊子系統改讀狀態(切片 2): 出招守衛/摔投判定/攻擊 id 各一份定義
+- [ ] 移動與受擊子系統改讀狀態(切片 3~4); Movement/Fighter/Player 的旗標數 < 10
 - [ ] `world.reset_players()` 簡化為單一 reset 調用
 - [ ] 新增一個攻擊只需: frame data 資源 + 動畫(不再改 8 處)
 ---
@@ -315,7 +373,7 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | 階段 | 新增用例 |
 |---|---|
 | Stage 1 | 10 hitstun 遞減 / 11 landing lock / 12 dash / 16 landing 轉換公式 / 18 knockfly 幀制 / 19 hit_lock hitstop 凍結 / 20 block_lock |
-| Stage 2 | 25 狀態機不變式(隨機輸入 600 幀) / 26 狀態層 vs 動畫層對齊 |
+| Stage 2 | 25 狀態機不變式(隨機輸入 600 幀) / 26 狀態層 vs 動畫層對齊 / 29 攻擊狀態成對(孤兒攻擊不可達) / 30 出招守衛 vs 舊表達式逐幀等價 |
 | Stage 3 | 14 每角色每招式 frame 斷言 / 100p 四段 |
 | Stage 4 | 15 QCF 宏 / 16 DP 宏 / 17 摔投窗口 / 18 AI 對稱性 |
 | Stage 5 | CI 化(無新用例, 全部進 CI) — ✅ 已啟用, 見 §12.2 |
@@ -385,6 +443,15 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
    新增 `test_25`/`test_26`(共 26 用例)。詳見 §6.1。
    **行為零變更** —— 純刪除無讀取點的變數 + 新增唯讀推導層。
 ---
+8. **[已完成 2026-08-29]** Stage 2 切片 2: 攻擊子系統改讀狀態。
+   移除 `fighter.gd` 的舊第二攻擊入口(孤兒攻擊狀態因此結構上不可達)、
+   出招守衛 3 份收攏為 `FighterState.can_start_ground_attack/can_start_air_attack`
+   (窮舉 16,384 種旗標組合證明等價)、攻擊 id 與摔投判定各收攏為一份定義、
+   再清死旗標 `_was_in_hitstop`; 核心三檔旗標 31→30;
+   新增 `test_29`/`test_30`(共 30 用例)。詳見 §6.2。
+   **行為變更**: 僅限「舊入口出招、AttackExecutor 沒出招」的那一幀 ——
+   該幀原本產生非法的孤兒攻擊狀態, 現在不再產生。其餘幀逐值等價。
+---
 ## 附錄 A: 關鍵代碼位置(供各階段參考)
 | 系統 | 檔案 |
 |---|---|
@@ -399,8 +466,8 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | hitstop | `scripts/core/slow_mo_controller.gd` |
 | 幀數據資源 | `data/AttackData.gd` + `data/p1_attack_data.tres`(DAV/WOO) + `data/p2_attack_data.tres`(DEN) + `data/specials/*.tres` + 場景內嵌 `smd_*` |
 | AI | `ai/` (AIBehavior 為主; cpu_controller/specs 為殘骸) |
-| 顯式狀態層 | `scripts/core/FighterState.gd` (Stage 2 切片 1; 唯讀解析器) |
-| 測試 | `tests/frame_tests/` (26 用例) |
+| 顯式狀態層 | `scripts/core/FighterState.gd` (Stage 2 切片 1 唯讀解析器; 切片 2 起也是出招守衛/攻擊 id/摔投判定的唯一定義) |
+| 測試 | `tests/frame_tests/` (30 用例) |
 | 行為基準 | `docs/systems/FRAME_DATA_TABLE.md` |
 ## 附錄 B: 已完成 commit 記錄(歷史參考)
 Stage 0 原始 5 commits + 修正 commit 已合併入 main, 並隨 Godot 4.7.2 升級

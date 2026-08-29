@@ -70,7 +70,7 @@ func try_execute_ground_attack(input_data: Dictionary, is_crouching: bool) -> bo
 	if throw_pressed and not is_crouching:
 		# 【FIXED】Throw CAN interrupt normal attacks (cancel capability)
 		# Only reject throw if throw_enter/throw_seq is already executing
-		if parent_player and parent_player.is_attacking and parent_player.attack_type in ["throw_enter", "throw_seq"]:
+		if parent_player and FighterState.is_throw_in_progress(parent_player):
 			Debug.log("[THROW BLOCKED] Frame=%d Seat=%s | Already executing throw (attack_type=%s), cannot throw again" % [
 				Engine.get_physics_frames(),
 				parent_player.seat if parent_player and "seat" in parent_player else "?",

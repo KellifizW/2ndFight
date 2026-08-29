@@ -45,6 +45,8 @@ const CASES: Array = [
 	"res://tests/frame_tests/cases/test_26_state_matches_animation_chain.gd",
 	"res://tests/frame_tests/cases/test_27_crossup_facing_after_landing.gd",
 	"res://tests/frame_tests/cases/test_28_landing_input_instant_skip.gd",
+	"res://tests/frame_tests/cases/test_29_attack_state_is_paired.gd",
+	"res://tests/frame_tests/cases/test_30_attack_gates_match_legacy.gd",
 ]
 
 var _passed: int = 0

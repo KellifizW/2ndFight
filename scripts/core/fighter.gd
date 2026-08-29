@@ -155,22 +155,54 @@ func _physics_process(delta: float) -> void:
 	# ── super 先執行（block_lock_frames 仍由 PushManager 遞減，狀態以 blockstun_frames 為準）──
 	super._physics_process(delta)
 
-	# ── 【攻擊輸入檢查】保持舊版──
+	# ── Stage 2 切片 2：舊的第二攻擊入口已移除 ──────────────────────
+	#
+	# 這裡原本有一段「保持舊版」的攻擊輸入檢查：
+	#   is_valid_state = on_floor and not (dashing/backdashing/crouching/jumping)
+	#   if (st_mp_pressed or st_mk_pressed) and is_valid_state
+	#      and not (is_hit or is_knockfly or is_blocking):
+	#       current_damage = input_data.damage if input_data.has("damage") else 10.0
+	#       is_attacking = true
+	#
+	# 它是 AttackExecutor 出現之前的攻擊入口，重構後沒有被刪掉，於是攻擊子系統
+	# 長期存在**兩個**入口，而且這一個的守衛跟另一個不一樣（多一項 not is_crouching、
+	# 少 landing / wakeup / layground 三項），也不走按鈕優先序、不消耗輸入 buffer。
+	# 它每一幀都比 Player 的攻擊邏輯早跑（Player._physics_process 先呼叫
+	# super._physics_process），因此有三種可觀測效果，逐一確認後移除：
+	#
+	#   1. `current_damage = 10.0`：不可觀測。current_damage 唯一的讀取點是
+	#      HitResponseHandler._get_hit_parameters() 的預設值，而該函式接著
+	#      一律用 ATTACK_TABLE[attack_type].damage（普通攻擊）或
+	#      active_move.damage（特殊招）覆寫它；`input_data.has("damage")`
+	#      那一支更是全倉庫沒有任何輸入來源會放 "damage" 鍵。
+	#   2. `is_attacking = true`：在 AttackExecutor 同一幀也會出招的情況下
+	#      完全重複（值相同）。
+	#   3. `is_attacking = true` 而 AttackExecutor **沒有**出招：這是唯一的
+	#      行為差異，而且它是 bug —— attack_type 停在 "none"，產生
+	#      「在出招但不知道出哪一招」的孤兒狀態（動畫層當 Walk 播、
+	#      MoveSet 拒開新招、跳躍/衝刺守衛全擋、attack_duration_timer=0
+	#      所以沒有計時器會收回來）。可達窗口只有兩個，都很窄：
+	#        a. 無輸入著地後的第 1 個物理幀（landing_lock_frames=5→4，
+	#           _landing_forced_frames=1 < 2，著地攻擊取消還不能觸發）；
+	#        b. 攻擊動畫結束當幀（reset_attack_state 剛把 attack_type 清成
+	#           "none"，同幀的攻擊去重鎖又擋掉重新出招）。
+	#      兩者都要「按鍵恰好在下一幀消失」才會留下殘留狀態（InputBuffer 保留
+	#      30 物理幀，所以實務上通常下一幀就自愈）；但窗口窄不代表它合法。
+	#
+	# 移除後 `is_attacking = true` 只剩兩個寫入點（Player._execute_attack、
+	# ThrowHandler 進入 throw_seq），兩者都在同一個區塊裡寫入合法 attack_type，
+	# 於是 FighterState.check_invariants() 的「攻擊必須成對」不變式
+	# 從「靠約定」變成「結構上成立」。test_25/test_29 每幀釘住它。
 	var input_data = get_input()
-	var is_valid_state = is_on_floor() and not is_dashing and not is_backdashing and not is_crouching and not is_jumping
-
-	if (input_data.st_mp_pressed or input_data.st_mk_pressed) and is_valid_state and not (is_hit or is_knockfly or is_blocking):
-		if input_data.has("damage"):
-			current_damage = input_data.damage
-		else:
-			current_damage = 10.0
-		is_attacking = true
 
 	# ── 【動畫更新】保持舊版邏輯──
-	if is_hit or is_knockfly or is_blocking:
-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-	else:
-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+	# Stage 2 切片 2：原本這裡是 `if is_hit or is_knockfly or is_blocking: … else: …`，
+	# 兩個分支一字不差（都是同一個 _update_animation_state 呼叫）。
+	# 分支本身在暗示「受擊時動畫更新不一樣」，但實際上差別全在
+	# Player._compute_target_state / AnimationManager.compute_target_state 裡面，
+	# 這個 if 只是噪音（與 Movement._physics_process 裡切片 1 收掉的
+	# is_crouch_transition_played if/else 同一類殘骸）。
+	_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 func post_physics_process(_delta: float) -> void:
 	pass
