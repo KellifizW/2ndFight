@@ -5247,7 +5247,7 @@ tracks/7/keys = {
 }
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_46qut"]
-_data = [
+_data = {
 &"RESET": SubResource("Animation_3ch2m"),
 &"backdash": SubResource("Animation_meopb"),
 &"block": SubResource("Animation_3h1ys"),
@@ -5288,8 +5288,9 @@ _data = [
 &"st_mk": SubResource("Animation_wooatk_st_mk"),
 &"st_mp": SubResource("Animation_wooatk_st_mp"),
 &"super": SubResource("Animation_0aqdq"),
-&"wakeup": SubResource("Animation_g4e5n"),
-]
+&"wakeup": SubResource("Animation_g4e5n")
+}
+
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_3h1ys"]
 animation = &"backdash"
 
