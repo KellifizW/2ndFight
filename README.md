@@ -21,7 +21,7 @@ structural problems that make every new feature more expensive than the last:
 | Problem | Symptom |
 |---|---|
 | Four coexisting time domains | Seconds, 60 FPS logical frames, 120 FPS physics frames, and a `FrameCounter` all mixed together, with dozens of scattered `*2` / `*120` / `/2.0` conversions |
-| ~34 boolean state flags | `is_hit`, `is_knockfly`, `is_blocking`, `is_attacking`, `is_dashing`… combinations are unenforceable, so illegal states are reachable. Stage 2 slice 1 added a state layer that makes the remainder testable and deleted 6 dead flags; slice 2 ported the attack subsystem onto it and deleted one more. Reproducible count (member-level `var x: bool` in `Movement`/`fighter`/`player`, excluding `@export` config and locals): **33 → 32** |
+| ~34 boolean state flags | `is_hit`, `is_knockfly`, `is_blocking`, `is_attacking`, `is_dashing`… combinations are unenforceable, so illegal states are reachable. Stage 2 slice 1 added a state layer that makes the remainder testable and deleted 6 dead flags; slice 2 ported the attack subsystem onto it and deleted one more; slice 3 ported the movement subsystem onto it (no further deletions, 32 held). Reproducible count (member-level `var x: bool` in `Movement`/`fighter`/`player`, excluding `@export` config and locals): **33 → 32** |
 | Frame data spread across sources | The same numbers live in scripts, scenes, and tables, so they drift apart |
 | Two overlapping input paths | `InputManager` and `PlayerController` both interpret input, with different buffering rules |
 
@@ -52,9 +52,9 @@ These are non-negotiable and apply to every contribution:
 |---|---|---|
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
 | **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated) |
-| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–2 landed (read-only state layer, attack subsystem ported onto it; 7 dead flags deleted, 33 → 32 by the count in §Stage 2) |
+| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–3 landed (read-only state layer, attack subsystem ported, movement subsystem ported, AI `attack_type` parity fixed; 7 dead flags deleted, 33 → 32, test count 30 → 32) |
 | **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | ⏳ Planned |
-| **4** | **Converge input handling** — a single `ActionMapper` | ⏳ Planned |
+| **4** | **Converge input handling** — a single `ActionMapper` | 🔄 Partial — parity fix #1 landed (AI `attack_type` restored via shared `PlayerController.resolve_attack_type`); `InputManager` / `PlayerController` collapse to a single `ActionMapper` still pending |
 | **5** | **Cleanup** — dead code, docs, scene splitting | ⏳ Planned |
 | — | **CI** — run frame tests on every push/PR | ✅ Active (`.github/workflows/frame-tests.yml`) |
 
@@ -312,10 +312,62 @@ Each of these is a behavior change or belongs to another stage, so ground rules
    is stateful, reads are not); for the AI each call re-queries
    `get_ai_input()`. Also Stage 4.
 
-**Next slices**: movement (Walk/Dash/Jump/Landing), then hit reactions
-(Hitstun/Blockstun/Knockfly/Knockdown/Wakeup), same method — move the guard into
-`FighterState`, prove equivalence by enumeration, pin it per-frame with a
-`test_30`-style comparison. Only then do the flags actually disappear.
+**Slice 3 — the movement subsystem reads the state layer (landed)**
+
+Slice 2 ported attacks; slice 3 does the same for **Walk / Dash / Jump** (the
+Landing system is already in the state layer via `is_landing` / `landing_lock_frames`).
+Same three-step recipe: move the guard into `FighterState`, prove equivalence
+by enumeration, pin it per-frame with a `test_30`-style comparison.
+
+- ✅ **Three movement guards consolidated into one definition.**
+  - `FighterState.can_walk(f, is_special_moving)` replaces
+    `WalkHandler.handle_walk` 內聯展開的 `can_walk`（含 knockback / corner push /
+    block knockback 幀計數器）
+  - `FighterState.can_dash(f, is_special_moving)` replaces
+    `DashHandler.handle_dash` 守衛，以及 `Movement._physics_process` 內
+    AI 直接 dash 的**前衝**分支
+  - `FighterState.can_jump(f, jump_pressed, is_special_moving)` replaces
+    `JumpHandler.handle_jump` 開頭的兩個 if（`is_landing` / `is_being_thrown`）
+    加上主守衛（`on_floor` + 跳躍輸入 + 戰鬥狀態清單 + `jump_delay_timer <= 0`）
+  - 三份舊表達式**全 262,144 種旗標組合**（17 旗標 × 2 jump_pressed 值）
+    與新守衛**逐值等價**（Python 暴力窮舉，0 分岔）
+  - `test_31` 600 幀隨機輸入逐幀比對三組對照組 vs `FighterState`，並要求
+    三種守衛各自至少為真一次（避免「永遠 false 假綠」）
+- ✅ **One disclosed bug held, not fixed (ground rule #2).**
+  `Movement._physics_process` 裡 AI 的 `has_backdash_pressed` 分支缺
+  `not is_crouching` 守衛，與前衝分支 / `DashHandler` 都不一致 —— 那是
+  真的 bug（蹲下時 AI 仍會後衝），但改它會改變行為，所以本切片把
+  `_ai_backdash_can_dash` 保留為舊版略寬鬆的展開並在註解標記，
+  留給 Stage 2 切片 4 與受擊子系統一併修。
+- ✅ **Stage 4 收攏 #1：AI 取消窗口的「死路徑」修掉。** Stage 2 切片 2
+  披露的 finding #3 —— `check_cancel(input_data.attack_type, ...)` 對
+  CPU 永遠是 "none"（AI 的 `_neutral_input()` / `_compute_ai_input()` 完全
+  沒帶 `attack_type` 鍵）—— 已修。把 `PlayerController.get_input_data()`
+  內聯的 17 行優先級鏈抽成 `static func resolve_attack_type(d)`，
+  `Player.get_input()` 在 AI merge 之後補上正確的 `attack_type` 與
+  `character_id`（65,536 種按鍵 × 角色組合與舊鏈值等價）。人類路徑
+  (`PlayerController.get_input_data()`) 也改用同一份 helper，行為一幀不變。
+  - 新增 `test_32`：p1=AI / p2=人類，600 幀隨機按鍵，逐幀斷言
+    `input.has("attack_type")` 兩條路徑都成立，且 `attack_type` 值與
+    `resolve_attack_type()` 對照組一致；要求出現 ≥ 3 種 attack_type
+    且 AI 路徑至少一次非 `"none"`（否則測試在「AI 永遠不攻擊」時會假綠）。
+- ✅ **No flags removed this slice.** 切片 3 與 Stage 4 收攏 #1 都**只**改
+  控制流讀什麼，不改旗標數。核心三檔 bool 旗標仍為 **32**（見 §Stage 2 切片 2
+  的計數規則）。旗標真正消失仍要等切片 4（受擊族）把守衛搬完。
+
+**Disclosed findings (found while porting, deliberately *not* fixed here)**
+
+1. **AI 直接 backdash 缺 `not is_crouching` 守衛**（見上） —— 切片 4 與受擊
+   守衛一起收攏時統一修，因為它屬於「舊守衛彼此不一致」這類。
+2. **`_compute_ai_input()` 內聯設定的 17 種按鍵仍是散落狀態**，等 Stage 4
+   真正把 `InputManager` / `PlayerController` / `MoveSet._handle_input` 三條
+   輸入路徑收攏到 `ActionMapper` 時一併結構化。本切片只是讓 AI 路徑**形狀**
+   與人類路徑一致（`attack_type` 鍵存在且正確），沒碰背後的按鍵邏輯。
+
+**Next slices**: hit reactions (Hitstun / Blockstun / Knockfly / Knockdown / Wakeup),
+same method — move the guard into `FighterState`, prove equivalence by enumeration,
+pin it per-frame with a `test_30`-style comparison. Only then do the flags actually
+disappear.
 
 ### Stage 3 — Consolidate frame data ⏳
 
@@ -323,11 +375,23 @@ Make `docs/systems/FRAME_DATA_TABLE.md` generated rather than hand-maintained,
 and fix the known-corrupt entries (DEN `spnk`, DAV `dpM`/`dpH` report 0-frame
 animations). Decide whether WOO ships or is cut.
 
-### Stage 4 — Converge input handling ⏳
+### Stage 4 — Converge input handling 🔄 (收攏 #1 已落地)
 
 Collapse `InputManager` and `PlayerController` into a single `ActionMapper` with
 one buffering policy, then add motion-input tests (QCF, DP, throw windows) and an
 AI-symmetry test.
+
+**收攏 #1（已落地, 2026-08-30）: AI 取消窗口恢復**
+Stage 2 切片 2 披露的 finding #3 —— `check_cancel(input_data.attack_type, ...)`
+對 CPU 永遠是 "none"（AI 的 `_neutral_input()` / `_compute_ai_input()` 完全
+沒帶 `attack_type` 鍵），導致命中確認取消（hit-confirm cancel）對 AI 失效。
+修法：把 `PlayerController.get_input_data()` 內聯的 17 行優先級鏈抽成
+`static func resolve_attack_type(d)`，`Player.get_input()` 在 AI merge 之後
+補上正確的 `attack_type` 與 `character_id`（65,536 種按鍵 × 角色組合與
+舊鏈值等價，Python 暴力窮舉）。人類路徑也改用同一份 helper，行為一幀不變。
+新增 `test_32` 釘住「AI 與人類兩條路徑的 input 字典都帶 `attack_type` 且值正確」。
+**未動**: `InputManager` 與 `PlayerController` 的拆分、`MoveSet._handle_input`
+的 150 行 if 鏈、方向指令宏的輸入合成 —— 等後續切片。
 
 ### Stage 5 — Cleanup ⏳
 
@@ -372,7 +436,7 @@ The rules that bite hardest:
 - Measure in physics frames, never seconds. 1 logical frame = 2 physics frames.
 - Leave generous wait windows around hits — hitstop slows physics-frame advance by 50×.
 
-Frame tests currently cover 30 cases (`test_01`–`test_30`). Stage 1 contributed
+Frame tests currently cover 32 cases (`test_01`–`test_32`). Stage 1 contributed
 the landing, PushManager stun-lock and conversion-boundary families (`test_21`
 combo-window frame counting, `test_22` the three conversion boundaries including
 the "families must not be swapped" guard, `test_23` AI decision/commitment tick
@@ -409,6 +473,26 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   ground and air gates to be true at least once, so "both always false" cannot
   pass. The control group must *not* be refactored to call `FighterState` —
   that would make the test compare itself against itself.
+- **`test_31`** (slice 3) — the consolidated movement gates (`can_walk` /
+  `can_dash` / `can_jump`) must stay **value-identical** to the flag expressions
+  they replaced. Same `test_30` pattern: 600 frames of seeded random input
+  (`seed=20260831`), the legacy expressions are rewritten verbatim as a control
+  group and compared every frame against `FighterState.can_walk` /
+  `can_dash` / `can_jump`. The control group is exhaustive-verified in Python
+  (262,144 combinations of 17 relevant flags × 2 jump_pressed values, 0
+  mismatches) **and** pinned per-frame in-engine by `test_31`. All three
+  predicates must be true at least once, so "all always false" cannot pass.
+- **`test_32`** (Stage 4 parity fix) — the AI input path must now produce
+  `attack_type` in the same shape as the human path (the key used to be
+  missing for AI, breaking hit-confirm cancels on CPU fighters — the
+  finding #3 disclosed in slice 2). The test sets `p1.is_ai_controlled = true`
+  / `p2.is_ai_controlled = false`, runs 600 frames of random button presses
+  on both, asserts every frame that (a) `p1.get_input().has("attack_type")` and
+  `p2.get_input().has("attack_type")` are both true, and (b) the value of
+  `attack_type` matches `PlayerController.resolve_attack_type(input_data)` for
+  both paths. The same attack_type is observed on both paths ≥ 3 times, and
+  the AI path's `attack_type` is non-`"none"` at least once — otherwise the
+  test would silently pass on inputs that never trigger an attack.
 
 ### Not yet covered (honest disclosure)
 
@@ -485,9 +569,9 @@ plan_game.md         The full six-stage refactor plan
 - **`current_damage` is effectively write-only** — every read overwrites it in
   the same expression, so the field only looks like a source of truth. It goes
   away with Stage 3's frame-data consolidation.
-- **Hit-confirm cancels cannot fire for CPU fighters** — `check_cancel()` reads
-  `input_data.attack_type`, which `PlayerController` supplies but the AI input
-  merge does not. Stage 4 (input convergence).
+- **Hit-confirm cancels** ✅ (fixed in Stage 4 收攏 #1) — `check_cancel()` reads
+  `input_data.attack_type`, which `PlayerController` now shares with the AI path
+  via `PlayerController.resolve_attack_type()` (see Stage 2 切片 3 / Stage 4 收攏 #1).
 - **`get_input()` runs 3–4× per physics frame**, and for AI-controlled fighters
   each call re-queries `get_ai_input()`. Harmless for the buffered human path,
   unverified for the AI path. Stage 4.

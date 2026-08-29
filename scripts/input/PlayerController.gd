@@ -259,32 +259,34 @@ func get_input_data() -> Dictionary:
 	
 	
 	var character_id: String = get_parent().character_id if get_parent() and "character_id" in get_parent() else "UNKNOWN"
-	
+
 	# DAV 的 spmove3 快捷鍵觸發 DP
 	if character_id == "DAV" and spm3_pressed:
 		dp_pressed = true
-	
+
 	# 攻擊優先級（已移除 player_id 判斷，改用 character_id）
-	var attack_type = (
-		"throw"    if throw_pressed else  # 【摔投優先級最高】
-		"super"    if super_pressed else
-		"powerkk"  if spm1_pressed and character_id == "DAV" else
-		"dp"       if dp_pressed and character_id == "DAV" else
-		"spnk"     if spm1_pressed and character_id == "DEN" else
-		"hdk"      if spm3_pressed and character_id == "DEN" else
-		"fireballL" if fireballL_buffered else
-		"fireballM" if fireballM_buffered else
-		"fireballH" if fireballH_buffered else
-		"fireball" if spm2_pressed else
-		"st_hp"    if st_hp_pressed else
-		"st_mp"    if st_mp_pressed else
-		"st_lp"    if st_lp_pressed else
-		"st_hk"    if st_hk_pressed else
-		"st_mk"    if st_mk_pressed else
-		"st_lk"    if st_lk_pressed else
-		"none"
-	)
-	
+	# Stage 4：抽成 static helper，AI 路徑（Player.get_input() 的 AI merge）共用。
+	# 舊路徑只用在本 controller 內；新增路徑讓 AI 的 get_ai_input() 即使沒帶
+	# `attack_type`，下遊的 Player.get_input() 也能補上正確的值。
+	var attack_type = resolve_attack_type({
+		"throw_pressed": throw_pressed,
+		"super_pressed": super_pressed,
+		"spm1_pressed": spm1_pressed,
+		"spm2_pressed": spm2_pressed,
+		"spm3_pressed": spm3_pressed,
+		"dp_pressed": dp_pressed,
+		"fireballL_pressed": fireballL_buffered,
+		"fireballM_pressed": fireballM_buffered,
+		"fireballH_pressed": fireballH_buffered,
+		"st_hp_pressed": st_hp_pressed,
+		"st_mp_pressed": st_mp_pressed,
+		"st_lp_pressed": st_lp_pressed,
+		"st_hk_pressed": st_hk_pressed,
+		"st_mk_pressed": st_mk_pressed,
+		"st_lk_pressed": st_lk_pressed,
+		"character_id": character_id,
+	})
+
 	# 【DEBUG】詳細顯示攻擊優先級決策
 	if attack_type != "none" and (throw_pressed or st_lp_pressed or st_lk_pressed):
 		Debug.vlog("[ATTACK PRIORITY] Frame=%d Seat=%s | throw_pressed=%s st_lp=%s st_lk=%s | SELECTED: '%s'" % [
@@ -328,3 +330,56 @@ func consume_button_input(button_name: String) -> bool:
 func clear_buffer() -> void:
 	if input_buffer:
 		input_buffer.clear_all()
+
+## Stage 4 收攏：把 PlayerController.get_input_data() 內聯展開的 17 行攻擊優先級
+## 抽成 static helper，AI 路徑（Player.get_input() 的 ai_input.merge）可以共用。
+##
+## 之前 AI 的 _neutral_input() / _compute_ai_input() 完全沒帶 `attack_type`，
+## 所以 `check_cancel(input_data.attack_type, ...)` 對 CPU 永遠是 "none"，
+## 命中確認取消（hit-confirm cancel）對 AI 角色失效 —— 這是 Stage 2 切片 2
+## 披露的 finding #3。現在由 Player.get_input() 在合併 AI 輸入後呼叫本函式補上
+## `attack_type` 鍵，讓兩條輸入路徑在「cancel 看了什麼」這件事上對齊。
+##
+## 接受的字典是 _compute_attack_type 邏輯所需的扁平鍵集合 —— 這樣它對人類
+## 輸入（PlayerController.get_input_data() 已構造好）和 AI 輸入（get_ai_input()
+## 散落設定 spm1_pressed / st_mp_pressed 等）都適用。
+static func resolve_attack_type(d: Dictionary) -> String:
+	var character_id: String = str(d.get("character_id", "UNKNOWN"))
+	var throw_pressed: bool = bool(d.get("throw_pressed", false))
+	var super_pressed: bool = bool(d.get("super_pressed", false))
+	var spm1_pressed: bool = bool(d.get("spm1_pressed", false))
+	var spm2_pressed: bool = bool(d.get("spm2_pressed", false))
+	var spm3_pressed: bool = bool(d.get("spm3_pressed", false))
+	var dp_pressed: bool = bool(d.get("dp_pressed", false))
+	var fireballL_pressed: bool = bool(d.get("fireballL_pressed", false))
+	var fireballM_pressed: bool = bool(d.get("fireballM_pressed", false))
+	var fireballH_pressed: bool = bool(d.get("fireballH_pressed", false))
+	var st_hp_pressed: bool = bool(d.get("st_hp_pressed", false))
+	var st_mp_pressed: bool = bool(d.get("st_mp_pressed", false))
+	var st_lp_pressed: bool = bool(d.get("st_lp_pressed", false))
+	var st_hk_pressed: bool = bool(d.get("st_hk_pressed", false))
+	var st_mk_pressed: bool = bool(d.get("st_mk_pressed", false))
+	var st_lk_pressed: bool = bool(d.get("st_lk_pressed", false))
+
+	# DAV 的 spmove3 快捷鍵觸發 DP
+	if character_id == "DAV" and spm3_pressed:
+		dp_pressed = true
+
+	# 攻擊優先級（已移除 player_id 判斷，改用 character_id）
+	if throw_pressed: return "throw"  # 摔投優先級最高
+	if super_pressed: return "super"
+	if spm1_pressed and character_id == "DAV": return "powerkk"
+	if dp_pressed and character_id == "DAV": return "dp"
+	if spm1_pressed and character_id == "DEN": return "spnk"
+	if spm3_pressed and character_id == "DEN": return "hdk"
+	if fireballL_pressed: return "fireballL"
+	if fireballM_pressed: return "fireballM"
+	if fireballH_pressed: return "fireballH"
+	if spm2_pressed: return "fireball"
+	if st_hp_pressed: return "st_hp"
+	if st_mp_pressed: return "st_mp"
+	if st_lp_pressed: return "st_lp"
+	if st_hk_pressed: return "st_hk"
+	if st_mk_pressed: return "st_mk"
+	if st_lk_pressed: return "st_lk"
+	return "none"

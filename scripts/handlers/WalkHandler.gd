@@ -22,9 +22,12 @@ func handle_walk(input_dir: int, scale_factor: float, is_special_moving: bool) -
 	var is_in_knockback = "knockback_frames" in movement_node and movement_node.knockback_frames > 0
 	var is_in_corner_push = "corner_push_frames" in movement_node and movement_node.corner_push_frames > 0
 	var is_in_block_knockback = "block_knockback_frames" in movement_node and movement_node.block_knockback_frames > 0
-	
-	var can_walk = movement_node.is_on_floor() and not movement_node.is_attacking and not movement_node.is_dashing and not movement_node.is_backdashing and not is_special_moving and not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_layground or is_in_knockback or is_in_corner_push or is_in_block_knockback) and not movement_node.is_crouching
-	
+
+	# Stage 2 切片 3：走路守衛收攏到 FighterState.can_walk（值等價，見 test_31）。
+	# 收攏後所有「能不能走」判定都讀同一份守衛，舊版的 `is_in_knockback` 等局部
+	# 變數保留給除錯輸出（`can_walk` 內部已經把它們一併考慮）。
+	var can_walk: bool = FighterState.can_walk(movement_node, is_special_moving)
+
 	if not can_walk and input_dir != 0:
 		var reasons = []
 		if not movement_node.is_on_floor(): reasons.append("not_on_floor")
