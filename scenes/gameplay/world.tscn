@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://scripts/core/world.gd" id="1_aqk2v"]
 [ext_resource type="Texture2D" uid="uid://dgde4231ic5cc" path="res://assets/stage.png" id="1_fj7yv"]
+[ext_resource type="Resource" uid="uid://8t8x274i6ynj" path="res://characters/WOO.character.tres" id="2_ks4gd"]
 [ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://scenes/gameplay/FollowCamera.tscn" id="3_gbfbk"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://scenes/ui/healthbar.tscn" id="4_036b0"]
 [ext_resource type="FontFile" uid="uid://cj4hyo1deaafb" path="res://assets/fonts/RZ Musashi.ttf" id="6_bc84e"]
@@ -13,7 +14,6 @@
 [ext_resource type="FontFile" uid="uid://cjo5rtwoiiaa4" path="res://assets/fonts/Super Wonder.ttf" id="10_qx3nc"]
 [ext_resource type="Script" uid="uid://difd2h2ijxtjl" path="res://scripts/debug/InputBufferDebug.gd" id="12_cbp6q"]
 [ext_resource type="Script" uid="uid://4ckupm30y5q3" path="res://scripts/ui/HitboxDebugDisplay.gd" id="13_26xuy"]
-[ext_resource type="Resource" uid="uid://b8qgdymiybxrq" path="res://characters/DAV.character.tres" id="15_26xuy"]
 [ext_resource type="PackedScene" uid="uid://cqrn1wwdo20e6" path="res://scenes/ui/InputHistoryDisplayIcon.tscn" id="15_wukud"]
 [ext_resource type="PackedScene" uid="uid://c5l4a1b0wwbtl" path="res://scenes/ui/countdown_timer.tscn" id="16_2u3nc"]
 [ext_resource type="Resource" uid="uid://bnbes5q0352er" path="res://characters/DEN.character.tres" id="17_bc84e"]
@@ -46,7 +46,7 @@ shader_parameter/blur_factor = 0.0
 [node name="World" type="Node2D" unique_id=530271091]
 script = ExtResource("1_aqk2v")
 enable_performance_monitoring = false
-player_a_character = ExtResource("15_26xuy")
+player_a_character = ExtResource("2_ks4gd")
 player_b_character = ExtResource("17_bc84e")
 
 [node name="TextureRect" type="TextureRect" parent="." unique_id=350568051]
