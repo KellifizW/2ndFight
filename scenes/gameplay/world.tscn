@@ -46,8 +46,8 @@ shader_parameter/blur_factor = 0.0
 [node name="World" type="Node2D" unique_id=530271091]
 script = ExtResource("1_aqk2v")
 enable_performance_monitoring = false
-player_a_character = ExtResource("2_ks4gd")
-player_b_character = ExtResource("17_bc84e")
+character_a_character = ExtResource("2_ks4gd")
+character_b_character = ExtResource("17_bc84e")
 
 [node name="TextureRect" type="TextureRect" parent="." unique_id=350568051]
 modulate = Color(1, 0.972549, 0.9098039, 1)

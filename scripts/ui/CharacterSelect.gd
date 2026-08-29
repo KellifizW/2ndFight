@@ -40,6 +40,11 @@ func _ready() -> void:
 	for i in grid_buttons.size():
 		grid_buttons[i].pressed.connect(func(): _on_grid_pressed(i))
 	
+	# 進入選角畫面即把目前游標選項寫入 SelectedCharacters，
+	# 讓 world.gd 知道這是「選角確認」而非未經選角的編輯器預設。
+	SelectedCharacters.p1_character = characters[p1_selected]
+	SelectedCharacters.p2_character = characters[p2_selected]
+	
 	# 初始化 UI
 	_update_ui()
 	Debug.log("=== CharacterSelect 初始化完成 ===")

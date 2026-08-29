@@ -40,8 +40,9 @@ var bgm_max_volume_db: float = -6.0
 @onready var bgm_player = $BGMPlayer if has_node("BGMPlayer") else null
 
 # 選角用角色資源（在編輯器拖入 .character.tres）
-@export var player_a_character: CharacterData
-@export var player_b_character: CharacterData
+# Inspector 顯示為 "Character A Character" / "Character B Character"（使用大寫 A/B）。
+@export var character_a_character: CharacterData
+@export var character_b_character: CharacterData
 
 # 動態生成的玩家
 var player_a: Player
@@ -149,34 +150,38 @@ func _ready() -> void:
 	if startup_logs:
 		Debug.log("[WORLD] ✓ HitStopTimingDebugger 已初始化 (詳細日誌: %s)" % hitstop_debug.detailed_logging)
 	
-	# 關鍵修正：優先從選角畫面讀取角色（SelectedCharacters 是 Autoload 全局單例）
-	if SelectedCharacters.p1_character != null and SelectedCharacters.p2_character != null:
-		player_a_character = SelectedCharacters.p1_character
-		player_b_character = SelectedCharacters.p2_character
+	# 角色來源選擇：先用「選角畫面」的選擇（CharacterSelect 會設定 SelectedCharacters），
+	# 如果沒有選角選擇（例如直接執行 world.tscn，或在編輯器把 Character A/B 拖入 Inspector），
+	# 才能使用 world.tscn 上設定好的 Character A Character / Character B Character。
+	# 注意：SelectedCharacters 只是 Autoload，角色必須在進入選角畫面後才被視為「已選擇」，
+	# 不能用 autoload 的預設 DAV/DEN 覆蓋編輯器設定，否則在 Inspector 選 WOO 仍會載入 DAV。
+	if SelectedCharacters != null and SelectedCharacters.p1_character != null and SelectedCharacters.p2_character != null:
+		character_a_character = SelectedCharacters.p1_character
+		character_b_character = SelectedCharacters.p2_character
 		if startup_logs:
-			Debug.log("從選角畫面成功載入角色：P1 = %s, P2 = %s" % [player_a_character.display_name, player_b_character.display_name])
+			Debug.log("從選角畫面成功載入角色：P1 = %s, P2 = %s" % [character_a_character.display_name, character_b_character.display_name])
 	else:
-		# 如果直接執行 world.tscn（測試用），檢查編輯器是否有手動拖入角色
-		if not player_a_character:
-			push_error("錯誤：Player A 的 CharacterData 未指定！請從 CharacterSelect 進入，或在 World 節點的 Inspector 中拖入角色 .tres")
+		# 直接執行 world.tscn（測試用）：使用編輯器在世界節點 Inspector 拖入的角色
+		if not character_a_character:
+			push_error("錯誤：Character A 的 CharacterData 未指定！請從 CharacterSelect 進入，或在 World 節點的 Inspector 中拖入角色 .tres")
 			return
-		if not player_b_character:
-			push_error("錯誤：Player B 的 CharacterData 未指定！請從 CharacterSelect 進入，或在 World 節點的 Inspector 中拖入角色 .tres")
+		if not character_b_character:
+			push_error("錯誤：Character B 的 CharacterData 未指定！請從 CharacterSelect 進入，或在 World 節點的 Inspector 中拖入角色 .tres")
 			return
 		if startup_logs:
-			Debug.log("使用編輯器預設角色：P1 = %s, P2 = %s" % [player_a_character.display_name, player_b_character.display_name])
+			Debug.log("使用編輯器預設角色：P1 = %s, P2 = %s" % [character_a_character.display_name, character_b_character.display_name])
 	
 	# 安全檢查：確保兩個角色都有 PackedScene
-	if not player_a_character.scene:
+	if not character_a_character.scene:
 		push_error("錯誤：Player A 的 CharacterData.scene 為空！請確認 .character.tres 資源的 Scene 欄位已拖入角色場景（如 DAV.tscn）。")
 		return
-	if not player_b_character.scene:
+	if not character_b_character.scene:
 		push_error("錯誤：Player B 的 CharacterData.scene 為空！請確認 .character.tres 資源的 Scene 欄位已拖入角色場景。")
 		return
 	
 	# 生成玩家（順序很重要：先生成玩家，再連接信號）
-	player_a = _spawn_player(player_a_character, Vector2(550.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_a")
-	player_b = _spawn_player(player_b_character, Vector2(1050.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_b")
+	player_a = _spawn_player(character_a_character, Vector2(550.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_a")
+	player_b = _spawn_player(character_b_character, Vector2(1050.0, float(FLOOR_Y) / SIMULATION_SCALE), "player_b")
 	if not player_a or not player_b:
 		push_error("角色生成失敗！請檢查 CharacterData 和場景設定。")
 		return
