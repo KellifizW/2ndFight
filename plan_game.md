@@ -49,7 +49,7 @@
 |---|---|---|---|
 | Stage 0 | 止血 + 安全網(DebugLogger / frame 測試 / frame data 表 / 守則) | ✅ 已併入 main | — |
 | Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | ✅ 完成(六族計時器全數遷移; CI 已啟用並自動跑全部用例) | 已完成 |
-| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1~2 完成(唯讀狀態層 → 攻擊子系統改讀狀態; 37→30) | 2~4 週末 |
+| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1~2 完成(唯讀狀態層 → 攻擊子系統改讀狀態; 旗標 33→32) | 2~4 週末 |
 | Stage 3 | FrameData 收攏 + 數據問題清理 | ⏳ | 1~2 週末 |
 | Stage 4 | 輸入系統收斂(單一 ActionMapper) | ⏳ | 1~2 週末 |
 | Stage 5 | 清理(死代碼/文檔/tscn 拆分/CI) | ⏳ | 1 週末 |
@@ -242,7 +242,13 @@ frame 測試逐幀釘住**。
    `FighterState.is_throw_in_progress()` / `is_throw_attack_id()`。
 6. 再清一個死旗標 `_was_in_hitstop`: 唯一讀取點是 hitstop 邊緣偵測,
    兩個分支皆空操作(一支賦值給兩個未使用區域變數, 另一支 `pass`)。
-7. 核心三檔 bool 狀態旗標 **31 → 30**。
+7. 核心三檔 bool 狀態旗標 **33 → 32**。
+   計數規則(讓數字可重現): `Movement.gd` + `fighter.gd` + `player.gd` 的
+   成員層 `var x: bool`, 排除 `@export` 設定開關(is_ai_controlled /
+   skip_pushbox / startup_logs)與函式內區域變數 ——
+   即 `grep -cE '^var [A-Za-z_]+: bool'` 三檔相加。
+   切片 1 的「37 → 31」用的是另一套未記錄的規則(無法由現行 tree 重構出來),
+   兩組數字**不可直接相比**; 本切片起統一用上述規則。
    新增 `test_29`(攻擊狀態成對; 含針對性重現舊入口窗口) /
    `test_30`(守衛 vs 舊表達式逐幀等價), 共 **30** 用例。
 
@@ -265,7 +271,7 @@ frame 測試逐幀釘住**。
 
 **驗收(DoD)**:
 - [x] 狀態層存在且被 frame 測試釘住(`test_25`/`test_26`)
-- [x] 死旗標/死變數清除; 核心三檔旗標數 37 → 31 → **30**
+- [x] 死旗標/死變數清除; 核心三檔旗標數 33 → **32**(計數規則見 §6.2 第 7 點)
 - [x] 攻擊子系統改讀狀態(切片 2): 出招守衛/摔投判定/攻擊 id 各一份定義
 - [ ] 移動與受擊子系統改讀狀態(切片 3~4); Movement/Fighter/Player 的旗標數 < 10
 - [ ] `world.reset_players()` 簡化為單一 reset 調用
@@ -447,7 +453,7 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
    移除 `fighter.gd` 的舊第二攻擊入口(孤兒攻擊狀態因此結構上不可達)、
    出招守衛 3 份收攏為 `FighterState.can_start_ground_attack/can_start_air_attack`
    (窮舉 16,384 種旗標組合證明等價)、攻擊 id 與摔投判定各收攏為一份定義、
-   再清死旗標 `_was_in_hitstop`; 核心三檔旗標 31→30;
+   再清死旗標 `_was_in_hitstop`; 核心三檔旗標 33→32(計數規則見 §6.2);
    新增 `test_29`/`test_30`(共 30 用例)。詳見 §6.2。
    **行為變更**: 僅限「舊入口出招、AttackExecutor 沒出招」的那一幀 ——
    該幀原本產生非法的孤兒攻擊狀態, 現在不再產生。其餘幀逐值等價。

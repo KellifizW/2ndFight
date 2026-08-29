@@ -21,7 +21,7 @@ structural problems that make every new feature more expensive than the last:
 | Problem | Symptom |
 |---|---|
 | Four coexisting time domains | Seconds, 60 FPS logical frames, 120 FPS physics frames, and a `FrameCounter` all mixed together, with dozens of scattered `*2` / `*120` / `/2.0` conversions |
-| ~34 boolean state flags | `is_hit`, `is_knockfly`, `is_blocking`, `is_attacking`, `is_dashing`… combinations are unenforceable, so illegal states are reachable. Stage 2 slice 1 brought the three core scripts from 37 to 31 and added a state layer that makes the remainder testable; slice 2 ported the attack subsystem onto it and took the count to 30 |
+| ~34 boolean state flags | `is_hit`, `is_knockfly`, `is_blocking`, `is_attacking`, `is_dashing`… combinations are unenforceable, so illegal states are reachable. Stage 2 slice 1 added a state layer that makes the remainder testable and deleted 6 dead flags; slice 2 ported the attack subsystem onto it and deleted one more. Reproducible count (member-level `var x: bool` in `Movement`/`fighter`/`player`, excluding `@export` config and locals): **33 → 32** |
 | Frame data spread across sources | The same numbers live in scripts, scenes, and tables, so they drift apart |
 | Two overlapping input paths | `InputManager` and `PlayerController` both interpret input, with different buffering rules |
 
@@ -52,7 +52,7 @@ These are non-negotiable and apply to every contribution:
 |---|---|---|
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
 | **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated) |
-| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–2 landed (read-only state layer, attack subsystem ported onto it; 37 → 30 flags) |
+| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–2 landed (read-only state layer, attack subsystem ported onto it; 7 dead flags deleted, 33 → 32 by the count in §Stage 2) |
 | **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | ⏳ Planned |
 | **4** | **Converge input handling** — a single `ActionMapper` | ⏳ Planned |
 | **5** | **Cleanup** — dead code, docs, scene splitting | ⏳ Planned |
@@ -277,7 +277,17 @@ reactions).
   hitstop edge-detector whose two branches were both no-ops (one assigned two
   never-used locals, the other was `pass`). Deleted with the block; the only
   live use of `is_in_hitstop` is the attack-duration freeze right below it.
-- ✅ Boolean state flags in the three core scripts: **31 → 30**.
+- ✅ **One more dead flag removed: `_was_in_hitstop`** (its only reader was a
+  hitstop edge-detector whose two branches were both no-ops).
+- ✅ Boolean state flags in the three core scripts: **33 → 32**.
+  > Counting rule, so the number is reproducible: member-level `var x: bool`
+  > declarations in `scripts/core/Movement.gd` + `fighter.gd` + `player.gd`,
+  > excluding `@export` config toggles (`is_ai_controlled`, `skip_pushbox`,
+  > `startup_logs`) and function-local variables — i.e.
+  > `grep -cE '^var [A-Za-z_]+: bool' <those three files>`.
+  > Slice 1's "37 → 31" used a different, undocumented rule (it is not
+  > reconstructible from the current tree), so the two series are **not**
+  > directly comparable; from here on this is the rule.
 
 **Disclosed findings (found while porting, deliberately *not* fixed here)**
 
