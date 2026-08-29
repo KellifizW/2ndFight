@@ -194,6 +194,10 @@ super={
 ]
 }
 
+[gui]
+
+theme/custom_font="res://assets/fonts/chin/LINESeedTW_TTF_Rg.ttf"
+
 [physics]
 
 common/physics_ticks_per_second=120
