@@ -307,6 +307,14 @@ func spawn_dash_smoke() -> void:
 		return
 	VFXSmoke.spawn(world, dash_smoke_point.global_position, facing_direction)
 
+## WOO's landing effect uses the same world-owned, one-shot VFX scene as dash
+## smoke.  The character check keeps the effect exclusive to WOO even if a
+## different character later gets a DashSmokePoint for dash tuning/tests.
+func spawn_landing_smoke() -> void:
+	if str(get("character_id")) != "WOO" or dash_smoke_point == null or world == null:
+		return
+	VFXSmoke.spawn_animation(world, dash_smoke_point.global_position, VFXSmoke.LANDING_ANIMATION, facing_direction)
+
 func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
 	var retry_count: int = 0
