@@ -1,9 +1,16 @@
 extends "res://tests/frame_tests/frame_test_case.gd"
-## 前衝煙霧（sprite sheet 版）的三個不變式：
+## 前衝煙霧（AnimationPlayer 呈現版）的三個不變式：
 ##   1. **只有前衝**會生成煙霧 —— landing / backdash 都不生成。
 ##   2. 煙霧生成在「發動那一刻的世界座標」，之後**不跟著身體移動**。
 ##   3. 煙霧是一次性的：播完自己 queue_free()；沒觸發時畫面上（以及場景樹裡）
 ##      不該有任何煙霧節點。
+##
+## 呈現結構契約（本用例同時釘死 AnimationPlayer 這個呈現方式）：
+##   - 煙霧場景由 `AnimationPlayer` 子節點呈現：`smoke` 動畫裡有一條
+##     value track 驅動 `Sprite2D:texture`（一個 keyframe = smoke.png 一格），
+##     如此每格的時序 / 透明度 / 大小 / 偏移才能進編輯器逐格微調。
+##   - 場景裡不得再有 `AnimatedSprite2D`（舊 SpriteFrames 呈現法已退役 ——
+##     SpriteFrames 只能調「整體 speed + 每幀 duration」，無法加逐格軌道）。
 ##
 ## 為什麼需要這個用例：
 ## 舊版把 VFX 節點常駐在角色底下（`groundsmoke` 子節點），三個症狀全部來自
@@ -15,8 +22,8 @@ extends "res://tests/frame_tests/frame_test_case.gd"
 ## 所以這裡先給 p1 裝一個同名 Marker2D（等價於 WOO 的場景結構），再跑真實的
 ## double-tap 前衝 / 後衝 / 跳躍著地流程。
 
-## 煙霧動畫總長 0.6 秒（SpriteFrames: 9 幀、speed 15、duration 總和 9 個單位）
-## ≈ 72 個物理幀。這裡給寬鬆上限，動畫節奏被調整時用例不會跟著紅。
+## 煙霧動畫總長 0.6 秒（texture track：9 格 keyframe）≈ 72 個物理幀。
+## 這裡給寬鬆上限，動畫節奏被調整時用例不會跟著紅。
 const SMOKE_MAX_LIFETIME_FRAMES: int = 600
 
 func run() -> bool:
@@ -26,6 +33,9 @@ func run() -> bool:
 	check(_scene_has_marker("res://characters/WOO.tscn"), "WOO 場景應該有 DashSmokePoint")
 	check(not _scene_has_marker("res://characters/DAV.tscn"), "DAV 場景不應該有 DashSmokePoint")
 	check(not _scene_has_marker("res://characters/DEN.tscn"), "DEN 場景不應該有 DashSmokePoint")
+
+	# ── 呈現結構契約：AnimationPlayer 驅動 texture track，SpriteFrames 版退役 ──
+	_check_animation_player_presentation()
 
 	# ── 沒被觸發的煙霧節點必須不可見（舊版「煙永遠存在」的根因）──
 	var idle: Node = load("res://assets/vfx/vfx.tscn").instantiate()
@@ -77,8 +87,27 @@ func run() -> bool:
 	check(abs(px(p1) - smoke_x) > 100.0,
 		"角色應該已經離開煙霧位置（現在 x=%.1f，煙霧 x=%.1f）" % [px(p1), smoke_x])
 
-	var freed: bool = await wait_until(func(): return _count_smokes() == 0, SMOKE_MAX_LIFETIME_FRAMES)
+	# ── 播放期間 texture 真的有切換 + 播完自行 queue_free ──
+	# 逐幀採樣 Sprite2D 的 texture：AnimationPlayer 的 texture track 必須
+	# 真的在驅動 sprite（防「動畫播完了、特效卻停在一格」的斷線），
+	# 而且播完後節點要離開場景樹。
+	var sprite: Node = smoke.get_node_or_null("Sprite2D") if is_instance_valid(smoke) else null
+	var first_texture: Resource = null
+	if sprite != null and is_instance_valid(sprite) and sprite.texture != null:
+		first_texture = sprite.texture
+	var texture_changed: bool = false
+	var freed: bool = false
+	for i in SMOKE_MAX_LIFETIME_FRAMES:
+		if not texture_changed and sprite != null and is_instance_valid(sprite) \
+				and sprite.texture != null and sprite.texture != first_texture:
+			texture_changed = true
+		if _count_smokes() == 0:
+			freed = true
+			break
+		await await_frames(1)
 	check(freed, "煙霧播完後應該自行 queue_free()，不該常駐在場景樹裡")
+	check(texture_changed,
+		"煙霧 sprite 的 texture 應該在播放期間真的切換（AnimationPlayer 的 texture track 未驅動 Sprite2D？）")
 
 	# ── 後衝：不該有煙霧 ──
 	var back_action: String = "move_left" if p1.facing_direction > 0 else "move_right"
@@ -101,6 +130,50 @@ func run() -> bool:
 	check(_count_smokes() == 0, "著地不應該生成煙霧，實為 %d 團" % _count_smokes())
 
 	return not has_failures()
+
+
+## 驗證煙霧場景由 AnimationPlayer 呈現（「逐格可調」的結構契約）：
+##   - 有 AnimationPlayer 子節點，且存在 `smoke` 動畫
+##   - 該動畫有一條 value track 驅動 `Sprite2D:texture`（一個 keyframe = 一格），
+##     keyframe >= 2 且時間非遞減
+##   - 場景裡沒有殘留 AnimatedSprite2D（舊 SpriteFrames 呈現法）
+func _check_animation_player_presentation() -> void:
+	var instance: Node = load("res://assets/vfx/vfx.tscn").instantiate()
+	if instance == null:
+		check(false, "載入 res://assets/vfx/vfx.tscn 失敗")
+		return
+	var player: Node = instance.get_node_or_null("AnimationPlayer")
+	check(player != null and player is AnimationPlayer,
+		"煙霧場景應該由 AnimationPlayer 子節點呈現（逐格特效可調的前提）")
+	if player != null and player is AnimationPlayer:
+		var animation_player: AnimationPlayer = player
+		check(animation_player.has_animation(VFXSmoke.ANIMATION),
+			"AnimationPlayer 應該有 \"%s\" 動畫" % String(VFXSmoke.ANIMATION))
+		if animation_player.has_animation(VFXSmoke.ANIMATION):
+			var anim: Animation = animation_player.get_animation(VFXSmoke.ANIMATION)
+			var texture_track: int = -1
+			if anim != null:
+				for i in anim.get_track_count():
+					if anim.get_track_type(i) == Animation.TRACK_VALUE \
+							and String(anim.track_get_path(i)) == "Sprite2D:texture":
+						texture_track = i
+						break
+			check(texture_track != -1,
+				"\"%s\" 動畫應該有一條驅動 Sprite2D:texture 的 texture track（一個 keyframe = 一格）" % String(VFXSmoke.ANIMATION))
+			if texture_track != -1:
+				var key_count: int = anim.track_get_key_count(texture_track)
+				check(key_count >= 2, "texture track 應該有 >= 2 個 keyframe，實為 %d" % key_count)
+				var times_ok: bool = true
+				for k in range(1, key_count):
+					if anim.track_get_key_time(texture_track, k) < anim.track_get_key_time(texture_track, k - 1):
+						times_ok = false
+				check(times_ok, "texture track 的 keyframe 時間應該非遞減")
+	var old_sprite: bool = false
+	for child in instance.get_children():
+		if child is AnimatedSprite2D:
+			old_sprite = true
+	check(not old_sprite, "煙霧場景不應該再有 AnimatedSprite2D（SpriteFrames 呈現法已退役）")
+	instance.free()
 
 ## 給 player 裝上 WOO 場景裡那個同名 Marker2D（runner 的 DAV/DEN 刻意沒有）。
 func _install_marker(player: Node) -> void:
