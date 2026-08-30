@@ -8,42 +8,44 @@ extends "res://tests/frame_tests/frame_test_case.gd"
 ## 走 can_dash）都不一致。切片 4 讓兩條 AI 路徑共用同一條 can_dash，這是切片 3
 ## 刻意保留、記錄在案的行為修正（ground rule #2 的例外，已披露）。
 ##
-## 這個用例直接測 Movement 的 AI dash 分支：把 p1 設為 AI 控制，讓它走真實的
-## AIBehavior 承諾路徑（敵人放極遠 → emergency-block / 威脅評估都不會中斷承諾），
-## 並把承諾輸入強制成 backdash（蹲姿經 AI input dict 的 crouch_pressed 帶入 ——
-## AI 的 is_crouching 來自那裡，不是人類的 InputMap）。每個物理幀觀察
-## is_backdashing：
-##   - 蹲下：後衝必須被 can_dash 擋下（is_backdashing 維持 false）
+## 這個用例直接測 Movement 的 AI dash 分支：Player.get_input() 在
+## is_ai_controlled=true 時會呼叫 AIBehavior 節點的 get_ai_input() 並 merge。
+## 我們掛一個**測試替身** AIBehavior（腳本只回傳我們控制的 input dict），
+## 繞過真實決策層的承諾/威脅評估干擾，確保 backdash_pressed 穩定送到 Movement。
+## 每個物理幀觀察 is_backdashing：
+##   - 蹲下（crouch_pressed=true → is_crouching=true）：後衝必須被 can_dash 擋下
 ##   - 站立（對照組）：同樣的 backdash 輸入必須正常發動
 ## 若守衛退回舊的漏網展開，蹲下那段就會觀察到 is_backdashing=true，用例失敗。
 
 const OBSERVE_FRAMES: int = 20
 
+class _StubAIBehavior extends Node:
+	## 測試替身：只回傳一份固定 input dict，由測試每幀設定。
+	var next_input: Dictionary = {}
+	func get_ai_input() -> Dictionary:
+		return next_input.duplicate(true)
+
+var _stub: Node = null
+var _real_ai: Node = null
+
 func run() -> bool:
 	await await_frames(10)
-	# p1 用 AI 路徑；p2 放到極遠並保持中性，確保 AI 的 emergency-block 與
-	# 威脅評估（MEDIUM 以上會清掉 dash 承諾）都不會觸發，承諾輸入穩定生效。
+	# p1 用 AI 路徑；p2 放遠保持中性，避免任何互動干擾。
 	teleport_x(p1, 300.0)
 	teleport_x(p2, 4000.0)
 	await await_frames(5)
 
-	var ai = p1.get_node_or_null("AIBehavior")
-	check(ai != null, "p1 應有 AIBehavior 節點才能驅動 AI 輸入")
+	_install_stub(p1)
 	p1.is_ai_controlled = true
-	if ai != null:
-		ai.ai_enabled = true
-		# AIBehavior 在 ai_enabled 首次為 true 時才建立子系統；直接確保對手引用。
-		if "opponent" in ai:
-			ai.opponent = p2
 
 	# ── 階段 A：蹲下時，AI backdash 不應發動後衝 ──
-	_force_commitment(ai, true)
+	_set_stub_input(true)
 	await await_frames(3)  # 讓 is_crouching 穩定為 true
 	check(bool(p1.is_crouching), "階段 A 前置：p1 應處於蹲下狀態（is_crouching=true）")
 
 	var backdashed_while_crouching: bool = false
 	for f in OBSERVE_FRAMES:
-		_force_commitment(ai, true)
+		_set_stub_input(true)
 		await await_frames(1)
 		if bool(p1.is_backdashing):
 			backdashed_while_crouching = true
@@ -55,47 +57,53 @@ func run() -> bool:
 	p1.is_dashing = false
 	p1.dash_timer = 0
 	p1.fixed_velocity = Vector2i.ZERO
-	_force_commitment(ai, false)
+	_set_stub_input(false)
 	await await_frames(3)
 	check(not bool(p1.is_crouching), "階段 B 前置：p1 應已站起（is_crouching=false）")
 
 	var backdashed_while_standing: bool = false
 	for f in OBSERVE_FRAMES:
-		_force_commitment(ai, false)
+		_set_stub_input(false)
 		await await_frames(1)
 		if bool(p1.is_backdashing):
 			backdashed_while_standing = true
 	check(backdashed_while_standing,
-		"站立時 AI backdash 必須正常發動（證明承諾輸入有走到 Movement，守衛不是永遠 false）")
+		"站立時 AI backdash 必須正常發動（證明輸入有送到 Movement，守衛不是永遠 false）")
 
-	# 收尾：還原為人類控制（world 會整個釋放，這裡保險起見）。
+	# 收尾：還原為人類控制並移除替身（world 會整個釋放，這裡保險起見）。
 	p1.is_ai_controlled = false
-	if ai != null:
-		ai.ai_enabled = false
-		ai.commitment_frames = 0
+	if _stub != null and is_instance_valid(_stub):
+		_stub.queue_free()
 	return not has_failures()
 
-## 把 AI 的承諾輸入強制為 backdash，crouch 決定是否同時帶蹲姿，並補滿承諾幀數、
-## 清掉當幀快取，讓 get_ai_input() 在 Layer 1（ACTION COMMITMENT）穩定回傳這份輸入。
-## backdash 在 AI 邏輯裡屬「持續方向型」動作（非 throw 單次、非 special），承諾期間
-## 每幀原樣回傳 committed_input。
-func _force_commitment(ai: Node, crouch: bool) -> void:
-	if ai == null:
+## 把 p1 的 AIBehavior 換成測試替身（Player.get_input() 以 get_node_or_null
+## ("AIBehavior") 找節點，名字必須是 AIBehavior）。
+func _install_stub(fighter: Node) -> void:
+	_real_ai = fighter.get_node_or_null("AIBehavior")
+	if _real_ai != null:
+		_real_ai.set_process(false)
+		_real_ai.set_physics_process(false)
+		# 暫時把真 AIBehavior 改名，讓替身佔用 "AIBehavior" 這個名字。
+		_real_ai.name = "AIBehavior_real"
+	_stub = _StubAIBehavior.new()
+	_stub.name = "AIBehavior"
+	fighter.add_child(_stub)
+
+## 設定替身這一幀回傳的輸入：帶 backdash_pressed，crouch 決定是否蹲姿。
+## AI 的 is_crouching 來自 input dict 的 crouch_pressed（不是人類 InputMap）。
+func _set_stub_input(crouch: bool) -> void:
+	if _stub == null:
 		return
-	ai.current_committed_action = "backdash"
-	ai.commitment_frames = 100000
-	ai.commitment_one_time_sent = false
-	ai.committed_input = {
+	_stub.next_input = {
 		"input_dir": 0,
 		"crouch_pressed": crouch,
 		"jump_pressed": false,
 		"st_lp_pressed": false, "st_mp_pressed": false, "st_hp_pressed": false,
 		"st_lk_pressed": false, "st_mk_pressed": false, "st_hk_pressed": false,
-		"spm1_pressed": false, "spm2_pressed": false, "dp_pressed": false,
-		"super_pressed": false,
+		"spm1_pressed": false, "spm2_pressed": false, "spm3_pressed": false,
+		"dp_pressed": false, "super_pressed": false,
+		"block_pressed": false,
 		"dash_pressed": false,
 		"backdash_pressed": true,
 		"throw_pressed": false,
-		"attack_type": "none",
 	}
-	ai._cached_input_frame = -1
