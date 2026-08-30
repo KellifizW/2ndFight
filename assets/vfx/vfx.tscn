@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://claqmk01wwasq"]
+[gd_scene load_steps=14 format=3 uid="uid://claqmk01wwasq"]
 
 [ext_resource type="Texture2D" uid="uid://d538g3kt01bf" path="res://assets/vfx/smoke.png" id="1_733y2"]
 [ext_resource type="Script" uid="uid://biumq773aciwc" path="res://scripts/vfx/vfx_smoke.gd" id="1_xy50v"]
@@ -39,45 +39,33 @@ region = Rect2(378, 618, 378, 309)
 atlas = ExtResource("1_733y2")
 region = Rect2(756, 618, 378, 309)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_e1vh3"]
-animations = [{
-"frames": [{
-"duration": 0.5,
-"texture": SubResource("AtlasTexture_xy50v")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_kwg84")
-}, {
-"duration": 0.5,
-"texture": SubResource("AtlasTexture_c4k2s")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_j6aeb")
-}, {
-"duration": 1.5,
-"texture": SubResource("AtlasTexture_jl35r")
-}, {
-"duration": 1.5,
-"texture": SubResource("AtlasTexture_nmp0m")
-}, {
-"duration": 1.5,
-"texture": SubResource("AtlasTexture_sdfti")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_shkpp")
-}, {
-"duration": 0.5,
-"texture": SubResource("AtlasTexture_jpcid")
-}],
-"loop": 0,
-"name": &"smoke",
-"speed": 15.0
-}]
+[sub_resource type="Animation" id="Animation_smoke"]
+resource_name = "smoke"
+length = 0.6
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:texture")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.0333333, 0.1, 0.1333333, 0.2, 0.3, 0.4, 0.5, 0.5666667),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [SubResource("AtlasTexture_xy50v"), SubResource("AtlasTexture_kwg84"), SubResource("AtlasTexture_c4k2s"), SubResource("AtlasTexture_j6aeb"), SubResource("AtlasTexture_jl35r"), SubResource("AtlasTexture_nmp0m"), SubResource("AtlasTexture_sdfti"), SubResource("AtlasTexture_shkpp"), SubResource("AtlasTexture_jpcid")]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_smoke"]
+_data = {
+&"smoke": SubResource("Animation_smoke")
+}
 
 [node name="VFX" type="Node2D" unique_id=1225462260]
 script = ExtResource("1_xy50v")
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=868827403]
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=868827403]
 scale = Vector2(0.5, 0.5)
-sprite_frames = SubResource("SpriteFrames_e1vh3")
-animation = &"smoke"
+texture = SubResource("AtlasTexture_xy50v")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=427183905]
+libraries/ = SubResource("AnimationLibrary_smoke")
