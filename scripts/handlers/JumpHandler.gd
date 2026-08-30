@@ -17,6 +17,9 @@ func handle_jump(jump_pressed: bool, input_dir: int, scale_factor: float, floor_
 	movement_node.jump_dir = input_dir
 	movement_node.is_jumping = true
 	movement_node.landing_facing_lock = true
+	# 【跳起煙】離地那一瞬間在腳底生成一團跳起煙（vjumpsmoke，仿照著地煙）。
+	# 掛在 world 底下不跟著身體跑，播完自行消失。
+	movement_node.spawn_vjump_smoke()
 	# 【跳躍延遲】設置延遲計時器，使垂直速度延遲應用
 	# jump_delay_duration 預設 0.067s = ~6 幀 @90FPS 或 ~8 幀 @120 FPS
 	movement_node.jump_delay_timer = Movement.seconds_to_frames_nearest(movement_node.jump_delay_duration)

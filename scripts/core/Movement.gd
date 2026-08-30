@@ -317,6 +317,23 @@ func spawn_landing_smoke() -> void:
 	var origin: Vector2 = dash_smoke_point.global_position if dash_smoke_point != null else global_position
 	VFXSmoke.spawn_animation(world, origin, VFXSmoke.LANDING_ANIMATION, facing_direction)
 
+## 跳起煙霧：角色離地的那一瞬間生成（遊戲全局特效，仿照著地煙）。
+## 與著地煙 land_smoke 成對 —— 落地噴、離地也噴。生成點優先取角色場景的
+## DashSmokePoint（腳底），沒放 Marker 的角色退回自身座標。
+func spawn_vjump_smoke() -> void:
+	if world == null:
+		return
+	var origin: Vector2 = dash_smoke_point.global_position if dash_smoke_point != null else global_position
+	VFXSmoke.spawn_animation(world, origin, VFXSmoke.VJUMP_ANIMATION, facing_direction)
+
+## 後撤步煙霧：後衝（backdash）發動的那個位置生成（仿照前衝煙 dashsmoke）。
+## 與前衝煙同一套「掛在 world、播完自毀」的一次性 VFX 場景；沒有
+## DashSmokePoint Marker 的角色直接不生成。
+func spawn_bdash_smoke() -> void:
+	if dash_smoke_point == null or world == null:
+		return
+	VFXSmoke.spawn_animation(world, dash_smoke_point.global_position, VFXSmoke.BDASH_ANIMATION, facing_direction)
+
 ## 前衝 / 後撤步聲效：播角色場景內的 DashSoundPlayer（assets/audio/dash.mp3）
 ## 或 BackdashSoundPlayer（bdash.mp3）。所有角色通用；角色場景沒掛對應
 ## AudioStreamPlayer 節點時靜默略過（同攻擊音效的回退策略）。
@@ -441,8 +458,9 @@ func _physics_process(delta: float) -> void:
 			dash_total_time = dash_timer
 			dash_initial_speed = backdash_speed * scale_factor * input_dir
 			fixed_velocity.x = int(dash_initial_speed)
-			# 後衝刻意不生成煙霧：只有前衝才有（見 spawn_dash_smoke 說明）。
-			# 但後撤步有專屬聲效（bdash.mp3）。
+			# 後衝：仿照前衝煙，在發動的位置生成一團後撤步煙（bdashsmoke）。
+			spawn_bdash_smoke()
+			# 後撤步有專屬聲效（bdash.mp3）。
 			play_dash_sound(true)
 	elif has_backdash_pressed and _ai_backdash_can_dash:
 		# AI wants to backdash
@@ -451,8 +469,9 @@ func _physics_process(delta: float) -> void:
 		dash_total_time = dash_timer
 		dash_initial_speed = backdash_speed * scale_factor * (-int(facing_direction))
 		fixed_velocity.x = int(dash_initial_speed)
-		# 後衝刻意不生成煙霧：只有前衝才有（見 spawn_dash_smoke 說明）。
-		# 但後撤步有專屬聲效（bdash.mp3）。
+		# 後衝：仿照前衝煙，在發動的位置生成一團後撤步煙（bdashsmoke）。
+		spawn_bdash_smoke()
+		# 後撤步有專屬聲效（bdash.mp3）。
 		play_dash_sound(true)
 	else:
 		# Normal double-tap dash detection
