@@ -25,6 +25,11 @@ class_name AttackSoundResolver extends RefCounted
 ##    機制：以角色 attack_grunt_chance（@export，預設 50%）機率才播；
 ##    若喊聲播放期間被對方打中則立刻中斷。
 ##
+## 4. 衝刺聲效（Dash SFX）— 按「衝刺方向」分開（遊戲全局：所有角色通用）
+##    前衝 → DashSoundPlayer（dash.mp3）、後撤步 → BackdashSoundPlayer（bdash.mp3）
+##    前衝 / 後撤步發動當下播放（人類 double-tap 與 AI 直接觸發都走同一對節點）。
+##    該角色「受到攻擊」（take_hit 判定為命中）時，兩個聲效一律中斷播放。
+##
 ## 向後兼容：
 ## - 若角色場景未加設對應節點（例如仍是舊設定的 WOO），
 ##   擊中音效會自動回退到舊有的 HitSoundPlayer / HeavyHitSoundPlayer；
@@ -56,6 +61,10 @@ const GRUNT_SOUND_PLAYERS: Dictionary = {
 	"m": "AttackGrunt_m1",
 	"h": "AttackGrunt_h1",
 }
+
+# ── 衝刺方向 → 衝刺聲效節點（全局：每個角色場景都掛同一組名稱）──
+const DASH_SOUND_PLAYER: String = "DashSoundPlayer"      # 前衝（dash.mp3）
+const BACKDASH_SOUND_PLAYER: String = "BackdashSoundPlayer"  # 後撤步（bdash.mp3）
 
 # 普通攻擊喊聲播放機率改由角色場景的 `attack_grunt_chance`（@export，預設 0.5）
 # 控制，可在編輯器調整，程式不再寫死。預設值保留 0.5 以維持既有行為。
@@ -210,3 +219,20 @@ static func stop_attack_grunts(owner_node: Node) -> void:
 	"""中斷角色正在播放的普通攻擊喊聲（被對方打中時呼叫）。"""
 	for grunt_name in GRUNT_SOUND_PLAYERS.values():
 		stop(owner_node, String(grunt_name))
+
+
+static func play_dash_sound(owner_node: Node, is_backdash: bool) -> bool:
+	"""
+	播放衝刺聲效：前衝 → DashSoundPlayer（dash.mp3），
+	後撤步 → BackdashSoundPlayer（bdash.mp3）。
+
+	遊戲全局機制：每個角色場景掛了對應 AudioStreamPlayer 節點就發聲，
+	沒掛的角色靜默略過（回傳 false），不會報錯。
+	"""
+	return play(owner_node, BACKDASH_SOUND_PLAYER if is_backdash else DASH_SOUND_PLAYER)
+
+
+static func stop_dash_sounds(owner_node: Node) -> void:
+	"""中斷角色正在播放的前衝 / 後撤步聲效（該角色被攻擊命中時呼叫）。"""
+	stop(owner_node, DASH_SOUND_PLAYER)
+	stop(owner_node, BACKDASH_SOUND_PLAYER)

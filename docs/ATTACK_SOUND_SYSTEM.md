@@ -1,7 +1,7 @@
 # 攻擊音效系統（按攻擊類型 / 強度分流）
 
-> 改動日期：2026-08-28
-> 相關檔案：`scripts/combat/AttackSoundResolver.gd`、`scripts/combat/handlers/HitResponseHandler.gd`、`scripts/core/player.gd`、`scripts/core/fighter.gd`
+> 改動日期：2026-08-28（2026-08-30 加入衝刺聲效 §2.4）
+> 相關檔案：`scripts/combat/AttackSoundResolver.gd`、`scripts/combat/handlers/HitResponseHandler.gd`、`scripts/core/player.gd`、`scripts/core/fighter.gd`、`scripts/core/Movement.gd`、`scripts/handlers/DashHandler.gd`
 
 ## 1. 改動前
 
@@ -60,6 +60,23 @@
 2. **被打中斷**：若喊聲還在播、角色被對方真正打中（非格擋），
    `Fighter.take_hit()` 會立刻 `stop()` 三個喊聲節點。
 
+### 2.4 衝刺聲效：前衝 / 後撤步（遊戲全局，2026-08-30 新增）
+
+| 行動 | 音效節點 | 音檔 |
+| --- | --- | --- |
+| 前衝（dash） | `DashSoundPlayer` | `assets/audio/dash.mp3` |
+| 後撤步（backdash） | `BackdashSoundPlayer` | `assets/audio/bdash.mp3` |
+
+- **全局角色適用**：WOO / DAV / DEN 三個角色場景都掛了這兩個節點；之後的
+  新角色只要在場景裡放同名節點即自動生效（沒放的角色靜默略過，不報錯）。
+- **觸發點**：前衝 / 後撤步「發動的那一幀」播放 —— 人類 double-tap
+  （`DashHandler.handle_dash`）與 AI 直接觸發（`Movement._physics_process` 的
+  `dash_pressed` / `backdash_pressed` 分支）都經 `Movement.play_dash_sound(is_backdash)`
+  → `AttackSoundResolver.play_dash_sound()`。
+- **中斷**：該角色「受到攻擊」（`Fighter.take_hit()` 命中路徑，同喊聲）時，
+  `AttackSoundResolver.stop_dash_sounds()` 一律 `stop()` 這兩個節點，
+  衝刺聲不會蓋過受擊回饋。格擋不中斷（與喊聲規則一致）。
+
 ## 3. 解析規則
 
 `AttackSoundResolver.get_button_id()` 取 `attack_type` 以 `_` 分割後的最後一段：
@@ -84,7 +101,9 @@
 1. 在角色 `.tscn` 的根節點下加入 12 個 `AudioStreamPlayer`：
    `LPSoundPlayer`、`MPSoundPlayer`、`HPSoundPlayer`、`LKSoundPlayer`、`MKSoundPlayer`、`HKSoundPlayer`、
    `LWhooshSoundPlayer`、`MWhooshSoundPlayer`、`HWhooshSoundPlayer`、
-   `AttackGrunt_l1`、`AttackGrunt_m1`、`AttackGrunt_h1`
+   `AttackGrunt_l1`、`AttackGrunt_m1`、`AttackGrunt_h1`；
+   若要該角色也有衝刺聲效（建議，全局一致），再加 `DashSoundPlayer`（dash.mp3）
+   與 `BackdashSoundPlayer`（bdash.mp3）——見 §2.4
 2. 各自指定 `stream`（可用同一個檔案配不同 `pitch_scale`）
 3. 保留 `HitSoundPlayer` / `HeavyHitSoundPlayer` 作回退
 4. 無需改任何 GDScript；攻擊喊聲機率可在根節點 Inspector 的

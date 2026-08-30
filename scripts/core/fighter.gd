@@ -288,8 +288,9 @@ func take_hit(
 		is_blocking = false
 		block_type = "none"
 	
-	# 真正被打中：中斷自己正在播的普通攻擊喊聲
+	# 真正被打中：中斷自己正在播的普通攻擊喊聲與衝刺聲效（前衝 / 後撤步）
 	AttackSoundResolver.stop_attack_grunts(self)
+	AttackSoundResolver.stop_dash_sounds(self)
 	
 	# ── 播放受擊痛苦叫聲 - 根據傷害值選擇普通或強力叫聲 ──
 	var is_heavy_hit = damage >= 8.0
