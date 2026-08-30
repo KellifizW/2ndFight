@@ -938,7 +938,13 @@ func _neutral_input() -> Dictionary:
 		"block_pressed": false,
 		"dash_pressed": false,
 		"backdash_pressed": false,
-		"throw_pressed": false
+		"throw_pressed": false,
+		# Stage 4：補上 `attack_type` 鍵，讓 AI 路徑的 input 字典與人類路徑
+		# 形狀一致。中立輸入一律為 "none"；實際值由 Player.get_input() 在
+		# merge 之後呼叫 PlayerController.resolve_attack_type() 重算，
+		# 所以這裡填什麼都會被覆寫 —— 但寫進去讓任何「AI 的 input 不帶
+		# attack_type」這類下游讀取（除錯、日誌、測試）都得到一致答案。
+		"attack_type": "none",
 	}
 
 func _cancel_dash_state() -> void:

@@ -378,9 +378,16 @@ func _physics_process(delta: float) -> void:
 	# 【關鍵】Only use dash_pressed/backdash_pressed for AI - human players use dash_handler's double-tap detection
 	var has_dash_pressed = (player and player.is_ai_controlled and input_data.get("dash_pressed", false))
 	var has_backdash_pressed = (player and player.is_ai_controlled and input_data.get("backdash_pressed", false))
-	var is_landing_locked = is_landing and landing_lock_frames > 0
-	
-	if has_dash_pressed and is_on_floor() and not is_landing_locked and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_layground) and not is_crouching:
+	# Stage 2 切片 3：衝刺守衛收攏到 FighterState.can_dash（值等價，見 test_31）。
+	# 注意：舊版的「AI 直接 backdash」分支缺少 `not is_crouching` 守衛，
+	# 是前衝分支 / DashHandler 都不一致的真實 bug。為守 ground rule #2（行為一幀不變），
+	# 這裡保留那條略寬鬆的舊守衛並在註解記下來，待日後 Stage 2 切片 4 統一修。
+	var _ai_dash_can_dash: bool = FighterState.can_dash(self, is_special_moving)
+	var _ai_backdash_can_dash: bool = is_on_floor() and not (is_landing and landing_lock_frames > 0) \
+		and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving \
+		and not (is_hit or is_knockfly or is_blocking or is_layground)
+
+	if has_dash_pressed and _ai_dash_can_dash:
 		# AI wants to dash forward
 		if input_dir * facing_direction > 0:
 			# Same direction as facing - forward dash
@@ -402,7 +409,7 @@ func _physics_process(delta: float) -> void:
 			if groundsmoke:
 				groundsmoke.scale.x = facing_direction
 				groundsmoke.restart()
-	elif has_backdash_pressed and is_on_floor() and not is_landing_locked and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving and not (is_hit or is_knockfly or is_blocking or is_layground):
+	elif has_backdash_pressed and _ai_backdash_can_dash:
 		# AI wants to backdash
 		is_backdashing = true
 		dash_timer = Movement.seconds_to_frames_nearest(backdash_time)

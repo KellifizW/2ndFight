@@ -1,5 +1,15 @@
 class_name FighterState extends RefCounted
-## Stage 2 第 1 刀：顯式狀態機的「單一活動狀態」定義與解析器。
+## Stage 2 狀態層：顯式狀態機的「單一活動狀態」定義 + 解析器 + 各子系統守衛。
+##
+## 切片 1 — 唯讀狀態層（已落地）：
+##   - State enum（19 態）+ resolve(fighter) 純函數
+##   - check_invariants() / known_illegal_overlaps() 結構性不變式
+##   - 攻擊 id 唯一清單（GROUND/AIR_ATTACK_IDS）
+##   - is_throw_attack_id / is_throw_in_progress
+## 切片 2 — 攻擊子系統守衛（已落地）：
+##   - can_start_ground_attack / can_start_air_attack
+## 切片 3 — 移動子系統守衛（本檔）：
+##   - can_walk / can_dash / can_jump
 ##
 ## ── 為什麼先做解析器，而不是直接改寫控制流 ─────────────────────────────
 ## plan_game.md §6 的遷移策略寫得很清楚：「按子系統切段，旗標與狀態並行期間
@@ -260,6 +270,113 @@ static func can_start_air_attack(f: Node) -> bool:
 		return false
 	if _flag(f, "is_blocking") or _flag(f, "is_knockfly") or _flag(f, "is_hit") \
 			or _flag(f, "is_wakeup") or _flag(f, "is_layground"):
+		return false
+	return true
+
+## 這一刻能不能開始**走路**（WalkHandler 的 can_walk 等價收攏）。
+##
+## 切片 3 之前這條表達式在 WalkHandler 內聯展開（player.gd 還有一份稍異的舊版），
+## 且同時被 Movement._physics_process 結尾的「能不能清零水平速度」邏輯參考。
+## 收攏後**所有「能不能走」判定都讀這個函式**，讓「走路被某個旗標擋下」
+## 這類型 bug 變成結構上集中在一處。
+##
+## 注意 is_special_moving 是 Player / MoveSet 持有的非狀態機旗標（特殊招式期間
+## 走任何地面動作都該被擋下），它不屬於 resolve() 的 State 列舉，所以保留成參數。
+## 若 is_special_moving 為 true，整個表達式恆為 false（與舊版一致）。
+##
+## 對應舊版（WalkHandler.handle_walk）：
+##   can_walk = is_on_floor() and not is_attacking and not is_dashing
+##     and not is_backdashing and not is_special_moving
+##     and not (is_hit or is_knockfly or is_blocking or is_layground
+##              or is_in_knockback or is_in_corner_push or is_in_block_knockback)
+##     and not is_crouching
+static func can_walk(f: Node, is_special_moving: bool = false) -> bool:
+	if f == null:
+		return false
+	var on_floor: bool = f.is_on_floor() if f.has_method("is_on_floor") else true
+	if not on_floor:
+		return false
+	if is_special_moving:
+		return false
+	if _flag(f, "is_attacking") or _flag(f, "is_dashing") or _flag(f, "is_backdashing"):
+		return false
+	if _flag(f, "is_hit") or _flag(f, "is_knockfly") or _flag(f, "is_blocking") \
+			or _flag(f, "is_layground") or _flag(f, "is_crouching"):
+		return false
+	# knockback / corner push / block knockback 是幀計數器（hitstun / blockstun
+	# 期間的附加水平位移），期間不該允許玩家主動走路 —— 與舊版一致。
+	if _int(f, "knockback_frames") > 0 or _int(f, "corner_push_frames") > 0 \
+			or _int(f, "block_knockback_frames") > 0:
+		return false
+	return true
+
+## 這一刻能不能開始一個**衝刺/後衝**（DashHandler / Movement._physics_process
+## 的 AI 直接 dash 守衛）。不含中性 timer / 雙擊方向匹配等「觸發條件」——
+## 那些是 DashHandler 內部的細節，與「能不能衝」是兩件事。
+##
+## 對應舊版（DashHandler.handle_dash 與 Movement._physics_process 的 AI 分支）：
+##   is_on_floor() and not is_landing_locked and not is_attacking
+##     and not is_dashing and not is_backdashing and not is_special_moving
+##     and not (is_hit or is_knockfly or is_blocking or is_layground)
+##     and not is_crouching
+## is_landing_locked = is_landing and landing_lock_frames > 0
+static func can_dash(f: Node, is_special_moving: bool = false) -> bool:
+	if f == null:
+		return false
+	var on_floor: bool = f.is_on_floor() if f.has_method("is_on_floor") else true
+	if not on_floor:
+		return false
+	if is_special_moving:
+		return false
+	if _flag(f, "is_attacking") or _flag(f, "is_dashing") or _flag(f, "is_backdashing"):
+		return false
+	if _flag(f, "is_hit") or _flag(f, "is_knockfly") or _flag(f, "is_blocking") \
+			or _flag(f, "is_layground") or _flag(f, "is_crouching"):
+		return false
+	# 著地鎖的尾巴本來就可以被 dash 觸發（與攻擊守衛一致，見 can_start_ground_attack），
+	# 因此這裡**只**擋「正在鎖住」的幀：is_landing 為真且 lock 幀數 > 0。
+	if _flag(f, "is_landing") and _int(f, "landing_lock_frames") > 0:
+		return false
+	return true
+
+## 這一刻能不能開始**跳躍**。含三個舊版的隱性條件：
+##   1. 不在著地鎖內（JumpHandler 的第一個 if）
+##   2. 不在被摔投狀態（ThrowHandler 期間位置外部接管）
+##   3. jump_delay_timer <= 0（重複觸發保護）
+## 加上 is_on_floor() + 跳躍輸入 + 「不在戰鬥狀態」標準清單。
+##
+## 對應舊版（JumpHandler.handle_jump）：
+##   not is_landing and not is_being_thrown
+##   and jump_pressed and is_on_floor() and not is_crouching
+##   and not is_dashing and not is_backdashing and not is_attacking
+##   and not is_special_moving
+##   and not (is_hit or is_knockfly or is_blocking or is_layground)
+##   and jump_delay_timer <= 0
+##
+## jump_pressed / is_special_moving 同 can_walk 的設計理由 —— 不在狀態機列舉內，
+## 保留為參數。
+static func can_jump(f: Node, jump_pressed: bool, is_special_moving: bool = false) -> bool:
+	if f == null or not jump_pressed:
+		return false
+	var on_floor: bool = f.is_on_floor() if f.has_method("is_on_floor") else true
+	if not on_floor:
+		return false
+	if is_special_moving:
+		return false
+	# 著地中：JumpHandler 第一個 if 直接 return，沒有任何分支允許在著地期間起跳。
+	if _flag(f, "is_landing"):
+		return false
+	# 被摔投期間位置由 ThrowHandler 接管，禁止起跳。
+	if _flag(f, "is_being_thrown"):
+		return false
+	if _flag(f, "is_crouching") or _flag(f, "is_dashing") or _flag(f, "is_backdashing") \
+			or _flag(f, "is_attacking"):
+		return false
+	if _flag(f, "is_hit") or _flag(f, "is_knockfly") or _flag(f, "is_blocking") \
+			or _flag(f, "is_layground"):
+		return false
+	# 重複觸發保護：跳躍延遲計時器尚未歸零時不允許再跳。
+	if _int(f, "jump_delay_timer") > 0:
 		return false
 	return true
 

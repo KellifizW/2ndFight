@@ -271,6 +271,13 @@ func get_input() -> Dictionary:
 		if ai and ai.has_method("get_ai_input"):
 			var ai_input: Dictionary = default_input.duplicate()
 			ai_input.merge(ai.get_ai_input(), true)
+			# Stage 4：AI 路徑的 input 字典原本不帶 `attack_type`，導致人類獨佔
+			# 的 hit-confirm cancel（check_cancel 讀 input_data.attack_type）對
+			# CPU 失效 —— 這是 Stage 2 切片 2 披露的 finding #3。
+			# 在 AI merge 之後用 PlayerController.resolve_attack_type() 補上
+			# 正確的 attack_type，邏輯與人類路徑共用同一份優先級表（17 行鏈）。
+			ai_input["attack_type"] = PlayerController.resolve_attack_type(ai_input)
+			ai_input["character_id"] = character_id
 			return ai_input
 		push_warning("[Player] %s is AI-controlled but AIBehavior input provider is unavailable" % seat)
 		return default_input.duplicate()
@@ -278,7 +285,7 @@ func get_input() -> Dictionary:
 		var data = player_controller.get_input_data()
 		data.super_pressed = Input.is_key_pressed(KEY_P)
 		data.merge(special_input_data, true)
-		
+
 		# 【NEW】Check for throw interrupt: if throw buffered while attacking regular move, cancel it
 		# This handles the case where throw is detected AFTER st_lk started in the same frame
 		if data.get("throw_pressed", false) and not FighterState.is_throw_in_progress(self):
@@ -286,7 +293,7 @@ func get_input() -> Dictionary:
 				Engine.get_physics_frames(), seat, attack_type
 			])
 			# Don't return yet - let Player decide in attack logic
-		
+
 		return data
 	return default_input.duplicate()
 

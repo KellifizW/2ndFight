@@ -49,9 +49,9 @@
 |---|---|---|---|
 | Stage 0 | 止血 + 安全網(DebugLogger / frame 測試 / frame data 表 / 守則) | ✅ 已併入 main | — |
 | Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | ✅ 完成(六族計時器全數遷移; CI 已啟用並自動跑全部用例) | 已完成 |
-| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1~2 完成(唯讀狀態層 → 攻擊子系統改讀狀態; 旗標 33→32) | 2~4 週末 |
+| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1~3 完成(唯讀狀態層 → 攻擊子系統 → 移動子系統; 旗標 33→32; 用例 30→32); 切片 4(受擊)待辦 | 2~4 週末 |
 | Stage 3 | FrameData 收攏 + 數據問題清理 | ⏳ | 1~2 週末 |
-| Stage 4 | 輸入系統收斂(單一 ActionMapper) | ⏳ | 1~2 週末 |
+| Stage 4 | 輸入系統收斂(單一 ActionMapper) | 🔄 收攏 #1 完成(AI `attack_type` 與人類路徑對齊, hit-confirm cancel 恢復); `InputManager`/`PlayerController` 合併待辦 | 1~2 週末 |
 | Stage 5 | 清理(死代碼/文檔/tscn 拆分/CI) | ⏳ | 1 週末 |
 ---
 ## 4. Stage 0: 止血 + 安全網 ✅
@@ -262,18 +262,78 @@ frame 測試逐幀釘住**。
 4. `get_input()` 每物理幀被呼叫 3~4 次(Movement / TimerHandler 著地
    checkpoint / Player); 對 AI 每次都會重問 `get_ai_input()` → Stage 4。
 
-### 6.3 後續切片（待辦）
+### 6.3 切片 3（已完成, 2026-08-30）: 移動子系統改讀狀態
+**原則**: 與切片 2 同樣的三步：守衛搬進 FighterState → 窮舉證明等價 → frame 測試逐幀釘住。
+本切片不含受擊子系統（仍屬後續切片 4 範疇）與 Landing 系統（landing 早以
+`is_landing` / `landing_lock_frames` 旗標存在，本切片在 can_dash 守衛內
+直接使用）。
+
+**交付**:
+1. **三個移動守衛收攏**:
+   - `FighterState.can_walk(f, is_special_moving)` 取代 `WalkHandler.handle_walk`
+     內聯展開的 `can_walk`（含 knockback_frames / corner_push_frames /
+     block_knockback_frames 三個幀計數器）。
+   - `FighterState.can_dash(f, is_special_moving)` 取代 `DashHandler.handle_dash`
+     守衛與 `Movement._physics_process` 內 AI 直接 dash 的**前衝**分支。
+   - `FighterState.can_jump(f, jump_pressed, is_special_moving)` 取代
+     `JumpHandler.handle_jump` 開頭的兩個 if（`is_landing` / `is_being_thrown`）
+     加上主守衛（on_floor + 跳躍輸入 + 戰鬥狀態清單 + jump_delay_timer<=0）。
+   - 三份舊表達式**全 262,144 種旗標組合**（17 旗標 × 2 jump_pressed 值）
+     與新守衛**逐值等價**（Python 暴力窮舉, 0 分岔）。
+   - `test_31` 600 幀隨機輸入逐幀比對三組對照組 vs `FighterState`,
+     並要求三種守衛各自至少為真一次（避免「永遠 false 假綠」）。
+2. **披露的不一致 bug 保留不修**:
+   `Movement._physics_process` 內 AI 的 `has_backdash_pressed` 分支缺
+   `not is_crouching` 守衛, 與前衝分支 / `DashHandler` 都不一致 —— 蹲下
+   時 AI 仍會後衝。為守 ground rule #2（行為一幀不變）, 切片 3 把
+   `_ai_backdash_can_dash` 保留為舊版略寬鬆的展開並在註解記下,
+   留給切片 4 與受擊守衛一起收攏時統一修。
+3. **Stage 4 收攏 #1：AI 取消窗口的「死路徑」修掉**:
+   - 切片 2 披露的 finding #3 — `check_cancel(input_data.attack_type, ...)`
+     對 CPU 永遠是 "none"（AI 的 `_neutral_input()` / `_compute_ai_input()`
+     完全沒帶 `attack_type` 鍵）, 導致命中確認取消（hit-confirm cancel）
+     對 AI 失效。
+   - 修法: 把 `PlayerController.get_input_data()` 內聯的 17 行優先級鏈
+     抽成 `static func resolve_attack_type(d)`, `Player.get_input()` 在
+     AI merge 之後補上正確的 `attack_type` 與 `character_id`（65,536
+     種按鍵 × 角色組合與舊鏈值等價, Python 暴力窮舉）。人類路徑也改用
+     同一份 helper, 行為一幀不變。
+   - `AIBehavior._neutral_input()` 同步補上 `attack_type: "none"` 鍵,
+     讓 AI 路徑的 input 字典**形狀**與人類路徑一致（即便實際值會被
+     `Player.get_input()` 覆寫）。
+   - `test_32` 釘住: 600 幀隨機按鍵, 兩條路徑的 input 字典都必須帶
+     `attack_type` 鍵, 且值與 `resolve_attack_type()` 對照組一致; 要求
+     出現 ≥ 3 種 attack_type 且 AI 路徑至少一次非 `"none"`。
+4. **旗標數不變**: 切片 3 與 Stage 4 收攏 #1 都**只**改控制流讀什麼,
+   不改旗標數。核心三檔 bool 旗標仍為 **32**（切片 2 末的 32 維持不變）。
+   旗標真正消失仍要等切片 4（受擊族）把守衛搬完後, 屆時每個旗標
+   才能對應到「不再是必要資訊」的論證。
+5. **本切片找出但刻意不修的（披露）**:
+   - AI 直接 backdash 缺 `not is_crouching` 守衛（見上） → 切片 4 與
+     受擊守衛一起收攏時統一修。
+   - `_compute_ai_input()` 內聯設定的 17 種按鍵仍是散落狀態 → 等 Stage 4
+     真正把 `InputManager` / `PlayerController` / `MoveSet._handle_input`
+     三條輸入路徑收攏到 `ActionMapper` 時一併結構化。本切片只是讓 AI
+     路徑**形狀**與人類路徑一致（`attack_type` 鍵存在且正確）, 沒碰
+     背後的按鍵邏輯。
+   - `get_input()` 每物理幀被呼叫 3~4 次; 對 AI 每次都會重問
+     `get_ai_input()` → Stage 4（已知, 等 ActionMapper 收攏後自然消解）。
+
+### 6.4 後續切片（待辦）
 依原訂順序把控制流從「讀旗標組合」改為「讀狀態」, 每段跑一次測試:
 1. ~~**攻擊系統**~~ ✅ 切片 2 完成(守衛已收攏; Attack* 狀態擁有
    startup/active/recovery 計數的部分併入 Stage 3, 見 §6.2 披露 2)
-2. **移動系統**: Walk/Dash/Jump/Landing
+2. ~~**移動系統**~~ ✅ 切片 3 完成(can_walk / can_dash / can_jump 三份收攏;
+   一起修的還有 Stage 4 收攏 #1 - AI attack_type 對齊)
 3. **受擊系統**: Hitstun/Blockstun/Knockfly/Knockdown/Wakeup
 
 **驗收(DoD)**:
 - [x] 狀態層存在且被 frame 測試釘住(`test_25`/`test_26`)
 - [x] 死旗標/死變數清除; 核心三檔旗標數 33 → **32**(計數規則見 §6.2 第 7 點)
 - [x] 攻擊子系統改讀狀態(切片 2): 出招守衛/摔投判定/攻擊 id 各一份定義
-- [ ] 移動與受擊子系統改讀狀態(切片 3~4); Movement/Fighter/Player 的旗標數 < 10
+- [x] 移動子系統改讀狀態(切片 3): can_walk / can_dash / can_jump 三份收攏
+- [x] AI 取消窗口恢復(Stage 4 收攏 #1): PlayerController.resolve_attack_type 共享
+- [ ] 受擊子系統改讀狀態(切片 4); Movement/Fighter/Player 的旗標數 < 10
 - [ ] `world.reset_players()` 簡化為單一 reset 調用
 - [ ] 新增一個攻擊只需: frame data 資源 + 動畫(不再改 8 處)
 ---
@@ -307,7 +367,7 @@ multi-hit phases[] / knockfly params / projectile params
 - [ ] 動畫 0f 問題全部修正; 孤兒資源刪除
 - [ ] 新招式測試全綠; FRAME_DATA_TABLE 更新為收攏後版本
 ---
-## 8. Stage 4: 輸入系統收斂 ⏳
+## 8. Stage 4: 輸入系統收斂 🔄（收攏 #1 已落地, 2026-08-30）
 **問題**: 同一個「玩家按了什麼」由三處各自偵測 —
 `InputManager`(歷史+方向指令宏)、`PlayerController`(buffer+雙擊+摔投窗口+優先級鏈)、
 `MoveSet._handle_input`(150 行 if 鏈 + 變體選擇重複邏輯)。
@@ -330,6 +390,18 @@ ActionMapper 同時供人類輸入與 AI(合成 InputFrame)使用
 **驗收(DoD)**:
 - [ ] 加一個特殊招式 = 1 個 FrameData + 1 個輸入序列資源 + 1 個動畫, 不改邏輯代碼
 - [ ] 輸入宏測試全綠; 既有測試全綠
+- [x] 收攏 #1：AI 取消窗口恢復（Stage 2 切片 2 披露的 finding #3）
+  - 將 `PlayerController.get_input_data()` 內聯的 17 行優先級鏈
+    抽成 `static func resolve_attack_type(d)`
+  - `Player.get_input()` 在 AI merge 之後補上正確的 `attack_type` / `character_id`
+  - `AIBehavior._neutral_input()` 補上 `attack_type: "none"` 鍵（即使會被覆寫,
+    形狀與人類路徑一致）
+  - `test_32` 釘住：AI 與人類兩條路徑的 input 字典都帶 `attack_type`,
+    且值與 `resolve_attack_type()` 對照組一致（65,536 種按鍵 × 角色
+    組合, Python 暴力窮舉值等價）
+  - 行為變更：僅限 CPU 角色的 hit-confirm cancel —— 原本永遠 "none"
+    不能觸發, 現在與人類路徑使用同一份優先級表, 真正可觸發。
+    其餘幀逐值等價（merge 邏輯沒改, 只是補上一個鍵）。
 ---
 ## 9. Stage 5: 清理 ⏳
 **死代碼清單(已知)**:
