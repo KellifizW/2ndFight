@@ -8,8 +8,12 @@ class_name FighterState extends RefCounted
 ##   - is_throw_attack_id / is_throw_in_progress
 ## 切片 2 — 攻擊子系統守衛（已落地）：
 ##   - can_start_ground_attack / can_start_air_attack
-## 切片 3 — 移動子系統守衛（本檔）：
+## 切片 3 — 移動子系統守衛（已落地）：
 ##   - can_walk / can_dash / can_jump
+## 切片 4 — 受擊子系統守衛（本檔）：
+##   - is_input_locked（Player.get_input 的吞輸入判定）
+##   - is_combo_stunned（連段續航判定，HitResponseHandler / fireball 兩份抄本）
+##   - can_initiate_throw（摔投發起守衛）/ can_be_thrown（摔投目標守衛）
 ##
 ## ── 為什麼先做解析器，而不是直接改寫控制流 ─────────────────────────────
 ## plan_game.md §6 的遷移策略寫得很清楚：「按子系統切段，旗標與狀態並行期間
@@ -380,6 +384,113 @@ static func can_jump(f: Node, jump_pressed: bool, is_special_moving: bool = fals
 		return false
 	return true
 
+# ── 受擊族守衛（Stage 2 切片 4）─────────────────────────────────────────
+##
+## 受擊族 = Hitstun / Blockstun / Knockfly / Knockdown(layground) / Wakeup，
+## 加上摔投的兩個專屬階段（THROWING / BEING_THROWN）。切片 4 之前，「這個
+## 狀態會不會吞輸入 / 算不算連段續航 / 能不能發起摔投 / 能不能被摔」這些
+## 判定各自散落在 player.gd、HitResponseHandler.gd、fireball.gd、
+## ThrowHandler.gd，且彼此抄得不完全一樣（例：輸入吞沒收 blockstun，
+## 連段續航有收）。收攏後**所有受擊相關的「能不能」判定都讀這裡**。
+
+## 這一幀玩家輸入是否應被**完全吞沒**（回傳中性輸入）。
+##
+## 對應舊版（Player.get_input() 開頭的五個提前返回）：
+##   is_knockfly or is_wakeup or is_hit or is_layground
+##     or is_throw_in_progress(self)
+##     or is_being_thrown
+##
+## 注意三件刻意保留的語意：
+##   1. **不含 blockstun**（`is_blocking`）。格擋硬直中 `get_input()` 仍回傳
+##      真實輸入 —— 這是防禦中能緩衝反擊招的既有行為，不能跟著受擊一起吞。
+##      （blockstun 期間能不能「出招」仍由 can_start_ground_attack 等守衛擋，
+##      那是另一道閘門。）
+##   2. **不含 layground 之外的 KO**。KO 是 layground 的細化（resolve() 內
+##      `is_layground + 血量歸零`），is_layground 已涵蓋。
+##   3. `is_wakeup`（起身后搖，等價於 is_wakeup_locked）有收 —— 醒來那幾幀
+##      輸入是被吃掉的，與動畫鏈的 wakeup 優先序一致。
+static func is_input_locked(f: Node) -> bool:
+	if f == null:
+		return false
+	if _flag(f, "is_knockfly") or _flag(f, "is_wakeup") \
+			or _flag(f, "is_hit") or _flag(f, "is_layground"):
+		return true
+	if is_throw_in_progress(f):
+		return true
+	if _flag(f, "is_being_thrown"):
+		return true
+	return false
+
+## 這一幀目標是否仍處於「可被接段」的硬直中（連段續航判定）。
+##
+## 收攏前這份 5 條 or 鏈在 HitResponseHandler._target_is_combo_stunned 與
+## fireball._target_is_combo_stunned 各抄了一份（逐字相同）。連段計數靠它
+## 判斷「這一擊算不算接在同一套連段後面」；任何一份漏判都會讓連段數或
+## hit-confirm 在某條攻擊路徑（近身 vs 火球）上默默不同。
+##
+## 五條語意（照舊，不增刪）：
+##   1. hitstun_frames > 0 —— 權威的幀制硬直（is_hit 旗標可能因舊計時器
+##      殘留而在 hitstun 歸零後仍為 true，故連段以幀計數器為準）。
+##   2. waiting_for_hit_stop_end —— hitstop 期間 hitstun 還沒正式寫入，
+##      這幾幀仍算接段窗口。
+##   3. is_air_hit_backjump —— 空中受擊後跳是 juggle 狀態。
+##   4. is_knockfly —— 擊飛 / 彈牆 juggle。
+##   5. 沒有 hitstun_frames 欄位時退回 is_hit（非 Fighter 目標的後備，
+##      實際遊戲中所有玩家都有 hitstun_frames，此分支為防禦性保留）。
+static func is_combo_stunned(target: Node) -> bool:
+	if target == null:
+		return false
+	if _has_int(target, "hitstun_frames"):
+		if _int(target, "hitstun_frames") > 0:
+			return true
+	elif _flag(target, "is_hit"):
+		# 後備：目標連 hitstun_frames 欄位都沒有時才退回旗標。
+		return true
+	if _flag(target, "waiting_for_hit_stop_end"):
+		return true
+	if _flag(target, "is_air_hit_backjump"):
+		return true
+	if _flag(target, "is_knockfly"):
+		return true
+	return false
+
+## 這一刻能不能**發起**摔投（攻擊方守衛）。
+##
+## 對應舊版（ThrowHandler._can_initiate_throw）：
+##   is_attacking 且 attack_type != "throw_enter" → false
+##   is_knockfly or is_hit or is_blocking          → false
+##   not is_on_floor()                             → false
+##
+## 第一條刻意只擋 `throw_enter`：throw_seq 階段（已抓到人）呼叫進來時
+## is_attacking 為 true、attack_type 為 "throw_seq"，不能被自己擋掉。
+## 注意此守衛**未**列 is_layground / is_wakeup —— 那些狀態下 get_input()
+## 早已被 is_input_locked 吞成中性輸入，throw_pressed 根本到不了這裡；
+## 守衛維持與舊式逐值等價（不無故加嚴）。
+static func can_initiate_throw(f: Node) -> bool:
+	if f == null:
+		return false
+	if _flag(f, "is_attacking") and _string(f, "attack_type") != "throw_enter":
+		return false
+	if _flag(f, "is_knockfly") or _flag(f, "is_hit") or _flag(f, "is_blocking"):
+		return false
+	var on_floor: bool = f.is_on_floor() if f.has_method("is_on_floor") else true
+	if not on_floor:
+		return false
+	return true
+
+## 這個目標此刻能不能**被**摔投（受害者守衛）。
+##
+## 對應舊版（ThrowHandler.check_grab_collision 的目標過濾）：
+##   potential_target.is_knockfly or potential_target.is_being_thrown → 略過
+## 擊飛中不能抓、已經被抓的不能重複抓。其餘狀態（blockstun / hitstun /
+## layground）舊版都允許抓取，這裡照舊，不無故加嚴。
+static func can_be_thrown(target: Node) -> bool:
+	if target == null:
+		return false
+	if _flag(target, "is_knockfly") or _flag(target, "is_being_thrown"):
+		return false
+	return true
+
 ## 這一刻旗標之間是否存在**結構性不可能**的組合。
 ##
 ## 回傳違反的不變式描述（空陣列 = 乾淨）。只收「由現行程式碼可證明互斥」
@@ -458,6 +569,9 @@ static func _int(n: Node, prop: String) -> int:
 	if n == null or not (prop in n):
 		return 0
 	return int(n.get(prop))
+
+static func _has_int(n: Node, prop: String) -> bool:
+	return n != null and prop in n
 
 static func _string(n: Node, prop: String) -> String:
 	if n == null or not (prop in n):

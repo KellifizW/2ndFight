@@ -49,7 +49,7 @@
 |---|---|---|---|
 | Stage 0 | 止血 + 安全網(DebugLogger / frame 測試 / frame data 表 / 守則) | ✅ 已併入 main | — |
 | Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | ✅ 完成(六族計時器全數遷移; CI 已啟用並自動跑全部用例) | 已完成 |
-| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1~3 完成(唯讀狀態層 → 攻擊子系統 → 移動子系統; 旗標 33→32; 用例 30→32); 切片 4(受擊)待辦 | 2~4 週末 |
+| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1~4 完成(唯讀狀態層 → 攻擊 → 移動 → 受擊子系統; AI 蹲下後衝 bug 一併修復; 旗標 33→32; 用例 30→35); 剩餘: 旗標實際移除/最後少數讀點改讀 resolve() | 2~4 週末 |
 | Stage 3 | FrameData 收攏 + 數據問題清理 | ⏳ | 1~2 週末 |
 | Stage 4 | 輸入系統收斂(單一 ActionMapper) | 🔄 收攏 #1 完成(AI `attack_type` 與人類路徑對齊, hit-confirm cancel 恢復); `InputManager`/`PlayerController` 合併待辦 | 1~2 週末 |
 | Stage 5 | 清理(死代碼/文檔/tscn 拆分/CI) | ⏳ | 1 週末 |
@@ -319,21 +319,73 @@ frame 測試逐幀釘住**。
    - `get_input()` 每物理幀被呼叫 3~4 次; 對 AI 每次都會重問
      `get_ai_input()` → Stage 4（已知, 等 ActionMapper 收攏後自然消解）。
 
-### 6.4 後續切片（待辦）
+### 6.4 切片 4（已完成, 2026-08-30）: 受擊子系統改讀狀態
+**原則**: 與切片 2/3 同樣三步 —— 守衛搬進 FighterState → 窮舉證明等價 →
+frame 測試逐幀釘住。受擊族 = Hitstun / Blockstun / Knockfly / Knockdown(
+layground) / Wakeup, 加上摔投兩個「輸入被外部接管」的階段。
+
+**交付**:
+1. **四組散落的受擊守衛收攏為一份定義**:
+   - `FighterState.is_input_locked(f)` 取代 `Player.get_input()` 開頭的五個
+     提前返回(`is_knockfly or is_wakeup or is_hit or is_layground` +
+     摔投進行中 + `is_being_thrown`)。**刻意不含 blockstun** —— 格擋硬直中
+     仍允許緩衝反擊輸入(舊鏈本來就沒讀 is_blocking)。
+   - `FighterState.is_combo_stunned(target)` 取代**兩份逐字相同**的 5 條
+     連段續航 or 鏈(`hitstun_frames>0` / `waiting_for_hit_stop_end` /
+     `is_air_hit_backjump` / `is_knockfly` / 無 hitstun_frames 欄位時的
+     is_hit 後備) —— `HitResponseHandler`(近身) 與 `fireball.gd`(投射物)
+     各一份, 任何分歧都會讓連段數 / hit-confirm 在兩條攻擊路徑上不一致。
+   - `FighterState.can_initiate_throw(f)` 取代
+     `ThrowHandler._can_initiate_throw()`;
+     `FighterState.can_be_thrown(target)` 取代抓取目標過濾
+     (`is_knockfly or is_being_thrown` → 略過)。
+   - 四者皆以 **Python 暴力窮舉所有相關旗標組合**證明逐值等價
+     (384 / 64 / 192 / 4 組, 0 分岔), 再由 `test_34` 在引擎內 600 幀
+     固定種子(`seed=20260901`)隨機輸入逐幀釘住, 並要求各守衛 true/false
+     兩側都實際出現(避免「永遠同一邊」假綠)。
+2. **切片 3 披露的 AI backdash bug 修復(本切片唯一刻意行為變更)**:
+   AI 直接**後衝**分支用的手寫守衛 `_ai_backdash_can_dash` 漏掉
+   `not is_crouching`(前衝分支 / DashHandler 都有), 導致蹲下時 AI 仍會
+   後衝。本切片讓 AI 前衝、後衝與人類雙擊三條路徑**共用**
+   `FighterState.can_dash`。窮舉證明: 新守衛 = `舊守衛 and not is_crouching`
+   (4,096 組, 0 分岔), 即除了舊守衛錯誤放行蹲下後衝的 3 種組合外完全等價。
+   `test_35` 以「強制 AI 承諾 backdash」確定性重現: 蹲下時 `is_backdashing`
+   不得觸發、站立時必須觸發(對照組證明注入有效、守衛不是永遠 false)。
+3. **旗標數不變**: 本切片只改控制流讀什麼, 核心三檔 bool 旗標仍為 **32**。
+   新增 `test_34` / `test_35`(共 35 用例)。
+
+**本切片找出但刻意不修的(披露)**:
+1. `BlockingHandler` 的站姿進入守衛是自己一份較寬鬆的抄本(放行條件
+   `not (is_hit or is_knockfly or is_layground)`, 沒列 is_blocking;
+   reset 分支用另一份 4 項清單)。blockstun 期間重讀持續擋向是預期行為,
+   本切片不摺, 留待 block/input 收攏。
+2. `fighter.take_knockfly()` 全倉庫零呼叫(無 .gd/.tscn 呼叫點), 是死代碼;
+   留 Stage 5 清理刪除(本切片保持「守衛收攏」單一關注點)。
+3. AI `_action_to_input` 的 17 鍵字典仍內聯(切片 3 已披露) → Stage 4
+   ActionMapper 收攏。
+
+### 6.5 後續切片（待辦）
 依原訂順序把控制流從「讀旗標組合」改為「讀狀態」, 每段跑一次測試:
 1. ~~**攻擊系統**~~ ✅ 切片 2 完成(守衛已收攏; Attack* 狀態擁有
    startup/active/recovery 計數的部分併入 Stage 3, 見 §6.2 披露 2)
 2. ~~**移動系統**~~ ✅ 切片 3 完成(can_walk / can_dash / can_jump 三份收攏;
    一起修的還有 Stage 4 收攏 #1 - AI attack_type 對齊)
-3. **受擊系統**: Hitstun/Blockstun/Knockfly/Knockdown/Wakeup
+3. ~~**受擊系統**~~ ✅ 切片 4 完成(is_input_locked / is_combo_stunned /
+   can_initiate_throw / can_be_thrown 四份收攏; AI 蹲下後衝 bug 修復)
+4. **收尾**: 把最後少數仍直接讀 bool 的讀點(block 站姿進入、
+   `_physics_process_jump` 死路徑守衛、動畫鏈)改讀 `resolve()` 狀態,
+   然後**實際刪除**已被狀態層取代的重複旗標。
 
 **驗收(DoD)**:
 - [x] 狀態層存在且被 frame 測試釘住(`test_25`/`test_26`)
 - [x] 死旗標/死變數清除; 核心三檔旗標數 33 → **32**(計數規則見 §6.2 第 7 點)
 - [x] 攻擊子系統改讀狀態(切片 2): 出招守衛/摔投判定/攻擊 id 各一份定義
 - [x] 移動子系統改讀狀態(切片 3): can_walk / can_dash / can_jump 三份收攏
+- [x] 受擊子系統改讀狀態(切片 4): is_input_locked / is_combo_stunned /
+      can_initiate_throw / can_be_thrown 四份收攏; AI 蹲下後衝 bug 修復
 - [x] AI 取消窗口恢復(Stage 4 收攏 #1): PlayerController.resolve_attack_type 共享
-- [ ] 受擊子系統改讀狀態(切片 4); Movement/Fighter/Player 的旗標數 < 10
+- [ ] 收尾切片: 最後讀點改讀 resolve() 後實際刪旗標; Movement/Fighter/Player
+      的旗標數 < 10
 - [ ] `world.reset_players()` 簡化為單一 reset 調用
 - [ ] 新增一個攻擊只需: frame data 資源 + 動畫(不再改 8 處)
 ---
@@ -451,7 +503,7 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | 階段 | 新增用例 |
 |---|---|
 | Stage 1 | 10 hitstun 遞減 / 11 landing lock / 12 dash / 16 landing 轉換公式 / 18 knockfly 幀制 / 19 hit_lock hitstop 凍結 / 20 block_lock |
-| Stage 2 | 25 狀態機不變式(隨機輸入 600 幀) / 26 狀態層 vs 動畫層對齊 / 29 攻擊狀態成對(孤兒攻擊不可達) / 30 出招守衛 vs 舊表達式逐幀等價 |
+| Stage 2 | 25 狀態機不變式(隨機輸入 600 幀) / 26 狀態層 vs 動畫層對齊 / 29 攻擊狀態成對(孤兒攻擊不可達) / 30 出招守衛 / 31 移動守衛 / 32 AI attack_type 對齊 / 34 受擊守衛 vs 舊表達式逐幀等價 / 35 AI 蹲下不得後衝 |
 | Stage 3 | 14 每角色每招式 frame 斷言 / 100p 四段 |
 | Stage 4 | 15 QCF 宏 / 16 DP 宏 / 17 摔投窗口 / 18 AI 對稱性 |
 | Stage 5 | CI 化(無新用例, 全部進 CI) — ✅ 已啟用, 見 §12.2 |
@@ -530,6 +582,18 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
    **行為變更**: 僅限「舊入口出招、AttackExecutor 沒出招」的那一幀 ——
    該幀原本產生非法的孤兒攻擊狀態, 現在不再產生。其餘幀逐值等價。
 ---
+9. **[已完成 2026-08-30]** Stage 2 切片 4: 受擊子系統改讀狀態。
+   `Player.get_input()` 吞輸入五連判 → `FighterState.is_input_locked`;
+   連段續航 5 條 or 鏈的兩份抄本(HitResponseHandler / fireball) →
+   `FighterState.is_combo_stunned`; 摔投發起/目標守衛 →
+   `can_initiate_throw` / `can_be_thrown`(窮舉 384/64/192/4 組證明等價,
+   `test_34` 600 幀逐幀釘住)。一併修復切片 3 披露的 AI backdash bug:
+   AI 後衝分支守衛漏 `not is_crouching`, 三條衝刺路徑統一走
+   `FighterState.can_dash`(新守衛 = `舊守衛 and not is_crouching`, 4,096 組
+   0 分岔; `test_35` 蹲下不得後衝、站立必須後衝)。旗標數仍 32;
+   新增 `test_34`/`test_35`(共 35 用例)。詳見 §6.4。
+   **行為變更**: 僅限「蹲下的 AI 觸發 backdash」此後被正確擋下(舊守衛漏網)。
+---
 ## 附錄 A: 關鍵代碼位置(供各階段參考)
 | 系統 | 檔案 |
 |---|---|
@@ -544,8 +608,8 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | hitstop | `scripts/core/slow_mo_controller.gd` |
 | 幀數據資源 | `data/AttackData.gd` + `data/p1_attack_data.tres`(DAV/WOO) + `data/p2_attack_data.tres`(DEN) + `data/specials/*.tres` + 場景內嵌 `smd_*` |
 | AI | `ai/` (AIBehavior 為主; cpu_controller/specs 為殘骸) |
-| 顯式狀態層 | `scripts/core/FighterState.gd` (Stage 2 切片 1 唯讀解析器; 切片 2 起也是出招守衛/攻擊 id/摔投判定的唯一定義) |
-| 測試 | `tests/frame_tests/` (30 用例) |
+| 顯式狀態層 | `scripts/core/FighterState.gd` (Stage 2 切片 1 唯讀解析器; 切片 2/3/4 起也是出招/移動/受擊守衛、攻擊 id、摔投判定、吞輸入/連段續航判定的唯一定義) |
+| 測試 | `tests/frame_tests/` (35 用例) |
 | 行為基準 | `docs/systems/FRAME_DATA_TABLE.md` |
 ## 附錄 B: 已完成 commit 記錄(歷史參考)
 Stage 0 原始 5 commits + 修正 commit 已合併入 main, 並隨 Godot 4.7.2 升級

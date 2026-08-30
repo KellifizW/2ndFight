@@ -118,19 +118,14 @@ func try_initiate_throw(input_data: Dictionary) -> bool:
 
 
 func _can_initiate_throw() -> bool:
-	"""檢查是否可以啟動摔投"""
+	"""檢查是否可以啟動摔投。
+
+	Stage 2 切片 4：守衛收攏到 FighterState.can_initiate_throw()
+	（is_attacking 且非 throw_enter / knockfly / hit / blocking / 空中）。
+	"""
 	if not player_node:
 		return false
-	
-	# 檢查基本狀態條件
-	if player_node.is_attacking and player_node.attack_type != "throw_enter":
-		return false
-	if player_node.is_knockfly or player_node.is_hit or player_node.is_blocking:
-		return false
-	if not player_node.is_on_floor():
-		return false
-	
-	return true
+	return FighterState.can_initiate_throw(player_node)
 
 
 ## ═══════════════════════════════════════════════════════════════════════════
@@ -175,7 +170,9 @@ func check_grab_collision() -> Node:
 			continue
 		
 		# 檢查對手狀態（是否可被摔投）
-		if potential_target.is_knockfly or potential_target.is_being_thrown:
+		# Stage 2 切片 4：目標守衛收攏到 FighterState.can_be_thrown()
+		# （knockfly 中 / 已被摔投者不可抓）。
+		if not FighterState.can_be_thrown(potential_target):
 			if debug_enabled:
 				Debug.log("[ThrowHandler] Target %s in invalid state (knockfly or already thrown)" % potential_target.name)
 			continue

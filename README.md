@@ -52,7 +52,7 @@ These are non-negotiable and apply to every contribution:
 |---|---|---|
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
 | **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated) |
-| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–3 landed (read-only state layer, attack subsystem ported, movement subsystem ported, AI `attack_type` parity fixed; 7 dead flags deleted, 33 → 32, test count 30 → 32) |
+| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–4 landed (read-only state layer, attack / movement / hit-reaction subsystems ported, AI `attack_type` parity fixed, AI crouch-backdash bug fixed; 7 dead flags deleted, 33 → 32, test count 30 → 35) |
 | **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | ⏳ Planned |
 | **4** | **Converge input handling** — a single `ActionMapper` | 🔄 Partial — parity fix #1 landed (AI `attack_type` restored via shared `PlayerController.resolve_attack_type`); `InputManager` / `PlayerController` collapse to a single `ActionMapper` still pending |
 | **5** | **Cleanup** — dead code, docs, scene splitting | ⏳ Planned |
@@ -364,10 +364,80 @@ by enumeration, pin it per-frame with a `test_30`-style comparison.
    輸入路徑收攏到 `ActionMapper` 時一併結構化。本切片只是讓 AI 路徑**形狀**
    與人類路徑一致（`attack_type` 鍵存在且正確），沒碰背後的按鍵邏輯。
 
-**Next slices**: hit reactions (Hitstun / Blockstun / Knockfly / Knockdown / Wakeup),
-same method — move the guard into `FighterState`, prove equivalence by enumeration,
-pin it per-frame with a `test_30`-style comparison. Only then do the flags actually
-disappear.
+**Slice 4 — the hit-reaction subsystem reads the state layer (landed)**
+
+Slice 3 ported Walk / Dash / Jump; slice 4 does the same for **Hitstun /
+Blockstun / Knockfly / Knockdown / Wakeup** (plus the two throw phases, which
+are the hit-reaction family's "input is owned by someone else" cases). Same
+three-step recipe: move the guard into `FighterState`, prove equivalence by
+exhaustive enumeration in Python, pin it per-frame with a `test_30`-style
+comparison.
+
+- ✅ **Four scattered hit-reaction guards consolidated into one definition.**
+  - `FighterState.is_input_locked(f)` replaces `Player.get_input()`'s five
+    early-return conditions (`is_knockfly or is_wakeup or is_hit or
+    is_layground` + throw-in-progress + `is_being_thrown`) that hand back a
+    neutral input dict. It deliberately **excludes blockstun** — during block
+    stun input is still buffered for a punish (the "can I act on it" gate is
+    the attack/dash/jump predicates, a separate door), and the old chain read
+    `is_blocking` nowhere.
+  - `FighterState.is_combo_stunned(target)` replaces the **two identical
+    copies** of the 5-term combo-continuation chain (`hitstun_frames > 0` /
+    `waiting_for_hit_stop_end` / `is_air_hit_backjump` / `is_knockfly` / the
+    no-`hitstun_frames`-field `is_hit` fallback) — one in
+    `HitResponseHandler` (melee), one in `fireball.gd` (projectile). Any drift
+    between them would make the combo counter / hit-confirm disagree across
+    the two attack paths.
+  - `FighterState.can_initiate_throw(f)` replaces
+    `ThrowHandler._can_initiate_throw()` (`is_attacking && attack_type !=
+    "throw_enter"` / knockfly / hit / blocking / airborne).
+  - `FighterState.can_be_thrown(target)` replaces the grab target filter
+    (`is_knockfly or is_being_thrown` → skip).
+  - All four were verified value-identical by **Python brute-force over every
+    flag combination they read** (384 / 64 / 192 / 4 combos, 0 mismatches),
+    then pinned per-frame in-engine by `test_34` (600 frames of seeded random
+    input, both fighters genuinely getting hit / blocking / knocked flying /
+    knocked down / waking up, with coverage assertions so an always-true or
+    always-false guard can't pass green).
+- ✅ **The disclosed AI backdash bug is fixed (the one deliberate behavior
+  change).** Slice 3 left the AI's direct-**backdash** branch on a hand-written
+  guard (`_ai_backdash_can_dash`) that was missing the `not is_crouching` term
+  the forward-dash branch and `DashHandler` both had — so a crouching AI could
+  still backdash. The forward branch had already moved to
+  `FighterState.can_dash`; this slice points **both** AI dash branches (and the
+  human double-tap path, which already used it) at the same `can_dash`, so a
+  crouching AI is now correctly refused. Exhaustive proof: the new guard equals
+  `old_guard and not is_crouching` over all 4,096 combinations (0 mismatches),
+  i.e. identical everywhere except the 3 combos where the old guard buggily
+  allowed a crouching backdash. `test_35` pins it deterministically by forcing
+  the AI's committed input to `backdash` and asserting it does **not** fire
+  while crouching but **does** fire while standing (the standing control case
+  proves the injection works and the guard isn't just always-false).
+- ✅ **No flags removed this slice.** As in slice 3, the work only changes what
+  the control flow *reads*, not the flag count. The reproducible member-level
+  `var x: bool` count across `Movement.gd` + `fighter.gd` + `player.gd` stays at
+  **32** (slice 2's rule). Flags actually disappear once the later slices stop
+  reading the now-duplicated booleans.
+
+**Disclosed findings (found while porting, deliberately *not* fixed here)**
+
+1. **BlockingHandler's stance-entry guard is its own looser copy.** It admits
+   the block stance on `not (is_hit or is_knockfly or is_layground)` — note it
+   does **not** list `is_blocking` — while the reset branch uses a different
+   four-term list. It behaves (blockstun re-samples the held direction, which is
+   intended), so it was left in place rather than folded into a new predicate
+   this slice; it belongs with the block/input convergence.
+2. **`fighter.take_knockfly()` has zero callers** repo-wide (no `.gd` / `.tscn`
+   call site). It is dead code carrying an older knockfly-entry path; Stage 5
+   cleanup should delete it (left untouched here to keep this slice a
+   guard-consolidation slice).
+3. **The AI's `_action_to_input` 17-key dictionary is still inline** — the
+   slice-3 finding; it still awaits the Stage 4 `ActionMapper` convergence.
+
+**Next slices**: the remaining boolean reads get rerouted through `resolve()`
+state (block stance entry, the `_physics_process_jump` dead path's guard, and
+the animation chains already mirrored by `test_26`), after which the duplicated
+flags can actually be deleted. That is the tail of Stage 2.
 
 ### Stage 3 — Consolidate frame data ⏳
 
@@ -436,7 +506,7 @@ The rules that bite hardest:
 - Measure in physics frames, never seconds. 1 logical frame = 2 physics frames.
 - Leave generous wait windows around hits — hitstop slows physics-frame advance by 50×.
 
-Frame tests currently cover 32 cases (`test_01`–`test_32`). Stage 1 contributed
+Frame tests currently cover 35 cases (`test_01`–`test_35`). Stage 1 contributed
 the landing, PushManager stun-lock and conversion-boundary families (`test_21`
 combo-window frame counting, `test_22` the three conversion boundaries including
 the "families must not be swapped" guard, `test_23` AI decision/commitment tick
@@ -493,6 +563,24 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   both paths. The same attack_type is observed on both paths ≥ 3 times, and
   the AI path's `attack_type` is non-`"none"` at least once — otherwise the
   test would silently pass on inputs that never trigger an attack.
+- **`test_34`** (slice 4) — the consolidated **hit-reaction** guards
+  (`is_input_locked` / `is_combo_stunned` / `can_initiate_throw` /
+  `can_be_thrown`) must stay **value-identical** to the flag expressions they
+  replaced. Same `test_30`/`test_31` pattern: 600 frames of seeded random input
+  (`seed=20260901`, both fighters genuinely getting hit / blocking / knockflying
+  / knocked down / waking), the legacy expressions rewritten verbatim as a
+  control group and compared every frame against `FighterState`. The control
+  group is exhaustive-verified in Python (384 / 64 / 192 / 4 flag combinations
+  per predicate, 0 mismatches). Coverage assertions require each guard's true
+  and false sides to actually occur, so "all always the same" cannot pass.
+- **`test_35`** (slice 4, the disclosed behavior fix) — a crouching AI must not
+  backdash. It forces the AI's committed input to `backdash` (with the crouch
+  flag driven through the AI input dict, since `is_crouching` for an AI comes
+  from there, not the human InputMap) and asserts `is_backdashing` never fires
+  while crouching but **does** fire while standing. Before the fix the loose
+  `_ai_backdash_can_dash` guard (missing `not is_crouching`) fired the backdash
+  in phase A; the standing control case proves the injection works and the
+  guard isn't just always-false.
 
 ### Not yet covered (honest disclosure)
 
@@ -527,7 +615,7 @@ disclosed above. **What only the engine can claim**: the physics-frame
 assertions themselves.
 
 Since the workflow was activated that gap is closed automatically — every push
-runs the 30 cases on real Godot 4.7.2, so the sandbox's inability no longer
+runs the full harness on real Godot 4.7.2, so the sandbox's inability no longer
 gates correctness.
 
 ---
@@ -551,13 +639,20 @@ plan_game.md         The full six-stage refactor plan
 ## Known limitations
 
 - **Hitstop uses `Engine.time_scale`.** It works, and after Stage 1 every gameplay timer counts physics ticks instead of scaled `delta`, so the remaining exposure is UI-only (labels/`FrameCounter`). Documented as an accepted limitation rather than fixed.
-- **The state layer drives the attack subsystem only, so far.** Since slice 2 the
-  attack gates ("can I start a ground/air attack", "is a throw in progress",
-  "is this `attack_type` legal") live in `FighterState`, and the orphan-attack
-  state is structurally impossible. Everything else still branches on flag
-  combinations: movement and hit reactions wait for slices 3–4, so their illegal
-  states remain *detectable* (and are detected by `test_25`) rather than
-  *unrepresentable*.
+- **The state layer drives attacks, movement, and hit reactions — but the
+  booleans themselves still exist.** Since slice 2 the attack gates, since
+  slice 3 the Walk/Dash/Jump gates, and since slice 4 the hit-reaction gates
+  ("is input swallowed", "is the target still combo-stunned", "can a throw
+  start / land") all live in `FighterState`, and the orphan-attack state is
+  structurally impossible. What remains for the tail of Stage 2 is *deleting*
+  the now-duplicated boolean flags and rerouting the last readers (block-stance
+  entry, the dead `_physics_process_jump` guard) through `resolve()`. Until
+  then the illegal flag combinations remain *detectable* (and are detected by
+  `test_25`) rather than *unrepresentable*.
+- **AI crouch-backdash** ✅ (fixed in Stage 2 slice 4) — the AI's direct
+  backdash branch used a looser guard missing `not is_crouching`; both AI dash
+  branches and the human double-tap path now share `FighterState.can_dash`
+  (pinned by `test_35`).
 - **Two state/animation divergences are known and unfixed** — `is_being_thrown`
   has no animation branch, and being airborne without `is_jumping` falls through
   to the walk animation. Documented in `FighterState.gd`, skipped-with-counting
