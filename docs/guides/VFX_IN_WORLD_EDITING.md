@@ -41,10 +41,10 @@ world.tscn
 1. 選 `World/VFXLayer/SmokeVFX` 或其子節點（已開 editable children，
    Scene 面板可直接展開）。**先選到這層再調**，不要跑遊戲改程式。
 2. `AnimatedSprite2D` → `SpriteFrames`：換圖 / 加格 / 調每張格的 `duration` 與 `speed`。
-3. `AnimationPlayer` → `smoke` / `land_smoke` / `hit_spark_m` 動畫：
-   調整體 length、每格切換時刻（frame track）、`offset` / `scale` / `modulate`
-   逐格軌道。三支動畫的名稱是**契約**，改名要同步改 `vfx_smoke.gd` 的常量
-   （test_33 會釘住這三者存在）。
+3. `AnimationPlayer` → `smoke` / `bdashsmoke` / `vjumpsmoke` / `land_smoke` /
+   `hit_spark_m` 動畫：調整體 length、每格切換時刻（frame track）、
+   `offset` / `scale` / `modulate` 逐格軌道。這些動畫名稱是**契約**，改名要同步改
+   `vfx_smoke.gd` 的常量（test_33 會釘住它們存在）。
 4. 特效出現的「位置」不在 world.tscn 調，而是在**角色場景**的
    `DashSmokePoint`（Marker2D）——每個角色腳下的生成點不同，本來就該由角色
    場景各自微調。著地煙對沒有 Marker 的角色會退回角色自身座標，不會不噴。
@@ -62,7 +62,9 @@ world.tscn
 | --- | --- | --- | --- |
 | 著地煙 `land_smoke` | 任何角色正常著地（含被輸入中斷的零硬直著地） | 只有 `character_id == "WOO"` | **所有角色**（`Movement.spawn_landing_smoke()` 去掉角色判定；無 Marker 退回角色座標） |
 | 中攻擊火花 `hit_spark_m` | 任何角色的 `*_mp` / `*_mk` 真正命中（非格擋） | 只有 WOO 的中攻擊（`_is_woo_medium_attack`） | **所有角色**（`HitResponseHandler._is_medium_attack()` 只看 attack_type 後綴） |
-| 前衝煙 `smoke` | 前衝（維持原樣：有 `DashSmokePoint` 的角色才噴，後衝不噴煙） | 依 Marker 開關 | 不變（三個角色都已內建 Marker） |
+| 前衝煙 `smoke` | 前衝（有 `DashSmokePoint` 的角色才噴） | 依 Marker 開關 | 不變（三個角色都已內建 Marker） |
+| 後撤步煙 `bdashsmoke` | 後衝（backdash）發動時，仿照前衝煙生成 | 後衝不噴煙 | 有 `DashSmokePoint` 的角色噴 `bdashsmoke` |
+| 跳起煙 `vjumpsmoke` | 任何角色離地那一瞬間，仿照著地煙生成 | 只有著地煙 | 有 Marker 用 Marker、無則退回角色座標 |
 
 命中特效的生成點仍是「接触點世界座標」（`_spawn_hit_vfx`），著地煙是
 「落地當下的腳下位置」；兩者都掛 world、不跟著身體跑 —— 這部分契約由
@@ -82,5 +84,5 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd   # 含 test_3
 
 test_33 現行釘住的項目：三個角色場景都有 `DashSmokePoint`、world.tscn 有
 `VFXLayer/SmokeVFX`（is_template、群組註冊、執行期不可見）、模板改動會帶進
-副本、前衝恰一團煙且不追身、後衝無煙、**著地煙為全局（DAV 着地也生成）**、
-播完自動 `queue_free()`、AnimationPlayer 三支動畫齊全。
+副本、前衝恰一團煙且不追身、後衝噴恰一團 `bdashsmoke`、**跳起/著地煙為全局
+（DAV 離地/著地都生成）**、播完自動 `queue_free()`、AnimationPlayer 五支動畫齊全。

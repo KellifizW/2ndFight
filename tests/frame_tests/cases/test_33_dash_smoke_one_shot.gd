@@ -1,11 +1,11 @@
 extends "res://tests/frame_tests/frame_test_case.gd"
 ## 地面煙霧 / 火花特效（VFXSmoke，AnimationPlayer + AnimatedSprite2D 呈現）的契約：
-##   1. **只有前衝**會生成煙霧 —— backdash 不生成煙（但另有聲效，見 test_attack_sound_nodes.py）。
+##   1. **前衝**生成 dashsmoke、**後衝**生成 bdashsmoke（仿照前衝煙）。
 ##   2. 特效生成在「事件那一刻的世界座標」，之後**不跟著身體移動**。
 ##   3. 特效是一次性的：播完自己 queue_free()；沒觸發時 world 的直接子節點裡
 ##      不該有任何「非模板」特效節點。
-##   4. **著地煙是遊戲全局特效**：任何角色（frame runner 用 DAV/DEN，不是 WOO）
-##      著地都會生成一團 land_smoke。
+##   4. **著地煙 / 跳起煙是遊戲全局特效**：任何角色（frame runner 用 DAV/DEN，
+##      不是 WOO）著地生成 land_smoke、離地生成 vjumpsmoke。
 ##   5. 編輯器直覺化契約：`world.tscn` 的 `VFXLayer/SmokeVFX` 是掛在場景上的
 ##      特效模板（`is_template = true`，執行期不可見、不播放、不自毀）；
 ##      生成出來的特效從這份模板 `duplicate()`，所以在編輯器對模板做的調整
@@ -106,7 +106,7 @@ func run() -> bool:
 	check(frame_changed,
 		"煙霧 AnimatedSprite2D 的 frame 應該在播放期間真的推進（AnimationPlayer 沒有驅動動畫？）")
 
-	# ── 後衝：不該有煙霧 ──
+	# ── 後衝：應該生成恰好一團 bdashsmoke（仿照前衝煙）──
 	var back_action: String = "move_left" if p1.facing_direction > 0 else "move_right"
 	await tap(back_action)
 	await await_frames(1)
@@ -115,12 +115,33 @@ func run() -> bool:
 	Input.action_release(back_action)
 	check(backdash_started, "後衝應該被觸發")
 	await await_frames(10)
-	check(_count_smokes() == 0, "後衝不應該生成煙霧，實為 %d 團" % _count_smokes())
+	var back_smokes: Array = _find_smokes()
+	check(back_smokes.size() == 1, "後衝應該生成恰好 1 團 bdashsmoke，實為 %d 團" % back_smokes.size())
+	if not back_smokes.is_empty():
+		check((back_smokes[0] as VFXSmoke).animation_name == VFXSmoke.BDASH_ANIMATION,
+			"後衝特效應該播放 \"%s\" 動畫" % String(VFXSmoke.BDASH_ANIMATION))
+		check(back_smokes[0].get_parent() == world, "後衝煙霧也該掛在 world 底下、不跟著角色")
 	var backdash_ended: bool = await wait_until(func(): return not me.is_backdashing, 90)
 	check(backdash_ended, "後衝應該在 90 物理幀內結束")
+	# 等後衝煙播完消失，別把殘留煙算進下一段的著地煙數量。
+	var back_smoke_gone: bool = await wait_until(func(): return _count_smokes() == 0, SMOKE_MAX_LIFETIME_FRAMES)
+	check(back_smoke_gone, "後衝煙霧播完後應該自行消失")
+
+	# ── 跳起煙：離地那一瞬間應該生成 vjumpsmoke（全局特效）──
+	await tap("jump")
+	var vjump_started: bool = await wait_until(func(): return _count_smokes() > 0, 30)
+	check(vjump_started, "跳起時應該生成一團 vjumpsmoke")
+	if vjump_started:
+		var jump_smokes: Array = _find_smokes()
+		if not jump_smokes.is_empty():
+			check((jump_smokes[0] as VFXSmoke).animation_name == VFXSmoke.VJUMP_ANIMATION,
+				"跳起特效應該播放 \"%s\" 動畫" % String(VFXSmoke.VJUMP_ANIMATION))
+			check(jump_smokes[0].get_parent() == world, "跳起煙霧也該掛在 world 底下、不跟著角色")
+		# 等跳起煙播完消失，別把殘留煙算進下一段的著地煙數量。
+		var jump_smoke_gone: bool = await wait_until(func(): return _count_smokes() == 0, SMOKE_MAX_LIFETIME_FRAMES)
+		check(jump_smoke_gone, "跳起煙霧播完後應該自行消失")
 
 	# ── 跳躍著地：全局特效 —— 任何角色（這裡是 DAV）都該生成一團著地煙 ──
-	await tap("jump")
 	var landed: bool = await wait_until(func(): return me.is_on_floor() and me.is_landing, 360)
 	check(landed, "跳躍後應該著地並進入 landing 狀態")
 	await await_frames(2)
@@ -166,7 +187,8 @@ func _check_world_template() -> void:
 
 
 ## 驗證特效場景的呈現結構（vfx.tscn）：
-##   - 有 AnimationPlayer 子節點，且存在 smoke / land_smoke / hit_spark_m 三支動畫
+##   - 有 AnimationPlayer 子節點，且存在 smoke / bdashsmoke / vjumpsmoke /
+##     land_smoke / hit_spark_m 動畫
 ##   - 有 AnimatedSprite2D（frame / offset / scale 等 track 都挂在它上面調）
 func _check_animation_player_presentation() -> void:
 	var instance: Node = load("res://assets/vfx/vfx.tscn").instantiate()
@@ -178,7 +200,8 @@ func _check_animation_player_presentation() -> void:
 		"特效場景應該由 AnimationPlayer 子節點驅動（逐格特效可調的前提）")
 	if player != null and player is AnimationPlayer:
 		var animation_player: AnimationPlayer = player
-		for anim in [VFXSmoke.ANIMATION, VFXSmoke.LANDING_ANIMATION, VFXSmoke.MEDIUM_HIT_ANIMATION]:
+		for anim in [VFXSmoke.ANIMATION, VFXSmoke.BDASH_ANIMATION,
+				VFXSmoke.VJUMP_ANIMATION, VFXSmoke.LANDING_ANIMATION, VFXSmoke.MEDIUM_HIT_ANIMATION]:
 			check(animation_player.has_animation(anim),
 				"AnimationPlayer 應該有 \"%s\" 動畫（所有角色共用的全局特效）" % String(anim))
 	check(instance.get_node_or_null("AnimatedSprite2D") != null,

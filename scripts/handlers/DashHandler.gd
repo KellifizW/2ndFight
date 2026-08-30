@@ -55,7 +55,9 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 					Debug.log("[BACKDASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
 						seat, movement_node.dash_timer, movement_node.fixed_velocity.x, movement_node.dash_initial_speed
 					])
-				# 後衝刻意不生成煙霧：只有前衝才有。但後撤步有專屬聲效（全局）。
+				# 後衝：仿照前衝煙，在發動的位置生成一團後撤步煙（bdashsmoke）。
+				movement_node.spawn_bdash_smoke()
+				# 後撤步有專屬聲效（全局）。
 				movement_node.play_dash_sound(true)
 			movement_node.neutral_timer = 0
 			movement_node.pending_dash_dir = 0

@@ -35,7 +35,9 @@ class_name VFXSmoke
 ##
 ## 【目前動畫清單】（vfx.tscn 的 AnimationPlayer，程式以名字播放）
 ##   - `smoke`        前衝地面煙（dash smoke）
+##   - `bdashsmoke`   後撤步煙 —— 仿照前衝煙，後衝（backdash）發動時播放
 ##   - `land_smoke`   著地煙 —— 遊戲全局：所有角色著地都會噴
+##   - `vjumpsmoke`   跳起煙 —— 仿照著地煙，角色離地那一瞬間播放
 ##   - `hit_spark_m`  中攻擊命中火花 —— 遊戲全局：所有角色的 *_mp / *_mk 命中都播
 ##
 ## 【要調每個角色特效的出現點】角色場景裡 `DashSmokePoint`（Marker2D）
@@ -51,6 +53,10 @@ const ANIMATION: StringName = &"smoke"
 ## Landing smoke and medium-hit spark are GAME-GLOBAL: every fighter uses
 ## them, they are not gated to a specific character any more.
 const LANDING_ANIMATION: StringName = &"land_smoke"
+## 跳起煙：角色離地的那一瞬間生成（vjumpsmoke，跳躍著地煙 land_smoke 的對偶）。
+const VJUMP_ANIMATION: StringName = &"vjumpsmoke"
+## 後撤步煙：後衝（backdash）發動時生成（bdashsmoke，仿照前衝煙 dashsmoke）。
+const BDASH_ANIMATION: StringName = &"bdashsmoke"
 const MEDIUM_HIT_ANIMATION: StringName = &"hit_spark_m"
 var animation_name: StringName = ANIMATION
 
