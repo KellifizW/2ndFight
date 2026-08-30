@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="AttackData" format=3 uid="uid://bu5g8ih8g342b"]
+
+[ext_resource type="Script" uid="uid://ccjfweg28wskh" path="res://data/AttackData.gd" id="1_46oyt"]
+[ext_resource type="Resource" uid="uid://cd1pk0b8o286u" path="res://data/dav_st_hk_movement.tres" id="2_js3jy"]
+[ext_resource type="Resource" uid="uid://cbbt1hfkqw4hx" path="res://data/dav_st_hp_movement.tres" id="3_qt2xw"]
+[ext_resource type="Script" uid="uid://do60xtl0h0rgp" path="res://data/AttackMovement.gd" id="4_y5pvk"]
+
+[sub_resource type="Resource" id="Resource_5xk2r"]
+script = ExtResource("4_y5pvk")
+enabled = true
+distance = 20.0
+duration = 0.2
+curve_type = 5
+metadata/_custom_type_script = "uid://do60xtl0h0rgp"
+
+[resource]
+script = ExtResource("1_46oyt")
+st_mp_knockback = 70.0
+st_mp_movement = SubResource("Resource_5xk2r")
+st_hp_hitstun_frames = 27
+st_hp_knockback = 100.0
+st_hp_movement = ExtResource("3_qt2xw")
+st_lk_hitstun_frames = 11
+st_lk_blockstun_frames = 8
+st_lk_knockback = 60.0
+st_hk_hitstun_frames = 28
+st_hk_knockback = 70.0
+st_hk_movement = ExtResource("2_js3jy")
+metadata/_custom_type_script = "uid://ccjfweg28wskh"

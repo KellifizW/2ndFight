@@ -5,7 +5,8 @@
 [resource]
 script = ExtResource("1_s0roh")
 enabled = true
-distance = 150.0
-duration = 1.0
-curve_type = 5
+distance = 200.0
+duration = 0.3
+curve_type = 4
+acceleration_ratio = 1.0
 metadata/_custom_type_script = "uid://do60xtl0h0rgp"

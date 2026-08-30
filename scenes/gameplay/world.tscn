@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://c0j8o4o3jtun1"]
 
 [ext_resource type="Script" uid="uid://p4myfpkcq2h1" path="res://scripts/core/world.gd" id="1_aqk2v"]
-[ext_resource type="Texture2D" uid="uid://dgde4231ic5cc" path="res://assets/stage.png" id="1_fj7yv"]
 [ext_resource type="Resource" uid="uid://8t8x274i6ynj" path="res://characters/WOO.character.tres" id="2_ks4gd"]
 [ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://scenes/gameplay/FollowCamera.tscn" id="3_gbfbk"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://scenes/ui/healthbar.tscn" id="4_036b0"]
+[ext_resource type="Texture2D" uid="uid://rqhvkfoo2tes" path="res://assets/stage3.jpeg" id="4_ks4gd"]
 [ext_resource type="FontFile" uid="uid://cj4hyo1deaafb" path="res://assets/fonts/RZ Musashi.ttf" id="6_bc84e"]
 [ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://ai/cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
@@ -60,7 +60,7 @@ offset_bottom = 1534.0
 scale = Vector2(0.5, 0.5)
 size_flags_horizontal = 4
 size_flags_vertical = 4
-texture = ExtResource("1_fj7yv")
+texture = ExtResource("4_ks4gd")
 
 [node name="FollowCamera" parent="." unique_id=1002113294 instance=ExtResource("3_gbfbk")]
 position = Vector2(640, 360)
@@ -345,6 +345,7 @@ theme_override_font_sizes/font_size = 22
 text = "RESET"
 
 [node name="PauseMenu" parent="." unique_id=1984830895 instance=ExtResource("21_pause")]
+visible = false
 
 [node name="CPUController" type="Node" parent="." unique_id=172666553]
 script = ExtResource("6_dwbse")
