@@ -49,6 +49,7 @@ const CASES: Array = [
 	"res://tests/frame_tests/cases/test_30_attack_gates_match_legacy.gd",
 	"res://tests/frame_tests/cases/test_31_movement_gates_match_legacy.gd",
 	"res://tests/frame_tests/cases/test_32_ai_attack_type_parity.gd",
+	"res://tests/frame_tests/cases/test_33_dash_smoke_one_shot.gd",
 ]
 
 var _passed: int = 0

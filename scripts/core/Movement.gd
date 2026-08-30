@@ -9,7 +9,12 @@ var world: Node
 @onready var animation_state = animation_tree.get("parameters/playback") if animation_tree else null
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer if has_node("AnimationPlayer") else null
-@onready var groundsmoke: VFXSmoke = $groundsmoke if has_node("groundsmoke") else null
+## 前衝煙霧的「生成點」（Marker2D）。
+## 有這個節點的角色才會在前衝時噴煙 —— 沒放的角色（DAV / DEN）就沒有煙。
+## 要給新角色加煙霧：在該角色場景裡拖一個同名 Marker2D 到腳下想要的位置，
+## 不用改任何程式。位置寫在場景裡而不是寫死在程式裡，是因為每個角色的
+## 原點/體型不同，這個偏移本來就該由美術調。
+@onready var dash_smoke_point: Marker2D = $DashSmokePoint if has_node("DashSmokePoint") else null
 
 # Handler instances
 var input_handler: InputHandler
@@ -290,6 +295,18 @@ func _apply_air_friction(friction_coeff: float, _delta: float) -> void:
 	# Delegated to KnockflyHandler 【已改為 frame-based】
 	knockfly_handler.apply_air_friction(friction_coeff)
 
+## 在「發動前衝的那一瞬間的位置」生成一團地面煙霧。
+##
+## 【只有前衝呼叫它】landing / backdash 都不呼叫 —— 那些行動本來就不該有煙。
+##
+## 煙霧節點掛在 world 底下（不是角色底下），所以它不會跟著身體移動；
+## 播完會自己 queue_free()，沒有觸發時畫面上什麼都沒有。
+## 角色場景裡沒有 `DashSmokePoint` 這個 Marker2D 就直接不生成。
+func spawn_dash_smoke() -> void:
+	if dash_smoke_point == null or world == null:
+		return
+	VFXSmoke.spawn(world, dash_smoke_point.global_position, facing_direction)
+
 func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
 	var retry_count: int = 0
@@ -396,9 +413,8 @@ func _physics_process(delta: float) -> void:
 			dash_total_time = dash_timer
 			dash_initial_speed = dash_speed * scale_factor * input_dir
 			fixed_velocity.x = int(dash_initial_speed)
-			if groundsmoke:
-				groundsmoke.scale.x = facing_direction
-				groundsmoke.restart()
+			# 前衝：在「發動的那個位置」生成一團煙（掛在 world，不跟著身體跑）。
+			spawn_dash_smoke()
 		else:
 			# Opposite direction - backdash
 			is_backdashing = true
@@ -406,9 +422,7 @@ func _physics_process(delta: float) -> void:
 			dash_total_time = dash_timer
 			dash_initial_speed = backdash_speed * scale_factor * input_dir
 			fixed_velocity.x = int(dash_initial_speed)
-			if groundsmoke:
-				groundsmoke.scale.x = facing_direction
-				groundsmoke.restart()
+			# 後衝刻意不生成煙霧：只有前衝才有（見 spawn_dash_smoke 說明）。
 	elif has_backdash_pressed and _ai_backdash_can_dash:
 		# AI wants to backdash
 		is_backdashing = true
@@ -416,9 +430,7 @@ func _physics_process(delta: float) -> void:
 		dash_total_time = dash_timer
 		dash_initial_speed = backdash_speed * scale_factor * (-int(facing_direction))
 		fixed_velocity.x = int(dash_initial_speed)
-		if groundsmoke:
-			groundsmoke.scale.x = facing_direction
-			groundsmoke.restart()
+		# 後衝刻意不生成煙霧：只有前衝才有（見 spawn_dash_smoke 說明）。
 	else:
 		# Normal double-tap dash detection
 		dash_handler.handle_dash(input_dir, scale_factor, is_special_moving)

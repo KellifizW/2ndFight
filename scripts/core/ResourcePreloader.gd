@@ -15,6 +15,8 @@ class_name ResourcePreloadManager
 const VFX_HIT: PackedScene = preload("res://scenes/vfx/vfx_hit.tscn")
 const VFX_BLOCK: PackedScene = preload("res://scenes/vfx/vfx_blk.tscn")
 const VFX_SPAWNFIRE: PackedScene = preload("res://scenes/vfx/spawnfire.tscn")
+## 前衝地面煙霧（sprite sheet 版）。由 VFXSmoke.spawn() 在 world 底下生成一次性實例。
+const VFX_DASH_SMOKE: PackedScene = preload("res://assets/vfx/vfx.tscn")
 const FIREBALL_DAV: PackedScene = preload("res://scenes/projectiles/DAV_fireball.tscn")
 const FIREBALL_DEN: PackedScene = preload("res://scenes/projectiles/DEN_fireball.tscn")
 
@@ -23,6 +25,7 @@ var preloaded_resources: Dictionary = {
 	"vfx_hit": VFX_HIT,
 	"vfx_block": VFX_BLOCK,
 	"vfx_spawnfire": VFX_SPAWNFIRE,
+	"vfx_dash_smoke": VFX_DASH_SMOKE,
 	"fireball_DAV": FIREBALL_DAV,
 	"fireball_DEN": FIREBALL_DEN
 }
@@ -47,6 +50,7 @@ func _warmup_resources() -> void:
 	_warmup_scene("VFX", "hit", VFX_HIT)
 	_warmup_scene("VFX", "block", VFX_BLOCK)
 	_warmup_scene("VFX", "spawnfire", VFX_SPAWNFIRE)
+	_warmup_scene("VFX", "dash_smoke", VFX_DASH_SMOKE)
 
 	# 預熱 Fireball 投射物
 	_warmup_scene("Fireball", "DAV", FIREBALL_DAV)
@@ -58,7 +62,7 @@ func _warmup_resources() -> void:
 	Debug.log("[ResourcePreloadManager] 預熱排程完成 (耗時 %d ms)" % elapsed)
 
 func warmup_character_vfx(character_root: Node, character_label: String = "") -> void:
-	"""預熱已生成角色身上的內嵌 VFX（例如 groundsmoke / spawnfire 子節點）。"""
+	"""預熱已生成角色身上的內嵌 VFX（例如 spawnfire 子節點）。"""
 	if character_root == null:
 		return
 	var label = character_label if character_label != "" else character_root.name
@@ -158,7 +162,7 @@ func _cleanup_warmup_instances_deferred() -> void:
 func get_vfx_scene(vfx_type: String) -> PackedScene:
 	"""
 	獲取 VFX 特效場景 (已預載和預熱)
-	@param vfx_type: "hit" 或 "block"
+	@param vfx_type: "hit" / "block" / "spawnfire" / "dash_smoke"
 	@return: 預載的 PackedScene
 	"""
 	if vfx_type == "hit":
@@ -167,6 +171,8 @@ func get_vfx_scene(vfx_type: String) -> PackedScene:
 		return VFX_BLOCK
 	elif vfx_type == "spawnfire":
 		return VFX_SPAWNFIRE
+	elif vfx_type == "dash_smoke":
+		return VFX_DASH_SMOKE
 	else:
 		push_error("[ResourcePreloadManager] 未知的 VFX 類型: %s" % vfx_type)
 		return null
@@ -187,7 +193,7 @@ func get_fireball_scene(character_id: String) -> PackedScene:
 
 func has_vfx(vfx_type: String) -> bool:
 	"""檢查 VFX 資源是否已載入"""
-	return vfx_type in ["hit", "block", "spawnfire"]
+	return vfx_type in ["hit", "block", "spawnfire", "dash_smoke"]
 
 func has_fireball(character_id: String) -> bool:
 	"""檢查 Fireball 資源是否已載入"""
