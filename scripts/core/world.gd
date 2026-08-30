@@ -186,7 +186,7 @@ func _ready() -> void:
 		push_error("角色生成失敗！請檢查 CharacterData 和場景設定。")
 		return
 	
-	# 預熱已生成角色內嵌的 VFX（groundsmoke、spawnfire 等），避免第一次觸發時卡頓。
+	# 預熱已生成角色內嵌的 VFX（spawnfire 等），避免第一次觸發時卡頓。
 	if resource_preloader and resource_preloader.has_method("warmup_character_vfx"):
 		resource_preloader.warmup_character_vfx(player_a, player_a.character_id)
 		resource_preloader.warmup_character_vfx(player_b, player_b.character_id)

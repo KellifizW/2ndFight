@@ -16,7 +16,6 @@
 [ext_resource type="AudioStream" uid="uid://bhgx3a8oi1nxg" path="res://assets/audio/fireball_call_p1.wav" id="14_wkibw"]
 [ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://assets/audio/loud3.mp3" id="15_wkibw"]
 [ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="16_wkibw"]
-[ext_resource type="PackedScene" uid="uid://claqmk01wwasq" path="res://assets/vfx/vfx.tscn" id="17_pnykl"]
 
 [sub_resource type="Resource" id="Resource_n8wgw"]
 script = ExtResource("3_mpuaf")
@@ -5747,5 +5746,5 @@ stream = ExtResource("16_wkibw")
 [node name="HeavyHurtGruntPlayer" type="AudioStreamPlayer" parent="." unique_id=13766152]
 stream = ExtResource("12_sffaq")
 
-[node name="groundsmoke" parent="." unique_id=1225462260 instance=ExtResource("17_pnykl")]
+[node name="DashSmokePoint" type="Marker2D" parent="."]
 position = Vector2(0, 100)

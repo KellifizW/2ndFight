@@ -39,9 +39,9 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 					Debug.log("[DASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
 						seat, movement_node.dash_timer, movement_node.fixed_velocity.x, movement_node.dash_initial_speed
 					])
-				if movement_node.groundsmoke:
-					movement_node.groundsmoke.scale.x = movement_node.facing_direction
-					movement_node.groundsmoke.play_smoke()
+				# 前衝：在「發動的那個位置」生成一團煙（掛在 world 底下，
+				# 所以不會跟著身體移動；播完自己消失）。
+				movement_node.spawn_dash_smoke()
 			elif not (movement_node.is_blocking and movement_node.is_opponent_proximity and movement_node.block_type == "proximity"):
 				movement_node.is_backdashing = true
 				# 🔴 【關鍵修復】轉換秒數為幀計數（在 120 FPS 物理上下文中遞減）
@@ -53,9 +53,7 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 					Debug.log("[BACKDASH STARTED] %s | timer_frames=%d | vel=%d | speed_value=%.0f" % [
 						seat, movement_node.dash_timer, movement_node.fixed_velocity.x, movement_node.dash_initial_speed
 					])
-				if movement_node.groundsmoke:
-					movement_node.groundsmoke.scale.x = movement_node.facing_direction
-					movement_node.groundsmoke.play_smoke()
+				# 後衝刻意不生成煙霧：只有前衝才有。
 			movement_node.neutral_timer = 0
 			movement_node.pending_dash_dir = 0
 			movement_node.last_input_dir = 0

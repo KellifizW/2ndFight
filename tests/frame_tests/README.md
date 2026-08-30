@@ -49,6 +49,9 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | test_28_landing_input_instant_skip | 著地瞬間已有輸入 → 完全不進入 landing 鎖（零硬直），下一幀仍不得殘留鎖 |
 | test_29_attack_state_is_paired | Stage 2 切片 2：`is_attacking` 為真時 `attack_type` 必須合法（孤兒攻擊不可達）；含舊第二攻擊入口窗口的針對性重現 + 600 幀隨機壓力 |
 | test_30_attack_gates_match_legacy | Stage 2 切片 2：`FighterState` 出招守衛與它取代的舊旗標表達式逐幀等價（對照組刻意保留舊寫法） |
+| test_31_movement_gates_match_legacy | Stage 2 切片 3：`FighterState` 移動守衛（can_walk / can_dash / can_jump）與它取代的舊旗標表達式逐幀等價（對照組刻意保留舊寫法） |
+| test_32_ai_attack_type_parity | Stage 4 收攏：AI 與人類兩條輸入路徑共用 `PlayerController.resolve_attack_type`，hit-confirm cancel 對 CPU 恢復作用 |
+| test_33_dash_smoke_one_shot | 前衝煙霧（sprite sheet 版）：只有前衝生成、生成在發動那一刻的世界座標且不跟著身體移動、播完自行 `queue_free`；landing / backdash 不生成 |
 
 ## 設計規則（寫新用例時請遵守）
 
