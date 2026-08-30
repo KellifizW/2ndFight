@@ -41,6 +41,14 @@ class_name VFXSmoke
 ## AnimationPlayer 裡的動畫名稱（在編輯器改名時要同步改這裡，
 ## 因為程式用它播放；test_33 也會釘住這個契約）。
 const ANIMATION: StringName = &"smoke"
+
+## Alternate one-shot animations stored in the same VFX scene.  Keeping the
+## scene shared means newly added sprite-sheet effects are preloaded together
+## with dash smoke and do not introduce a first-use hitch.
+const LANDING_ANIMATION: StringName = &"land_smoke"
+const MEDIUM_HIT_ANIMATION: StringName = &"hit_spark_m"
+var animation_name: StringName = ANIMATION
+
 ## 在 ResourcePreloadManager 登記的型別名（預載 + 預熱，見 get_vfx_scene）。
 const VFX_TYPE: String = "dash_smoke"
 ## 預載器不在時（例如單獨執行本場景做預覽）的備援路徑。
@@ -54,6 +62,12 @@ const SCENE_PATH: String = "res://assets/vfx/vfx.tscn"
 ## `parent` 請給 world（或任何「不會移動」的特效層）—— 不要給角色，
 ## 否則煙霧又會跟著身體跑。`facing` 只決定要不要水平鏡像。
 static func spawn(parent: Node, pos: Vector2, facing: float = 1.0) -> VFXSmoke:
+	return spawn_animation(parent, pos, ANIMATION, facing)
+
+## Spawn one of the one-shot sprite-sheet animations in vfx.tscn.
+## The instance is placed under the world rather than the fighter so the effect
+## stays at the point where the event occurred.
+static func spawn_animation(parent: Node, pos: Vector2, animation: StringName, facing: float = 1.0) -> VFXSmoke:
 	if parent == null:
 		return null
 	var scene: PackedScene = _resolve_scene(parent)
@@ -63,9 +77,10 @@ static func spawn(parent: Node, pos: Vector2, facing: float = 1.0) -> VFXSmoke:
 	if smoke == null:
 		push_error("[VFXSmoke] %s 的根節點掛的不是 VFXSmoke 腳本" % SCENE_PATH)
 		return null
+	smoke.animation_name = animation
 	parent.add_child(smoke)
 	smoke.global_position = pos
-	# 根節點只負責翻面；大小交給場景裡 Sprite2D 自己的 scale。
+	# 根節點只負責翻面；大小交給動畫裡的 AnimatedSprite2D scale。
 	smoke.scale = Vector2(sign(facing) if facing != 0.0 else 1.0, 1.0)
 	smoke.play_smoke()
 	return smoke
@@ -88,7 +103,7 @@ func _ready() -> void:
 	# 「沒在播 = 畫面上不能有任何東西」。這是舊版「煙永遠存在」的根因：
 	# sprite 停在某一幀，節點又一直掛在角色身上，所以隨時都看得到。
 	visible = false
-	if _player != null and _player.has_animation(ANIMATION):
+	if _player != null and _player.has_animation(animation_name):
 		if not _player.animation_finished.is_connected(_on_animation_finished):
 			_player.animation_finished.connect(_on_animation_finished)
 	# 編輯器裡直接執行本場景（F6 預覽）時自動播一次，方便調特效。
@@ -97,22 +112,20 @@ func _ready() -> void:
 		play_smoke()
 
 
-## 從第 0 幀重新播放。
+## 從第 0 幀重新播放目前選定的動畫。
 func play_smoke() -> void:
 	# 保險：在編輯器裡把動畫改名/刪掉時，寧可報錯也不要
 	# 留一個看不見又不會自己消失的節點在場景樹裡。
-	if _player == null or not _player.has_animation(ANIMATION):
-		push_error("[VFXSmoke] AnimationPlayer 裡找不到動畫 \"%s\"，煙霧無法播放" % String(ANIMATION))
+	if _player == null or not _player.has_animation(animation_name):
+		push_error("[VFXSmoke] AnimationPlayer 裡找不到動畫 \"%s\"，特效無法播放" % String(animation_name))
 		queue_free()
 		return
 	visible = true
-	# play() 從時間 0 開始；texture track 的第 0 個 keyframe 在播放開始後
-	# 第一幀套用（Sprite2D 的預設 texture 就是第 1 格，不會有空白幀）。
-	_player.play(ANIMATION)
+	_player.play(animation_name)
 
 
 func _on_animation_finished(anim_name: StringName) -> void:
-	if anim_name != ANIMATION:
+	if anim_name != animation_name:
 		return
 	# 播完就消失：特效只在「那個行動發生的時候」存在。
 	# （AnimationPlayer 播完非循環動畫會自己停下，不需要再 stop()。）

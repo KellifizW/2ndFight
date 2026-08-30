@@ -122,7 +122,8 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 		# 恢復 animation tree（可能因上次 landing 被停掉），讓這一幀的動畫更新正確走到新狀態。
 		if movement_node.animation_tree and not movement_node.animation_tree.active:
 			movement_node.animation_tree.active = true
-		# 著地刻意不生成煙霧：煙霧只屬於前衝（見 Movement.spawn_dash_smoke）。
+		# 著地特效在輸入中斷 landing 動畫時也要保留。
+		movement_node.spawn_landing_smoke()
 		# 【推擠系統】處理著地時的pushbox碰撞
 		var push_manager2 = movement_node.get_tree().get_first_node_in_group("push_manager")
 		if push_manager2:
@@ -148,7 +149,8 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	
 	Debug.log("[LANDING_START] %s: is_landing=true, lock=%df, checkpoint_reset" % [seat, movement_node.landing_lock_frames])
 	
-	# 著地刻意不生成煙霧：煙霧只屬於前衝（見 Movement.spawn_dash_smoke）。
+	# 著地煙霧固定生成在落地當下的位置，不會跟著角色移動。
+	movement_node.spawn_landing_smoke()
 	
 	# 【重點】保存landing timer，然後更新動畫狀態，再恢復timer
 	var saved_landing_frames = movement_node.landing_lock_frames
