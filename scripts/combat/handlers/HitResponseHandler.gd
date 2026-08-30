@@ -342,7 +342,7 @@ func _get_contact_point_internal(area: Area2D) -> Vector2:
 	return parent_player.get_contact_point(hitbox, area)
 
 func _spawn_hit_vfx(is_blocked: bool, contact: Vector2, target_on_floor: bool) -> void:
-	"""生成擊中特效；WOO 的中攻擊命中另加 hit_spark_m。"""
+	"""生成擊中特效；所有角色的中攻擊命中另加 hit_spark_m（遊戲全局特效）。"""
 	var vfx_type = "block" if is_blocked else "hit"
 	var adjusted_contact = contact
 	
@@ -353,14 +353,15 @@ func _spawn_hit_vfx(is_blocked: bool, contact: Vector2, target_on_floor: bool) -
 	var facing = parent_player.facing_direction if "facing_direction" in parent_player else 1.0
 	VFXImpact.spawn_vfx(world, vfx_type, adjusted_contact, facing)
 
-	# 只在真正命中（不是格擋）且攻擊者是 WOO 的中攻擊時播放。
-	# suffix 判斷涵蓋 st_mp / cr_mp / jump_mp 以及對應的 mk，
-	# 同時自然排除輕攻擊與重攻擊。
-	if not is_blocked and _is_woo_medium_attack():
+	# 只在真正命中（不是格擋）且攻擊是中攻擊時播放。hit_spark_m 是遊戲全局
+	# 特效：不再綁定 WOO，任何角色都適用 —— suffix 判斷涵蓋 st_mp / cr_mp /
+	# jump_mp 以及對應的 mk，同時自然排除輕攻擊與重攻擊。
+	if not is_blocked and _is_medium_attack():
 		VFXSmoke.spawn_animation(world, adjusted_contact, VFXSmoke.MEDIUM_HIT_ANIMATION, facing)
 
-func _is_woo_medium_attack() -> bool:
-	if parent_player == null or str(parent_player.get("character_id")) != "WOO":
+func _is_medium_attack() -> bool:
+	"""是否為「中攻擊」（*_mp / *_mk）——對所有角色一致的全局判定。"""
+	if parent_player == null:
 		return false
 	var attack_type: String = str(parent_player.get("attack_type"))
 	return attack_type.ends_with("_mp") or attack_type.ends_with("_mk")

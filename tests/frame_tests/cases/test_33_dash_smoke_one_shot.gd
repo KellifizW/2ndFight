@@ -1,43 +1,43 @@
 extends "res://tests/frame_tests/frame_test_case.gd"
-## 前衝煙霧（AnimationPlayer 呈現版）的三個不變式：
-##   1. **只有前衝**會生成煙霧 —— landing / backdash 都不生成。
-##   2. 煙霧生成在「發動那一刻的世界座標」，之後**不跟著身體移動**。
-##   3. 煙霧是一次性的：播完自己 queue_free()；沒觸發時畫面上（以及場景樹裡）
-##      不該有任何煙霧節點。
-##
-## 呈現結構契約（本用例同時釘死 AnimationPlayer 這個呈現方式）：
-##   - 煙霧場景由 `AnimationPlayer` 子節點呈現：`smoke` 動畫裡有一條
-##     value track 驅動 `Sprite2D:texture`（一個 keyframe = smoke.png 一格），
-##     如此每格的時序 / 透明度 / 大小 / 偏移才能進編輯器逐格微調。
-##   - 場景裡不得再有 `AnimatedSprite2D`（舊 SpriteFrames 呈現法已退役 ——
-##     SpriteFrames 只能調「整體 speed + 每幀 duration」，無法加逐格軌道）。
+## 地面煙霧 / 火花特效（VFXSmoke，AnimationPlayer + AnimatedSprite2D 呈現）的契約：
+##   1. **只有前衝**會生成煙霧 —— backdash 不生成煙（但另有聲效，見 test_attack_sound_nodes.py）。
+##   2. 特效生成在「事件那一刻的世界座標」，之後**不跟著身體移動**。
+##   3. 特效是一次性的：播完自己 queue_free()；沒觸發時 world 的直接子節點裡
+##      不該有任何「非模板」特效節點。
+##   4. **著地煙是遊戲全局特效**：任何角色（frame runner 用 DAV/DEN，不是 WOO）
+##      著地都會生成一團 land_smoke。
+##   5. 編輯器直覺化契約：`world.tscn` 的 `VFXLayer/SmokeVFX` 是掛在場景上的
+##      特效模板（`is_template = true`，執行期不可見、不播放、不自毀）；
+##      生成出來的特效從這份模板 `duplicate()`，所以在編輯器對模板做的調整
+##      （節點大小 / 位置 / AnimationPlayer 動畫）會直接反映到遊戲中的特效。
 ##
 ## 為什麼需要這個用例：
-## 舊版把 VFX 節點常駐在角色底下（`groundsmoke` 子節點），三個症狀全部來自
-## 「節點歸屬錯」：(a) 煙跟著身體跑、(b) landing / backdash 也共用同一個節點
-## 所以都會噴、(c) sprite 的 frame 停著不動 → 煙永遠存在。這類問題在實戰裡
-## 肉眼很難抓（尤其 hitstop 期間），所以用 frame 測試釘死。
+## 舊版把 VFX 節點常駐在角色底下，煙會跟著身體跑、每個行動共用同一節點、
+## sprite 停在某一幀導致「煙永遠存在」；另一版則把特效完全藏在程式裡
+## （world.tscn 看不到任何節點），美術無從下手。本用例同時釘死
+## 「一次性的世界座標特效」與「world.tscn 可見可調的模板」兩端。
 ##
-## 注意：runner 生成的對戰角色是 DAV vs DEN，兩者都刻意**沒有** DashSmokePoint，
-## 所以這裡先給 p1 裝一個同名 Marker2D（等價於 WOO 的場景結構），再跑真實的
-## double-tap 前衝 / 後衝 / 跳躍著地流程。
+## 注意：runner 生成的對戰角色是 DAV vs DEN（兩者場景都已內建 DashSmokePoint
+## 作為生成點微調），所以著地煙的全局性直接 observable。
 
-## 煙霧動畫總長 0.6 秒（texture track：9 格 keyframe）≈ 72 個物理幀。
-## 這裡給寬鬆上限，動畫節奏被調整時用例不會跟著紅。
+## 煙霧動畫總長約 0.3～0.6 秒。給寬鬆上限，動畫節奏被調整時用例不會跟著紅。
 const SMOKE_MAX_LIFETIME_FRAMES: int = 600
 
 func run() -> bool:
 	await await_frames(5)
 
-	# ── 契約：只有放了 DashSmokePoint 的角色才有煙霧 ──
+	# ── 契約 1：角色場景的生成點 Marker2D（所有角色統一內建）──
 	check(_scene_has_marker("res://characters/WOO.tscn"), "WOO 場景應該有 DashSmokePoint")
-	check(not _scene_has_marker("res://characters/DAV.tscn"), "DAV 場景不應該有 DashSmokePoint")
-	check(not _scene_has_marker("res://characters/DEN.tscn"), "DEN 場景不應該有 DashSmokePoint")
+	check(_scene_has_marker("res://characters/DAV.tscn"), "DAV 場景應該有 DashSmokePoint")
+	check(_scene_has_marker("res://characters/DEN.tscn"), "DEN 場景應該有 DashSmokePoint")
 
-	# ── 呈現結構契約：AnimationPlayer 驅動 texture track，SpriteFrames 版退役 ──
+	# ── 契約 2：world.tscn 掛了可編輯的特效模板（所見即所得的來源）──
+	_check_world_template()
+
+	# ── 契約 3：呈現結構 —— AnimationPlayer 具備三支全局動畫 ──
 	_check_animation_player_presentation()
 
-	# ── 沒被觸發的煙霧節點必須不可見（舊版「煙永遠存在」的根因）──
+	# ── 沒被觸發的特效節點必須不可見（「煙永遠存在」的根因）──
 	var idle: Node = load("res://assets/vfx/vfx.tscn").instantiate()
 	world.add_child(idle)
 	await await_frames(2)
@@ -45,10 +45,9 @@ func run() -> bool:
 	idle.queue_free()
 	await await_frames(2)
 
-	check(_count_smokes() == 0, "未觸發任何行動時，world 底下不該有煙霧節點")
+	check(_count_smokes() == 0, "未觸發任何行動時，world 底下不該有（非模板）特效節點")
 
 	# ── 前衝：應該生成恰好一團煙，而且煙不跟著身體跑 ──
-	_install_marker(p1)
 	var me = p1
 
 	var fwd_action: String = "move_right" if p1.facing_direction > 0 else "move_left"
@@ -69,6 +68,7 @@ func run() -> bool:
 		return not has_failures()
 
 	var smoke: Node = smokes[0]
+	check(not smoke.is_template, "生成出來的特效副本不應該是模板")
 	check(smoke.get_parent() == world, "煙霧應該掛在 world 底下（而不是角色底下）")
 	check(not p1.is_ancestor_of(smoke), "煙霧不應該是角色的子節點")
 	check(abs(smoke.global_position.x - x_before_dash) < 60.0,
@@ -78,7 +78,7 @@ func run() -> bool:
 	var smoke_y: float = smoke.global_position.y
 	# 再推進 10 個物理幀：角色應該已經衝出去 ~175px，煙必須原地不動。
 	await await_frames(10)
-	check(is_instance_valid(smoke), "煙霧動畫（0.6s）應該比前衝的前 10 幀還長")
+	check(is_instance_valid(smoke), "煙霧動畫應該比前衝的前 10 幀還長")
 	if is_instance_valid(smoke):
 		check(is_equal_approx(smoke.global_position.x, smoke_x) \
 				and is_equal_approx(smoke.global_position.y, smoke_y),
@@ -87,27 +87,24 @@ func run() -> bool:
 	check(abs(px(p1) - smoke_x) > 100.0,
 		"角色應該已經離開煙霧位置（現在 x=%.1f，煙霧 x=%.1f）" % [px(p1), smoke_x])
 
-	# ── 播放期間 texture 真的有切換 + 播完自行 queue_free ──
-	# 逐幀採樣 Sprite2D 的 texture：AnimationPlayer 的 texture track 必須
-	# 真的在驅動 sprite（防「動畫播完了、特效卻停在一格」的斷線），
-	# 而且播完後節點要離開場景樹。
-	var sprite: Node = smoke.get_node_or_null("Sprite2D") if is_instance_valid(smoke) else null
-	var first_texture: Resource = null
-	if sprite != null and is_instance_valid(sprite) and sprite.texture != null:
-		first_texture = sprite.texture
-	var texture_changed: bool = false
+	# ── 播放期間 sprite 真的有逐幀推進 + 播完自行 queue_free ──
+	var sprite: Node = smoke.get_node_or_null("AnimatedSprite2D") if is_instance_valid(smoke) else null
+	var first_frame: int = -1
+	if sprite != null and is_instance_valid(sprite):
+		first_frame = sprite.frame
+	var frame_changed: bool = false
 	var freed: bool = false
 	for i in SMOKE_MAX_LIFETIME_FRAMES:
-		if not texture_changed and sprite != null and is_instance_valid(sprite) \
-				and sprite.texture != null and sprite.texture != first_texture:
-			texture_changed = true
+		if not frame_changed and sprite != null and is_instance_valid(sprite) \
+				and sprite.frame != first_frame:
+			frame_changed = true
 		if _count_smokes() == 0:
 			freed = true
 			break
 		await await_frames(1)
 	check(freed, "煙霧播完後應該自行 queue_free()，不該常駐在場景樹裡")
-	check(texture_changed,
-		"煙霧 sprite 的 texture 應該在播放期間真的切換（AnimationPlayer 的 texture track 未驅動 Sprite2D？）")
+	check(frame_changed,
+		"煙霧 AnimatedSprite2D 的 frame 應該在播放期間真的推進（AnimationPlayer 沒有驅動動畫？）")
 
 	# ── 後衝：不該有煙霧 ──
 	var back_action: String = "move_left" if p1.facing_direction > 0 else "move_right"
@@ -122,21 +119,55 @@ func run() -> bool:
 	var backdash_ended: bool = await wait_until(func(): return not me.is_backdashing, 90)
 	check(backdash_ended, "後衝應該在 90 物理幀內結束")
 
-	# ── 跳躍著地：不該有煙霧 ──
+	# ── 跳躍著地：全局特效 —— 任何角色（這裡是 DAV）都該生成一團著地煙 ──
 	await tap("jump")
 	var landed: bool = await wait_until(func(): return me.is_on_floor() and me.is_landing, 360)
 	check(landed, "跳躍後應該著地並進入 landing 狀態")
-	await await_frames(5)
-	check(_count_smokes() == 0, "著地不應該生成煙霧，實為 %d 團" % _count_smokes())
+	await await_frames(2)
+	var landing_smokes: Array = _find_smokes()
+	check(landing_smokes.size() == 1, "任何角色著地都應該生成 1 團著地煙（全局特效），實為 %d 團" % landing_smokes.size())
+	if not landing_smokes.is_empty():
+		var land_smoke: Node = landing_smokes[0]
+		check(land_smoke.animation_name == VFXSmoke.LANDING_ANIMATION,
+			"著地特效應該播放 \"%s\" 動畫" % String(VFXSmoke.LANDING_ANIMATION))
+		check(land_smoke.get_parent() == world, "著地煙霧也該掛在 world 底下、不跟著角色")
+		var smoke_gone: bool = await wait_until(func(): return _count_smokes() == 0, SMOKE_MAX_LIFETIME_FRAMES)
+		check(smoke_gone, "著地煙霧播完後應該自行消失")
 
 	return not has_failures()
 
 
-## 驗證煙霧場景由 AnimationPlayer 呈現（「逐格可調」的結構契約）：
-##   - 有 AnimationPlayer 子節點，且存在 `smoke` 動畫
-##   - 該動畫有一條 value track 驅動 `Sprite2D:texture`（一個 keyframe = 一格），
-##     keyframe >= 2 且時間非遞減
-##   - 場景裡沒有殘留 AnimatedSprite2D（舊 SpriteFrames 呈現法）
+## 驗證 world.tscn 的特效層與模板：
+##   - World 底下有 VFXLayer（Node2D）與 VFXLayer/SmokeVFX（vfx.tscn 實例）
+##   - 模板 is_template = true、執行期不可見、註冊在 vfx_smoke_template 群組
+##   - 生成副本走模板 duplicate()：模板上的調整（這裡用根節點 scale 驗證）
+##     會原樣帶進執行期特效
+func _check_world_template() -> void:
+	var layer: Node = world.get_node_or_null("VFXLayer")
+	check(layer != null and layer is Node2D, "world.tscn 應該掛一個 VFXLayer（Node2D）特效層")
+	var template: Node = world.get_node_or_null("VFXLayer/SmokeVFX")
+	if check(template is VFXSmoke, "VFXLayer 底下應該實例化 vfx.tscn 作為可編輯的特效模板（SmokeVFX）"):
+		var tmpl := template as VFXSmoke
+		check(tmpl.is_template, "world.tscn 裡那份 SmokeVFX 模板必須勾選 is_template = true")
+		check(not tmpl.visible, "模板在執行期不應該顯示在畫面上")
+		check(world.get_tree().get_first_node_in_group(&"vfx_smoke_template") == tmpl,
+			"模板應該註冊在 vfx_smoke_template 群組（spawn_animation 靠它複製）")
+		# 所見即所得：模板 scale → 副本 scale（僅 X 依面向翻號）
+		var saved_scale: Vector2 = tmpl.scale
+		tmpl.scale = Vector2(1.5, 1.5)
+		var probe: VFXSmoke = VFXSmoke.spawn(world, Vector2(500, 500), 1.0)
+		check(probe != null, "VFXSmoke.spawn 應該成功生成副本")
+		if probe != null:
+			check(probe != tmpl and probe.is_inside_tree(), "副本應該進入場景樹")
+			check(is_equal_approx(probe.scale.x, 1.5) and is_equal_approx(probe.scale.y, 1.5),
+				"模板上調整的根縮放應該帶進生成的特效（所見即所得）")
+			probe.queue_free()
+		tmpl.scale = saved_scale
+
+
+## 驗證特效場景的呈現結構（vfx.tscn）：
+##   - 有 AnimationPlayer 子節點，且存在 smoke / land_smoke / hit_spark_m 三支動畫
+##   - 有 AnimatedSprite2D（frame / offset / scale 等 track 都挂在它上面調）
 func _check_animation_player_presentation() -> void:
 	var instance: Node = load("res://assets/vfx/vfx.tscn").instantiate()
 	if instance == null:
@@ -144,57 +175,15 @@ func _check_animation_player_presentation() -> void:
 		return
 	var player: Node = instance.get_node_or_null("AnimationPlayer")
 	check(player != null and player is AnimationPlayer,
-		"煙霧場景應該由 AnimationPlayer 子節點呈現（逐格特效可調的前提）")
+		"特效場景應該由 AnimationPlayer 子節點驅動（逐格特效可調的前提）")
 	if player != null and player is AnimationPlayer:
 		var animation_player: AnimationPlayer = player
-		check(animation_player.has_animation(VFXSmoke.ANIMATION),
-			"AnimationPlayer 應該有 \"%s\" 動畫" % String(VFXSmoke.ANIMATION))
-		if animation_player.has_animation(VFXSmoke.ANIMATION):
-			var anim: Animation = animation_player.get_animation(VFXSmoke.ANIMATION)
-			var texture_track: int = -1
-			if anim != null:
-				for i in anim.get_track_count():
-					if anim.get_track_type(i) == Animation.TRACK_VALUE \
-							and String(anim.track_get_path(i)) == "Sprite2D:texture":
-						texture_track = i
-						break
-			check(texture_track != -1,
-				"\"%s\" 動畫應該有一條驅動 Sprite2D:texture 的 texture track（一個 keyframe = 一格）" % String(VFXSmoke.ANIMATION))
-			if texture_track != -1:
-				var key_count: int = anim.track_get_key_count(texture_track)
-				check(key_count >= 2, "texture track 應該有 >= 2 個 keyframe，實為 %d" % key_count)
-				var times_ok: bool = true
-				for k in range(1, key_count):
-					if anim.track_get_key_time(texture_track, k) < anim.track_get_key_time(texture_track, k - 1):
-						times_ok = false
-				check(times_ok, "texture track 的 keyframe 時間應該非遞減")
-	var old_sprite: bool = false
-	for child in instance.get_children():
-		if child is AnimatedSprite2D:
-			old_sprite = true
-	check(not old_sprite, "煙霧場景不應該再有 AnimatedSprite2D（SpriteFrames 呈現法已退役）")
+		for anim in [VFXSmoke.ANIMATION, VFXSmoke.LANDING_ANIMATION, VFXSmoke.MEDIUM_HIT_ANIMATION]:
+			check(animation_player.has_animation(anim),
+				"AnimationPlayer 應該有 \"%s\" 動畫（所有角色共用的全局特效）" % String(anim))
+	check(instance.get_node_or_null("AnimatedSprite2D") != null,
+		"特效場景應該有 AnimatedSprite2D 作為顯示載體")
 	instance.free()
-
-## 給 player 裝上 WOO 場景裡那個同名 Marker2D（runner 的 DAV/DEN 刻意沒有）。
-func _install_marker(player: Node) -> void:
-	var marker: Marker2D = Marker2D.new()
-	marker.name = "DashSmokePoint"
-	player.add_child(marker)
-	marker.position = Vector2(0, 100)
-	player.dash_smoke_point = marker
-
-## world 底下「目前活著」的煙霧節點。
-## 刻意只看 world 的直接子節點：ResourcePreloader 的預熱實例掛在它自己底下，
-## 不該被算進來。
-func _find_smokes() -> Array:
-	var found: Array = []
-	for child in world.get_children():
-		if child is VFXSmoke:
-			found.append(child)
-	return found
-
-func _count_smokes() -> int:
-	return _find_smokes().size()
 
 ## 場景裡有沒有 DashSmokePoint（只 instantiate 不加進樹，_ready 不會跑）。
 func _scene_has_marker(scene_path: String) -> bool:
@@ -207,3 +196,17 @@ func _scene_has_marker(scene_path: String) -> bool:
 	var found: bool = instance.get_node_or_null("DashSmokePoint") != null
 	instance.free()
 	return found
+
+## world 底下「目前活著」的特效節點。
+## 只看 world 的直接子節點、且排除 is_template 的模板：
+##   - VFXLayer/SmokeVFX（編輯器模板）不該被算進「觸發生成」的數量；
+##   - ResourcePreloader 的預熱實例掛在它自己底下，也不算。
+func _find_smokes() -> Array:
+	var found: Array = []
+	for child in world.get_children():
+		if child is VFXSmoke and not (child as VFXSmoke).is_template:
+			found.append(child)
+	return found
+
+func _count_smokes() -> int:
+	return _find_smokes().size()

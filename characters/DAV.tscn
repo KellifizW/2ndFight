@@ -30,6 +30,8 @@
 [ext_resource type="AudioStream" uid="uid://bda4q71lraibx" path="res://assets/audio/dav_grunt_l1.mp3" id="29_hceyg"]
 [ext_resource type="AudioStream" uid="uid://26gb03uswmxt" path="res://assets/audio/dav_grunt_m1.mp3" id="30_detw2"]
 [ext_resource type="AudioStream" uid="uid://jlk80016koke" path="res://assets/audio/dav_grunt_h1.mp3" id="31_7j3j6"]
+[ext_resource type="AudioStream" path="res://assets/audio/dash.mp3" id="32_dash1"]
+[ext_resource type="AudioStream" path="res://assets/audio/bdash.mp3" id="33_bdash1"]
 
 [sub_resource type="Resource" id="Resource_7kano"]
 script = ExtResource("3_0wmxw")
@@ -7553,5 +7555,11 @@ stream = ExtResource("31_7j3j6")
 
 [node name="DashSmokePoint" type="Marker2D" parent="." unique_id=538950479]
 position = Vector2(0, 70)
+
+[node name="DashSoundPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("32_dash1")
+
+[node name="BackdashSoundPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("33_bdash1")
 
 [editable path="spawnfire"]

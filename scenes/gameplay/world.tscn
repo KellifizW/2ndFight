@@ -23,6 +23,7 @@
 [ext_resource type="Script" uid="uid://cu3x2bx6f8c6f" path="res://scripts/ui/AIToggleButtons.gd" id="20_aitog"]
 [ext_resource type="AudioStream" uid="uid://bkyfe2jr2q8vb" path="res://assets/audio/BGM2.mp3" id="20_ks4gd"]
 [ext_resource type="PackedScene" path="res://scenes/ui/PauseMenu.tscn" id="21_pause"]
+[ext_resource type="PackedScene" uid="uid://claqmk01wwasq" path="res://assets/vfx/vfx.tscn" id="22_vfxsmk"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_2u3nc"]
 
@@ -384,7 +385,14 @@ scale = Vector2(0.48, 0.07)
 sprite_frames = ExtResource("19_bc84e")
 offset = Vector2(0, -25.98)
 
+[node name="VFXLayer" type="Node2D" parent="."]
+
+[node name="SmokeVFX" parent="VFXLayer" instance=ExtResource("22_vfxsmk")]
+is_template = true
+
 [connection signal="pressed" from="UI/AIToggleButtons/P1AIButton" to="CPUController" method="toggle_ai_a"]
 [connection signal="pressed" from="UI/AIToggleButtons/P2AIButton" to="CPUController" method="toggle_ai_b"]
 [connection signal="pressed" from="UI/AIToggleButtons/ResetButton" to="." method="reset_players"]
 [connection signal="ai_state_changed" from="CPUController" to="UI/AIToggleButtons" method="_on_ai_state_changed"]
+
+[editable path="VFXLayer/SmokeVFX"]

@@ -9,9 +9,9 @@ var world: Node
 @onready var animation_state = animation_tree.get("parameters/playback") if animation_tree else null
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer if has_node("AnimationPlayer") else null
-## 前衝煙霧的「生成點」（Marker2D）。
-## 有這個節點的角色才會在前衝時噴煙 —— 沒放的角色（DAV / DEN）就沒有煙。
-## 要給新角色加煙霧：在該角色場景裡拖一個同名 Marker2D 到腳下想要的位置，
+## 前衝煙霧 / 著地煙的「生成點」（Marker2D）。
+## 三個角色場景（WOO / DAV / DEN）都放了這個節點，位置可各自微調。
+## 要給新角色加：在該角色場景裡拖一個同名 Marker2D 到腳下想要的位置即可，
 ## 不用改任何程式。位置寫在場景裡而不是寫死在程式裡，是因為每個角色的
 ## 原點/體型不同，這個偏移本來就該由美術調。
 @onready var dash_smoke_point: Marker2D = $DashSmokePoint if has_node("DashSmokePoint") else null
@@ -307,13 +307,22 @@ func spawn_dash_smoke() -> void:
 		return
 	VFXSmoke.spawn(world, dash_smoke_point.global_position, facing_direction)
 
-## WOO's landing effect uses the same world-owned, one-shot VFX scene as dash
-## smoke.  The character check keeps the effect exclusive to WOO even if a
-## different character later gets a DashSmokePoint for dash tuning/tests.
+## 著地煙霧：遊戲全局特效（不再綁定 WOO）——所有角色著地都會噴。
+## 與前衝煙共用同一套「掛在 world、播完自毀」的一次性 VFX 場景；
+## 生成點優先取角色場景的 DashSmokePoint，沒放 Marker 的角色退回自身座標
+## （腳底），確保任何角色都有著地回饋。
 func spawn_landing_smoke() -> void:
-	if str(get("character_id")) != "WOO" or dash_smoke_point == null or world == null:
+	if world == null:
 		return
-	VFXSmoke.spawn_animation(world, dash_smoke_point.global_position, VFXSmoke.LANDING_ANIMATION, facing_direction)
+	var origin: Vector2 = dash_smoke_point.global_position if dash_smoke_point != null else global_position
+	VFXSmoke.spawn_animation(world, origin, VFXSmoke.LANDING_ANIMATION, facing_direction)
+
+## 前衝 / 後撤步聲效：播角色場景內的 DashSoundPlayer（assets/audio/dash.mp3）
+## 或 BackdashSoundPlayer（bdash.mp3）。所有角色通用；角色場景沒掛對應
+## AudioStreamPlayer 節點時靜默略過（同攻擊音效的回退策略）。
+## 角色受擊時由 Fighter.take_hit 中斷（AttackSoundResolver.stop_dash_sounds）。
+func play_dash_sound(is_backdash: bool) -> void:
+	AttackSoundResolver.play_dash_sound(self, is_backdash)
 
 func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
@@ -423,6 +432,8 @@ func _physics_process(delta: float) -> void:
 			fixed_velocity.x = int(dash_initial_speed)
 			# 前衝：在「發動的那個位置」生成一團煙（掛在 world，不跟著身體跑）。
 			spawn_dash_smoke()
+			# 前衝聲效（全局：所有角色場景掛了 DashSoundPlayer 就有）。
+			play_dash_sound(false)
 		else:
 			# Opposite direction - backdash
 			is_backdashing = true
@@ -431,6 +442,8 @@ func _physics_process(delta: float) -> void:
 			dash_initial_speed = backdash_speed * scale_factor * input_dir
 			fixed_velocity.x = int(dash_initial_speed)
 			# 後衝刻意不生成煙霧：只有前衝才有（見 spawn_dash_smoke 說明）。
+			# 但後撤步有專屬聲效（bdash.mp3）。
+			play_dash_sound(true)
 	elif has_backdash_pressed and _ai_backdash_can_dash:
 		# AI wants to backdash
 		is_backdashing = true
@@ -439,6 +452,8 @@ func _physics_process(delta: float) -> void:
 		dash_initial_speed = backdash_speed * scale_factor * (-int(facing_direction))
 		fixed_velocity.x = int(dash_initial_speed)
 		# 後衝刻意不生成煙霧：只有前衝才有（見 spawn_dash_smoke 說明）。
+		# 但後撤步有專屬聲效（bdash.mp3）。
+		play_dash_sound(true)
 	else:
 		# Normal double-tap dash detection
 		dash_handler.handle_dash(input_dir, scale_factor, is_special_moving)
