@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://claqmk01wwasq"]
 
 [ext_resource type="Texture2D" uid="uid://d538g3kt01bf" path="res://assets/vfx/smoke.png" id="1_733y2"]
+[ext_resource type="Script" uid="uid://biumq773aciwc" path="res://scripts/vfx/vfx_smoke.gd" id="1_xy50v"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_xy50v"]
 atlas = ExtResource("1_733y2")
@@ -183,10 +184,12 @@ _data = {
 }
 
 [node name="VFX" type="Node2D" unique_id=1225462260]
+script = ExtResource("1_xy50v")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=868827403]
 sprite_frames = SubResource("SpriteFrames_e1vh3")
 animation = &"smoke"
+frame = 8
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=76567694]
 libraries/ = SubResource("AnimationLibrary_vhnj8")

@@ -125,7 +125,7 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 		# 仍然播放著地煙霧（視覺回饋不因跳過動畫而消失）。
 		if movement_node.groundsmoke:
 			movement_node.groundsmoke.scale.x = movement_node.facing_direction
-			movement_node.groundsmoke.restart()
+			movement_node.groundsmoke.play_smoke()
 		# 【推擠系統】處理著地時的pushbox碰撞
 		var push_manager2 = movement_node.get_tree().get_first_node_in_group("push_manager")
 		if push_manager2:
@@ -154,7 +154,7 @@ func _handle_normal_landing(input_data: Dictionary, floor_y: int, delta: float) 
 	# 【視覺效果】著地時播放粒子和sound
 	if movement_node.groundsmoke:
 		movement_node.groundsmoke.scale.x = movement_node.facing_direction
-		movement_node.groundsmoke.restart()
+		movement_node.groundsmoke.play_smoke()
 	
 	# 【重點】保存landing timer，然後更新動畫狀態，再恢復timer
 	var saved_landing_frames = movement_node.landing_lock_frames

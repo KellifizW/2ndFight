@@ -5,7 +5,6 @@
 [ext_resource type="SpriteFrames" uid="uid://d4nr7ttwrmfi8" path="res://assets/sprite_frames/WOO.tres" id="3_k12x1"]
 [ext_resource type="Script" uid="uid://c4qqdmb1sci8y" path="res://data/ThrowData.gd" id="3_mpuaf"]
 [ext_resource type="Texture2D" uid="uid://b6poq4uxqguy5" path="res://assets/Davis2.png" id="4_n8wgw"]
-[ext_resource type="Texture2D" uid="uid://bf08spa3gkec5" path="res://assets/texture/smoke/smoke_01.png" id="5_pnykl"]
 [ext_resource type="Script" uid="uid://bmebjawj7dimx" path="res://scripts/combat/movesets/MoveSet.gd" id="6_mpuaf"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_nbdmm"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_o64jn"]
@@ -17,6 +16,7 @@
 [ext_resource type="AudioStream" uid="uid://bhgx3a8oi1nxg" path="res://assets/audio/fireball_call_p1.wav" id="14_wkibw"]
 [ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://assets/audio/loud3.mp3" id="15_wkibw"]
 [ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="16_wkibw"]
+[ext_resource type="PackedScene" uid="uid://claqmk01wwasq" path="res://assets/vfx/vfx.tscn" id="17_pnykl"]
 
 [sub_resource type="Resource" id="Resource_n8wgw"]
 script = ExtResource("3_mpuaf")
@@ -5641,35 +5641,6 @@ states/wakeup/position = Vector2(-108, 193)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627"), "cr_down", "cr_idle", SubResource("AnimationNodeStateMachineTransition_shoen"), "Walk", "cr_down", SubResource("AnimationNodeStateMachineTransition_3c2oy")]
 graph_offset = Vector2(-84, -58)
 
-[sub_resource type="Curve" id="Curve_ixokm"]
-_data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]
-point_count = 2
-
-[sub_resource type="CurveTexture" id="CurveTexture_6flp4"]
-curve = SubResource("Curve_ixokm")
-
-[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_6w4w0"]
-particle_flag_disable_z = true
-emission_shape = 3
-emission_box_extents = Vector3(80, 8, 0)
-angle_min = 1.0728835e-05
-angle_max = 1.0728835e-05
-inherit_velocity_ratio = 0.375
-direction = Vector3(0, -1, 0)
-spread = 80.0
-initial_velocity_min = 60.0
-initial_velocity_max = 100.0
-angular_velocity_min = -200.00002
-angular_velocity_max = 199.99998
-radial_velocity_min = -2.2351742e-05
-radial_velocity_max = -2.2351742e-05
-gravity = Vector3(0, 0, 0)
-damping_min = 5.0
-damping_max = 15.000001
-scale_min = 0.29999998
-scale_max = 0.39999998
-alpha_curve = SubResource("CurveTexture_6flp4")
-
 [node name="WOO" type="CharacterBody2D" unique_id=809306713]
 collision_mask = 0
 script = ExtResource("1_k12x1")
@@ -5733,18 +5704,6 @@ collision_mask = 0
 position = Vector2(50, 0)
 debug_color = Color(0.62189, 0.533606, 0, 0.42)
 
-[node name="groundsmoke" type="GPUParticles2D" parent="." unique_id=1574716696]
-z_index = -1
-position = Vector2(0, 140)
-emitting = false
-amount = 10
-texture = ExtResource("5_pnykl")
-lifetime = 0.7
-one_shot = true
-explosiveness = 0.9
-fixed_fps = 60
-process_material = SubResource("ParticleProcessMaterial_6w4w0")
-
 [node name="MoveSet" type="Node" parent="." unique_id=865844842]
 script = ExtResource("6_mpuaf")
 
@@ -5787,3 +5746,6 @@ stream = ExtResource("16_wkibw")
 
 [node name="HeavyHurtGruntPlayer" type="AudioStreamPlayer" parent="." unique_id=13766152]
 stream = ExtResource("12_sffaq")
+
+[node name="groundsmoke" parent="." unique_id=1225462260 instance=ExtResource("17_pnykl")]
+position = Vector2(0, 100)

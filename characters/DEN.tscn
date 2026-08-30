@@ -5,7 +5,6 @@
 [ext_resource type="SpriteFrames" uid="uid://5q7cfeoprqup" path="res://assets/sprite_frames/player2.tres" id="3_4lg2u"]
 [ext_resource type="Script" uid="uid://c4qqdmb1sci8y" path="res://data/ThrowData.gd" id="3_jo7nc"]
 [ext_resource type="Texture2D" uid="uid://bmg0ytsusin8c" path="res://assets/Dennis2.png" id="4_a1vnf"]
-[ext_resource type="Texture2D" uid="uid://bf08spa3gkec5" path="res://assets/texture/smoke/smoke_01.png" id="5_x0tr5"]
 [ext_resource type="Script" uid="uid://ccvbblak3coev" path="res://scripts/combat/movesets/DENMoveSet.gd" id="7_jo7nc"]
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_wv6ou"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_808jx"]
@@ -6257,35 +6256,6 @@ states/wakeup/position = Vector2(-52, 185)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "Walk", "cr_down", SubResource("AnimationNodeStateMachineTransition_8yeum"), "cr_down", "cr_idle", SubResource("AnimationNodeStateMachineTransition_2sjhs"), "Walk", "hdk", SubResource("AnimationNodeStateMachineTransition_ix25f")]
 graph_offset = Vector2(-69, 89)
 
-[sub_resource type="Curve" id="Curve_ix25f"]
-_data = [Vector2(0, 1), 0.0, -1.0, 0, 1, Vector2(1, 0), -1.0, 0.0, 1, 0]
-point_count = 2
-
-[sub_resource type="CurveTexture" id="CurveTexture_6flp4"]
-curve = SubResource("Curve_ix25f")
-
-[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_jo7nc"]
-particle_flag_disable_z = true
-emission_shape = 3
-emission_box_extents = Vector3(80, 6, 0)
-angle_min = 1.0728835e-05
-angle_max = 1.0728835e-05
-inherit_velocity_ratio = 0.2
-direction = Vector3(0, -1, 0)
-spread = 50.0
-initial_velocity_min = 30.0
-initial_velocity_max = 100.0
-angular_velocity_min = -200.00002
-angular_velocity_max = 199.99998
-radial_velocity_min = -2.2351742e-05
-radial_velocity_max = -2.2351742e-05
-gravity = Vector3(0, 0, 0)
-damping_min = 5.0
-damping_max = 15.000001
-scale_min = 0.099999994
-scale_max = 0.29999998
-alpha_curve = SubResource("CurveTexture_6flp4")
-
 [sub_resource type="Resource" id="Resource_wv6ou"]
 script = ExtResource("9_808jx")
 damage = 5.0
@@ -6323,6 +6293,7 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
+frame = 77
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
@@ -6376,16 +6347,6 @@ debug_color = Color(1, 0.45490196, 0.8509804, 0.11764706)
 [node name="ThrowHurt" type="CollisionShape2D" parent="ThrowBox" unique_id=590200473]
 shape = SubResource("RectangleShape2D_ix25f")
 debug_color = Color(0.56078434, 0.45490196, 0.8509804, 0.05490196)
-
-[node name="groundsmoke" type="GPUParticles2D" parent="." unique_id=1762682731]
-position = Vector2(0, 150)
-emitting = false
-texture = ExtResource("5_x0tr5")
-one_shot = true
-speed_scale = 3.0
-explosiveness = 0.9
-fixed_fps = 60
-process_material = SubResource("ParticleProcessMaterial_jo7nc")
 
 [node name="MoveSet" type="Node" parent="." unique_id=1469632824]
 script = ExtResource("7_jo7nc")

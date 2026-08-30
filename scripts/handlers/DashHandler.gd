@@ -41,7 +41,7 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 					])
 				if movement_node.groundsmoke:
 					movement_node.groundsmoke.scale.x = movement_node.facing_direction
-					movement_node.groundsmoke.restart()
+					movement_node.groundsmoke.play_smoke()
 			elif not (movement_node.is_blocking and movement_node.is_opponent_proximity and movement_node.block_type == "proximity"):
 				movement_node.is_backdashing = true
 				# 🔴 【關鍵修復】轉換秒數為幀計數（在 120 FPS 物理上下文中遞減）
@@ -55,7 +55,7 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 					])
 				if movement_node.groundsmoke:
 					movement_node.groundsmoke.scale.x = movement_node.facing_direction
-					movement_node.groundsmoke.restart()
+					movement_node.groundsmoke.play_smoke()
 			movement_node.neutral_timer = 0
 			movement_node.pending_dash_dir = 0
 			movement_node.last_input_dir = 0

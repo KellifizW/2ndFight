@@ -9,7 +9,7 @@ var world: Node
 @onready var animation_state = animation_tree.get("parameters/playback") if animation_tree else null
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer if has_node("AnimationPlayer") else null
-@onready var groundsmoke: GPUParticles2D = $groundsmoke if has_node("groundsmoke") else null
+@onready var groundsmoke: VFXSmoke = $groundsmoke if has_node("groundsmoke") else null
 
 # Handler instances
 var input_handler: InputHandler
