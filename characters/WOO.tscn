@@ -5746,5 +5746,5 @@ stream = ExtResource("16_wkibw")
 [node name="HeavyHurtGruntPlayer" type="AudioStreamPlayer" parent="." unique_id=13766152]
 stream = ExtResource("12_sffaq")
 
-[node name="DashSmokePoint" type="Marker2D" parent="."]
-position = Vector2(0, 100)
+[node name="DashSmokePoint" type="Marker2D" parent="." unique_id=58677902]
+position = Vector2(0, 70)

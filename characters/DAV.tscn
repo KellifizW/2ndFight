@@ -7551,4 +7551,7 @@ pitch_scale = 1.17
 [node name="AttackGrunt_h1" type="AudioStreamPlayer" parent="." unique_id=1907864956]
 stream = ExtResource("31_7j3j6")
 
+[node name="DashSmokePoint" type="Marker2D" parent="." unique_id=538950479]
+position = Vector2(0, 70)
+
 [editable path="spawnfire"]

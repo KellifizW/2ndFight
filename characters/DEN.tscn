@@ -6293,7 +6293,6 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 77
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
@@ -6439,3 +6438,6 @@ stream = ExtResource("29_ifeu2")
 
 [node name="AttackGrunt_h1" type="AudioStreamPlayer" parent="." unique_id=2004736949]
 stream = ExtResource("30_muuk7")
+
+[node name="DashSmokePoint" type="Marker2D" parent="." unique_id=68793577]
+position = Vector2(0, 70)
