@@ -58,6 +58,10 @@ var remaining_frames: int = 0
 var debug_begin_count: int = 0
 var debug_finish_count: int = 0
 var debug_cancel_count: int = 0
+var debug_register_calls: int = 0
+var debug_attacker_name: String = "none"
+var debug_defender_name: String = "none"
+var debug_players_group_count: int = -1
 
 var _attacker: Node = null
 var _defender: Node = null
@@ -79,8 +83,12 @@ func begin_hitstop(attacker: Node, defender: Node) -> bool:
 		return false
 
 	debug_begin_count += 1
+	debug_register_calls = 0
 	_attacker = attacker if is_instance_valid(attacker) else null
 	_defender = defender if is_instance_valid(defender) else null
+	debug_attacker_name = _attacker.name if _attacker else "none"
+	debug_defender_name = _defender.name if _defender else "none"
+	debug_players_group_count = get_tree().get_nodes_in_group("players").size() if get_tree() else -1
 	_entries.clear()
 	_jitter_phase = 0
 	is_active = true
@@ -157,6 +165,7 @@ func reset() -> void:
 # ═══════════════════════════════════════════════════════════════════
 
 func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
+	debug_register_calls += 1
 	var anim_player = node.get_node_or_null("AnimationPlayer") as AnimationPlayer
 	var anim_tree = node.get_node_or_null("AnimationTree") as AnimationTree
 	var anim_sprite = node.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D

@@ -37,7 +37,7 @@ func run() -> bool:
 	check(p2.animation_tree != null, "Defender should have an AnimationTree")
 	var entries_count: int = hitstop_controller._entries.size() if hitstop_controller else -1
 	check(p1.animation_tree != null and not p1.animation_tree.active,
-		"Attacker AnimationTree should be frozen during hitstop, got active=%s entries=%d freeze_att=%s freeze_def=%s is_active=%s remaining=%s hit_slowmo=%s begin_ret=%s entries_begin=%d active_begin=%s ctrl_found=%s begins=%d finishes=%d cancels=%d"
+		"Attacker AnimationTree should be frozen during hitstop, got active=%s entries=%d freeze_att=%s freeze_def=%s is_active=%s remaining=%s hit_slowmo=%s begin_ret=%s entries_begin=%d active_begin=%s ctrl_found=%s begins=%d finishes=%d cancels=%d a=%s d=%s group=%d reg=%d"
 		% [p1.animation_tree.active if p1.animation_tree else "null",
 			entries_count,
 			hitstop_controller.freeze_attacker if hitstop_controller else "null",
@@ -51,7 +51,11 @@ func run() -> bool:
 			slowmo.debug_controller_found if slowmo else "null",
 			hitstop_controller.debug_begin_count if hitstop_controller else -1,
 			hitstop_controller.debug_finish_count if hitstop_controller else -1,
-			hitstop_controller.debug_cancel_count if hitstop_controller else -1])
+			hitstop_controller.debug_cancel_count if hitstop_controller else -1,
+			hitstop_controller.debug_attacker_name if hitstop_controller else "?",
+			hitstop_controller.debug_defender_name if hitstop_controller else "?",
+			hitstop_controller.debug_players_group_count if hitstop_controller else -1,
+			hitstop_controller.debug_register_calls if hitstop_controller else -1])
 	check(p2.animation_tree != null and not p2.animation_tree.active,
 		"Defender AnimationTree should be frozen during hitstop, got active=%s entries=%d"
 		% [p2.animation_tree.active if p2.animation_tree else "null", entries_count])
