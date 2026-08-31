@@ -36,25 +36,33 @@ func run() -> bool:
 
 	# 把 p1 切到 AI 控制、p2 保持人類，這樣 get_input() 在同一幀走兩條路徑。
 	# （Player 在測試 world 生成時預設都是人類控制 —— 透過 character_data
-	# 與 scene 結構；這裡直接覆寫 is_ai_controlled 即可切換路徑，
-	# 不需要 AI 真的「思考」出有意義的輸入。）
+	# 與 scene 結構；這裡直接覆寫 is_ai_controlled 即可切換路徑。）
 	p1.is_ai_controlled = true
 	p2.is_ai_controlled = false
+
+	# AI 路徑不讀 InputMap：PlayerController._physics_process 在
+	# is_ai_controlled 時直接 return（不錄 buffer），真實 AI 的按鍵由
+	# AIBehavior.get_ai_input() 回傳。因此這裡掛一個測試替身 AIBehavior，
+	# 每幀回傳「與人類路徑同一套隨機按鍵」的 dict —— 兩條路徑吃相同輸入，
+	# attack_type 才有意義可比。（舊寫法把攻擊鍵按進 InputMap 想餵 AI，
+	# 實際上 AI 的 PlayerController 根本不錄，p1 永遠收到中立輸入，
+	# 於是「AI attack_type 永遠 none」讓覆蓋度斷言必紅。）
+	_install_attack_stub(p1)
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = SEED
 
-	# 為了精準控制 AI 路徑，p1 的輸入**直接**透過 ai_input merge 注入：
-	# 構造一個偽 AI 行為：每幀從動作清單隨機選一個，把對應鍵塞進 buffer。
-	# 這樣 AI 路徑真的會帶有非平凡的 attack_type，避免「永遠是 none」的假綠。
+	# 攻擊鍵清單（不含方向/跳躍：AI 的移動輸入不進攻擊優先級鏈，
+	# 人類路徑的隨機方向還會額外觸發 move-special 偵測，污染對照）。
 	var actions: Array = [
 		"st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk",
 		"spm1", "spm2", "spm3",
 		"throw",
 	]
 	var p2_actions: Array = [
-		"move_left_p2", "move_right_p2", "jump_p2", "crouch_p2",
-		"st_lp_p2", "st_mp_p2", "st_hp_p2", "st_lk_p2", "st_mk_p2", "st_hk_p2",
+		"st_lp_p2", "st_mp_p2", "st_hp_p2",
+		"st_lk_p2", "st_mk_p2", "st_hk_p2",
+		"spmove1_p2", "spmove2_p2", "spmove3_p2",
 	]
 	var held: Dictionary = {}
 
@@ -70,17 +78,23 @@ func run() -> bool:
 			for action in held.keys():
 				Input.action_release(action)
 			held.clear()
+			_stub_ai.reset_to_neutral()
 
-			# 偽 AI：p1 的 spm / 攻擊按鍵（直接走 Input map，跟人類共用同一份）
+			# p1（AI 路徑）：隨機選一個攻擊鍵，直接餵進替身 AIBehavior 的
+			# input dict（Player.get_input() merge 後會 resolve_attack_type）。
 			var a: String = actions[rng.randi_range(0, actions.size() - 1)]
-			# throw 走 spmove1 / 兩鍵偵測；這裡只放單鍵測「有鍵就有 attack_type」
-			# 不放 throw 因為它的判定是 LP+LK 同時按，單鍵會被 throw_pressed=false 蓋掉。
-			if a != "throw":
-				if not held.has(a):
-					Input.action_press(a)
-					held[a] = true
+			if a == "spm1":
+				_stub_ai.next_input["spm1_pressed"] = true
+			elif a == "spm2":
+				_stub_ai.next_input["spm2_pressed"] = true
+			elif a == "spm3":
+				_stub_ai.next_input["spm3_pressed"] = true
+			elif a == "throw":
+				_stub_ai.next_input["throw_pressed"] = true
+			else:
+				_stub_ai.next_input[a + "_pressed"] = true
 
-			# p2 真實人類輸入：隨機動作
+			# p2（人類路徑）：隨機 0～2 個攻擊鍵按進 InputMap
 			var n: int = rng.randi_range(0, 2)
 			for i in n:
 				var b: String = p2_actions[rng.randi_range(0, p2_actions.size() - 1)]
@@ -155,4 +169,50 @@ func run() -> bool:
 		"AI 路徑的 attack_type 600 幀內應至少一次非 'none'（否則測試的 AI merge 修法無意義）；實際 %d 次"
 		% ai_attack_type_count)
 
+	# 收尾：還原人類控制並移除替身（world 會整個釋放，保險起見）。
+	p1.is_ai_controlled = false
+	if _stub_ai != null and is_instance_valid(_stub_ai):
+		_stub_ai.queue_free()
+
 	return not has_failures()
+
+# ── 測試替身 AIBehavior ──────────────────────────────────────────────────
+# Player.get_input() 在 is_ai_controlled 時找名為 "AIBehavior" 的子節點
+# 呼叫 get_ai_input()，把回傳 dict merge 進默認輸入。替身只回傳測試
+# 每 4 幀設定的攻擊按鍵，繞過真實決策層。
+class _StubAIBehavior extends Node:
+	var next_input: Dictionary = {}
+	func get_ai_input() -> Dictionary:
+		return next_input.duplicate(true)
+	## 測試每 4 幀換新決策時呼叫：重設為中立再逐鍵打開。
+	func reset_to_neutral() -> void:
+		for k in next_input.keys():
+			next_input[k] = false
+		next_input["input_dir"] = 0
+
+var _stub_ai: Node = null
+
+func _install_attack_stub(fighter: Node) -> void:
+	var real_ai: Node = fighter.get_node_or_null("AIBehavior")
+	if real_ai != null:
+		real_ai.set_process(false)
+		real_ai.set_physics_process(false)
+		real_ai.name = "AIBehavior_real"
+	_stub_ai = _StubAIBehavior.new()
+	_stub_ai.name = "AIBehavior"
+	fighter.add_child(_stub_ai)
+	_stub_ai.next_input = _neutral_stub_input()
+
+func _neutral_stub_input() -> Dictionary:
+	return {
+		"input_dir": 0,
+		"crouch_pressed": false,
+		"jump_pressed": false,
+		"st_lp_pressed": false, "st_mp_pressed": false, "st_hp_pressed": false,
+		"st_lk_pressed": false, "st_mk_pressed": false, "st_hk_pressed": false,
+		"spm1_pressed": false, "spm2_pressed": false, "spm3_pressed": false,
+		"dp_pressed": false, "super_pressed": false,
+		"block_pressed": false,
+		"dash_pressed": false, "backdash_pressed": false,
+		"throw_pressed": false,
+	}
