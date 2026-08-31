@@ -53,7 +53,13 @@ func run() -> bool:
 		"Attacker AnimationPlayer should be restored after hitstop, got %s"
 		% [p1.animation_player.speed_scale])
 	check(abs(p2.animation_player.speed_scale - 1.0) < 0.01,
-		"Defender AnimationPlayer should be restored after hitstop, got %s"
-		% [p2.animation_player.speed_scale])
+		"Defender AnimationPlayer should be restored after hitstop, got %s begins=%d finishes=%d cancels=%d is_active=%s hit_slowmo=%s att=%s"
+		% [p2.animation_player.speed_scale,
+			hitstop_controller.debug_begin_count if hitstop_controller else -1,
+			hitstop_controller.debug_finish_count if hitstop_controller else -1,
+			hitstop_controller.debug_cancel_count if hitstop_controller else -1,
+			hitstop_controller.is_active if hitstop_controller else "null",
+			slowmo.is_hit_slowmo if slowmo else "null",
+			p1.animation_player.speed_scale if p1.animation_player else "null"])
 
 	return not has_failures()
