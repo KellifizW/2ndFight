@@ -11,39 +11,50 @@ extends "res://tests/frame_tests/frame_test_case.gd"
 ##      speed_scale == 0、sprite 有非零 jitter 偏移
 ##   3. 定格結束後 speed_scale 還原 1.0、sprite 偏移歸零、hitstun 開始遞減
 ##
-## 每個可能失敗/早退的點都用 check() 記錄脈絡（避免「失敗但無訊息」）。
+## 【診斷用】每個可能觸發 runtime error 的段落前先把進度標記 push 進
+## _failures、成功後 pop 掉：若中途 runtime error 讓協程死掉（GDScript
+## 沒有 try/catch，error 會讓本腳本靜默中斷、runner 拿到 falsy 回傳、
+## annotation 顯示「failure without detail」），最後一個標記就會留在
+## 失敗報告裡，直接指出死在哪一段。
+
+func _mark(section: String) -> void:
+	_failures.append("[progress] " + section)
+
+func _unmark() -> void:
+	if _failures.size() > 0 and _failures.back().begins_with("[progress] "):
+		_failures.pop_back()
 
 func run() -> bool:
-	print("[TEST37] start | p1=%s p2=%s" % [p1.name if p1 else "?", p2.name if p2 else "?"])
+	_mark("start: reading p1/p2")
 	await await_frames(10)
 	teleport_x(p2, 680.0)
 	await await_frames(5)
+	_unmark()
 
-	# 記錄定格前的 sprite 基準點（場景預設 (0,0)；用實測值避免硬編碼）
+	_mark("resolving AnimatedSprite2D / slow_mo_controller")
 	var sprite = p2.get_node_or_null("AnimatedSprite2D")
 	if sprite == null:
 		check(false, "P2 缺少 AnimatedSprite2D 視覺節點（無法驗證 jitter）")
 		return false
 	var sprite_base: Vector2 = sprite.position
-
 	var slowmo = p2.slow_mo_controller
 	if slowmo == null:
 		check(false, "P2 缺少 slow_mo_controller（無法驗證 hitstop 旗標）")
 		return false
+	_unmark()
 
+	_mark("pressing st_mp, waiting for hitstop to start")
 	Input.action_press("st_mp")
 	await await_frames(1)
 	Input.action_release("st_mp")
-
 	var hitstop_started: bool = await wait_until(
 		func(): return slowmo.is_hit_slowmo, 120)
+	_unmark()
 	if not hitstop_started:
 		check(false, "Hitstop 未啟動：st_mp 命中 120 物理幀內 is_hit_slowmo 從未變 true")
 		return false
-	print("[TEST37] hitstop started | time_scale=%s | p1.speed=%s | p2.speed=%s" % [
-		Engine.time_scale, p1.animation_player.speed_scale, p2.animation_player.speed_scale])
 
-	# ── 定格期間：逐幀檢查三個不變式 ──
+	_mark("hitstop started; checking frozen invariants (up to 60 frames)")
 	var pos_p1 = p1.fixed_position
 	var pos_p2 = p2.fixed_position
 	var frames_checked: int = 0
@@ -72,9 +83,7 @@ func run() -> bool:
 			anim_violated = true
 		if sprite.position != sprite_base:
 			saw_jitter = true
-
-	print("[TEST37] hitstop loop done | frames=%d | jitter=%s | ts_violation=%s" % [
-		frames_checked, saw_jitter, time_scale_violated])
+	_unmark()
 
 	check(not time_scale_violated,
 		"Engine.time_scale must stay 1.0 during hitstop (VFX/UI keep full speed), got %s" % Engine.time_scale)
@@ -87,22 +96,30 @@ func run() -> bool:
 	check(frames_checked >= 12 and frames_checked <= 20,
 		"Hitstop should last ~16 physics frames (8 logic frames), saw %d frames" % frames_checked)
 
-	# ── 定格結束後：全部還原 + hitstun 開始遞減 ──
+	_mark("post-hitstop: verifying restoration")
 	check(Engine.time_scale == 1.0, "Engine.time_scale should be 1.0 after hitstop, got %s" % Engine.time_scale)
-	check(p1.animation_player and p1.animation_player.speed_scale == 1.0,
-		"P1 AnimationPlayer speed_scale should be restored to 1.0, got %s" % p1.animation_player.speed_scale)
-	check(p2.animation_player and p2.animation_player.speed_scale == 1.0,
-		"P2 AnimationPlayer speed_scale should be restored to 1.0, got %s" % p2.animation_player.speed_scale)
+	if p1.animation_player:
+		check(p1.animation_player.speed_scale == 1.0,
+			"P1 AnimationPlayer speed_scale should be restored to 1.0, got %s" % p1.animation_player.speed_scale)
+	else:
+		check(false, "P1 animation_player is null after hitstop")
+	if p2.animation_player:
+		check(p2.animation_player.speed_scale == 1.0,
+			"P2 AnimationPlayer speed_scale should be restored to 1.0, got %s" % p2.animation_player.speed_scale)
+	else:
+		check(false, "P2 animation_player is null after hitstop")
 	check(sprite.position == sprite_base,
 		"Sprite position should be restored to base (%s), got %s" % [sprite_base, sprite.position])
 	check(p2.hitstun_frames >= 46 and p2.hitstun_frames <= 48,
 		"Hitstun (48 physics frames) should have just started after hitstop, got %d" % p2.hitstun_frames)
+	_unmark()
 
-	# hitstun 之後正常走完（恢復路徑未被 hitstop 破壞）
+	_mark("waiting for hitstun recovery (300 frames)")
 	var check_recovered := func():
 		var t = p2
 		return t.hitstun_frames == 0 and not t.is_hit
 	var recovered: bool = await wait_until(check_recovered, 300)
+	_unmark()
 	check(recovered, "P2 should recover from hitstun normally after hitstop (hitstun=%d is_hit=%s)" % [p2.hitstun_frames, p2.is_hit])
 
 	return not has_failures()
