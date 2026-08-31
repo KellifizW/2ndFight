@@ -14,13 +14,11 @@ func run() -> bool:
 	# 攻擊應在 12 物理幀內開始（lambda 只能 capture 局部變數）
 	var me = p1
 	var started: bool = await wait_until(
-		func(): return me.is_attacking and me.attack_type == "st_mp", 12)
-	check(started, "st_mp 攻擊應開始（is_attacking + attack_type='st_mp'）")
+		func(): return me.is_attacking and me.attack_type == "st_mp" \
+			and me.animation_state.get_current_node() == "st_mp", 12)
+	check(started, "st_mp 攻擊應開始，且動畫狀態已切換至 st_mp")
 	if not started:
 		return not has_failures()
-
-	var anim_state: String = p1.animation_state.get_current_node()
-	check(anim_state == "st_mp", "動畫狀態應為 st_mp，實為 %s" % anim_state)
 
 	# 48 物理幀（動畫長度）+ 15 容差後攻擊必須結束
 	var finished: bool = await wait_until(

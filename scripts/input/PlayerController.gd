@@ -307,6 +307,10 @@ func get_input_data() -> Dictionary:
 		"st_hk_pressed": st_hk_pressed,
 		"throw_pressed": throw_pressed,
 		"attack_type": attack_type,
+		# 帶進字典讓下游（test_32 的 resolve_attack_type 對照重算、AI merge
+		# 路徑）拿到與決策當下相同的 character_id，否則重算會退回 UNKNOWN，
+		# 把 DAV/DEN 的 spm1/spm3 特殊招誤判成普通拳腳。
+		"character_id": character_id,
 		"spm1_pressed": spm1_pressed,
 		"spm2_pressed": spm2_pressed,
 		"fireballL_pressed": fireballL_buffered,
