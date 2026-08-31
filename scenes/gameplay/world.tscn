@@ -23,6 +23,7 @@
 [ext_resource type="Script" uid="uid://cu3x2bx6f8c6f" path="res://scripts/ui/AIToggleButtons.gd" id="20_aitog"]
 [ext_resource type="AudioStream" uid="uid://bkyfe2jr2q8vb" path="res://assets/audio/BGM2.mp3" id="20_ks4gd"]
 [ext_resource type="PackedScene" path="res://scenes/ui/PauseMenu.tscn" id="21_pause"]
+[ext_resource type="Script" uid="uid://4ou957q96crav" path="res://scripts/core/HitStopManager.gd" id="23_hitstop"]
 [ext_resource type="PackedScene" uid="uid://claqmk01wwasq" path="res://assets/vfx/vfx.tscn" id="22_vfxsmk"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_2u3nc"]
@@ -352,6 +353,9 @@ restricted_moves_a = Array[String](["powerkk"])
 
 [node name="SlowMoController" type="Node" parent="." unique_id=1834090566]
 script = ExtResource("7_pkg7o")
+
+[node name="HitStopManager" type="Node" parent="SlowMoController"]
+script = ExtResource("23_hitstop")
 
 [node name="PushManager" type="Node" parent="." unique_id=921268698]
 script = ExtResource("9_ioo17")

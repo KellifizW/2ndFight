@@ -671,6 +671,12 @@ func reset_players() -> void:
 		player.is_jumping = false
 		player.is_crouching = false
 		player.is_landing = false
+		# 🟢 HitStop 重構：清除「等待 hitstop 結束才套用 hit」的 pending 狀態。
+		# 若 reset 時恰有 hitstop 進行中（HitStopManager.hard_reset 不發
+		# hitstop_ended 信號），殘留的 waiting_for_hit_stop_end 會讓下一擊的
+		# knockback 被錯誤延遲。
+		player.waiting_for_hit_stop_end = false
+		player.pending_hit_params.clear()
 		# 【同上】is_landing 被清除時 landing_lock_frames 必須一起歸零，
 		# 否則殘留鎖會凍結 _update_animation_state 最多 25 幀
 		player.landing_lock_frames = 0
@@ -703,6 +709,10 @@ func reset_players() -> void:
 	
 	if slowmo_controller:
 		slowmo_controller.exit_slowmo_animation()
+		# 🟢 HitStop 重構：強制還原被凍結的動畫 / sprite 偏移（若 reset 時
+		# 恰有 hitstop 進行中），並同步 is_hit_slowmo 旗標
+		if slowmo_controller.has_method("clear_hitstop"):
+			slowmo_controller.clear_hitstop()
 		slowmo_controller.is_hit_slowmo = false
 		slowmo_triggered = false
 		Engine.time_scale = slowmo_controller.normal_time_scale

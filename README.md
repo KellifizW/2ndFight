@@ -71,9 +71,12 @@ These are non-negotiable and apply to every contribution:
 - Seconds only survive in UI, camera, BGM, and visual tweens.
 - Exactly **one** logical-frame ↔ physics-frame conversion point remains in the codebase.
 
-**Why it matters beyond tidiness:** during hitstop the engine sets
+**Why it matters beyond tidiness:** during hitstop the engine used to set
 `Engine.time_scale = 0.02`, which scales `delta`. Any timer still counting in
 seconds silently stretches by up to 50×. Frame-counted timers are immune.
+(2026-08: hitstop itself no longer touches `time_scale` — it is now a
+per-character freeze, see `docs/systems/HITSTOP.md` and `scripts/core/HitStopManager.gd`;
+the frame-based timers remain the deterministic foundation either way.)
 
 **Done**
 
@@ -719,7 +722,12 @@ plan_game.md         The full six-stage refactor plan
 
 ## Known limitations
 
-- **Hitstop uses `Engine.time_scale`.** It works, and after Stage 1 every gameplay timer counts physics ticks instead of scaled `delta`, so the remaining exposure is UI-only (labels/`FrameCounter`). Documented as an accepted limitation rather than fixed.
+- ~~**Hitstop uses `Engine.time_scale`.**~~ **Fixed (2026-08):** hitstop is now a decoupled
+  per-character freeze (`scripts/core/HitStopManager.gd`, node `World/SlowMoController/HitStopManager`):
+  character animations (`speed_scale = 0`) + character physics (early-return) + sprite frame jitter,
+  while VFX particles / SFX / UI / camera keep running at full speed. No `Engine.time_scale` or
+  `tree.paused` involved; all durations & jitter params are `@export` in the editor.
+  `Engine.time_scale` is only used by the manual/KO slow-motion effect now.
 - **The state layer drives attacks, movement, hit reactions, and blocking —
   but the booleans themselves still exist.** Since slice 2 the attack gates,
   since slice 3 the Walk/Dash/Jump gates, since slice 4 the hit-reaction gates

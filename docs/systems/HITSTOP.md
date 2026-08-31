@@ -4,10 +4,36 @@
 現在 **knockback、hitstun、blockstun 都會在 hit stop 效果完成後才真正開始計時**。
 
 這確保了更精確的遊戲感受：
-- Hit stop 期間（time_scale 變低）：角色被擊中但不開始 hitstun 計數
-- Hit stop 結束（time_scale 恢復到 1.0）：**立即**開始 hitstun/knockback/blockstun 計數
+- Hit stop 期間：角色被擊中但不開始 hitstun 計數
+- Hit stop 結束：**立即**開始 hitstun/knockback/blockstun 計數
 
-## 實現原理
+## 2026-08 重構：解耦式 HitStop（HitStopManager）
+
+> **重要**：舊實作用 `Engine.time_scale = 0.02` 做**全域**凍結，會連背景特效、
+> 火花粒子、UI 計時器、音效一起凍住（畫面死寂感、打擊感喪失）。
+> 現改採業界標準（SF6 / GGST / Tekken 8）的**角色層凍結**：
+
+**檔案**: [HitStopManager.gd](../../scripts/core/HitStopManager.gd)（節點 `World/SlowMoController/HitStopManager`）
+
+| 凍結（只影響角色） | 不凍結（正常速度） |
+|---|---|
+| 角色動畫：`AnimationPlayer` / `AnimationTree` 的 `speed_scale = 0` | VFX 粒子 / 打擊火花（VFXImpact、VFXSmoke、場景粒子） |
+| 角色物理：`Movement` / `Player` / `Fireball` 依 `SlowMoController.is_hit_slowmo` 早退（位置 0 位移、Hitbox/Hurtbox 不動） | 音效 |
+| Sprite 像素級微震抖（jitter）：每物理幀對 `AnimatedSprite2D.position` 疊加隨機偏移（**不碰 CharacterBody 物理座標**） | UI（計時器、血條、連段數、FrameBar）與鏡頭 |
+
+**@export 參數**（在編輯器選取 `World → SlowMoController → HitStopManager` 調整）：
+- 時長（邏輯幀 @60FPS）：`light_hit_frames`(6) / `medium_hit_frames`(8) / `heavy_hit_frames`(10) / `block_hit_frames`(4) / `special_hit_frames`(10)
+- Jitter：`jitter_enabled` / `jitter_amplitude`(2.0 px) / `jitter_vertical_ratio`(0.4) / `jitter_end_ratio`(0.2，振幅線性衰減終點)
+- 主開關在 `SlowMoController.enable_hitstop`
+
+**流程**：`HitResponseHandler` / `fireball.gd` 命中 → `SlowMoController.request_hit_freeze(attack_type, is_blocked)`
+→ 設 `is_hit_slowmo = true` + 暫停 FrameCounter → `HitStopManager.request_hitstop()`（動畫凍結 + jitter 開始 + 物理幀倒數）
+→ 倒數歸零 → 還原動畫速度與 sprite 偏移 → 發 `hitstop_ended`
+→ `SlowMoController._on_hitstop_ended()`：恢復 FrameCounter、發 `hit_slowmo_finished`（見下方延遲機制）。
+
+`SlowMoController` 保留的全域 `time_scale` 用途：**只**用於手動/KO 慢動作（`slowmo_time_scale = 0.2` 的戲劇效果），與 hitstop 無關。
+
+## 舊版（pre-2026-08）SlowMoController 改動（歷史記錄）
 
 ### 1. SlowMoController 的改動
 **文件**: [slow_mo_controller.gd](slow_mo_controller.gd)
@@ -17,15 +43,8 @@
 signal hit_slowmo_finished  # Hit stop 完成時觸發
 ```
 
-當 hit stop 完成時發送信號：
-```gdscript
-func _on_hit_slowmo_finished():
-    is_hit_slowmo = false
-    Engine.time_scale = normal_time_scale
-    emit_signal("time_scale_changed", normal_time_scale)
-    # 🟢 發送信號通知所有 Fighter，hit stop 已完成
-    emit_signal("hit_slowmo_finished")
-```
+（舊版用 Tween 在真實時間 `hit_slowmo_time` 後把 `Engine.time_scale` 拉回 1.0；
+現由 HitStopManager 的物理幀倒數取代，`_on_hitstop_ended()` 為對應回調。）
 
 ### 2. Fighter 的改動
 **文件**: [fighter.gd](fighter.gd)
@@ -174,9 +193,11 @@ Fighter._on_hit_slowmo_finished() 被調用
 
 | 問題 | 原因 | 解決方案 |
 |-----|------|--------|
-| Hitstun 未開始 | `waiting_for_hit_stop_end` 未清除 | 檢查 `_on_hit_slowmo_finished()` 是否被調用 |
-| Knockback 未執行 | Hit stop 發生但未結束 | 檢查 SlowMoController 的 `hit_slowmo_time` 設置 |
+| Hitstun 未開始 | `waiting_for_hit_stop_end` 未清除 | 檢查 `SlowMoController._on_hitstop_ended()` 是否被調用 |
+| Knockback 未執行 | Hit Stop 發生但未結束 | 檢查 `HitStopManager` 的時長參數（`*_hit_frames`）與 `SlowMoController.enable_hitstop` |
 | 重複計時 | `pending_hit_params` 未清除 | 確保 `_apply_pending_hit_effect()` 被正確調用 |
+| 角色沒有定格 | `is_hit_slowmo` 未設為 true | 確認命中路徑有呼叫 `request_hit_freeze()`（HitResponseHandler / fireball.gd） |
+| 特效跟著一起凍 | 誤用全域凍結 | 檢查有無程式碼對 hitstop 使用 `Engine.time_scale` / `get_tree().paused`（只允許手動/KO 慢動作用） |
 
 ## 相關代碼位置
 - **SlowMoController**: [slow_mo_controller.gd#L7](slow_mo_controller.gd#L7), [slow_mo_controller.gd#L110](slow_mo_controller.gd#L110)

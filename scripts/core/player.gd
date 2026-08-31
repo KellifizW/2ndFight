@@ -326,6 +326,13 @@ func _physics_process(delta: float) -> void:
 	if hit_response_handler:
 		hit_response_handler.process_multi_hit_overlaps()
 	
+	# 🟢 HitStop：角色邏輯整段凍結（出招 / 特殊招 / 著地 / 攻擊計時器全部暫停）。
+	# 輸入照讀（InputManager 在上面已更新，hitstop 結束後立即生效），
+	# 多段命中偵測照跑（維持舊版連段命中行為）；
+	# 身體移動與動畫由 Movement 層的 hitstop 早退負責凍結。
+	if _is_in_hitstop():
+		return
+	
 	# ── 攻擊移動處理（必須在 super._physics_process 之前，確保速度在應用前被設置） ──
 	if attack_movement_handler:
 		attack_movement_handler.process_movement(delta)
@@ -516,17 +523,11 @@ func _physics_process(delta: float) -> void:
 	if not (landing_lock_frames > 0):
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 	
-	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
-	var is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo
-	# Stage 2 切片 2：`_was_in_hitstop` 已刪除（死旗標）。
-	# 它唯一的讀取點是一段 hitstop 邊緣偵測：進入 hitstop 的那一幀讀取
-	# animation_player.current_animation / current_animation_position 存進兩個
-	# **從未被使用**的區域變數，離開 hitstop 的那一幀則是 `pass`。
-	# 兩個分支都是空操作，所以整段連同旗標一起移除，行為一幀不變。
-	# （真正需要 is_in_hitstop 的地方只有下面攻擊計時器的凍結判斷。）
+	# 🟢 HitStop：定格期間本函式在最上方早退，攻擊計時器自然凍結
+	# （舊版的 `not is_in_hitstop` 條件在早退後變冗餘，連同局部變數一起移除）。
 
 	# Countdown attack duration timer (FRAME-BASED, only when actually attacking)
-	if is_attacking and attack_duration_timer > 0 and not is_in_hitstop:
+	if is_attacking and attack_duration_timer > 0:
 		attack_duration_timer -= 1
 		if attack_duration_timer <= 0:
 			reset_attack_state()

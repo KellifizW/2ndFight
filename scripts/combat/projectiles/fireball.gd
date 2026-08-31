@@ -86,19 +86,24 @@ func _ready() -> void:
 		push_warning("Warning: SpawnSoundPlayer not found in Fireball!")
 
 func _physics_process(delta: float) -> void:
+	# 🟢 HitStop：火球是角色戰鬥模擬的一部分，命中定格期間與角色一起定格
+	# （其粒子軌跡與 ball_idle 動畫屬於特效，照常播放，不受影響）。
+	var in_hitstop: bool = _in_hitstop()
 	if is_active:
-		position.x += speed * direction * delta
+		if not in_hitstop:
+			position.x += speed * direction * delta
 	elif is_penetrating:
-		# 擊中後繼續移動進入對手body內部
-		var move_distance = speed * direction * delta
-		position.x += move_distance
-		penetration_traveled += abs(move_distance)
-		
-		if penetration_traveled >= penetration_distance:
-			# 完成穿透，停止移動並播放衝擊動畫
-			# 🟢 粒子特效已在 _on_hitbox_area_entered() 立即播放，此處不再重複
-			is_penetrating = false
-			animation_player.play("fireball/ball_impact")
+		if not in_hitstop:
+			# 擊中後繼續移動進入對手body內部
+			var move_distance = speed * direction * delta
+			position.x += move_distance
+			penetration_traveled += abs(move_distance)
+			
+			if penetration_traveled >= penetration_distance:
+				# 完成穿透，停止移動並播放衝擊動畫
+				# 🟢 粒子特效已在 _on_hitbox_area_entered() 立即播放，此處不再重複
+				is_penetrating = false
+				animation_player.play("fireball/ball_impact")
 	
 	# 超出鏡頭可見範圍自動銷毀（基於實際鏡頭位置動態檢測）
 	var camera = get_viewport().get_camera_2d()
@@ -267,13 +272,14 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		# 與普通攻擊統一：傳遞所有參數
 		target.take_hit(final_hitstun, final_blockstun, final_damage, false, false, {}, final_knockback)
 		
-		# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（Slow-mo）
-		# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中
+		var is_blocked = target.is_blocking and target.block_type == "ordinary"
+		# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（HitStop）
+		# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中。
+		# 傳入 "fireball" 讓 HitStopManager 用 special_hit_frames 時長。
 		if world:
 			var slowmo_controller = world.get_node_or_null("SlowMoController")
 			if slowmo_controller:
-				slowmo_controller.request_hit_freeze()
-		var is_blocked = target.is_blocking and target.block_type == "ordinary"
+				slowmo_controller.request_hit_freeze("fireball", is_blocked)
 		# Fireball is owned by the attacker, so emit hit_detected from the owner.
 		# This keeps hit-confirm/cancel and combo ownership identical to melee hits.
 		var signal_owner = fireball_owner if fireball_owner and fireball_owner.has_signal("hit_detected") else target
@@ -385,6 +391,14 @@ func _on_proximitybox_area_entered(area: Area2D) -> void:
 func _on_animation_finished(anim_name: String) -> void:
 	if anim_name == "fireball/ball_impact":
 		queue_free()
+
+## HitStop 查詢：與角色共用同一個慢動控制器旗標（SlowMoController.is_hit_slowmo）
+func _in_hitstop() -> bool:
+	var world = get_tree().get_first_node_in_group("world")
+	if world == null:
+		return false
+	var slowmo = world.get_node_or_null("SlowMoController")
+	return slowmo != null and bool(slowmo.get("is_hit_slowmo"))
 
 # 清除發射者的 active_fireball 引用
 func _clear_owner_reference() -> void:

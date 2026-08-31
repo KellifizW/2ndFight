@@ -121,13 +121,19 @@ func handle_hitbox_collision(area: Area2D) -> void:
 		hit_params.knockback
 	)
 	
-	# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（Slow-mo）
-	# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中，而不是在啟動時
+	# 🟢 格擋狀態在 take_hit() 之後已確定（is_blocking 由 take_hit 設置）
+	var is_blocked: bool = target.is_blocking
+	
+	# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（HitStop）
+	# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中，而不是在啟動時。
+	# 傳入攻擊型別，讓 HitStopManager 依輕/中/重/格擋/特殊招選擇 @export 時長。
 	if slow_mo_controller:
-		slow_mo_controller.request_hit_freeze()
+		var hitstop_attack_type: String = parent_player.attack_type if "attack_type" in parent_player else ""
+		if active_move:
+			hitstop_attack_type = active_move.name
+		slow_mo_controller.request_hit_freeze(hitstop_attack_type, is_blocked)
 	
 	# ── 播放音效 ──
-	var is_blocked: bool = target.is_blocking
 	_play_hit_sound(is_blocked, hit_params.damage)
 	
 	# ── 生成 VFX ──

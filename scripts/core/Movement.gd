@@ -394,7 +394,27 @@ func _ready() -> void:
 	layground_timer = 0
 	is_knockfly_animation_finished = false
 
+## HitStop 查詢：是否處於擊中定格（SlowMoController.is_hit_slowmo）。
+## 定格期間 Movement / Player / Fireball 都靠它早退，凍結角色物理 ——
+## 而 VFX / 粒子 / UI / 音效 完全不受影響（新版 hitstop 的核心）。
+func _is_in_hitstop() -> bool:
+	var tree = get_tree()
+	if not tree:
+		return false
+	var world_node = tree.get_first_node_in_group("world")
+	if world_node == null:
+		return false
+	var slowmo = world_node.get_node_or_null("SlowMoController")
+	return slowmo != null and bool(slowmo.get("is_hit_slowmo"))
+
 func _physics_process(delta: float) -> void:
+	# 🟢 HitStop：角色物理完全凍結 —— 位置積分 / 重力 / 跳躍 / 衝刺 / 移動 /
+	# 動畫狀態更新全部暫停（hitstun 等幀計數器的凍結在 Fighter 層的早退）。
+	# 舊版靠 Engine.time_scale=0.02「假凍結」（角色仍以 2% 速度漂移、
+	# VFX 與 UI 被連環凍住）；新版直接早退：角色 0 位移、命中判定不動，
+	# 畫面其餘部分維持正常速度。
+	if _is_in_hitstop():
+		return
 	# 動態生成的角色 owner 為 null（見 player 宣告）；此時 self 本身就是
 	# Player 實體（Player extends Fighter extends Movement）。補齊參考，
 	# 否則 AI dash / backdash 分支與日誌的 seat 解析全部拿不到玩家物件。
