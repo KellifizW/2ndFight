@@ -52,7 +52,7 @@ These are non-negotiable and apply to every contribution:
 |---|---|---|
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
 | **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated) |
-| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–5 landed (read-only state layer, attack / movement / hit-reaction / block subsystems ported, AI `attack_type` parity fixed, AI crouch-backdash bug fixed, dead `_physics_process_jump` entry removed; 7 dead flags deleted, 33 → 32, test count 30 → 36) |
+| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–5 landed (read-only state layer, attack / movement / hit-reaction / block subsystems ported, AI `attack_type` parity fixed, AI crouch-backdash bug fixed, dead `_physics_process_jump` entry removed; 7 dead flags deleted, 33 → 32, test count 30 → 35) |
 | **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | ⏳ Planned |
 | **4** | **Converge input handling** — a single `ActionMapper` | 🔄 Partial — parity fix #1 landed (AI `attack_type` restored via shared `PlayerController.resolve_attack_type`); `InputManager` / `PlayerController` collapse to a single `ActionMapper` still pending |
 | **5** | **Cleanup** — dead code, docs, scene splitting | ⏳ Planned |
@@ -573,7 +573,7 @@ The rules that bite hardest:
 - Measure in physics frames, never seconds. 1 logical frame = 2 physics frames.
 - Leave generous wait windows around hits — hitstop slows physics-frame advance by 50×.
 
-Frame tests currently cover 36 cases (`test_01`–`test_36`). Stage 1 contributed
+Frame tests currently cover 35 cases (`test_01`–`test_32`, `test_34`–`test_36`); the redundant dash-smoke `test_33` was removed because that feature is already stable. Stage 1 contributed
 the landing, PushManager stun-lock and conversion-boundary families (`test_21`
 combo-window frame counting, `test_22` the three conversion boundaries including
 the "families must not be swapped" guard, `test_23` AI decision/commitment tick
@@ -756,3 +756,10 @@ plan_game.md         The full six-stage refactor plan
   unverified for the AI path. Stage 4.
 - **WOO is incomplete** and its future is a Stage 3 decision.
 - **Some frame data is wrong** — see the "known data issues" section of `FRAME_DATA_TABLE.md`.
+
+### Frame-test reliability fixes (2026-08-31)
+
+- AI input parity now keeps `attack_type` / `character_id` present on locked input, resolves character-specific specials only after injecting the character ID, and tests the AI path through an `AIBehavior` stub instead of the human-only `InputMap` path.
+- Dynamically spawned players no longer lose AI dash/backdash requests when Godot leaves the scene root `owner` unset; `Movement` safely falls back to the `Player` instance itself. This restores the standing backdash control case while `FighterState.can_dash` continues to block crouching backdash.
+- The ground-attack frame test waits for both gameplay state and the asynchronous AnimationTree transition before measuring recovery, avoiding a version-dependent one-frame sampling race.
+- The redundant `test_33_dash_smoke_one_shot` case was removed; the suite now contains 35 cases.

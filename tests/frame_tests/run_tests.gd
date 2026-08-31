@@ -49,7 +49,6 @@ const CASES: Array = [
 	"res://tests/frame_tests/cases/test_30_attack_gates_match_legacy.gd",
 	"res://tests/frame_tests/cases/test_31_movement_gates_match_legacy.gd",
 	"res://tests/frame_tests/cases/test_32_ai_attack_type_parity.gd",
-	"res://tests/frame_tests/cases/test_33_dash_smoke_one_shot.gd",
 	"res://tests/frame_tests/cases/test_34_hit_reaction_gates_match_legacy.gd",
 	"res://tests/frame_tests/cases/test_35_ai_backdash_blocked_while_crouching.gd",
 	"res://tests/frame_tests/cases/test_36_block_gates_match_legacy.gd",

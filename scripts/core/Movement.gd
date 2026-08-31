@@ -1,6 +1,13 @@
 class_name Movement extends Node2D
 
-@onready var player: Player = owner as Player
+# 角色是程式碼動態生成的（world._spawn_player：scene.instantiate() 後 add_child，
+# 沒有編輯器擁有者），root 節點的 `owner` 會是 null —— `owner as Player` 於是
+# 得到 null，AI 直接 dash / backdash 分支裡的 `player and player.is_ai_controlled`
+# 便永遠短路成 false，AI 前衝/後衝永遠發動不了（人類雙擊路徑不讀 player，
+# 所以前衝雙擊不受影響，肉眼很難發現）。編輯器裡實例化的場景 owner 正常。
+# 修法：owner 缺失時退回 self —— 繼承鏈 Player extends Fighter extends Movement，
+# 動態生成時「this」就是那個 Player 實體。
+@onready var player: Player = (owner as Player) if owner is Player else null
 
 var healthbar: Node = null
 var world: Node
@@ -388,6 +395,11 @@ func _ready() -> void:
 	is_knockfly_animation_finished = false
 
 func _physics_process(delta: float) -> void:
+	# 動態生成的角色 owner 為 null（見 player 宣告）；此時 self 本身就是
+	# Player 實體（Player extends Fighter extends Movement）。補齊參考，
+	# 否則 AI dash / backdash 分支與日誌的 seat 解析全部拿不到玩家物件。
+	if player == null and self is Player:
+		player = self as Player
 	var input_data: Dictionary = get_input()
 	var input_dir: int = input_data["input_dir"]
 	var crouch_pressed: bool = input_data["crouch_pressed"]
