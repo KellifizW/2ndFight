@@ -4,7 +4,7 @@ extends Node
 ## 専門 Hitstop 管理器。
 ##
 ## 這不是全域時間停止（Engine.time_scale = 0），而是「角色動畫與視覺解耦」：
-## - 只暫停參與打擊的角色的 AnimationPlayer / AnimatedSprite2D。
+## - 只暫停參與打擊的角色的 AnimationPlayer / AnimatedSprite2D（speed_scale = 0）。
 ## - 只在 Sprite / AnimatedSprite 的 offset / rotation 上做像素級微震動。
 ## - 不修改 CharacterBody2D 的 position / velocity，因此不影響 Hitbox / Hurtbox。
 ## - 背景、粒子特效、UI 全部維持正常時間運行。
@@ -173,14 +173,12 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 	var anim_sprite = node.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 	var sprite = node.get_node_or_null("Sprite2D") as Sprite2D
 
-	# 凍結優先於快照：就算後續 Dictionary/Array 記錄失敗，角色動畫此刻仍然停住。
+	# 凍結動畫。放在 Dictionary/Array 記錄之前，確保即使後續記錄失敗動畫仍然停住。
 	if freeze_animation and anim_player:
-		# 透過 AnimationTree 播放時 AnimationPlayer.speed_scale 通常會被忽略，
-		# 但對直接播放 AnimationPlayer 的狀態（如 landing）仍然有效。
+		# 只凍結「可見播放速度」，不讓 AnimationTree.active=false：
+		# StateMachine 仍要正常推進攻擊/受擊狀態與 hitbox 啟用時機，
+		# 否則攻擊會重複判定、角色狀態層與動畫層會分岔。
 		anim_player.speed_scale = 0.0
-	if freeze_animation and anim_tree:
-		# AnimationTree 是 StateMachine root，active=false 才能真正凍結狀態機與播放。
-		anim_tree.active = false
 	if freeze_animation and anim_sprite:
 		anim_sprite.speed_scale = 0.0
 		anim_sprite.playing = false
@@ -292,27 +290,35 @@ func _finish() -> void:
 
 
 func _restore_all_players_defaults() -> void:
+	# 先恢復記錄中的攻擊者/受擊者（即使 _entries 沒成功保存也要恢復）。
+	_restore_actor_defaults(_attacker)
+	_restore_actor_defaults(_defender)
+
 	var tree := get_tree()
 	if tree == null:
 		return
 	for player in tree.get_nodes_in_group("players"):
-		if not is_instance_valid(player):
-			continue
-		var anim_player := player.get_node_or_null("AnimationPlayer") as AnimationPlayer
-		var anim_tree := player.get_node_or_null("AnimationTree") as AnimationTree
-		var anim_sprite := player.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-		var sprite := player.get_node_or_null("Sprite2D") as Sprite2D
-		if anim_player:
-			anim_player.speed_scale = 1.0
-		if anim_tree:
-			anim_tree.active = true
-		if anim_sprite:
-			anim_sprite.speed_scale = 1.0
-			anim_sprite.playing = true
-		if sprite:
-			sprite.offset = Vector2.ZERO
-			sprite.position = Vector2.ZERO
-			sprite.rotation_degrees = 0.0
+		_restore_actor_defaults(player)
+
+
+func _restore_actor_defaults(player: Node) -> void:
+	if not is_instance_valid(player):
+		return
+	var anim_player := player.get_node_or_null("AnimationPlayer") as AnimationPlayer
+	var anim_tree := player.get_node_or_null("AnimationTree") as AnimationTree
+	var anim_sprite := player.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	var sprite := player.get_node_or_null("Sprite2D") as Sprite2D
+	if anim_player:
+		anim_player.speed_scale = 1.0
+	if anim_tree:
+		anim_tree.active = true
+	if anim_sprite:
+		anim_sprite.speed_scale = 1.0
+		anim_sprite.playing = true
+	if sprite:
+		sprite.offset = Vector2.ZERO
+		sprite.position = Vector2.ZERO
+		sprite.rotation_degrees = 0.0
 
 
 func _restore_entries() -> void:
@@ -322,10 +328,11 @@ func _restore_entries() -> void:
 		var sprite = entry.get("sprite") as Sprite2D
 
 		if anim_player:
-			anim_player.speed_scale = float(entry.get("anim_player_speed", 1.0))
+			# hitstop 期間速度被設為 0，結束時一律回到正常速度。
+			anim_player.speed_scale = 1.0
 		if anim_sprite:
-			anim_sprite.speed_scale = float(entry.get("anim_sprite_speed", 1.0))
-			anim_sprite.playing = bool(entry.get("anim_sprite_playing", false))
+			anim_sprite.speed_scale = 1.0
+			anim_sprite.playing = true
 			anim_sprite.frame = int(entry.get("anim_sprite_frame", 0))
 			anim_sprite.offset = entry.get("anim_sprite_offset", Vector2.ZERO) as Vector2
 			anim_sprite.position = entry.get("anim_sprite_position", Vector2.ZERO) as Vector2
@@ -335,10 +342,10 @@ func _restore_entries() -> void:
 			sprite.position = entry.get("sprite_position", Vector2.ZERO) as Vector2
 			sprite.rotation_degrees = float(entry.get("sprite_rotation", 0.0))
 
-		# AnimationTree 在 hitstop 時被設為 inactive，結束時還原為快照值。
+		# AnimationTree 在 hitstop 時被設為 inactive，結束時一律恢復啟用。
 		var anim_tree = entry.get("anim_tree") as AnimationTree
 		if anim_tree:
-			anim_tree.active = bool(entry.get("anim_tree_active", true))
+			anim_tree.active = true
 
 
 func _pause_frame_counter() -> void:

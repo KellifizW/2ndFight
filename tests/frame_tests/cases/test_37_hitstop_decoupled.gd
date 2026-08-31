@@ -32,39 +32,16 @@ func run() -> bool:
 	check(hitstop_controller != null and hitstop_controller.hitstop_frames > 0,
 		"HitStopController should have a positive frame duration")
 
-	# 攻擊者與受擊者的動畫都應定格（只有視覺，不改物理座標）。
-	check(p1.animation_tree != null, "Attacker should have an AnimationTree")
-	check(p2.animation_tree != null, "Defender should have an AnimationTree")
-	var entries_count: int = hitstop_controller._entries.size() if hitstop_controller else -1
-	check(p1.animation_tree != null and not p1.animation_tree.active,
-		"Attacker AnimationTree should be frozen during hitstop, got active=%s entries=%d freeze_att=%s freeze_def=%s is_active=%s remaining=%s hit_slowmo=%s begin_ret=%s entries_begin=%d active_begin=%s ctrl_found=%s begins=%d finishes=%d cancels=%d a=%s d=%s group=%d reg=%d"
-		% [p1.animation_tree.active if p1.animation_tree else "null",
-			entries_count,
-			hitstop_controller.freeze_attacker if hitstop_controller else "null",
-			hitstop_controller.freeze_defender if hitstop_controller else "null",
-			hitstop_controller.is_active if hitstop_controller else "null",
-			hitstop_controller.remaining_frames if hitstop_controller else "null",
-			slowmo.is_hit_slowmo if slowmo else "null",
-			slowmo.debug_begin_returned if slowmo else "null",
-			slowmo.debug_entries_after_begin if slowmo else -1,
-			slowmo.debug_active_after_begin if slowmo else "null",
-			slowmo.debug_controller_found if slowmo else "null",
-			hitstop_controller.debug_begin_count if hitstop_controller else -1,
-			hitstop_controller.debug_finish_count if hitstop_controller else -1,
-			hitstop_controller.debug_cancel_count if hitstop_controller else -1,
-			hitstop_controller.debug_attacker_name if hitstop_controller else "?",
-			hitstop_controller.debug_defender_name if hitstop_controller else "?",
-			hitstop_controller.debug_players_group_count if hitstop_controller else -1,
-			hitstop_controller.debug_register_calls if hitstop_controller else -1])
-	check(p2.animation_tree != null and not p2.animation_tree.active,
-		"Defender AnimationTree should be frozen during hitstop, got active=%s entries=%d"
-		% [p2.animation_tree.active if p2.animation_tree else "null", entries_count])
+	# 攻擊者與受擊者的「可見動畫」都應定格（只改 speed_scale，不改 AnimationTree.active /
+	# 狀態機；背景、粒子、UI 與角色物理都維持正常時間）。
+	check(p1.animation_player != null, "Attacker should have an AnimationPlayer")
+	check(p2.animation_player != null, "Defender should have an AnimationPlayer")
 	check(abs(p1.animation_player.speed_scale) < 0.01,
-		"Attacker AnimationPlayer.speed_scale should also be 0 during hitstop, got %s entries=%d"
-		% [p1.animation_player.speed_scale, entries_count])
+		"Attacker AnimationPlayer.speed_scale should also be 0 during hitstop, got %s"
+		% [p1.animation_player.speed_scale])
 	check(abs(p2.animation_player.speed_scale) < 0.01,
-		"Defender AnimationPlayer.speed_scale should also be 0 during hitstop, got %s entries=%d"
-		% [p2.animation_player.speed_scale, entries_count])
+		"Defender AnimationPlayer.speed_scale should also be 0 during hitstop, got %s"
+		% [p2.animation_player.speed_scale])
 
 	var hitstop_ended: bool = await wait_until(
 		func(): return not bool(slowmo.is_hit_slowmo), 120)
@@ -72,15 +49,17 @@ func run() -> bool:
 	if not hitstop_ended:
 		return not has_failures()
 
-	check(p1.animation_tree != null and p1.animation_tree.active,
-		"Attacker AnimationTree should be restored after hitstop")
-	check(p2.animation_tree != null and p2.animation_tree.active,
-		"Defender AnimationTree should be restored after hitstop")
 	check(abs(p1.animation_player.speed_scale - 1.0) < 0.01,
 		"Attacker AnimationPlayer should be restored after hitstop, got %s"
 		% [p1.animation_player.speed_scale])
 	check(abs(p2.animation_player.speed_scale - 1.0) < 0.01,
-		"Defender AnimationPlayer should be restored after hitstop, got %s"
-		% [p2.animation_player.speed_scale])
+		"Defender AnimationPlayer should be restored after hitstop, got %s begins=%d finishes=%d cancels=%d is_active=%s hit_slowmo=%s att=%s"
+		% [p2.animation_player.speed_scale,
+			hitstop_controller.debug_begin_count if hitstop_controller else -1,
+			hitstop_controller.debug_finish_count if hitstop_controller else -1,
+			hitstop_controller.debug_cancel_count if hitstop_controller else -1,
+			hitstop_controller.is_active if hitstop_controller else "null",
+			slowmo.is_hit_slowmo if slowmo else "null",
+			p1.animation_player.speed_scale if p1.animation_player else "null"])
 
 	return not has_failures()

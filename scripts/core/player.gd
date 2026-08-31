@@ -506,8 +506,8 @@ func _physics_process(delta: float) -> void:
 	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
 	var is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo
 	# 🟢 Hitstop 期間不呼叫 _update_animation_state：
-	# 新 HitStopController 用 AnimationTree.active=false 凍結角色動畫，
-	# 若這裡每個物理幀又呼叫 update，AnimationManager 會把 active 重新設回 true。
+	# 新 HitStopController 用 AnimationPlayer.speed_scale=0 凍結角色動畫，
+	# 若這裡每個物理幀又呼叫 update，AnimationManager 可能把動畫狀態重新推回。
 	if not is_in_hitstop and not (landing_lock_frames > 0):
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
