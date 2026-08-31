@@ -1,5 +1,42 @@
 # Hit Stop 延遲實現 - 功能文檔
 
+> ## ⚡ 2026-08 更新：hitstop 計時重寫 + 編輯器可調參數
+>
+> **症狀**：打中對手後遊戲時間完全沒有凍結（hitstop 根本不出現）。
+>
+> **原因**：舊實現用 `Tween` + `set_ignore_time_scale()` 計時 hitstop。
+> 這條路徑有兩個致命弱點：
+> 1. `set_ignore_time_scale()` 是較新的引擎 API，且不同 Godot 版本對
+>    「tween 是否真的用真實時間推進」行為不一致 —— tween 提前完成時
+>    `time_scale` 會被瞬間還原，凍結短到肉眼看不見；
+> 2. KO 慢動作（`enter/exit_slowmo_animation`）與回合重置會 `kill()` 同一個
+>    tween，`_on_hit_slowmo_finished` 永遠不會被呼叫 → `is_hit_slowmo` 卡死
+>    為 `true`，之後**所有** `request_hit_freeze()` 都被開頭的防重入判斷擋掉，
+>    hitstop 從此永遠不再出現。
+>
+> **修復**：
+> - hitstop 改用 **wall clock（`Time.get_ticks_msec()`）+ `_process` 輪詢**計時。
+>   `_process` 每個渲染幀都會執行、完全不受 `Engine.time_scale` 影響，
+>   凍結保證會生效、也保證會結束，`is_hit_slowmo` 不可能卡死。
+> - 回合重置改呼叫 `SlowMoController.cancel_hit_freeze()`，完整還原
+>   動畫速度 / FrameCounter / 等待中的 hitstun，不再直接改旗標。
+> - `MoveSet.freeze_game()`（超必殺凍結）同步改用真實時間 SceneTreeTimer，
+>   並把危險的 `Engine.time_scale = 0.0` 改為 0.02。
+>
+> **編輯器可調參數**（world.tscn → `SlowMoController` 節點 Inspector）：
+>
+> | 參數 | 預設 | 說明 |
+> |------|------|------|
+> | `enable_hitstop` | `true` | hitstop 總開關 |
+> | `hitstop_frames` | `8` | hitstop 時長（60fps 邏輯幀；8 幀 ≈ 0.133s） |
+> | `hit_slowmo_time_scale` | `0.02` | 凍結期間的 `Engine.time_scale`（越小越凍） |
+> | `sync_animation_speed` | `true` | 凍結期間同步玩家動畫速度 |
+> | `slowmo_time_scale` | `0.2` | KO 慢動作時間縮放 |
+> | `slowmo_enter_time` / `slowmo_exit_time` | `0.4` | KO 慢動作過渡時間（秒） |
+>
+> 程式端也可對單次命中覆蓋時長：`request_hit_freeze(custom_frames)`。
+> 迴歸測試：`tests/frame_tests/cases/test_37_hitstop_time_freeze.gd`。
+
 ## 概述
 現在 **knockback、hitstun、blockstun 都會在 hit stop 效果完成後才真正開始計時**。
 
