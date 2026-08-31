@@ -7,7 +7,12 @@ func _init(movement: Node) -> void:
 	movement_node = movement
 
 func handle_blocking(input_dir: int, is_special_moving: bool) -> void:
-	if movement_node.is_on_floor() and not movement_node.is_attacking and not movement_node.is_dashing and not movement_node.is_backdashing and not is_special_moving and not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_layground):
+	# Stage 2 切片 5：站姿進入 / 釋放兩份守衛收攏到 FighterState
+	# （逐字值等價：256 / 16 組合 Python 窮舉 0 分岔，test_36 引擎內逐幀釘住）。
+	# 兩份守衛刻意**不是**同一個條件 —— 進入不含 is_blocking（blockstun 期間
+	# 持續重取樣 held 方向，切片 4 finding #1 的預期行為），釋放含 is_blocking
+	# （硬直期間站姿旗標保留）。詳見 FighterState 格擋族段頭，不要合併成一份。
+	if FighterState.can_enter_block_stance(movement_node, is_special_moving):
 		movement_node.is_holding_back = input_dir * movement_node.facing_direction < 0
 		movement_node.is_crouch_blocking = movement_node.is_crouching and movement_node.is_holding_back
 		
@@ -28,7 +33,7 @@ func handle_blocking(input_dir: int, is_special_moving: bool) -> void:
 				Debug.log("[PROXIMITY BLOCK] %s: 取消 proximity block" % player_seat)
 			movement_node.is_proximity_blocking = false
 	else:
-		if not (movement_node.is_hit or movement_node.is_knockfly or movement_node.is_blocking or movement_node.is_layground):
+		if FighterState.can_release_block_stance(movement_node):
 			movement_node.is_holding_back = false
 			movement_node.is_crouch_blocking = false
 			movement_node.is_proximity_blocking = false

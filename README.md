@@ -52,7 +52,7 @@ These are non-negotiable and apply to every contribution:
 |---|---|---|
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
 | **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated) |
-| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–4 landed (read-only state layer, attack / movement / hit-reaction subsystems ported, AI `attack_type` parity fixed, AI crouch-backdash bug fixed; 7 dead flags deleted, 33 → 32, test count 30 → 35) |
+| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–5 landed (read-only state layer, attack / movement / hit-reaction / block subsystems ported, AI `attack_type` parity fixed, AI crouch-backdash bug fixed, dead `_physics_process_jump` entry removed; 7 dead flags deleted, 33 → 32, test count 30 → 36) |
 | **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | ⏳ Planned |
 | **4** | **Converge input handling** — a single `ActionMapper` | 🔄 Partial — parity fix #1 landed (AI `attack_type` restored via shared `PlayerController.resolve_attack_type`); `InputManager` / `PlayerController` collapse to a single `ActionMapper` still pending |
 | **5** | **Cleanup** — dead code, docs, scene splitting | ⏳ Planned |
@@ -434,10 +434,77 @@ comparison.
 3. **The AI's `_action_to_input` 17-key dictionary is still inline** — the
    slice-3 finding; it still awaits the Stage 4 `ActionMapper` convergence.
 
-**Next slices**: the remaining boolean reads get rerouted through `resolve()`
-state (block stance entry, the `_physics_process_jump` dead path's guard, and
-the animation chains already mirrored by `test_26`), after which the duplicated
-flags can actually be deleted. That is the tail of Stage 2.
+**Slice 5 — the block subsystem reads the state layer (landed)**
+
+Slice 4 ported the hit-reaction guards; slice 5 does the same for the **block
+stance** (`is_holding_back` / `is_crouch_blocking` / `is_proximity_blocking`)
+and removes the dead entry point the plan had pencilled in for the tail.
+Same three-step recipe: move the guard into `FighterState`, prove equivalence
+by exhaustive enumeration in Python, pin it per-frame with a `test_30`-style
+comparison.
+
+- ✅ **The two block-stance guards consolidated into one definition each.**
+  `BlockingHandler.handle_blocking` carried two *different* inline guards —
+  and they must stay different (merging them would change behavior):
+  - `FighterState.can_enter_block_stance(f, is_special_moving)` replaces the
+    entry guard (`is_on_floor` + not attacking / dashing / backdashing /
+    special-moving + not hit / knockfly / layground). It deliberately
+    **excludes `is_blocking`** — that is what lets the entry branch keep
+    running during blockstun and re-sample the held-back direction every frame
+    (the "blockstun re-samples the held direction" behavior slice 4 disclosed
+    as finding #1). Adding `is_blocking` there would freeze `is_holding_back`
+    at its pre-block value.
+  - `FighterState.can_release_block_stance(f)` replaces the else-branch guard
+    (`not (is_hit or is_knockfly or is_blocking or is_layground)`) — stance
+    flags are held through stun so the entry branch can re-sample them after
+    it ends.
+  - Exhaustive proof: entry over all **256** combos of its 8 flags (plus a
+    512-combo sweep proving `is_blocking` is genuinely ignored), release over
+    all **16** combos — 0 mismatches. Pinned per-frame in-engine by `test_36`.
+- ✅ **The dead `_physics_process_jump` entry point removed.** `player.gd`
+  carried the pre-`JumpHandler` jump function with **zero call sites**
+  repo-wide (no `.gd` call, no `.tscn` call-method track) — the same class of
+  "second entry point leftover" as the attack entry slice 2 removed from
+  `fighter.gd` (plan §9 dead-code list, item 1). Its guard was a looser
+  variant of `can_jump` (missing `not is_crouching` / `not is_landing` /
+  `not is_being_thrown` / `not is_special_moving` / `jump_delay_timer <= 0`) —
+  exactly the "each entry blocks half" drift the refactor is meant to kill.
+  The plan said "reroute its guard", but for a zero-caller function a reroute
+  is cosmetic churn in unreachable code; deletion removes the bool read site
+  entirely, which is the only meaningful treatment. Its one side effect
+  (`consume_button_input("jump")`) needs no compensation: `InputBuffer`
+  expires unconsumed input after 30 frames (`_expire_old_inputs`).
+- ✅ **No flags removed this slice.** As in slices 3/4, the work only changes
+  what the control flow *reads*, not the flag count: the rerouted guards read
+  the same flags via `FighterState`, and every flag the dead jump function
+  read is still read by live code. The reproducible member-level
+  `var x: bool` count across `Movement.gd` + `fighter.gd` + `player.gd`
+  stays at **32** (slice 2's rule).
+
+**Disclosed findings (found while porting, deliberately *not* fixed here)**
+
+1. **The two block-stance guards are not unifiable without a behavior change.**
+   Entry excludes `is_blocking` (blockstun re-sampling) while release includes
+   it (stance held through stun). That asymmetry previously lived uncommented
+   in one handler; it is now written down in `FighterState` and
+   `BlockingHandler`, and `test_36` asserts the re-sampling path is alive
+   (≥1 frame with `is_blocking` true *and* the entry guard true — forced
+   deterministically by a scripted block, not left to the random seed, because
+   a future "fix" that adds `is_blocking` to the entry guard would keep the
+   pure equivalence comparison green).
+2. **The stance-flag *writes* are still scattered** (entry/reset in
+   `BlockingHandler`; reset writes in `Fighter.take_hit`'s block branch,
+   `PushManager`, `ThrowHandler`). This slice consolidates the *guards*
+   (one definition each); moving the writes would couple the hit/throw
+   handlers to the stance handler — a Stage 4 (block/input convergence)
+   concern, not a state-layer one.
+
+**Next slices**: the last remaining boolean reads are the two animation
+chains (`Player._compute_target_state` / `AnimationManager.compute_target_state`,
+already mirrored by `test_26`) — reroute them to `FighterState.resolve()`
+plus a state→animation-name mapping, then delete the duplicate flags whose
+readers those chains are (plan DoD: flag count < 10 across the three core
+scripts). That is the tail of Stage 2.
 
 ### Stage 3 — Consolidate frame data ⏳
 
@@ -506,7 +573,7 @@ The rules that bite hardest:
 - Measure in physics frames, never seconds. 1 logical frame = 2 physics frames.
 - Leave generous wait windows around hits — hitstop slows physics-frame advance by 50×.
 
-Frame tests currently cover 35 cases (`test_01`–`test_35`). Stage 1 contributed
+Frame tests currently cover 36 cases (`test_01`–`test_36`). Stage 1 contributed
 the landing, PushManager stun-lock and conversion-boundary families (`test_21`
 combo-window frame counting, `test_22` the three conversion boundaries including
 the "families must not be swapped" guard, `test_23` AI decision/commitment tick
@@ -581,6 +648,20 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   `_ai_backdash_can_dash` guard (missing `not is_crouching`) fired the backdash
   in phase A; the standing control case proves the injection works and the
   guard isn't just always-false.
+- **`test_36`** (slice 5) — the consolidated **block-stance** guards
+  (`can_enter_block_stance` / `can_release_block_stance`) must stay
+  **value-identical** to the flag expressions they replaced. Same
+  `test_30`/`test_31`/`test_34` pattern: phase 1 deterministically forces P2
+  into blockstun (P2 holds back, P1 `st_mp` hits — the test_06 layout) so the
+  blockstun re-sampling path (`is_blocking` true while the entry guard is also
+  true) is guaranteed to be observed; phase 2 runs 600 frames of seeded random
+  input (`seed=20260902`) with the legacy expressions rewritten verbatim as a
+  control group, compared every frame against `FighterState`. The control
+  group is exhaustive-verified in Python (256 / 16 combos, plus a 512-combo
+  `is_blocking` sensitivity sweep, 0 mismatches). Coverage assertions require
+  each guard's true and false sides to occur, and ≥1 re-sampling frame — the
+  re-sampling assertion is what a future "fix" adding `is_blocking` to the
+  entry guard would fail while the pure equivalence check would still pass.
 
 ### Not yet covered (honest disclosure)
 
@@ -639,15 +720,18 @@ plan_game.md         The full six-stage refactor plan
 ## Known limitations
 
 - **Hitstop uses `Engine.time_scale`.** It works, and after Stage 1 every gameplay timer counts physics ticks instead of scaled `delta`, so the remaining exposure is UI-only (labels/`FrameCounter`). Documented as an accepted limitation rather than fixed.
-- **The state layer drives attacks, movement, and hit reactions — but the
-  booleans themselves still exist.** Since slice 2 the attack gates, since
-  slice 3 the Walk/Dash/Jump gates, and since slice 4 the hit-reaction gates
+- **The state layer drives attacks, movement, hit reactions, and blocking —
+  but the booleans themselves still exist.** Since slice 2 the attack gates,
+  since slice 3 the Walk/Dash/Jump gates, since slice 4 the hit-reaction gates
   ("is input swallowed", "is the target still combo-stunned", "can a throw
-  start / land") all live in `FighterState`, and the orphan-attack state is
+  start / land"), and since slice 5 the block-stance entry/release gates
+  ("can the held-back direction be (re-)sampled", "can the stance flags be
+  released") all live in `FighterState`, and the orphan-attack state is
   structurally impossible. What remains for the tail of Stage 2 is *deleting*
-  the now-duplicated boolean flags and rerouting the last readers (block-stance
-  entry, the dead `_physics_process_jump` guard) through `resolve()`. Until
-  then the illegal flag combinations remain *detectable* (and are detected by
+  the now-duplicated boolean flags and rerouting the last readers — the two
+  animation chains (`Player._compute_target_state` /
+  `AnimationManager.compute_target_state`) — through `resolve()`. Until then
+  the illegal flag combinations remain *detectable* (and are detected by
   `test_25`) rather than *unrepresentable*.
 - **AI crouch-backdash** ✅ (fixed in Stage 2 slice 4) — the AI's direct
   backdash branch used a looser guard missing `not is_crouching`; both AI dash
