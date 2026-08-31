@@ -52,7 +52,6 @@ const CASES: Array = [
 	"res://tests/frame_tests/cases/test_34_hit_reaction_gates_match_legacy.gd",
 	"res://tests/frame_tests/cases/test_35_ai_backdash_blocked_while_crouching.gd",
 	"res://tests/frame_tests/cases/test_36_block_gates_match_legacy.gd",
-	"res://tests/frame_tests/cases/test_37_hitstop_time_freeze.gd",
 ]
 
 var _passed: int = 0

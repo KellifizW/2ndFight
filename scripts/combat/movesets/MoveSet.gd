@@ -509,15 +509,12 @@ func start_100p() -> void:
 	_start_special("100p")
 
 # === Freeze logic ===
-## 超必殺演出凍結。
-## 🟢 【修復】改用真實時間的 SceneTreeTimer 計時（ignore_time_scale=true，
-## 不依賴 Tween，也不受 Engine.time_scale 影響），並且不再把 time_scale
-## 設為 0.0 —— 0 會破壞物理引擎內部運算（除以零風險），改用 0.02 近似全停。
 func freeze_game(duration: float) -> void:
-	Engine.time_scale = 0.02
-	await get_tree().create_timer(duration, true, false, true).timeout
-	Engine.time_scale = 1.0
-	resume_after_freeze()
+	var tween = create_tween().set_ignore_time_scale(true)
+	Engine.time_scale = 0.0
+	tween.tween_interval(duration)
+	tween.tween_property(Engine, "time_scale", 1.0, 0.1)
+	tween.tween_callback(resume_after_freeze)
 
 func resume_after_freeze() -> void:
 	if animation_player and animation_player.current_animation == "super":

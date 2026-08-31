@@ -678,14 +678,6 @@ func reset_players() -> void:
 		player.is_wakeup_locked = false
 		player.hit_lock_frames = 0
 		player.block_lock_frames = 0
-		# 🟢 【修復】清掉受擊/硬直殘留與「等待 hitstop 結束」的暫存：
-		# 否則回合重置時若剛好處於 hitstop，cancel_hit_freeze() 發出的
-		# hit_slowmo_finished 會把上一回合的 pending hitstun 套回到新回合。
-		player.hitstun_frames = 0
-		player.blockstun_frames = 0
-		player.knockback_frames = 0
-		player.waiting_for_hit_stop_end = false
-		player.pending_hit_params = {}
 		player.knockfly_frames = 0
 		player.knockfly_duration_frames = 0
 		player.block_push_frames = 0
@@ -710,13 +702,8 @@ func reset_players() -> void:
 			ai_behavior.committed_input = {}
 	
 	if slowmo_controller:
-		# 🟢 【修復】改用 cancel_hit_freeze()：不只清 is_hit_slowmo 旗標，
-		# 還會還原動畫 speed_scale、恢復 FrameCounter，並發出
-		# hit_slowmo_finished 讓等待中的 Fighter 解除 waiting_for_hit_stop_end。
-		# 舊寫法直接改旗標會把上述狀態留在不一致狀態，之後所有
-		# request_hit_freeze() 都可能被卡死的旗標擋掉（hitstop 永遠不再出現）。
-		slowmo_controller.cancel_hit_freeze()
 		slowmo_controller.exit_slowmo_animation()
+		slowmo_controller.is_hit_slowmo = false
 		slowmo_triggered = false
 		Engine.time_scale = slowmo_controller.normal_time_scale
 		Debug.log("Debug: Slow motion and hit slowmo states reset, time_scale=%s at %s ms" % [Engine.time_scale, Time.get_ticks_msec()])
