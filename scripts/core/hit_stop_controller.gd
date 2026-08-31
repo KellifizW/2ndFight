@@ -65,7 +65,7 @@ var debug_players_group_count: int = -1
 
 var _attacker: Node = null
 var _defender: Node = null
-var _entries: Array[Dictionary] = []
+var _entries: Array = []
 var _jitter_phase: int = 0
 
 
@@ -146,6 +146,8 @@ func cancel() -> void:
 	debug_cancel_count += 1
 	is_active = false
 	remaining_frames = 0
+	# 防呆：即使快照沒有成功保存，也要把所有 players 復原到正常狀態。
+	_restore_all_players_defaults()
 	_restore_entries()
 	_resume_frame_counter()
 	_entries.clear()
@@ -171,29 +173,7 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 	var anim_sprite = node.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 	var sprite = node.get_node_or_null("Sprite2D") as Sprite2D
 
-	var entry: Dictionary = {
-		"node": node,
-		"freeze": freeze_animation,
-		"jitter": jitter,
-		"anim_player": anim_player,
-		"anim_tree": anim_tree,
-		"anim_sprite": anim_sprite,
-		"sprite": sprite,
-		"anim_player_speed": anim_player.speed_scale if anim_player else 1.0,
-		"anim_tree_active": anim_tree.active if anim_tree else true,
-		"anim_sprite_speed": anim_sprite.speed_scale if anim_sprite else 1.0,
-		"anim_sprite_playing": anim_sprite.playing if anim_sprite else false,
-		"anim_sprite_frame": anim_sprite.frame if anim_sprite else 0,
-		"anim_sprite_offset": anim_sprite.offset if anim_sprite else Vector2.ZERO,
-		"anim_sprite_position": anim_sprite.position if anim_sprite else Vector2.ZERO,
-		"anim_sprite_rotation": anim_sprite.rotation_degrees if anim_sprite else 0.0,
-		"sprite_offset": sprite.offset if sprite else Vector2.ZERO,
-		"sprite_position": sprite.position if sprite else Vector2.ZERO,
-		"sprite_rotation": sprite.rotation_degrees if sprite else 0.0,
-		"base_anim_sprite_offset": anim_sprite.offset if anim_sprite else Vector2.ZERO,
-		"base_sprite_offset": sprite.offset if sprite else Vector2.ZERO,
-	}
-
+	# 凍結優先於快照：就算後續 Dictionary/Array 記錄失敗，角色動畫此刻仍然停住。
 	if freeze_animation and anim_player:
 		# 透過 AnimationTree 播放時 AnimationPlayer.speed_scale 通常會被忽略，
 		# 但對直接播放 AnimationPlayer 的狀態（如 landing）仍然有效。
@@ -204,6 +184,41 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 	if freeze_animation and anim_sprite:
 		anim_sprite.speed_scale = 0.0
 		anim_sprite.playing = false
+
+	var anim_player_speed: float = anim_player.speed_scale if anim_player else 1.0
+	var anim_tree_active: bool = anim_tree.active if anim_tree else true
+	var anim_sprite_speed: float = anim_sprite.speed_scale if anim_sprite else 1.0
+	var anim_sprite_playing: bool = anim_sprite.playing if anim_sprite else false
+	var anim_sprite_frame: int = anim_sprite.frame if anim_sprite else 0
+	var anim_sprite_offset: Vector2 = anim_sprite.offset if anim_sprite else Vector2.ZERO
+	var anim_sprite_position: Vector2 = anim_sprite.position if anim_sprite else Vector2.ZERO
+	var anim_sprite_rotation: float = anim_sprite.rotation_degrees if anim_sprite else 0.0
+	var sprite_offset: Vector2 = sprite.offset if sprite else Vector2.ZERO
+	var sprite_position: Vector2 = sprite.position if sprite else Vector2.ZERO
+	var sprite_rotation: float = sprite.rotation_degrees if sprite else 0.0
+
+	var entry: Dictionary = {
+		"node": node,
+		"freeze": freeze_animation,
+		"jitter": jitter,
+		"anim_player": anim_player,
+		"anim_tree": anim_tree,
+		"anim_sprite": anim_sprite,
+		"sprite": sprite,
+		"anim_player_speed": anim_player_speed,
+		"anim_tree_active": anim_tree_active,
+		"anim_sprite_speed": anim_sprite_speed,
+		"anim_sprite_playing": anim_sprite_playing,
+		"anim_sprite_frame": anim_sprite_frame,
+		"anim_sprite_offset": anim_sprite_offset,
+		"anim_sprite_position": anim_sprite_position,
+		"anim_sprite_rotation": anim_sprite_rotation,
+		"sprite_offset": sprite_offset,
+		"sprite_position": sprite_position,
+		"sprite_rotation": sprite_rotation,
+		"base_anim_sprite_offset": anim_sprite_offset,
+		"base_sprite_offset": sprite_offset,
+	}
 
 	_entries.append(entry)
 
@@ -262,6 +277,8 @@ func _finish() -> void:
 	debug_finish_count += 1
 	is_active = false
 	remaining_frames = 0
+	# 防呆：即使快照沒有成功保存，也要把所有 players 復原到正常狀態。
+	_restore_all_players_defaults()
 	_restore_entries()
 	_resume_frame_counter()
 	_entries.clear()
@@ -272,6 +289,30 @@ func _finish() -> void:
 		Debug.log("%s 結束。" % LOG_TAG)
 
 	emit_signal("hitstop_finished")
+
+
+func _restore_all_players_defaults() -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	for player in tree.get_nodes_in_group("players"):
+		if not is_instance_valid(player):
+			continue
+		var anim_player := player.get_node_or_null("AnimationPlayer") as AnimationPlayer
+		var anim_tree := player.get_node_or_null("AnimationTree") as AnimationTree
+		var anim_sprite := player.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+		var sprite := player.get_node_or_null("Sprite2D") as Sprite2D
+		if anim_player:
+			anim_player.speed_scale = 1.0
+		if anim_tree:
+			anim_tree.active = true
+		if anim_sprite:
+			anim_sprite.speed_scale = 1.0
+			anim_sprite.playing = true
+		if sprite:
+			sprite.offset = Vector2.ZERO
+			sprite.position = Vector2.ZERO
+			sprite.rotation_degrees = 0.0
 
 
 func _restore_entries() -> void:
