@@ -262,8 +262,16 @@ func get_input() -> Dictionary:
 	# Stage 2 切片 4：吞輸入判定收攏到 FighterState.is_input_locked
 	# （knockfly / wakeup / hit / layground / 摔投發起 / 被摔投）。
 	# 刻意不含 blockstun —— 格擋硬直中仍允許緩衝反擊輸入（既有行為）。
+	#
+	# Stage 4 補丁：吞輸入路徑回傳的字典也必須帶 attack_type / character_id 鍵，
+	# 與 AI merge 路徑、人類 get_input_data() 路徑形狀一致 —— 否則下游
+	# （check_cancel、frame test 斷言）在 hitstun 等鎖定期間會看到「缺鍵」，
+	# 被解讀成兩條輸入路徑分岔。值為 "none" 本就是鎖定期的語意（什麼都不能出）。
 	if FighterState.is_input_locked(self):
-		return default_input.duplicate()
+		var locked_input: Dictionary = default_input.duplicate()
+		locked_input["attack_type"] = "none"
+		locked_input["character_id"] = character_id
+		return locked_input
 	if is_ai_controlled:
 		var ai = $AIBehavior if has_node("AIBehavior") else null
 		if ai and ai.has_method("get_ai_input"):
@@ -272,10 +280,12 @@ func get_input() -> Dictionary:
 			# Stage 4：AI 路徑的 input 字典原本不帶 `attack_type`，導致人類獨佔
 			# 的 hit-confirm cancel（check_cancel 讀 input_data.attack_type）對
 			# CPU 失效 —— 這是 Stage 2 切片 2 披露的 finding #3。
-			# 在 AI merge 之後用 PlayerController.resolve_attack_type() 補上
-			# 正確的 attack_type，邏輯與人類路徑共用同一份優先級表（17 行鏈）。
-			ai_input["attack_type"] = PlayerController.resolve_attack_type(ai_input)
+			# 先補 character_id 再呼叫 resolve_attack_type()：優先級鏈對 DAV/DEN
+			# 的 spm1/spm3 分流（powerkk / spnk / hdk / dp shortcut）依賴
+			# character_id，順序反了會讓 AI 的攻擊型別誤判為普通拳腳或 "none"。
+			# 邏輯與人類路徑共用同一份優先級表（17 行鏈）。
 			ai_input["character_id"] = character_id
+			ai_input["attack_type"] = PlayerController.resolve_attack_type(ai_input)
 			return ai_input
 		push_warning("[Player] %s is AI-controlled but AIBehavior input provider is unavailable" % seat)
 		return default_input.duplicate()
