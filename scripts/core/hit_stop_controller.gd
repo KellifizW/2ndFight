@@ -4,7 +4,7 @@ extends Node
 ## 専門 Hitstop 管理器。
 ##
 ## 這不是全域時間停止（Engine.time_scale = 0），而是「角色動畫與視覺解耦」：
-## - 只暫停參與打擊的角色的 AnimationPlayer / AnimatedSprite2D。
+## - 只暫停參與打擊的角色的 AnimationPlayer / AnimatedSprite2D（speed_scale = 0）。
 ## - 只在 Sprite / AnimatedSprite 的 offset / rotation 上做像素級微震動。
 ## - 不修改 CharacterBody2D 的 position / velocity，因此不影響 Hitbox / Hurtbox。
 ## - 背景、粒子特效、UI 全部維持正常時間運行。
@@ -175,12 +175,10 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 
 	# 凍結動畫。放在 Dictionary/Array 記錄之前，確保即使後續記錄失敗動畫仍然停住。
 	if freeze_animation and anim_player:
-		# 透過 AnimationTree 播放時 AnimationPlayer.speed_scale 通常會被忽略，
-		# 但對直接播放 AnimationPlayer 的狀態（如 landing）仍然有效。
+		# 只凍結「可見播放速度」，不讓 AnimationTree.active=false：
+		# StateMachine 仍要正常推進攻擊/受擊狀態與 hitbox 啟用時機，
+		# 否則攻擊會重複判定、角色狀態層與動畫層會分岔。
 		anim_player.speed_scale = 0.0
-	if freeze_animation and anim_tree:
-		# AnimationTree 是 StateMachine root，active=false 才能真正凍結狀態機與播放。
-		anim_tree.active = false
 	if freeze_animation and anim_sprite:
 		anim_sprite.speed_scale = 0.0
 		anim_sprite.playing = false
