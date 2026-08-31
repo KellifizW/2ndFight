@@ -509,6 +509,8 @@ func start_100p() -> void:
 	_start_special("100p")
 
 # === Freeze logic ===
+# ⚠️ 這是「超必殺開場式全域凍結」，與 Hitstop 分開；Hitstop 已改由 HitStopController
+# 以「角色動畫 + 視覺微震動」實作，不會再動 Engine.time_scale。
 func freeze_game(duration: float) -> void:
 	var tween = create_tween().set_ignore_time_scale(true)
 	Engine.time_scale = 0.0

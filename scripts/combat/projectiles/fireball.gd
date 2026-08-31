@@ -267,12 +267,13 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
 		# 與普通攻擊統一：傳遞所有參數
 		target.take_hit(final_hitstun, final_blockstun, final_damage, false, false, {}, final_knockback)
 		
-		# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（Slow-mo）
+		# 🟢 【重要】在 take_hit() 之後才請求擊中定格（Hitstop）
 		# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中
+		# 火球不凍結攻擊者（距離遠），只定格受擊者並施予視覺微震動。
 		if world:
 			var slowmo_controller = world.get_node_or_null("SlowMoController")
 			if slowmo_controller:
-				slowmo_controller.request_hit_freeze()
+				slowmo_controller.request_hit_freeze(null, target)
 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
 		# Fireball is owned by the attacker, so emit hit_detected from the owner.
 		# This keeps hit-confirm/cancel and combo ownership identical to melee hits.
