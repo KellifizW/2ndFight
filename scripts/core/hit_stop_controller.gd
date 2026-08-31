@@ -173,19 +173,6 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 	var anim_sprite = node.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 	var sprite = node.get_node_or_null("Sprite2D") as Sprite2D
 
-	# 先快照原始值：restore 時要把角色恢復到 hitstop 前的動畫狀態。
-	var anim_player_speed: float = anim_player.speed_scale if anim_player else 1.0
-	var anim_tree_active: bool = anim_tree.active if anim_tree else true
-	var anim_sprite_speed: float = anim_sprite.speed_scale if anim_sprite else 1.0
-	var anim_sprite_playing: bool = anim_sprite.playing if anim_sprite else false
-	var anim_sprite_frame: int = anim_sprite.frame if anim_sprite else 0
-	var anim_sprite_offset: Vector2 = anim_sprite.offset if anim_sprite else Vector2.ZERO
-	var anim_sprite_position: Vector2 = anim_sprite.position if anim_sprite else Vector2.ZERO
-	var anim_sprite_rotation: float = anim_sprite.rotation_degrees if anim_sprite else 0.0
-	var sprite_offset: Vector2 = sprite.offset if sprite else Vector2.ZERO
-	var sprite_position: Vector2 = sprite.position if sprite else Vector2.ZERO
-	var sprite_rotation: float = sprite.rotation_degrees if sprite else 0.0
-
 	# 凍結動畫。放在 Dictionary/Array 記錄之前，確保即使後續記錄失敗動畫仍然停住。
 	if freeze_animation and anim_player:
 		# 透過 AnimationTree 播放時 AnimationPlayer.speed_scale 通常會被忽略，
@@ -197,6 +184,18 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 	if freeze_animation and anim_sprite:
 		anim_sprite.speed_scale = 0.0
 		anim_sprite.playing = false
+
+	var anim_player_speed: float = anim_player.speed_scale if anim_player else 1.0
+	var anim_tree_active: bool = anim_tree.active if anim_tree else true
+	var anim_sprite_speed: float = anim_sprite.speed_scale if anim_sprite else 1.0
+	var anim_sprite_playing: bool = anim_sprite.playing if anim_sprite else false
+	var anim_sprite_frame: int = anim_sprite.frame if anim_sprite else 0
+	var anim_sprite_offset: Vector2 = anim_sprite.offset if anim_sprite else Vector2.ZERO
+	var anim_sprite_position: Vector2 = anim_sprite.position if anim_sprite else Vector2.ZERO
+	var anim_sprite_rotation: float = anim_sprite.rotation_degrees if anim_sprite else 0.0
+	var sprite_offset: Vector2 = sprite.offset if sprite else Vector2.ZERO
+	var sprite_position: Vector2 = sprite.position if sprite else Vector2.ZERO
+	var sprite_rotation: float = sprite.rotation_degrees if sprite else 0.0
 
 	var entry: Dictionary = {
 		"node": node,
@@ -323,10 +322,11 @@ func _restore_entries() -> void:
 		var sprite = entry.get("sprite") as Sprite2D
 
 		if anim_player:
-			anim_player.speed_scale = float(entry.get("anim_player_speed", 1.0))
+			# hitstop 期間速度被設為 0，結束時一律回到正常速度。
+			anim_player.speed_scale = 1.0
 		if anim_sprite:
-			anim_sprite.speed_scale = float(entry.get("anim_sprite_speed", 1.0))
-			anim_sprite.playing = bool(entry.get("anim_sprite_playing", false))
+			anim_sprite.speed_scale = 1.0
+			anim_sprite.playing = true
 			anim_sprite.frame = int(entry.get("anim_sprite_frame", 0))
 			anim_sprite.offset = entry.get("anim_sprite_offset", Vector2.ZERO) as Vector2
 			anim_sprite.position = entry.get("anim_sprite_position", Vector2.ZERO) as Vector2
@@ -336,10 +336,10 @@ func _restore_entries() -> void:
 			sprite.position = entry.get("sprite_position", Vector2.ZERO) as Vector2
 			sprite.rotation_degrees = float(entry.get("sprite_rotation", 0.0))
 
-		# AnimationTree 在 hitstop 時被設為 inactive，結束時還原為快照值。
+		# AnimationTree 在 hitstop 時被設為 inactive，結束時一律恢復啟用。
 		var anim_tree = entry.get("anim_tree") as AnimationTree
 		if anim_tree:
-			anim_tree.active = bool(entry.get("anim_tree_active", true))
+			anim_tree.active = true
 
 
 func _pause_frame_counter() -> void:
