@@ -9,15 +9,15 @@
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_nbdmm"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_o64jn"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://scripts/input/InputManager.gd" id="9_pid0y"]
-[ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://assets/audio/heavy_hit_sound.wav" id="10_6t1g5"]
-[ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://assets/audio/block_sound.wav" id="11_061tp"]
-[ext_resource type="AudioStream" uid="uid://chhkw2i6yrqqj" path="res://assets/audio/hurt_grunt_p1.wav" id="12_sffaq"]
-[ext_resource type="AudioStream" uid="uid://b1h32xlp7um3u" path="res://assets/audio/powerkk_call.mp3" id="13_vn450"]
-[ext_resource type="AudioStream" uid="uid://bhgx3a8oi1nxg" path="res://assets/audio/fireball_call_p1.wav" id="14_wkibw"]
-[ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://assets/audio/loud3.mp3" id="15_wkibw"]
-[ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="16_wkibw"]
-[ext_resource type="AudioStream" path="res://assets/audio/dash.mp3" id="32_dash1"]
-[ext_resource type="AudioStream" path="res://assets/audio/bdash.mp3" id="33_bdash1"]
+[ext_resource type="AudioStream" uid="uid://donxd3nqn4jt2" path="res://assets/audio/heavy_hit_sound.wav" id="10_6t1g5"]
+[ext_resource type="AudioStream" uid="uid://dbe6n06qwaw2i" path="res://assets/audio/block_sound.wav" id="11_061tp"]
+[ext_resource type="AudioStream" uid="uid://g3rf7nob7jv3" path="res://assets/audio/hurt_grunt_p1.wav" id="12_sffaq"]
+[ext_resource type="AudioStream" uid="uid://bxlmatohwkn4l" path="res://assets/audio/powerkk_call.mp3" id="13_vn450"]
+[ext_resource type="AudioStream" uid="uid://drhqr2x37xtuj" path="res://assets/audio/fireball_call_p1.wav" id="14_wkibw"]
+[ext_resource type="AudioStream" uid="uid://chf6ovrhyejma" path="res://assets/audio/loud3.mp3" id="15_wkibw"]
+[ext_resource type="AudioStream" uid="uid://bdoof7d18fx5a" path="res://assets/audio/heavyblock.mp3" id="16_wkibw"]
+[ext_resource type="AudioStream" uid="uid://uxhsj285rci4" path="res://assets/audio/dash.mp3" id="32_dash1"]
+[ext_resource type="AudioStream" uid="uid://bgs6lvw2i4i6a" path="res://assets/audio/bdash.mp3" id="33_bdash1"]
 
 [sub_resource type="Resource" id="Resource_n8wgw"]
 script = ExtResource("3_mpuaf")
@@ -2560,7 +2560,7 @@ tracks/1/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [Vector2(0, 0)]
+"values": [Vector2(0, -10)]
 }
 tracks/2/type = "value"
 tracks/2/imported = false
@@ -5751,8 +5751,8 @@ stream = ExtResource("12_sffaq")
 [node name="DashSmokePoint" type="Marker2D" parent="." unique_id=58677902]
 position = Vector2(0, 70)
 
-[node name="DashSoundPlayer" type="AudioStreamPlayer" parent="."]
+[node name="DashSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1156613321]
 stream = ExtResource("32_dash1")
 
-[node name="BackdashSoundPlayer" type="AudioStreamPlayer" parent="."]
+[node name="BackdashSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1188913631]
 stream = ExtResource("33_bdash1")
