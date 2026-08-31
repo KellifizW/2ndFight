@@ -35,18 +35,22 @@ func run() -> bool:
 	# 攻擊者與受擊者的動畫都應定格（只有視覺，不改物理座標）。
 	check(p1.animation_tree != null, "Attacker should have an AnimationTree")
 	check(p2.animation_tree != null, "Defender should have an AnimationTree")
+	var entries_count: int = hitstop_controller._entries.size() if hitstop_controller else -1
 	check(p1.animation_tree != null and not p1.animation_tree.active,
-		"Attacker AnimationTree should be frozen during hitstop, got active=%s"
-		% [p1.animation_tree.active if p1.animation_tree else "null"])
+		"Attacker AnimationTree should be frozen during hitstop, got active=%s entries=%d freeze_att=%s freeze_def=%s"
+		% [p1.animation_tree.active if p1.animation_tree else "null",
+			entries_count,
+			hitstop_controller.freeze_attacker if hitstop_controller else "null",
+			hitstop_controller.freeze_defender if hitstop_controller else "null"])
 	check(p2.animation_tree != null and not p2.animation_tree.active,
-		"Defender AnimationTree should be frozen during hitstop, got active=%s"
-		% [p2.animation_tree.active if p2.animation_tree else "null"])
+		"Defender AnimationTree should be frozen during hitstop, got active=%s entries=%d"
+		% [p2.animation_tree.active if p2.animation_tree else "null", entries_count])
 	check(abs(p1.animation_player.speed_scale) < 0.01,
-		"Attacker AnimationPlayer.speed_scale should also be 0 during hitstop, got %s"
-		% [p1.animation_player.speed_scale])
+		"Attacker AnimationPlayer.speed_scale should also be 0 during hitstop, got %s entries=%d"
+		% [p1.animation_player.speed_scale, entries_count])
 	check(abs(p2.animation_player.speed_scale) < 0.01,
-		"Defender AnimationPlayer.speed_scale should also be 0 during hitstop, got %s"
-		% [p2.animation_player.speed_scale])
+		"Defender AnimationPlayer.speed_scale should also be 0 during hitstop, got %s entries=%d"
+		% [p2.animation_player.speed_scale, entries_count])
 
 	var hitstop_ended: bool = await wait_until(
 		func(): return not bool(slowmo.is_hit_slowmo), 120)
