@@ -109,20 +109,8 @@ func run() -> bool:
 	# ── 後衝：應該生成恰好一團 bdashsmoke（仿照前衝煙）──
 	var back_action: String = "move_left" if p1.facing_direction > 0 else "move_right"
 	await tap(back_action)
-	# [TEMP DIAG] 第一次 back 點擊放開後、第二次按下前的雙擊偵測狀態
-	print("      [DIAG BD] facing=%s back_action=%s neutral_timer=%d pending_dir=%d last_input_dir=%d is_dashing=%s is_bdashing=%s" % [
-		me.facing_direction, back_action, me.neutral_timer, me.pending_dash_dir,
-		me.last_input_dir, me.is_dashing, me.is_backdashing])
 	await await_frames(1)
 	Input.action_press(back_action)
-	# [TEMP DIAG] 第二次按下後逐幀觀察
-	for _bf in 6:
-		var _bi: Dictionary = me.get_input()
-		print("      [DIAG BD f=%d] input_dir=%d can_dash=%s neutral_timer=%d pending=%d last=%d is_bdashing=%s holding_back=%s prox_block=%s" % [
-			_bf, int(_bi.get("input_dir", 0)), FighterState.can_dash(me, false),
-			me.neutral_timer, me.pending_dash_dir, me.last_input_dir,
-			me.is_backdashing, me.is_holding_back, me.is_proximity_blocking])
-		await await_frames(1)
 	var backdash_started: bool = await wait_until(func(): return me.is_backdashing, 10)
 	Input.action_release(back_action)
 	check(backdash_started, "後衝應該被觸發")

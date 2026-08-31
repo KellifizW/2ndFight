@@ -1,6 +1,13 @@
 class_name Movement extends Node2D
 
-@onready var player: Player = owner as Player
+# 角色是程式碼動態生成的（world._spawn_player：scene.instantiate() 後 add_child，
+# 沒有編輯器擁有者），root 節點的 `owner` 會是 null —— `owner as Player` 於是
+# 得到 null，AI 直接 dash / backdash 分支裡的 `player and player.is_ai_controlled`
+# 便永遠短路成 false，AI 前衝/後衝永遠發動不了（人類雙擊路徑不讀 player，
+# 所以前衝雙擊不受影響，肉眼很難發現）。編輯器裡實例化的場景 owner 正常。
+# 修法：owner 缺失時退回 self —— 繼承鏈 Player extends Fighter extends Movement，
+# 動態生成時「this」就是那個 Player 實體。
+@onready var player: Player = (owner as Player) if owner is Player else null
 
 var healthbar: Node = null
 var world: Node
@@ -388,6 +395,11 @@ func _ready() -> void:
 	is_knockfly_animation_finished = false
 
 func _physics_process(delta: float) -> void:
+	# 動態生成的角色 owner 為 null（見 player 宣告）；此時 self 本身就是
+	# Player 實體（Player extends Fighter extends Movement）。補齊參考，
+	# 否則 AI dash / backdash 分支與日誌的 seat 解析全部拿不到玩家物件。
+	if player == null and self is Player:
+		player = self as Player
 	var input_data: Dictionary = get_input()
 	var input_dir: int = input_data["input_dir"]
 	var crouch_pressed: bool = input_data["crouch_pressed"]
@@ -437,17 +449,6 @@ func _physics_process(delta: float) -> void:
 	# 定義，蹲下時 AI 後衝被正確擋下。這是切片 3 披露的刻意行為修正，由 test_35 釘住。
 	var _ai_can_dash: bool = FighterState.can_dash(self, is_special_moving)
 
-	# [TEMP DIAG] frame test backdash 追查（test_35 綠了就刪）：
-	# 每個帶 backdash_pressed 的幀把分支評估結果寫進 meta，測試可讀出。
-	if bool(input_data.get("backdash_pressed", false)):
-		set_meta("diag_bd_eval_f", Engine.get_physics_frames())
-		set_meta("diag_bd_player_null", player == null)
-		set_meta("diag_bd_player_ai", (player.is_ai_controlled if player else false))
-		set_meta("diag_bd_has_flag", has_backdash_pressed)
-		set_meta("diag_bd_can_dash", _ai_can_dash)
-		set_meta("diag_bd_input_dir", input_dir)
-		set_meta("diag_bd_self_name", name)
-
 	if has_dash_pressed and _ai_can_dash:
 		# AI wants to dash forward
 		if input_dir * facing_direction > 0:
@@ -474,8 +475,6 @@ func _physics_process(delta: float) -> void:
 			play_dash_sound(true)
 	elif has_backdash_pressed and _ai_can_dash:
 		# AI wants to backdash
-		# [TEMP DIAG] 證實分支有進來（test_35 綠了就刪）
-		set_meta("diag_backdash_branch_fired_frame", Engine.get_physics_frames())
 		is_backdashing = true
 		dash_timer = Movement.seconds_to_frames_nearest(backdash_time)
 		dash_total_time = dash_timer
