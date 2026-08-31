@@ -17,7 +17,7 @@
 
 | 凍結（只影響角色） | 不凍結（正常速度） |
 |---|---|
-| 角色動畫：`AnimationPlayer` / `AnimationTree` 的 `speed_scale = 0` | VFX 粒子 / 打擊火花（VFXImpact、VFXSmoke、場景粒子） |
+| 角色動畫：`AnimationPlayer` / `AnimationTree` 的 `process_mode = DISABLED`（狀態機與直接播放同時停格；不用 speed_scale —— Godot 4 的 AnimationTree 沒有該屬性，且 AnimationPlayer.speed_scale 對經 Tree 播放的動畫無效） | VFX 粒子 / 打擊火花（VFXImpact、VFXSmoke、場景粒子） |
 | 角色物理：`Movement` / `Player` / `Fireball` 依 `SlowMoController.is_hit_slowmo` 早退（位置 0 位移、Hitbox/Hurtbox 不動） | 音效 |
 | Sprite 像素級微震抖（jitter）：每物理幀對 `AnimatedSprite2D.position` 疊加隨機偏移（**不碰 CharacterBody 物理座標**） | UI（計時器、血條、連段數、FrameBar）與鏡頭 |
 

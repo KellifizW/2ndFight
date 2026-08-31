@@ -724,7 +724,8 @@ plan_game.md         The full six-stage refactor plan
 
 - ~~**Hitstop uses `Engine.time_scale`.**~~ **Fixed (2026-08):** hitstop is now a decoupled
   per-character freeze (`scripts/core/HitStopManager.gd`, node `World/SlowMoController/HitStopManager`):
-  character animations (`speed_scale = 0`) + character physics (early-return) + sprite frame jitter,
+  character animations (`AnimationPlayer`/`AnimationTree` process disabled) + character physics
+  (early-return) + sprite frame jitter,
   while VFX particles / SFX / UI / camera keep running at full speed. No `Engine.time_scale` or
   `tree.paused` involved; all durations & jitter params are `@export` in the editor.
   `Engine.time_scale` is only used by the manual/KO slow-motion effect now.

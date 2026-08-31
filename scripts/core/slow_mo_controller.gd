@@ -59,7 +59,7 @@ func request_slowmo_change():
 ## 新架構（解耦式 hitstop）：不再把 Engine.time_scale 壓到 0.02 做全域凍結
 ## （那會連背景特效、火花粒子、UI 計時器、音效一起凍住，畫面死寂、打擊感喪失）。
 ## 現在委派給 HitStopManager：
-##   - 只凍結角色動畫（speed_scale=0）與角色物理（Movement/Player 早退）
+##   - 只凍結角色動畫（AnimationPlayer/Tree 的 process_mode=DISABLED）與角色物理（Movement/Player 早退）
 ##   - 定格期間對角色 sprite 疊加像素級微震抖（Frame Jitter）
 ##   - VFX 粒子 / 音效 / UI / 鏡頭全程正常速度播放
 ##   - 經固定邏輯幀數後自動還原，並發 hit_slowmo_finished 讓 hitstun/knockback 開始
@@ -164,7 +164,7 @@ func clear_hitstop():
 # ═══════════════════════════════════════════════════════════════════════
 # 舊版 register_player / _sync_player_animations 已移除：
 # 那套「手動同步所有玩家 AnimationPlayer.speed_scale」是全域 time_scale 凍結的
-# 補救措施。新架構由 HitStopManager 直接對每個角色做 speed_scale=0 凍結 +
+# 補救措施。新架構由 HitStopManager 直接對每個角色停用動畫節點處理 +
 # jitter，不需要這層同步（affected_players 保留空陣列維持舊 API）。
 # ═══════════════════════════════════════════════════════════════════════
 

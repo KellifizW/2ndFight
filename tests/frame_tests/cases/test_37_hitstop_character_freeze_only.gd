@@ -8,8 +8,8 @@ extends "res://tests/frame_tests/frame_test_case.gd"
 ## 本用例釘住三個不變式：
 ##   1. 定格期間 Engine.time_scale == 1.0（特效 / UI 維持正常速度）
 ##   2. 定格期間雙方角色 fixed_position 完全不動、AnimationPlayer/Tree
-##      speed_scale == 0、sprite 有非零 jitter 偏移
-##   3. 定格結束後 speed_scale 還原 1.0、sprite 偏移歸零、hitstun 開始遞減
+##      process_mode == DISABLED、sprite 有非零 jitter 偏移
+##   3. 定格結束後 process_mode 還原、sprite 偏移歸零、hitstun 開始遞減
 ##
 ## 【診斷用】每個可能觸發 runtime error 的段落前先把進度標記 push 進
 ## _failures、成功後 pop 掉：若中途 runtime error 讓協程死掉（GDScript
@@ -73,13 +73,13 @@ func run() -> bool:
 			time_scale_violated = true
 		if p1.fixed_position != pos_p1 or p2.fixed_position != pos_p2:
 			movement_violated = true
-		if p1.animation_player and p1.animation_player.speed_scale != 0.0:
+		if p1.animation_player and p1.animation_player.get_process_mode() != Node.PROCESS_MODE_DISABLED:
 			anim_violated = true
-		if p2.animation_player and p2.animation_player.speed_scale != 0.0:
+		if p2.animation_player and p2.animation_player.get_process_mode() != Node.PROCESS_MODE_DISABLED:
 			anim_violated = true
-		if p1.animation_tree and p1.animation_tree.speed_scale != 0.0:
+		if p1.animation_tree and p1.animation_tree.get_process_mode() != Node.PROCESS_MODE_DISABLED:
 			anim_violated = true
-		if p2.animation_tree and p2.animation_tree.speed_scale != 0.0:
+		if p2.animation_tree and p2.animation_tree.get_process_mode() != Node.PROCESS_MODE_DISABLED:
 			anim_violated = true
 		if sprite.position != sprite_base:
 			saw_jitter = true
@@ -90,7 +90,7 @@ func run() -> bool:
 	check(not movement_violated,
 		"Both players' fixed_position must be completely frozen during hitstop (p1=%s p2=%s)" % [p1.fixed_position, p2.fixed_position])
 	check(not anim_violated,
-		"Both players' AnimationPlayer/AnimationTree speed_scale must be 0 during hitstop")
+		"Both players' AnimationPlayer/AnimationTree process_mode must be DISABLED during hitstop")
 	check(saw_jitter,
 		"Sprite jitter offset should be visible during hitstop (AnimatedSprite2D.position moved)")
 	check(frames_checked >= 12 and frames_checked <= 20,
@@ -99,13 +99,13 @@ func run() -> bool:
 	_mark("post-hitstop: verifying restoration")
 	check(Engine.time_scale == 1.0, "Engine.time_scale should be 1.0 after hitstop, got %s" % Engine.time_scale)
 	if p1.animation_player:
-		check(p1.animation_player.speed_scale == 1.0,
-			"P1 AnimationPlayer speed_scale should be restored to 1.0, got %s" % p1.animation_player.speed_scale)
+		check(p1.animation_player.get_process_mode() == Node.PROCESS_MODE_INHERIT,
+			"P1 AnimationPlayer process_mode should be restored to INHERIT, got %s" % p1.animation_player.get_process_mode())
 	else:
 		check(false, "P1 animation_player is null after hitstop")
 	if p2.animation_player:
-		check(p2.animation_player.speed_scale == 1.0,
-			"P2 AnimationPlayer speed_scale should be restored to 1.0, got %s" % p2.animation_player.speed_scale)
+		check(p2.animation_player.get_process_mode() == Node.PROCESS_MODE_INHERIT,
+			"P2 AnimationPlayer process_mode should be restored to INHERIT, got %s" % p2.animation_player.get_process_mode())
 	else:
 		check(false, "P2 animation_player is null after hitstop")
 	check(sprite.position == sprite_base,

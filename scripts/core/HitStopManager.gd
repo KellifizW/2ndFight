@@ -10,8 +10,10 @@ extends Node
 ## 本管理器只影響「角色節點」：
 ##
 ##   凍結（只限角色）：
-##   - 動畫：AnimationPlayer / AnimationTree 的 speed_scale 設為 0
-##     （停在全屏定格畫面，不推進、不觸發 Call Method 軌道）
+##   - 動畫：AnimationPlayer / AnimationTree 的 process_mode 設為 DISABLED
+##     （停在全屏定格畫面，不推進、不觸發 Call Method 軌道。
+##     不用 speed_scale：Godot 4 的 AnimationTree 沒有該屬性，
+##     且 AnimationPlayer.speed_scale 對經 Tree 播放的動畫無效）
 ##   - 物理：角色 fixed_position / fixed_velocity 停止積分 ——
 ##     由 Movement / Player / Fireball 依據 SlowMoController.is_hit_slowmo
 ##     早退實現。Hitbox / Hurtbox / Pushbox 完全不動，判定不受干擾。
@@ -53,10 +55,15 @@ var total_frames: int = 0      # 本次定格總物理幀
 
 # 凍結期間的角色快照（key = instance_id）
 var _frozen_players: Array[Node] = []
-var _anim_speed_scale: Dictionary = {}  # id -> 凍結前的 AnimationPlayer.speed_scale
-var _tree_speed_scale: Dictionary = {}  # id -> 凍結前的 AnimationTree.speed_scale
-var _jitter_sprite: Dictionary = {}     # id -> 被 jitter 的視覺節點
-var _sprite_base: Dictionary = {}       # id -> 凍結前的視覺節點 position
+# 凍結前的 process_mode（還原用）。Godot 4 的 AnimationTree 沒有 speed_scale
+# 屬性（速度要靠 AnimationNodeTimeScale），且 AnimationPlayer.speed_scale 在
+# 動畫經 AnimationTree 播放時會被忽略 —— 所以用「停用節點處理」來凍結：
+# AnimationTree / AnimationPlayer 的 process_mode 設為 DISABLED，
+# 狀態機與直接播放（如 landing）同時停在當前定格畫面。
+var _anim_process_mode: Dictionary = {}  # id -> 凍結前的 AnimationPlayer.process_mode
+var _tree_process_mode: Dictionary = {}  # id -> 凍結前的 AnimationTree.process_mode
+var _jitter_sprite: Dictionary = {}      # id -> 被 jitter 的視覺節點
+var _sprite_base: Dictionary = {}        # id -> 凍結前的視覺節點 position
 
 
 func _ready() -> void:
@@ -114,11 +121,11 @@ func _end_hitstop() -> void:
 	hitstop_ended.emit()
 
 
-## 凍結所有角色：動畫 speed_scale=0 + 記錄 jitter 基準點。
+## 凍結所有角色：停用動畫節點處理 + 記錄 jitter 基準點。
 func _freeze_characters() -> void:
 	_frozen_players.clear()
-	_anim_speed_scale.clear()
-	_tree_speed_scale.clear()
+	_anim_process_mode.clear()
+	_tree_process_mode.clear()
 	_jitter_sprite.clear()
 	_sprite_base.clear()
 	if get_tree() == null:
@@ -133,15 +140,18 @@ func _freeze_player(player: Node) -> void:
 	var id: int = player.get_instance_id()
 
 	# 1) 動畫凍結：AnimationTree 狀態機與 AnimationPlayer 直接播放（如 landing）
-	#    都要停。speed_scale=0 → 軌道停在當前定格畫面，Call Method 也不會觸發。
+	#    都要停 —— 用 process_mode=DISABLED 停用兩者的處理：
+	#    動畫停在當前定格畫面，Call Method 軌道不會觸發，狀態機不推進。
+	#    （Godot 4 的 AnimationTree 沒有 speed_scale；AnimationPlayer.speed_scale
+	#    對經 Tree 播放的動畫也無效，故不採用。）
 	var animation_player = player.get_node_or_null("AnimationPlayer")
 	if animation_player:
-		_anim_speed_scale[id] = animation_player.speed_scale
-		animation_player.speed_scale = 0.0
+		_anim_process_mode[id] = animation_player.get_process_mode()
+		animation_player.set_process_mode(Node.PROCESS_MODE_DISABLED)
 	var animation_tree = player.get_node_or_null("AnimationTree")
 	if animation_tree:
-		_tree_speed_scale[id] = animation_tree.speed_scale
-		animation_tree.speed_scale = 0.0
+		_tree_process_mode[id] = animation_tree.get_process_mode()
+		animation_tree.set_process_mode(Node.PROCESS_MODE_DISABLED)
 
 	# 2) 記錄 jitter 基準點。只動「視覺節點」的 position：
 	#    - 不碰 CharacterBody 的物理座標，Hitbox / Hurtbox / Pushbox 完全不受影響。
@@ -184,24 +194,24 @@ func _apply_jitter() -> void:
 		)
 
 
-## 還原所有被凍結的角色：動畫速度歸位 + sprite 偏移歸零。
+## 還原所有被凍結的角色：動畫處理恢復 + sprite 偏移歸零。
 func _restore_characters() -> void:
 	for player in _frozen_players:
 		if not is_instance_valid(player):
 			continue
 		var id: int = player.get_instance_id()
 		var animation_player = player.get_node_or_null("AnimationPlayer")
-		if animation_player and _anim_speed_scale.has(id):
-			animation_player.speed_scale = _anim_speed_scale[id]
+		if animation_player and _anim_process_mode.has(id):
+			animation_player.set_process_mode(_anim_process_mode[id])
 		var animation_tree = player.get_node_or_null("AnimationTree")
-		if animation_tree and _tree_speed_scale.has(id):
-			animation_tree.speed_scale = _tree_speed_scale[id]
+		if animation_tree and _tree_process_mode.has(id):
+			animation_tree.set_process_mode(_tree_process_mode[id])
 		var sprite = _jitter_sprite.get(id)
 		if sprite != null and is_instance_valid(sprite) and _sprite_base.has(id):
 			sprite.position = _sprite_base[id]
 	_frozen_players.clear()
-	_anim_speed_scale.clear()
-	_tree_speed_scale.clear()
+	_anim_process_mode.clear()
+	_tree_process_mode.clear()
 	_jitter_sprite.clear()
 	_sprite_base.clear()
 
