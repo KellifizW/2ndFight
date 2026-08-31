@@ -85,6 +85,19 @@ func begin_hitstop(attacker: Node, defender: Node) -> bool:
 	if _attacker:
 		_register_actor(_attacker, freeze_attacker, _should_jitter(_attacker))
 
+	# 防呆：若呼叫端沒有傳入攻擊者/受擊者（例如舊呼叫或暫態 null），
+	# 直接凍結場景中所有 players，避免 hitstop 已啟動卻完全沒有定格。
+	if _defender == null and _attacker == null:
+		for p in get_tree().get_nodes_in_group("players"):
+			if is_instance_valid(p) and p != null:
+				_register_actor(p, true, true)
+		if debug_log:
+			Debug.log("%s 未指定參與者，回退為凍結所有 players。" % LOG_TAG)
+	elif _entries.is_empty():
+		for p in get_tree().get_nodes_in_group("players"):
+			if is_instance_valid(p) and p != null:
+				_register_actor(p, true, true)
+
 	if pause_frame_counter:
 		_pause_frame_counter()
 
