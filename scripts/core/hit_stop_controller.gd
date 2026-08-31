@@ -173,18 +173,7 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 	var anim_sprite = node.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 	var sprite = node.get_node_or_null("Sprite2D") as Sprite2D
 
-	# 凍結優先於快照：就算後續 Dictionary/Array 記錄失敗，角色動畫此刻仍然停住。
-	if freeze_animation and anim_player:
-		# 透過 AnimationTree 播放時 AnimationPlayer.speed_scale 通常會被忽略，
-		# 但對直接播放 AnimationPlayer 的狀態（如 landing）仍然有效。
-		anim_player.speed_scale = 0.0
-	if freeze_animation and anim_tree:
-		# AnimationTree 是 StateMachine root，active=false 才能真正凍結狀態機與播放。
-		anim_tree.active = false
-	if freeze_animation and anim_sprite:
-		anim_sprite.speed_scale = 0.0
-		anim_sprite.playing = false
-
+	# 先快照原始值：restore 時要把角色恢復到 hitstop 前的動畫狀態。
 	var anim_player_speed: float = anim_player.speed_scale if anim_player else 1.0
 	var anim_tree_active: bool = anim_tree.active if anim_tree else true
 	var anim_sprite_speed: float = anim_sprite.speed_scale if anim_sprite else 1.0
@@ -196,6 +185,18 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 	var sprite_offset: Vector2 = sprite.offset if sprite else Vector2.ZERO
 	var sprite_position: Vector2 = sprite.position if sprite else Vector2.ZERO
 	var sprite_rotation: float = sprite.rotation_degrees if sprite else 0.0
+
+	# 凍結動畫。放在 Dictionary/Array 記錄之前，確保即使後續記錄失敗動畫仍然停住。
+	if freeze_animation and anim_player:
+		# 透過 AnimationTree 播放時 AnimationPlayer.speed_scale 通常會被忽略，
+		# 但對直接播放 AnimationPlayer 的狀態（如 landing）仍然有效。
+		anim_player.speed_scale = 0.0
+	if freeze_animation and anim_tree:
+		# AnimationTree 是 StateMachine root，active=false 才能真正凍結狀態機與播放。
+		anim_tree.active = false
+	if freeze_animation and anim_sprite:
+		anim_sprite.speed_scale = 0.0
+		anim_sprite.playing = false
 
 	var entry: Dictionary = {
 		"node": node,
