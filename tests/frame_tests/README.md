@@ -52,6 +52,9 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | test_31_movement_gates_match_legacy | Stage 2 切片 3：`FighterState` 移動守衛（can_walk / can_dash / can_jump）與它取代的舊旗標表達式逐幀等價（對照組刻意保留舊寫法） |
 | test_32_ai_attack_type_parity | Stage 4 收攏：AI 與人類兩條輸入路徑共用 `PlayerController.resolve_attack_type`，hit-confirm cancel 對 CPU 恢復作用 |
 | test_33_dash_smoke_one_shot | 前衝煙霧（sprite sheet 版）：只有前衝生成、生成在發動那一刻的世界座標且不跟著身體移動、播完自行 `queue_free`；landing / backdash 不生成 |
+| test_34_hit_reaction_gates_match_legacy | Stage 2 切片 4：`FighterState` 受擊守衛（is_input_locked / is_combo_stunned / can_initiate_throw / can_be_thrown）與它取代的舊旗標表達式逐幀等價（對照組刻意保留舊寫法） |
+| test_35_ai_backdash_blocked_while_crouching | Stage 2 切片 4：蹲下時 AI 直接後衝必須被 `can_dash` 擋下、站立時必須發動（切片 3 披露的 backdash 守衛 bug 修復） |
+| test_36_block_gates_match_legacy | Stage 2 切片 5：`FighterState` 格擋守衛（can_enter_block_stance / can_release_block_stance）與它取代的舊旗標表達式逐幀等價；階段 1 確定性逼出 blockstun 重取樣路徑（對照組刻意保留舊寫法） |
 
 ## 設計規則（寫新用例時請遵守）
 

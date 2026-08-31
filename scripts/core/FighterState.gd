@@ -14,6 +14,9 @@ class_name FighterState extends RefCounted
 ##   - is_input_locked（Player.get_input 的吞輸入判定）
 ##   - is_combo_stunned（連段續航判定，HitResponseHandler / fireball 兩份抄本）
 ##   - can_initiate_throw（摔投發起守衛）/ can_be_thrown（摔投目標守衛）
+## 切片 5 — 格擋族守衛：
+##   - can_enter_block_stance（BlockingHandler 站姿進入 / 持續擋向重取樣）
+##   - can_release_block_stance（BlockingHandler 站姿釋放）
 ##
 ## ── 為什麼先做解析器，而不是直接改寫控制流 ─────────────────────────────
 ## plan_game.md §6 的遷移策略寫得很清楚：「按子系統切段，旗標與狀態並行期間
@@ -488,6 +491,65 @@ static func can_be_thrown(target: Node) -> bool:
 	if target == null:
 		return false
 	if _flag(target, "is_knockfly") or _flag(target, "is_being_thrown"):
+		return false
+	return true
+
+# ── 格擋族守衛（Stage 2 切片 5）──────────────────────────────────────────
+##
+## 格擋站姿（is_holding_back / is_crouch_blocking / is_proximity_blocking）
+## 的進入與釋放各有一份守衛，切片 5 之前兩份都內聯在
+## BlockingHandler.handle_blocking 裡。它們**不是同一個條件**：
+##   - 進入（含「持續重取樣 held 方向」）：**不含 is_blocking**。這是既有
+##     的預期行為 —— blockstun 期間進入分支每幀照跑，重取樣「此刻按住
+##     哪個方向」（格擋中持續按住後退方向就一直是 held back；切片 4
+##     finding #1 披露過這裡）。若誤把 is_blocking 加進進入守衛，
+##     is_holding_back 會停在格擋前最後一幀的值。
+##   - 釋放：**含 is_blocking** —— 硬直（受擊 / 擊飛 / blockstun / 倒地）
+##     期間不釋放站姿旗標，保留給進入分支在硬直結束後重取樣。
+## 兩份守衛刻意**不能**合併成一份（合併會改變行為），這裡收攏的是
+## 「各自只有一份定義」：Python 暴力窮舉（256 / 16 組合，含 is_blocking
+## 靈敏度掃描 512 組合）0 分岔，test_36 引擎內逐幀釘住。
+
+## 這一刻能不能**進入 / 維持**格擋站姿（重取樣 held-back 方向）。
+##
+## 語意 = 舊的 BlockingHandler.handle_blocking 進入守衛（逐字搬運）：
+##   is_on_floor() and not is_attacking and not is_dashing
+##     and not is_backdashing and not is_special_moving
+##     and not (is_hit or is_knockfly or is_layground)
+## 注意三件刻意保留的事：
+##   1. **不含 is_blocking**（見段頭）—— blockstun 重取樣路徑依賴它。
+##   2. 不含 is_crouching —— 蹲防走同一條進入路徑（is_crouch_blocking =
+##      is_crouching and is_holding_back，由進入分支內部寫入）。
+##   3. is_special_moving 是 MoveSet 持有的非狀態機旗標（同 can_walk /
+##      can_dash 的設計），保留為參數。
+static func can_enter_block_stance(f: Node, is_special_moving: bool = false) -> bool:
+	if f == null:
+		return false
+	var on_floor: bool = f.is_on_floor() if f.has_method("is_on_floor") else true
+	if not on_floor:
+		return false
+	if is_special_moving:
+		return false
+	if _flag(f, "is_attacking") or _flag(f, "is_dashing") or _flag(f, "is_backdashing"):
+		return false
+	if _flag(f, "is_hit") or _flag(f, "is_knockfly") or _flag(f, "is_layground"):
+		return false
+	return true
+
+## 這一刻能不能**釋放**格擋站姿旗標（is_holding_back / is_crouch_blocking /
+## is_proximity_blocking 歸零）。
+##
+## 語意 = 舊的 BlockingHandler.handle_blocking else 分支守衛（逐字搬運）：
+##   not (is_hit or is_knockfly or is_blocking or is_layground)
+## 受擊 / 擊飛 / blockstun / 倒地期間回 false —— 站姿旗標在硬直期間
+## 保留不釋放（進入分支同時也在跑，負責重取樣方向），硬直結束後
+## 由這裡統一清空。
+static func can_release_block_stance(f: Node) -> bool:
+	if f == null:
+		return false
+	if _flag(f, "is_hit") or _flag(f, "is_knockfly") or _flag(f, "is_blocking"):
+		return false
+	if _flag(f, "is_layground"):
 		return false
 	return true
 

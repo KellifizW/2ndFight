@@ -372,9 +372,19 @@ layground) / Wakeup, 加上摔投兩個「輸入被外部接管」的階段。
    一起修的還有 Stage 4 收攏 #1 - AI attack_type 對齊)
 3. ~~**受擊系統**~~ ✅ 切片 4 完成(is_input_locked / is_combo_stunned /
    can_initiate_throw / can_be_thrown 四份收攏; AI 蹲下後衝 bug 修復)
-4. **收尾**: 把最後少數仍直接讀 bool 的讀點(block 站姿進入、
-   `_physics_process_jump` 死路徑守衛、動畫鏈)改讀 `resolve()` 狀態,
+4. **收尾**: 把最後少數仍直接讀 bool 的讀點改讀 `resolve()` 狀態,
    然後**實際刪除**已被狀態層取代的重複旗標。
+   - ✅ **切片 5 完成**(2026-08-31): block 站姿進入 / 釋放守衛收攏
+     (`FighterState.can_enter_block_stance` / `can_release_block_stance`,
+     兩份刻意不同: 進入不含 is_blocking = blockstun 重取樣, 釋放含
+     is_blocking = 硬直期間保留站姿; 256 / 16 組合窮舉 0 分岔, `test_36`
+     引擎內逐幀釘住 + 確定性逼出重取樣路徑)。`_physics_process_jump`
+     死路徑(零呼叫點)整函式刪除 —— 對不可達代碼「改讀 resolve()」只是
+     化妝, 刪除才是有意義的處理; 其 buffer 消費副作用由
+     InputBuffer 30 幀自動過期兜底。
+   - 待辦: 動畫鏈(`Player._compute_target_state` /
+     `AnimationManager.compute_target_state`)改讀 `resolve()` +
+     狀態→動畫名映射, 之後**實際刪旗標**(DoD: 旗標數 < 10)。
 
 **驗收(DoD)**:
 - [x] 狀態層存在且被 frame 測試釘住(`test_25`/`test_26`)

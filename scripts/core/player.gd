@@ -521,35 +521,20 @@ func _physics_process(delta: float) -> void:
 		if attack_duration_timer <= 0:
 			reset_attack_state()
 
-func _physics_process_jump(_delta: float) -> void:
-	var input_data = get_input()
-	if input_data.jump_pressed and is_on_floor() and not is_dashing and not is_backdashing and not is_attacking and not is_hit and not is_knockfly and not is_blocking and not is_layground:
-		# Consume the buffered jump input
-		if player_controller and player_controller.has_method("consume_button_input"):
-			player_controller.consume_button_input("jump")
-		
-		is_jumping = true
-		has_air_attacked = false
-		landing_facing_lock = true
-		
-		# 【新增詳細日誌】跳躍執行追蹤
-		var frame_count = Engine.get_physics_frames()
-		Debug.log("[JUMP EXEC] Frame=%d | Seat=%s | Pos(%.1f,%.1f) | Dir=%d | Vel.y=%d | jump_delay_timer=%d" % [
-			frame_count, seat,
-			global_position.x, global_position.y,
-			input_data.input_dir,
-			fixed_velocity.y,
-			jump_delay_timer
-		])
-		
-		if world:
-			fixed_position.y = world.FLOOR_Y - 1
-			fixed_velocity.y = 0
-			if input_data.input_dir != 0:
-				var jump_speed = jump_horizontal_speed if input_data.input_dir * facing_direction > 0 else jump_horizontal_speed * 0.75
-				fixed_velocity.x = int(jump_speed * world.SIMULATION_SCALE * input_data.input_dir)
-			else:
-				fixed_velocity.x = 0
+# ── Stage 2 切片 5：`_physics_process_jump` 已刪除（死路徑，零呼叫點）──────
+#
+# 這是 JumpHandler 引入之前的跳躍入口。JumpHandler 接管後所有跳躍都走
+# JumpHandler.handle_jump（守衛早已收攏到 FighterState.can_jump，切片 3），
+# 本函式此後從未被任何 .gd / .tscn 呼叫 —— 與切片 2 移除的 fighter.gd 舊
+# 攻擊入口同類的「第二入口殘骸」（plan §9 死代碼清單第一列）。
+# 它的守衛比 can_jump **更寬鬆**（漏掉 not is_crouching / not is_landing /
+# not is_being_thrown / not is_special_moving / jump_delay_timer <= 0
+# 五項）—— 正是切片 3 要消滅的「各入口各擋一半」分歧抄本。README / plan
+# 原寫「改讀 resolve()」，但對零呼叫點的函式，改寫守衛只是對不可達代碼的
+# 化妝；刪除是唯一有意義的處理：那個 bool 讀點直接不存在了。
+# 唯一副作用 consume_button_input("jump") 不需要補償：InputBuffer 對
+# 未消耗的輸入有 30 幀自動過期（InputBuffer._expire_old_inputs），
+# 跳躍輸入不會因少了這個消費點而永久殘留。
 
 func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
 	if is_layground: return "layground"
