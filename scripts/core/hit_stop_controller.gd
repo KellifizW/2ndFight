@@ -290,27 +290,35 @@ func _finish() -> void:
 
 
 func _restore_all_players_defaults() -> void:
+	# 先恢復記錄中的攻擊者/受擊者（即使 _entries 沒成功保存也要恢復）。
+	_restore_actor_defaults(_attacker)
+	_restore_actor_defaults(_defender)
+
 	var tree := get_tree()
 	if tree == null:
 		return
 	for player in tree.get_nodes_in_group("players"):
-		if not is_instance_valid(player):
-			continue
-		var anim_player := player.get_node_or_null("AnimationPlayer") as AnimationPlayer
-		var anim_tree := player.get_node_or_null("AnimationTree") as AnimationTree
-		var anim_sprite := player.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
-		var sprite := player.get_node_or_null("Sprite2D") as Sprite2D
-		if anim_player:
-			anim_player.speed_scale = 1.0
-		if anim_tree:
-			anim_tree.active = true
-		if anim_sprite:
-			anim_sprite.speed_scale = 1.0
-			anim_sprite.playing = true
-		if sprite:
-			sprite.offset = Vector2.ZERO
-			sprite.position = Vector2.ZERO
-			sprite.rotation_degrees = 0.0
+		_restore_actor_defaults(player)
+
+
+func _restore_actor_defaults(player: Node) -> void:
+	if not is_instance_valid(player):
+		return
+	var anim_player := player.get_node_or_null("AnimationPlayer") as AnimationPlayer
+	var anim_tree := player.get_node_or_null("AnimationTree") as AnimationTree
+	var anim_sprite := player.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	var sprite := player.get_node_or_null("Sprite2D") as Sprite2D
+	if anim_player:
+		anim_player.speed_scale = 1.0
+	if anim_tree:
+		anim_tree.active = true
+	if anim_sprite:
+		anim_sprite.speed_scale = 1.0
+		anim_sprite.playing = true
+	if sprite:
+		sprite.offset = Vector2.ZERO
+		sprite.position = Vector2.ZERO
+		sprite.rotation_degrees = 0.0
 
 
 func _restore_entries() -> void:
