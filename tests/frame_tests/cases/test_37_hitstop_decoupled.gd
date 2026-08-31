@@ -33,11 +33,19 @@ func run() -> bool:
 		"HitStopController should have a positive frame duration")
 
 	# 攻擊者與受擊者的動畫都應定格（只有視覺，不改物理座標）。
+	check(p1.animation_tree != null, "Attacker should have an AnimationTree")
+	check(p2.animation_tree != null, "Defender should have an AnimationTree")
+	check(p1.animation_tree != null and not p1.animation_tree.active,
+		"Attacker AnimationTree should be frozen during hitstop, got active=%s"
+		% [p1.animation_tree.active if p1.animation_tree else "null"])
+	check(p2.animation_tree != null and not p2.animation_tree.active,
+		"Defender AnimationTree should be frozen during hitstop, got active=%s"
+		% [p2.animation_tree.active if p2.animation_tree else "null"])
 	check(abs(p1.animation_player.speed_scale) < 0.01,
-		"Attacker AnimationPlayer should be frozen during hitstop, got %s"
+		"Attacker AnimationPlayer.speed_scale should also be 0 during hitstop, got %s"
 		% [p1.animation_player.speed_scale])
 	check(abs(p2.animation_player.speed_scale) < 0.01,
-		"Defender AnimationPlayer should be frozen during hitstop, got %s"
+		"Defender AnimationPlayer.speed_scale should also be 0 during hitstop, got %s"
 		% [p2.animation_player.speed_scale])
 
 	var hitstop_ended: bool = await wait_until(
@@ -46,6 +54,10 @@ func run() -> bool:
 	if not hitstop_ended:
 		return not has_failures()
 
+	check(p1.animation_tree != null and p1.animation_tree.active,
+		"Attacker AnimationTree should be restored after hitstop")
+	check(p2.animation_tree != null and p2.animation_tree.active,
+		"Defender AnimationTree should be restored after hitstop")
 	check(abs(p1.animation_player.speed_scale - 1.0) < 0.01,
 		"Attacker AnimationPlayer should be restored after hitstop, got %s"
 		% [p1.animation_player.speed_scale])

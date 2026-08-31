@@ -152,7 +152,6 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 		"sprite": sprite,
 		"anim_player_speed": anim_player.speed_scale if anim_player else 1.0,
 		"anim_tree_active": anim_tree.active if anim_tree else true,
-		"anim_tree_speed_scale": anim_tree.speed_scale if anim_tree else 1.0,
 		"anim_sprite_speed": anim_sprite.speed_scale if anim_sprite else 1.0,
 		"anim_sprite_playing": anim_sprite.playing if anim_sprite else false,
 		"anim_sprite_frame": anim_sprite.frame if anim_sprite else 0,
@@ -167,9 +166,12 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 	}
 
 	if freeze_animation and anim_player:
+		# 透過 AnimationTree 播放時 AnimationPlayer.speed_scale 通常會被忽略，
+		# 但對直接播放 AnimationPlayer 的狀態（如 landing）仍然有效。
 		anim_player.speed_scale = 0.0
 	if freeze_animation and anim_tree:
-		anim_tree.speed_scale = 0.0
+		# AnimationTree 是 StateMachine root，active=false 才能真正凍結狀態機與播放。
+		anim_tree.active = false
 	if freeze_animation and anim_sprite:
 		anim_sprite.speed_scale = 0.0
 		anim_sprite.playing = false
@@ -262,11 +264,10 @@ func _restore_entries() -> void:
 			sprite.position = entry.get("sprite_position", Vector2.ZERO) as Vector2
 			sprite.rotation_degrees = float(entry.get("sprite_rotation", 0.0))
 
-		# AnimationTree 的 active 我們不動它在 hitstop 期間的值，只在還原時確保回到快照。
+		# AnimationTree 在 hitstop 時被設為 inactive，結束時還原為快照值。
 		var anim_tree = entry.get("anim_tree") as AnimationTree
 		if anim_tree:
 			anim_tree.active = bool(entry.get("anim_tree_active", true))
-			anim_tree.speed_scale = float(entry.get("anim_tree_speed_scale", 1.0))
 
 
 func _pause_frame_counter() -> void:
