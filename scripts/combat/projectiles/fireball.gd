@@ -205,19 +205,9 @@ func _play_explosion_particles() -> void:
 		hitexp_particles.emitting = true
 
 func _target_is_combo_stunned(target: Node) -> bool:
-	if target == null:
-		return false
-	if "hitstun_frames" in target and int(target.hitstun_frames) > 0:
-		return true
-	if "waiting_for_hit_stop_end" in target and target.waiting_for_hit_stop_end:
-		return true
-	if "is_air_hit_backjump" in target and target.is_air_hit_backjump:
-		return true
-	if "is_knockfly" in target and target.is_knockfly:
-		return true
-	if not ("hitstun_frames" in target) and "is_hit" in target and target.is_hit:
-		return true
-	return false
+	# Stage 2 切片 4：連段續航判定與近身攻擊（HitResponseHandler）共用同一個
+	# 定義 FighterState.is_combo_stunned()，不再各抄一份 5 條 or 鏈。
+	return FighterState.is_combo_stunned(target)
 
 func _on_hitbox_area_entered(area: Area2D) -> void:
 	if not is_active: return

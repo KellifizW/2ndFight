@@ -259,12 +259,10 @@ var default_input: Dictionary = {
 }
 
 func get_input() -> Dictionary:
-	if is_knockfly or is_wakeup or is_hit or is_layground:
-		return default_input.duplicate()
-	if FighterState.is_throw_in_progress(self):
-		return default_input.duplicate()
-	# 被摔投期間禁止任何輸入（防止受害者在摔投期間生成攻擊）
-	if "is_being_thrown" in self and self.is_being_thrown:
+	# Stage 2 切片 4：吞輸入判定收攏到 FighterState.is_input_locked
+	# （knockfly / wakeup / hit / layground / 摔投發起 / 被摔投）。
+	# 刻意不含 blockstun —— 格擋硬直中仍允許緩衝反擊輸入（既有行為）。
+	if FighterState.is_input_locked(self):
 		return default_input.duplicate()
 	if is_ai_controlled:
 		var ai = $AIBehavior if has_node("AIBehavior") else null

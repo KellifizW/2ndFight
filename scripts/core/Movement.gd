@@ -429,16 +429,15 @@ func _physics_process(delta: float) -> void:
 	# 【關鍵】Only use dash_pressed/backdash_pressed for AI - human players use dash_handler's double-tap detection
 	var has_dash_pressed = (player and player.is_ai_controlled and input_data.get("dash_pressed", false))
 	var has_backdash_pressed = (player and player.is_ai_controlled and input_data.get("backdash_pressed", false))
-	# Stage 2 切片 3：衝刺守衛收攏到 FighterState.can_dash（值等價，見 test_31）。
-	# 注意：舊版的「AI 直接 backdash」分支缺少 `not is_crouching` 守衛，
-	# 是前衝分支 / DashHandler 都不一致的真實 bug。為守 ground rule #2（行為一幀不變），
-	# 這裡保留那條略寬鬆的舊守衛並在註解記下來，待日後 Stage 2 切片 4 統一修。
-	var _ai_dash_can_dash: bool = FighterState.can_dash(self, is_special_moving)
-	var _ai_backdash_can_dash: bool = is_on_floor() and not (is_landing and landing_lock_frames > 0) \
-		and not is_attacking and not is_dashing and not is_backdashing and not is_special_moving \
-		and not (is_hit or is_knockfly or is_blocking or is_layground)
+	# Stage 2 切片 4：AI 的前衝與後衝現在**共用同一條**守衛 FighterState.can_dash。
+	# 切片 3 時前衝已收攏，但後衝仍用一條手寫展開（`_ai_backdash_can_dash`），
+	# 而那條展開**漏掉了 `not is_crouching`** —— 與前衝分支 / DashHandler 都不一致：
+	# 蹲下時 AI 仍會後衝。切片 3 為守「行為一幀不變」保留舊式並記錄，本切片統一修：
+	# 兩條 AI 路徑與人類雙擊路徑（DashHandler 內部同樣呼叫 can_dash）現在讀同一份
+	# 定義，蹲下時 AI 後衝被正確擋下。這是切片 3 披露的刻意行為修正，由 test_35 釘住。
+	var _ai_can_dash: bool = FighterState.can_dash(self, is_special_moving)
 
-	if has_dash_pressed and _ai_dash_can_dash:
+	if has_dash_pressed and _ai_can_dash:
 		# AI wants to dash forward
 		if input_dir * facing_direction > 0:
 			# Same direction as facing - forward dash
@@ -462,7 +461,7 @@ func _physics_process(delta: float) -> void:
 			spawn_bdash_smoke()
 			# 後撤步有專屬聲效（bdash.mp3）。
 			play_dash_sound(true)
-	elif has_backdash_pressed and _ai_backdash_can_dash:
+	elif has_backdash_pressed and _ai_can_dash:
 		# AI wants to backdash
 		is_backdashing = true
 		dash_timer = Movement.seconds_to_frames_nearest(backdash_time)
