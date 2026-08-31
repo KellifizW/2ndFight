@@ -437,6 +437,17 @@ func _physics_process(delta: float) -> void:
 	# 定義，蹲下時 AI 後衝被正確擋下。這是切片 3 披露的刻意行為修正，由 test_35 釘住。
 	var _ai_can_dash: bool = FighterState.can_dash(self, is_special_moving)
 
+	# [TEMP DIAG] frame test backdash 追查（test_35 綠了就刪）：
+	# 每個帶 backdash_pressed 的幀把分支評估結果寫進 meta，測試可讀出。
+	if bool(input_data.get("backdash_pressed", false)):
+		set_meta("diag_bd_eval_f", Engine.get_physics_frames())
+		set_meta("diag_bd_player_null", player == null)
+		set_meta("diag_bd_player_ai", (player.is_ai_controlled if player else false))
+		set_meta("diag_bd_has_flag", has_backdash_pressed)
+		set_meta("diag_bd_can_dash", _ai_can_dash)
+		set_meta("diag_bd_input_dir", input_dir)
+		set_meta("diag_bd_self_name", name)
+
 	if has_dash_pressed and _ai_can_dash:
 		# AI wants to dash forward
 		if input_dir * facing_direction > 0:
@@ -463,6 +474,8 @@ func _physics_process(delta: float) -> void:
 			play_dash_sound(true)
 	elif has_backdash_pressed and _ai_can_dash:
 		# AI wants to backdash
+		# [TEMP DIAG] 證實分支有進來（test_35 綠了就刪）
+		set_meta("diag_backdash_branch_fired_frame", Engine.get_physics_frames())
 		is_backdashing = true
 		dash_timer = Movement.seconds_to_frames_nearest(backdash_time)
 		dash_total_time = dash_timer

@@ -83,10 +83,22 @@ func run() -> bool:
 		await await_frames(1)
 		if f < 4:
 			var _pi: Dictionary = p1.get_input()
-			_diag_frames.append("f%d{bd_in=%s can=%s bd=%s d=%s vel=%d}" % [
+			# [TEMP DIAG] 讀 Movement AI dash 分支每幀寫入的評估 meta
+			var _meta: String = ""
+			if p1.has_meta("diag_bd_eval_f"):
+				_meta = "MVT{eval_f=%s player_null=%s player_ai=%s has_flag=%s can=%s dir=%s self=%s branch_fired_f=%s}" % [
+					p1.get_meta("diag_bd_eval_f"), str(p1.get_meta("diag_bd_player_null")),
+					str(p1.get_meta("diag_bd_player_ai")), str(p1.get_meta("diag_bd_has_flag")),
+					str(p1.get_meta("diag_bd_can_dash")), str(p1.get_meta("diag_bd_input_dir")),
+					str(p1.get_meta("diag_bd_self_name")),
+					str(p1.get_meta("diag_backdash_branch_fired_frame", "never"))]
+			else:
+				_meta = "MVT{no eval meta — backdash_pressed 沒進到 Movement 評估點}"
+			_diag_frames.append("f%d{bd_in=%s can=%s bd=%s d=%s vel=%d} %s" % [
 				f, str(_pi.get("backdash_pressed", "MISSING")),
 				str(FighterState.can_dash(p1, false)),
-				str(p1.is_backdashing), str(p1.is_dashing), p1.fixed_velocity.x])
+				str(p1.is_backdashing), str(p1.is_dashing), p1.fixed_velocity.x,
+				_meta])
 		if bool(p1.is_backdashing):
 			backdashed_while_standing = true
 	check(backdashed_while_standing,
