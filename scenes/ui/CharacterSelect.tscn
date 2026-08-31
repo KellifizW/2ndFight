@@ -36,13 +36,15 @@ layout_mode = 2
 
 [node name="P1Side" type="VBoxContainer" parent="MainMargin/MainHBox" unique_id=1127943770]
 layout_mode = 2
-size_flags_horizontal = 6
+size_flags_horizontal = 4
 size_flags_vertical = 4
 
 [node name="P1LargePreview" type="TextureRect" parent="MainMargin/MainHBox/P1Side" unique_id=719076155]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
+offset_transform_enabled = true
+offset_transform_scale = Vector2(2, 2)
 
 [node name="P1Name" type="Label" parent="MainMargin/MainHBox/P1Side" unique_id=1896263524]
 layout_mode = 2
@@ -94,6 +96,8 @@ size_flags_vertical = 4
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
+offset_transform_enabled = true
+offset_transform_scale = Vector2(2, 2)
 stretch_mode = 5
 
 [node name="P2Name" type="Label" parent="MainMargin/MainHBox/P2Side" unique_id=766908067]
