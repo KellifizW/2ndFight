@@ -12,7 +12,8 @@ signal hit_slowmo_finished  # 🟢 Hit stop 完成信號，讓 hitstun/knockback
 @export var sync_animation_speed: bool = true  # 是否同步動畫速度（解決連段時機問題）
 
 # 🟢 専門 Hitstop 管理器（可視覺動畫與全域時間解耦）
-@onready var hitstop_controller: HitStopController = get_node_or_null("../HitStopController") as HitStopController
+# 用普通 var + 時查找，避免節點建立時序造成 _ready 連不到信號。
+var hitstop_controller: HitStopController = null
 
 # 時間縮放參數（只供 slow-mo / super freeze 相容使用；hitstop 不再修改 Engine.time_scale）
 var normal_time_scale: float = 1
@@ -44,8 +45,7 @@ func _ready():
 	Debug.log("Debug: SlowMoController initialized, time_scale set to %s, process_mode set to ALWAYS" % normal_time_scale)
 
 	# 🟢 連接 HitStopController：hitstop 完成後才廣播 hit_slowmo_finished
-	if hitstop_controller and not hitstop_controller.hitstop_finished.is_connected(_on_hitstop_finished):
-		hitstop_controller.hitstop_finished.connect(_on_hitstop_finished)
+	_setup_hitstop_controller()
 
 func _process(_delta):
 	pass
@@ -61,15 +61,26 @@ func request_slowmo_change():
 	else:
 		enter_slowmo_animation()
 
+# 🟢 延遲連接 / 重新查找 HitStopController
+func _setup_hitstop_controller() -> void:
+	if hitstop_controller == null:
+		hitstop_controller = get_node_or_null("../HitStopController") as HitStopController
+	if hitstop_controller and not hitstop_controller.hitstop_finished.is_connected(_on_hitstop_finished):
+		hitstop_controller.hitstop_finished.connect(_on_hitstop_finished)
+
 # 請求擊中定格（Hitstop）
 # 現在走 HitStopController：只凍結角色動畫 + 視覺微震動，不再縮放 Engine.time_scale，
 # 因此背景、粒子特效、UI 都會以正常速度繼續播放。
 func request_hit_freeze(attacker: Node = null, target: Node = null):
+	_setup_hitstop_controller()
 	if not enable_hitstop:
 		Debug.log("Debug: Hit stop request ignored (enable_hitstop=%s)" % enable_hitstop)
 		# 🟢 即使跳過 hitstop，仍發送信號讓 hitstun/knockback 正常進行
 		emit_signal("hit_slowmo_finished")
 		return
+	# 若旗標殘留（例如上一輪 finish signal 未接到），先做一次安全清除再開始新 hitstop。
+	if is_hit_slowmo and (not hitstop_controller or not hitstop_controller.is_active):
+		is_hit_slowmo = false
 	if slowmo_active or is_hit_slowmo:
 		Debug.log("Debug: Hit stop request ignored (slowmo_active=%s, is_hit_slowmo=%s)" % [slowmo_active, is_hit_slowmo])
 		return  # 避免重複觸發
@@ -164,6 +175,7 @@ func _on_hitstop_finished() -> void:
 ## 安全取消 hitstop（用於 reset / 離開場景）。不會發射 hit_slowmo_finished，
 ## 避免在重置時誤觸發 pending hitstun。
 func cancel_hitstop() -> void:
+	_setup_hitstop_controller()
 	if hitstop_controller and hitstop_controller.has_method("cancel"):
 		hitstop_controller.cancel()
 	is_hit_slowmo = false
