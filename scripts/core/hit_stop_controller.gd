@@ -54,6 +54,11 @@ const LOG_TAG := "[HITSTOP]"
 var is_active: bool = false
 var remaining_frames: int = 0
 
+# 🔍 Debug counters for CI diagnostics (not gameplay behavior).
+var debug_begin_count: int = 0
+var debug_finish_count: int = 0
+var debug_cancel_count: int = 0
+
 var _attacker: Node = null
 var _defender: Node = null
 var _entries: Array[Dictionary] = []
@@ -73,6 +78,7 @@ func begin_hitstop(attacker: Node, defender: Node) -> bool:
 			Debug.log("%s hitstop_frames <= 0，略過定格。" % LOG_TAG)
 		return false
 
+	debug_begin_count += 1
 	_attacker = attacker if is_instance_valid(attacker) else null
 	_defender = defender if is_instance_valid(defender) else null
 	_entries.clear()
@@ -129,6 +135,7 @@ func _physics_process(_delta: float) -> void:
 func cancel() -> void:
 	if not is_active:
 		return
+	debug_cancel_count += 1
 	is_active = false
 	remaining_frames = 0
 	_restore_entries()
@@ -243,6 +250,7 @@ func _apply_jitter() -> void:
 
 
 func _finish() -> void:
+	debug_finish_count += 1
 	is_active = false
 	remaining_frames = 0
 	_restore_entries()

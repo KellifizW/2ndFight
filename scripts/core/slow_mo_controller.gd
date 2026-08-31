@@ -36,6 +36,12 @@ var tween: Tween
 # 除錯：記錄擊中慢動作開始的真實時間（毫秒）
 var hit_start_time: int = 0
 
+# 🔍 Debug diagnostics for CI (not gameplay behavior).
+var debug_controller_found: bool = false
+var debug_begin_returned: bool = false
+var debug_entries_after_begin: int = -1
+var debug_active_after_begin: bool = false
+
 func _ready():
 	# 設置 process_mode 為始終運行
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -65,6 +71,7 @@ func request_slowmo_change():
 func _setup_hitstop_controller() -> void:
 	if hitstop_controller == null:
 		hitstop_controller = get_node_or_null("../HitStopController") as HitStopController
+	debug_controller_found = hitstop_controller != null
 	if hitstop_controller and not hitstop_controller.hitstop_finished.is_connected(_on_hitstop_finished):
 		hitstop_controller.hitstop_finished.connect(_on_hitstop_finished)
 
@@ -92,10 +99,16 @@ func request_hit_freeze(attacker: Node = null, target: Node = null):
 
 	if not hitstop_controller.begin_hitstop(attacker, target):
 		# 參數無效（例如 hitstop_frames = 0）時不下拉長，直接結束。
+		debug_begin_returned = false
+		debug_entries_after_begin = hitstop_controller._entries.size()
+		debug_active_after_begin = hitstop_controller.is_active
 		emit_signal("hit_slowmo_finished")
 		return
 
 	# 🟢 保持舊版旗標語義：Fighter / PushManager / FrameBar 都靠它凍結幀數遞減。
+	debug_begin_returned = true
+	debug_entries_after_begin = hitstop_controller._entries.size()
+	debug_active_after_begin = hitstop_controller.is_active
 	is_hit_slowmo = true
 	hit_start_time = Time.get_ticks_msec()
 	Debug.log("Debug: Hit stop started (dedicated), frames=%s, time_scale kept=%s" % [
