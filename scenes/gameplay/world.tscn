@@ -228,6 +228,7 @@ theme_override_font_sizes/font_size = 12
 script = ExtResource("12_cbp6q")
 
 [node name="HitboxDebugP1" type="Label" parent="UI" unique_id=1220062444]
+visible = false
 anchors_preset = 4
 anchor_top = 0.5
 anchor_bottom = 0.5
@@ -238,6 +239,7 @@ grow_vertical = 2
 script = ExtResource("13_26xuy")
 
 [node name="HitboxDebugP2" type="Label" parent="UI" unique_id=308506981]
+visible = false
 anchors_preset = 6
 anchor_left = 1.0
 anchor_top = 0.5
@@ -344,6 +346,7 @@ theme_override_font_sizes/font_size = 22
 text = "RESET"
 
 [node name="PauseMenu" parent="." unique_id=1984830895 instance=ExtResource("21_pause")]
+visible = false
 
 [node name="CPUController" type="Node" parent="." unique_id=172666553]
 script = ExtResource("6_dwbse")

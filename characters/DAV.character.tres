@@ -1,13 +1,13 @@
 [gd_resource type="Resource" script_class="CharacterData" format=3 uid="uid://b8qgdymiybxrq"]
 
 [ext_resource type="Texture2D" uid="uid://d061yqeqyfkg5" path="res://assets/cover/dav1.png" id="1_6ens3"]
+[ext_resource type="Texture2D" uid="uid://dndpcy71a5l83" path="res://assets/ui/char/dav.png" id="1_avcpt"]
 [ext_resource type="Script" uid="uid://biahbprhmtfti" path="res://characters/CharacterData.gd" id="1_h0pw7"]
 [ext_resource type="PackedScene" uid="uid://c1t3ukbrnos3c" path="res://characters/DAV.tscn" id="1_t8s6g"]
-[ext_resource type="Texture2D" uid="uid://bnylegwg1g68b" path="res://assets/cover/mini_char/dav1.png" id="2_6ens3"]
 
 [resource]
 script = ExtResource("1_h0pw7")
 scene = ExtResource("1_t8s6g")
-portrait = ExtResource("2_6ens3")
+portrait = ExtResource("1_avcpt")
 large_portrait = ExtResource("1_6ens3")
 metadata/_custom_type_script = "uid://biahbprhmtfti"
