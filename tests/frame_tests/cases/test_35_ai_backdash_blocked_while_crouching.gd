@@ -61,35 +61,37 @@ func run() -> bool:
 	await await_frames(3)
 	check(not bool(p1.is_crouching), "階段 B 前置：p1 應已站起（is_crouching=false）")
 
-	# [TEMP DIAG] 印出階段 B 起點的完整狀態，追查 AI backdash 為何不發動
+	# [TEMP DIAG] 收集階段 B 起點的完整狀態，追查 AI backdash 為何不發動
 	var _probe: Dictionary = p1.get_input()
-	print("      [DIAG B0] is_ai=%s on_floor=%s crouch=%s holding_back=%s blocking=%s prox_block=%s " % [
-		p1.is_ai_controlled, p1.is_on_floor(), p1.is_crouching, p1.is_holding_back,
-		p1.is_blocking, p1.is_proximity_blocking])
-	print("      [DIAG B0] flags: is_dashing=%s is_backdashing=%s is_attacking=%s is_hit=%s "
-		% [p1.is_dashing, p1.is_backdashing, p1.is_attacking, p1.is_hit])
-	print("      [DIAG B0] can_dash=%s  input keys=%s" % [
-		FighterState.can_dash(p1, false), str(_probe.keys())])
-	print("      [DIAG B0] backdash_pressed=%s dash_pressed=%s input_dir=%d" % [
+	var _diag0: String = (
+		"is_ai=%s on_floor=%s crouch=%s holding_back=%s blocking=%s prox=%s | "
+		% [p1.is_ai_controlled, p1.is_on_floor(), p1.is_crouching, p1.is_holding_back,
+			p1.is_blocking, p1.is_proximity_blocking])
+	_diag0 += "flags dashing=%s bdashing=%s attacking=%s hit=%s landing=%s special=%s | " % [
+		p1.is_dashing, p1.is_backdashing, p1.is_attacking, p1.is_hit,
+		p1.is_landing, (p1.move_set.is_spmove if p1.move_set else "no_move_set")]
+	_diag0 += "can_dash=%s keys=%s | bd_in=%s dash_in=%s dir=%d | stub_valid=%s real_ai=%s" % [
+		FighterState.can_dash(p1, false), str(_probe.keys()),
 		_probe.get("backdash_pressed", "MISSING"), _probe.get("dash_pressed", "MISSING"),
-		int(_probe.get("input_dir", 0))])
-	print("      [DIAG B0] stub present=%s real_ai name=%s" % [
-		is_instance_valid(_stub), (_real_ai.name if _real_ai else "null")])
+		int(_probe.get("input_dir", 0)),
+		is_instance_valid(_stub), (_real_ai.name if _real_ai else "null")]
 
 	var backdashed_while_standing: bool = false
+	var _diag_frames: Array = []
 	for f in OBSERVE_FRAMES:
 		_set_stub_input(false)
 		await await_frames(1)
-		if f < 6:
+		if f < 4:
 			var _pi: Dictionary = p1.get_input()
-			print("      [DIAG B f=%d] backdash_in=%s can_dash=%s is_bdashing=%s is_dashing=%s vel_x=%d" % [
-				f, _pi.get("backdash_pressed", "MISSING"),
-				FighterState.can_dash(p1, false), p1.is_backdashing, p1.is_dashing,
-				p1.fixed_velocity.x])
+			_diag_frames.append("f%d{bd_in=%s can=%s bd=%s d=%s vel=%d}" % [
+				f, str(_pi.get("backdash_pressed", "MISSING")),
+				str(FighterState.can_dash(p1, false)),
+				str(p1.is_backdashing), str(p1.is_dashing), p1.fixed_velocity.x])
 		if bool(p1.is_backdashing):
 			backdashed_while_standing = true
 	check(backdashed_while_standing,
-		"站立時 AI backdash 必須正常發動（證明輸入有送到 Movement，守衛不是永遠 false）")
+		"站立時 AI backdash 必須正常發動（證明輸入有送到 Movement，守衛不是永遠 false）"
+		+ " || DIAG " + _diag0 + " || " + " ".join(_diag_frames))
 
 	# 收尾：還原為人類控制並移除替身（world 會整個釋放，這裡保險起見）。
 	p1.is_ai_controlled = false
