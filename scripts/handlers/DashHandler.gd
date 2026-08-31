@@ -15,6 +15,21 @@ func handle_dash(input_dir: int, scale_factor: float, is_special_moving: bool) -
 			seat, input_dir, movement_node.neutral_timer, movement_node.pending_dash_dir,
 			movement_node.last_input_dir, movement_node.is_on_floor(), movement_node.is_attacking, movement_node.is_dashing
 		])
+
+	# [TEMP DIAG] 記錄最近一次 dash 評估（test_33 綠了就刪）
+	if OS.has_environment("FRAME_TEST_DASH_DIAG") and movement_node.has_method("set_meta"):
+		movement_node.set_meta("diag_dash_f", Engine.get_physics_frames())
+		movement_node.set_meta("diag_dash_input_dir", input_dir)
+		movement_node.set_meta("diag_dash_can", FighterState.can_dash(movement_node, is_special_moving))
+		movement_node.set_meta("diag_dash_neutral", movement_node.neutral_timer)
+		movement_node.set_meta("diag_dash_pending", movement_node.pending_dash_dir)
+		movement_node.set_meta("diag_dash_last", movement_node.last_input_dir)
+		movement_node.set_meta("diag_dash_on_floor", movement_node.is_on_floor())
+		movement_node.set_meta("diag_dash_dashing", movement_node.is_dashing)
+		movement_node.set_meta("diag_dash_bdashing", movement_node.is_backdashing)
+		movement_node.set_meta("diag_dash_blocking", movement_node.is_blocking)
+		movement_node.set_meta("diag_dash_prox", movement_node.is_opponent_proximity)
+		movement_node.set_meta("diag_dash_block_type", movement_node.block_type)
 	
 	var is_landing_locked = "is_landing" in movement_node and movement_node.is_landing and "landing_lock_frames" in movement_node and movement_node.landing_lock_frames > 0
 	# Stage 2 切片 3：衝刺守衛收攏到 FighterState.can_dash（值等價，見 test_31）。

@@ -111,9 +111,25 @@ func run() -> bool:
 	await tap(back_action)
 	await await_frames(1)
 	Input.action_press(back_action)
-	var backdash_started: bool = await wait_until(func(): return me.is_backdashing, 10)
+	# [TEMP DIAG] 捕捉雙擊檢測狀態（綠了就刪）—— 在既有等待迴圈內逐幀取 meta，
+	# 不額外 await，避免改變時序。
+	var _dash_diag: Array = []
+	var backdash_started: bool = false
+	for _df in 8:
+		await await_frames(1)
+		if _df < 5 and p1.has_meta("diag_dash_f"):
+			_dash_diag.append("f%s{dir=%s can=%s neutral=%s pending=%s last=%s floor=%s dsh=%s bds=%s blk=%s prox=%s btype=%s}" % [
+				p1.get_meta("diag_dash_f"), p1.get_meta("diag_dash_input_dir"),
+				p1.get_meta("diag_dash_can"), p1.get_meta("diag_dash_neutral"),
+				p1.get_meta("diag_dash_pending"), p1.get_meta("diag_dash_last"),
+				p1.get_meta("diag_dash_on_floor"), p1.get_meta("diag_dash_dashing"),
+				p1.get_meta("diag_dash_bdashing"), p1.get_meta("diag_dash_blocking"),
+				p1.get_meta("diag_dash_prox"), p1.get_meta("diag_dash_block_type")])
+		if me.is_backdashing:
+			backdash_started = true
+			break
 	Input.action_release(back_action)
-	check(backdash_started, "後衝應該被觸發")
+	check(backdash_started, "後衝應該被觸發 DIAG=" + " ".join(_dash_diag))
 	await await_frames(10)
 	var back_smokes: Array = _find_smokes()
 	check(back_smokes.size() == 1, "後衝應該生成恰好 1 團 bdashsmoke，實為 %d 團" % back_smokes.size())

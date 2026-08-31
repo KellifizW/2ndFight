@@ -15,4 +15,6 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 GODOT="${GODOT_BIN:-godot}"
+# [TEMP] test_33 雙擊後衝診斷開關（綠了就刪）
+export FRAME_TEST_DASH_DIAG=1
 exec "$GODOT" --headless --path . -s res://tests/frame_tests/run_tests.gd
