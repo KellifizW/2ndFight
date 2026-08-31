@@ -6,10 +6,15 @@ signal time_scale_changed(new_time_scale: float)
 signal hit_slowmo_finished  # 🟢 Hit stop 完成信號，讓 hitstun/knockback 在 hit stop 後開始
 
 # ⚙️ 設置選項
+# 注意：hitstop 的實際參數（frame 數、jitter、是否凍結攻擊者/受擊者）在
+# World 子節點「HitStopController」上編輯；這裡只保留舊式總開關。
 @export var enable_hitstop: bool = true  # 是否開啟 hitstop 功能
 @export var sync_animation_speed: bool = true  # 是否同步動畫速度（解決連段時機問題）
 
-# 時間縮放參數
+# 🟢 専門 Hitstop 管理器（可視覺動畫與全域時間解耦）
+@onready var hitstop_controller: HitStopController = get_node_or_null("../HitStopController") as HitStopController
+
+# 時間縮放參數（只供 slow-mo / super freeze 相容使用；hitstop 不再修改 Engine.time_scale）
 var normal_time_scale: float = 1
 var slowmo_time_scale: float = 0.2
 var hit_slowmo_time_scale: float = 0.02
@@ -38,6 +43,10 @@ func _ready():
 	emit_signal("time_scale_changed", normal_time_scale)
 	Debug.log("Debug: SlowMoController initialized, time_scale set to %s, process_mode set to ALWAYS" % normal_time_scale)
 
+	# 🟢 連接 HitStopController：hitstop 完成後才廣播 hit_slowmo_finished
+	if hitstop_controller and not hitstop_controller.hitstop_finished.is_connected(_on_hitstop_finished):
+		hitstop_controller.hitstop_finished.connect(_on_hitstop_finished)
+
 func _process(_delta):
 	pass
 
@@ -52,44 +61,35 @@ func request_slowmo_change():
 	else:
 		enter_slowmo_animation()
 
-# 請求擊中慢動作效果
-func request_hit_freeze():
+# 請求擊中定格（Hitstop）
+# 現在走 HitStopController：只凍結角色動畫 + 視覺微震動，不再縮放 Engine.time_scale，
+# 因此背景、粒子特效、UI 都會以正常速度繼續播放。
+func request_hit_freeze(attacker: Node = null, target: Node = null):
 	if not enable_hitstop:
-		Debug.log("Debug: Hit slowmo request ignored (enable_hitstop=%s)" % enable_hitstop)
-		# 🟢 即使跳過慢動作，仍發送信號讓 hitstun/knockback 正常進行
+		Debug.log("Debug: Hit stop request ignored (enable_hitstop=%s)" % enable_hitstop)
+		# 🟢 即使跳過 hitstop，仍發送信號讓 hitstun/knockback 正常進行
 		emit_signal("hit_slowmo_finished")
 		return
 	if slowmo_active or is_hit_slowmo:
-		Debug.log("Debug: Hit slowmo request ignored (slowmo_active=%s, is_hit_slowmo=%s)" % [slowmo_active, is_hit_slowmo])
+		Debug.log("Debug: Hit stop request ignored (slowmo_active=%s, is_hit_slowmo=%s)" % [slowmo_active, is_hit_slowmo])
 		return  # 避免重複觸發
+
+	if not hitstop_controller:
+		Debug.log("Debug: HitStopController not found; skipping global time freeze (hitstop will be zero-frame).")
+		emit_signal("hit_slowmo_finished")
+		return
+
+	if not hitstop_controller.begin_hitstop(attacker, target):
+		# 參數無效（例如 hitstop_frames = 0）時不下拉長，直接結束。
+		emit_signal("hit_slowmo_finished")
+		return
+
+	# 🟢 保持舊版旗標語義：Fighter / PushManager / FrameBar 都靠它凍結幀數遞減。
 	is_hit_slowmo = true
-	
-	# 🟢 【新增】暫停幀計數器
-	var frame_counter = get_tree().root.get_node_or_null("World/FrameCounter")
-	if frame_counter:
-		frame_counter.pause()
-	
-	if tween and tween.is_running():
-		tween.kill()  # 停止正在運行的 Tween
-	
-	# 🟢 【修正】同步所有玩家的動畫速度，確保動畫與物理同步暫停
-	if sync_animation_speed:
-		_sync_player_animations(hit_slowmo_time_scale)
-	
-	tween = create_tween()
-	tween.set_trans(Tween.TRANS_LINEAR)
-	tween.set_ease(Tween.EASE_IN_OUT)
-	tween.set_ignore_time_scale(true)  # 使用真實時間計時
-	# 立即進入擊中慢動作
-	Engine.time_scale = hit_slowmo_time_scale
-	emit_signal("time_scale_changed", hit_slowmo_time_scale)
-	# 除錯：記錄開始真實時間
 	hit_start_time = Time.get_ticks_msec()
-	# 持續慢動作 0.09 秒（真實時間）
-	tween.tween_interval(hit_slowmo_time)
-	# 退出慢動作（0.01秒，真實時間）
-	tween.tween_property(Engine, "time_scale", normal_time_scale, hit_slowmo_exit_time)
-	tween.tween_callback(_on_hit_slowmo_finished)
+	Debug.log("Debug: Hit stop started (dedicated), frames=%s, time_scale kept=%s" % [
+		hitstop_controller.hitstop_frames, Engine.time_scale
+	])
 
 
 # 進入慢動作的動畫（手動切換）
@@ -150,6 +150,27 @@ func _on_hit_slowmo_finished():
 	if pending_slowmo_request:
 		pending_slowmo_request = false
 		enter_slowmo_animation()
+
+# 🟢 HitStopController 完成後的回呼（新架構：僅改旗標和發信號，不再動 Engine.time_scale）
+func _on_hitstop_finished() -> void:
+	is_hit_slowmo = false
+	Debug.log("Debug: Hit stop finished at %s ms, time_scale=%s" % [Time.get_ticks_msec(), Engine.time_scale])
+	# 發送信號通知所有 Fighter，hit stop 已完成，可以開始 hitstun/knockback/blockstun
+	emit_signal("hit_slowmo_finished")
+	if pending_slowmo_request:
+		pending_slowmo_request = false
+		enter_slowmo_animation()
+
+## 安全取消 hitstop（用於 reset / 離開場景）。不會發射 hit_slowmo_finished，
+## 避免在重置時誤觸發 pending hitstun。
+func cancel_hitstop() -> void:
+	if hitstop_controller and hitstop_controller.has_method("cancel"):
+		hitstop_controller.cancel()
+	is_hit_slowmo = false
+	pending_slowmo_request = false
+	Engine.time_scale = normal_time_scale
+	emit_signal("time_scale_changed", normal_time_scale)
+
 # 手動切換慢動作開關（用於測試或手動控制）
 func toggle_slowmo():
 	request_slowmo_change()

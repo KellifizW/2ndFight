@@ -121,10 +121,11 @@ func handle_hitbox_collision(area: Area2D) -> void:
 		hit_params.knockback
 	)
 	
-	# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（Slow-mo）
+	# 🟢 【重要】在 take_hit() 之後才請求擊中定格（Hitstop）
 	# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中，而不是在啟動時
+	# 新架構只凍結這兩個角色的動畫 + 視覺微震動，不改 Engine.time_scale。
 	if slow_mo_controller:
-		slow_mo_controller.request_hit_freeze()
+		slow_mo_controller.request_hit_freeze(parent_player, target)
 	
 	# ── 播放音效 ──
 	var is_blocked: bool = target.is_blocking

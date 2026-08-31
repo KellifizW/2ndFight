@@ -703,10 +703,14 @@ func reset_players() -> void:
 	
 	if slowmo_controller:
 		slowmo_controller.exit_slowmo_animation()
-		slowmo_controller.is_hit_slowmo = false
+		# 🟢 新架構：clear hitstop via 專用管理器，恢復被定格的角色動畫與視覺 offset。
+		if slowmo_controller.has_method("cancel_hitstop"):
+			slowmo_controller.cancel_hitstop()
+		else:
+			slowmo_controller.is_hit_slowmo = false
 		slowmo_triggered = false
 		Engine.time_scale = slowmo_controller.normal_time_scale
-		Debug.log("Debug: Slow motion and hit slowmo states reset, time_scale=%s at %s ms" % [Engine.time_scale, Time.get_ticks_msec()])
+		Debug.log("Debug: Slow motion and hit stop states reset, time_scale=%s at %s ms" % [Engine.time_scale, Time.get_ticks_msec()])
 	
 	if bgm_player:
 		bgm_player.stop()
