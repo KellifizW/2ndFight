@@ -588,14 +588,12 @@ func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, ani
 			return "cr_hit" if was_hit_while_crouching else "hit"
 		return "Jump_B"
 
+	# 特殊招式進行中：一律鎖定招式動畫，禁止被 Jump_* / Walk 等狀態覆寫。
+	# 不可再用白名單（漏掉 623K 等新招時，升空後 is_jumping=true 會立刻切成跳躍動畫）。
+	# 任何 moveset 勾選 caster_jump / 未來新增升空招，只要 is_spmove 為真就安全。
 	if move_set and move_set.is_spmove:
 		var active_move_name = move_set.get_active_move_name()
-		# fireballL/M/H 各自播放獨立動畫（已在 dav.tscn 加入）
-		if active_move_name in ["fireballL", "fireballM", "fireballH"]:
-			return active_move_name
-		if active_move_name in ["dpL", "dpM", "dpH"]:
-			return active_move_name  # 🔴 FIX: return the variant directly (dpM/dpH/dpL), not "dp"
-		if active_move_name in ["super", "powerkk", "dp", "spnk", "fireball"]:
+		if active_move_name != "":
 			return active_move_name
 
 	if is_blocking:
@@ -655,9 +653,14 @@ func _on_animation_player_finished(anim_name: String) -> void:
 	elif anim_name in JUMP_ANIMS:
 		Debug.log("  → Jump reset")
 		_reset_jump_state()
-	# 特殊招式重置
-	elif anim_name in SPECIAL_ANIMS:
+	# 特殊招式重置：白名單 + move_library（涵蓋未來新增招式，無需再改 SPECIAL_ANIMS）
+	elif anim_name in SPECIAL_ANIMS or (move_set and move_set.has_move_id(str(anim_name))):
 		Debug.log("  → Special move reset")
+		# 升空招式（caster jump）：動畫播完但人還在空中時，不要立刻清 is_spmove，
+		# 否則 is_jumping 會把動畫切成 Jump_*。落地後由 MoveSet.process_move 收尾。
+		if move_set and move_set.is_spmove and move_set.current_move_state and move_set.current_move_state.has_jumped and not is_on_floor():
+			Debug.log("     (caster-jump still airborne — defer special reset until landing)")
+			return
 		# 🟢 【DP自帶著地修正】DP/HDK/POWERKK自帶著地動畫，完成時視為著地完成
 		if move_set and move_set.get_active_move_name() in ["dp", "dpL", "dpM", "dpH", "hdk", "powerkk"]:
 			Debug.log("     (self-landing move)")

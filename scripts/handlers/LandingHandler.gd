@@ -49,6 +49,21 @@ func handle_landing(input_data: Dictionary, floor_y: int, delta: float) -> void:
 		movement_node.fixed_velocity.y = 0
 		movement_node.is_jumping = false
 		movement_node.just_jumped = false
+		# 升空招 timer 已結束、靠 AIR_EXTEND 吊著 is_spmove 時：落地即結束特殊招。
+		if move_set and move_set.is_spmove and move_set.current_move_state:
+			var st = move_set.current_move_state
+			if st.has_jumped and st.timer <= 1 and st.active_move != null:
+				var active = st.active_move
+				var is_air_move = false
+				if active.has_method("is_caster_airborne_move"):
+					is_air_move = active.is_caster_airborne_move()
+				elif "caster_jump_enabled" in active:
+					is_air_move = bool(active.caster_jump_enabled) or (("jump_speed" in active) and active.jump_speed != 0.0)
+				elif "jump_speed" in active:
+					is_air_move = active.jump_speed != 0.0
+				if is_air_move and move_set.has_method("stop_special_move"):
+					Debug.log("[LANDING_ENDS_SPMOVE] %s | move=%s | airborne special ends on landing" % [seat, active_move])
+					move_set.stop_special_move()
 		return  # ← 提早退出，不設置 is_landing = true
 	
 	# ========== 處理正常著地（從普通跳躍或特殊招式結束後著地） ==========
