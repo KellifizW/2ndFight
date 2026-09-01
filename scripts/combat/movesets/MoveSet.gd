@@ -900,19 +900,37 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 			elif parent.character_id == "DEN":
 				controller.consume_button_input("spnk")  # Consume the special move buffer
 				controller.consume_button_input("st_mk")  # Also consume trigger button
+			elif parent.character_id == "WOO":
+				# 🔴 【WOO 一鍵招式】spmove1 快捷鍵 → 214K（214 + 任意腳）
+				controller.consume_button_input("214K")
+				controller.consume_button_input("st_lk")
+				controller.consume_button_input("st_mk")
+				controller.consume_button_input("st_hk")
 		
 		if parent.character_id == "DAV":
 			start_powerkk()
 		elif parent.character_id == "DEN":
 			start_spnk()
+		elif parent.character_id == "WOO":
+			start_214K()
 		return true
 	
-	if input_data.get("spm3_pressed", false) and parent.character_id == "DEN" and not parent.is_attacking and not is_spmove:
-		# Consume buffered HDK
+	if input_data.get("spm3_pressed", false) and parent.character_id in ["DEN", "WOO"] and not parent.is_attacking and not is_spmove:
 		if controller and controller.has_method("consume_button_input"):
-			controller.consume_button_input("hdk")  # Consume the special move buffer
-			controller.consume_button_input("st_mk")  # Also consume trigger button
-		start_hdk()
+			if parent.character_id == "DEN":
+				# Consume buffered HDK
+				controller.consume_button_input("hdk")  # Consume the special move buffer
+				controller.consume_button_input("st_mk")  # Also consume trigger button
+			elif parent.character_id == "WOO":
+				# 🔴 【WOO 一鍵招式】spmove3 快捷鍵 → 623K（623 + 任意腳）
+				controller.consume_button_input("623K")
+				controller.consume_button_input("st_lk")
+				controller.consume_button_input("st_mk")
+				controller.consume_button_input("st_hk")
+		if parent.character_id == "DEN":
+			start_hdk()
+		elif parent.character_id == "WOO":
+			start_623K()
 		return true
 	
 	return false

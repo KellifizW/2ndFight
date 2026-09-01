@@ -25,6 +25,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/PauseMenu.tscn" id="21_pause"]
 [ext_resource type="PackedScene" uid="uid://claqmk01wwasq" path="res://assets/vfx/vfx.tscn" id="22_vfxsmk"]
 [ext_resource type="Script" uid="uid://bake8vxq7l2wq" path="res://scripts/core/hit_stop_controller.gd" id="23_hitstop"]
+[ext_resource type="Script" path="res://scripts/ui/TouchControls.gd" id="25_touch"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_2u3nc"]
 
@@ -287,39 +288,42 @@ script = ExtResource("20_aitog")
 
 [node name="P1AIButton" type="Button" parent="UI/AIToggleButtons" unique_id=2019000002]
 layout_mode = 1
-anchors_preset = 2
+anchors_preset = 7
+anchor_left = 0.5
 anchor_top = 1.0
+anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = -180.0
-offset_right = 264.0
-offset_bottom = -96.0
+offset_left = -210.0
+offset_top = -52.0
+offset_right = -90.0
+offset_bottom = -16.0
+grow_horizontal = 2
 grow_vertical = 0
 mouse_default_cursor_shape = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 8
-theme_override_font_sizes/font_size = 26
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 14
 text = "P1 AI: OFF"
 
 [node name="P2AIButton" type="Button" parent="UI/AIToggleButtons" unique_id=2019000003]
 layout_mode = 1
-anchors_preset = 3
-anchor_left = 1.0
+anchors_preset = 7
+anchor_left = 0.5
 anchor_top = 1.0
-anchor_right = 1.0
+anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -264.0
-offset_top = -180.0
-offset_right = -24.0
-offset_bottom = -96.0
-grow_horizontal = 0
+offset_left = 90.0
+offset_top = -52.0
+offset_right = 210.0
+offset_bottom = -16.0
+grow_horizontal = 2
 grow_vertical = 0
 mouse_default_cursor_shape = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 8
-theme_override_font_sizes/font_size = 26
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 14
 text = "P2 AI: OFF"
 
 [node name="ResetButton" type="Button" parent="UI/AIToggleButtons" unique_id=2019000004]
@@ -330,19 +334,29 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -70.0
-offset_top = -156.0
-offset_right = 70.0
-offset_bottom = -96.0
+offset_left = -35.0
+offset_top = -52.0
+offset_right = 35.0
+offset_bottom = -16.0
 grow_horizontal = 2
 grow_vertical = 0
 focus_mode = 0
 mouse_default_cursor_shape = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
-theme_override_constants/outline_size = 8
-theme_override_font_sizes/font_size = 22
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 14
 text = "RESET"
+
+[node name="TouchControls" type="Control" parent="UI" unique_id=2019000005]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("25_touch")
 
 [node name="PauseMenu" parent="." unique_id=1984830895 instance=ExtResource("21_pause")]
 
