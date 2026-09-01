@@ -112,27 +112,38 @@ func run() -> bool:
 	check(frames_in_hitstop >= HITSTOP_FRAMES - 3,
 		"定格長度應約等於 %d 物理幀，實測 %d" % [HITSTOP_FRAMES, frames_in_hitstop])
 
-	# 3) 解凍後：打擊動畫只能「從定格點繼續播完」，不得重新從第 0 格再播一次。
-	var last_anim: StringName = attacker_sprite.animation
-	var last_frame: int = attacker_sprite.frame
-	var replays: int = 0
-	var left_attack_anim: bool = false
+	# 3) 解凍後：狀態機不得再「進入一次」打擊狀態 —— 那就是使用者看到的
+	#    「hitstop 結束後又把打擊動畫重播一次（甚至多次）」。
+	#    【為什麼看狀態機節點而不是 sprite 的格數】AnimatedSprite2D 本身也會播放
+	#    （hitstop 期間才被 speed_scale = 0 壓住），單看 sprite 的 frame 倒退無法
+	#    區分「SpriteFrames 自己循環」與「打擊動畫被重播」。狀態機重新 travel 進
+	#    攻擊節點才是「重播」的唯一定義。
+	var last_node: StringName = attacker.animation_state.get_current_node()
+	var reentries: int = 0
+	var trace: Array[String] = []
+	var last_trace: String = ""
 	# 觀察窗與 test_38 一致（90 物理幀）：這段時間內攻擊者不會有第二次出招。
 	for i in 90:
 		await await_frames(1)
-		var anim: StringName = attacker_sprite.animation
-		var frame_idx: int = attacker_sprite.frame
-		if anim == frozen_anim:
-			# 同一段打擊動畫內倒帶 = 重播；離開後又回來也是重播。
-			if left_attack_anim or (last_anim == frozen_anim and frame_idx < last_frame):
-				replays += 1
-				left_attack_anim = false
-		elif last_anim == frozen_anim:
-			left_attack_anim = true
-		last_anim = anim
-		last_frame = frame_idx
+		var node: StringName = attacker.animation_state.get_current_node()
+		var line: String = "%s/%d node=%s atk=%s type=%s timer=%s tree_pm=%d" % [
+			attacker_sprite.animation, attacker_sprite.frame, node,
+			attacker.is_attacking, attacker.attack_type,
+			attacker.attack_duration_timer if "attack_duration_timer" in attacker else "n/a",
+			attacker.animation_tree.process_mode if attacker.animation_tree else -1]
+		if line != last_trace:
+			trace.append("[+%d] %s" % [i, line])
+			last_trace = line
+		if node == prev_node and last_node != prev_node:
+			reentries += 1
+		last_node = node
 
-	check(replays == 0,
-		"解凍後打擊動畫 '%s' 不得被重播，實測重播 %d 次" % [frozen_anim, replays])
+	if reentries != 0:
+		# 失敗時把解凍後的完整狀態變化印出來，免得只能靠猜（CI 一輪 6 分鐘）。
+		print("  [test_39] 解凍後攻擊者狀態變化：")
+		for line in trace:
+			print("    " + line)
+	check(reentries == 0,
+		"解凍後狀態機不得再進入打擊狀態 '%s'，實測重播 %d 次" % [prev_node, reentries])
 
 	return not has_failures()
