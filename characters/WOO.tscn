@@ -85,7 +85,7 @@ tracks/3/path = NodePath("Hitbox/HitShape:disabled")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.3, 0.33333337, 0.53333336, 0.56666666, 0.8, 0.8333333),
+"times": PackedFloat32Array(0, 0.26666668, 0.30000004, 0.53333336, 0.56666666, 0.8, 0.8333333),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [true, false, true, false, true, false, true]
@@ -145,7 +145,7 @@ tracks/8/path = NodePath("AnimatedSprite2D:frame")
 tracks/8/interp = 1
 tracks/8/loop_wrap = true
 tracks/8/keys = {
-"times": PackedFloat32Array(0, 0.06666667, 0.16666667, 0.23333333, 0.3, 0.36666667, 0.46666667, 0.53333336, 0.6, 0.6666667, 0.73333335, 0.8000001, 0.8666667, 0.93333334, 1.0000002, 1.0666668, 1.1333334),
+"times": PackedFloat32Array(0, 0.06666667, 0.16666667, 0.23333333, 0.3, 0.36666667, 0.43333334, 0.46666667, 0.53333336, 0.6, 0.7, 0.8000001, 0.8666667, 0.93333334, 1.0000002, 1.0666668, 1.1333334),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
@@ -221,7 +221,7 @@ tracks/3/path = NodePath("Hitbox/HitShape:disabled")
 tracks/3/interp = 1
 tracks/3/loop_wrap = true
 tracks/3/keys = {
-"times": PackedFloat32Array(0, 0.39999998, 0.43333328),
+"times": PackedFloat32Array(0, 0.23333333, 0.26666665),
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
 "values": [true, false, true]
@@ -6048,6 +6048,37 @@ states/wakeup/position = Vector2(-108, 193)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627"), "cr_down", "cr_idle", SubResource("AnimationNodeStateMachineTransition_shoen"), "Walk", "cr_down", SubResource("AnimationNodeStateMachineTransition_3c2oy")]
 graph_offset = Vector2(-84, -58)
 
+[sub_resource type="Resource" id="Resource_pid0y"]
+script = ExtResource("8_6t1g5")
+frame = 7
+damage = 10.0
+hitstun = 30
+blockstun = 20
+knockback = 40.0
+metadata/_custom_type_script = "uid://um826wha4t60"
+
+[sub_resource type="Resource" id="Resource_6t1g5"]
+script = ExtResource("8_6t1g5")
+frame = 17
+damage = 10.0
+hitstun = 20
+blockstun = 20
+knockback = 40.0
+metadata/_custom_type_script = "uid://um826wha4t60"
+
+[sub_resource type="Resource" id="Resource_061tp"]
+script = ExtResource("8_6t1g5")
+frame = 23
+damage = 10.0
+hitstun = 20
+blockstun = 20
+knockback = 40.0
+force_knockfly = true
+knockfly_gravity = 6000000.0
+knockfly_vertical_speed = -1000.0
+knockfly_horizontal_speed = 2800.0
+metadata/_custom_type_script = "uid://um826wha4t60"
+
 [sub_resource type="Resource" id="Resource_ypqge"]
 script = ExtResource("9_061tp")
 damage = 10.0
@@ -6056,6 +6087,7 @@ duration_frames = 80
 movement_duration_frames = 80
 move_distance = 300.0
 is_multi_hit = true
+hit_phases = Array[ExtResource("8_6t1g5")]([SubResource("Resource_pid0y"), SubResource("Resource_6t1g5"), SubResource("Resource_061tp")])
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
 [sub_resource type="Resource" id="Resource_ymfx5"]
