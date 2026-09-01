@@ -4,8 +4,12 @@ extends "res://tests/frame_tests/frame_test_case.gd"
 ## 目標：
 ## - hitstop 期間 Engine.time_scale 必須維持 1.0（特效用正常速度播放）。
 ## - 角色動畫由 AnimationTree 驅動 AnimationPlayer；此時 AnimationPlayer.speed_scale
-##   不會生效（官方文件明載），必須把 AnimationTree 切到手動模式（MANUAL）才真正定格，
-##   AnimationPlayer.speed_scale=0 只覆蓋繞過 Tree 的直接播放（landing 等）。
+##   不會生效（官方文件明載），必須讓 AnimationTree 節點停止處理
+##   （process_mode = DISABLED）才真正定格；AnimationPlayer.speed_scale=0 只覆蓋
+##   繞過 Tree 的直接播放（landing 等）。
+##   【勿改回 callback_mode_process = MANUAL】那個 setter 會 set_active(false→true)，
+##   使 mixer 的 started 旗標打開 → 下一次處理以「seek 到 0」進狀態機 → 狀態機
+##   重啟回 Start 節點 → 攻擊者在打中瞬間掉回 idle、解凍後重播攻擊動畫。
 ## - hitstop 期間：受擊者必須「已進入並停在」受擊動畫第 0 格；攻擊者必須定格在
 ##   打中瞬間的姿勢（動畫名與格數都不推進）—— hitstop 的視覺本體。
 ## - hitstop 結束後：AnimationTree 還原為自動處理，受擊動畫從凍結點開始播放。
@@ -36,8 +40,9 @@ func run() -> bool:
 	check(hitstop_controller != null and hitstop_controller.hitstop_frames > 0,
 		"HitStopController should have a positive frame duration")
 
-	# 攻擊者與受擊者的「可見動畫」都應定格：AnimationTree 切到手動模式（保持 active，
-	# 不改狀態機內部）；AnimationPlayer.speed_scale=0 繼續覆蓋繞過 Tree 的直接播放。
+	# 攻擊者與受擊者的「可見動畫」都應定格：AnimationTree 節點停止處理（保持 active
+	# 與 callback_mode_process 不變，狀態機內部完全不動）；
+	# AnimationPlayer.speed_scale=0 繼續覆蓋繞過 Tree 的直接播放。
 	for fighter in [p1, p2]:
 		check(fighter.animation_player != null,
 			"%s should have an AnimationPlayer" % fighter.name)
@@ -48,9 +53,13 @@ func run() -> bool:
 			"%s AnimationTree should stay active during hitstop (freeze must not use active=false)"
 			% fighter.name)
 		check(fighter.animation_tree != null
-			and fighter.animation_tree.callback_mode_process == AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL,
-			"%s AnimationTree should be frozen via MANUAL process mode during hitstop, got %d"
-			% [fighter.name, fighter.animation_tree.callback_mode_process if fighter.animation_tree else -1])
+			and fighter.animation_tree.process_mode == Node.PROCESS_MODE_DISABLED,
+			"%s AnimationTree should be frozen via process_mode = DISABLED during hitstop, got %d"
+			% [fighter.name, fighter.animation_tree.process_mode if fighter.animation_tree else -1])
+		check(fighter.animation_tree != null
+			and fighter.animation_tree.callback_mode_process != AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL,
+			"%s must not be frozen by switching callback_mode_process (it restarts the state machine)"
+			% fighter.name)
 
 	# ── 受擊者：hitstop 期間就必須「已進入並停在」受擊動畫第 0 格 ──
 	# 【角色分工】p1 = player_a（DAV）按 st_mp 出招 → 攻擊者；
@@ -110,10 +119,13 @@ func run() -> bool:
 			slowmo.is_hit_slowmo if slowmo else "null",
 			p1.animation_player.speed_scale if p1.animation_player else "null"])
 
-	# ── 結束後：AnimationTree 還原為自動處理（本專案場景用預設 IDLE）──
+	# ── 結束後：AnimationTree 還原為自動處理（process_mode 放回場景預設）──
 	for fighter in [p1, p2]:
+		check(fighter.animation_tree.process_mode != Node.PROCESS_MODE_DISABLED,
+			"%s AnimationTree process_mode should be restored after hitstop, got %d"
+			% [fighter.name, fighter.animation_tree.process_mode])
 		check(fighter.animation_tree.callback_mode_process == AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE,
-			"%s AnimationTree should be restored to auto (IDLE) after hitstop, got %d"
+			"%s AnimationTree should stay on auto (IDLE) callback mode, got %d"
 			% [fighter.name, fighter.animation_tree.callback_mode_process])
 
 	# ── 結束後：受擊動畫從凍結點開始播放（格數推進）──

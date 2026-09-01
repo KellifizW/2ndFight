@@ -5,18 +5,49 @@
 現行架構由 World 下的 `HitStopController` 全權負責定格，**不再修改 `Engine.time_scale`**：
 
 - Hit stop 期間（`hitstop_frames` 個物理幀，預設 8 幀 ≈ 66ms）：
-  - 雙方角色的 AnimationTree 被切到手動模式（`callback_mode_process = MANUAL`）——
+  - 雙方角色的 AnimationTree **節點被停止處理**
+    （`AnimationTree.process_mode = PROCESS_MODE_DISABLED`）——
     角色動畫由 AnimationTree 驅動 AnimationPlayer 播放，此時 AnimationPlayer 自身的
-    `speed_scale` 不會生效（Godot 官方文件明載），MANUAL 才是真正的定格開關；
+    `speed_scale` 不會生效（Godot 官方文件明載）；讓 mixer 收不到 internal process
+    通知才是真正的定格開關，而且 `active` / `callback_mode_process` / 狀態機節點身分 /
+    travel 目標 / 條件參數全部原封不動。
     `AnimationPlayer` / `AnimatedSprite2D` 的 `speed_scale = 0` 仍一併設下，
     覆蓋繞過 AnimationTree 的直接播放（如 landing）。
   - `Fighter` / `Player` 的 `_physics_process` 早退，hitstun / blockstun / knockback
     等幀數計數全部凍結。
   - 背景、粒子特效、VFX、UI 維持正常時間運行。
-- 凍結開始當下，`HitStopController._apply_frozen_poses()` 會對每個凍結的
+- 凍結開始當下，`HitStopController._apply_frozen_poses()` 會對**受擊方**的
   AnimationTree `advance(0)`（delta=0 沖洗）：把 `take_hit()` 已排定的 travel 立即
-  套用 —— **受擊者在 hitstop 期間就停在受擊／格擋動畫第 0 格，攻擊者定格在打中
-  瞬間的姿勢**；hitstop 結束後才從凍結點繼續播放。
+  套用 —— **受擊者在 hitstop 期間就停在受擊／格擋動畫第 0 格**；hitstop 結束後才從
+  凍結點繼續播放。攻擊方不沖洗，它本來就停在打中瞬間那一格。
+
+### ⚠️ 為什麼定格不能用 `callback_mode_process = MANUAL`
+
+（2026-09 修正：`hitstop_frames = 60` 時「攻擊者打中瞬間動畫被重置成 idle、解凍後
+重播打擊動畫」的根因。）
+
+Godot 引擎行為，與遊戲邏輯無關：
+
+1. `AnimationMixer::set_callback_mode_process()` 內部是
+   `set_active(false)` → 換模式 → `set_active(true)`。
+2. `AnimationTree::_set_active()` 會把 mixer 的私有旗標 `started` 設成 `true`。
+3. 下一次處理（就是定格時的 `advance(0)`）時，`AnimationTree::_blend_pre_process()`
+   以 `seeked = true, time = 0, is_external_seeking = false` 進入狀態機。
+4. `AnimationNodeStateMachinePlayback::_process()` 的
+   「Check seek to 0 (means reset) by parent AnimationNode」分支因此成立 → `_start()`
+   → **整台狀態機重啟回 Start 節點**（外加 `reset_request = true`）。
+
+受擊方剛好有 `take_hit()` 排好的 travel，重啟後立刻被帶到受擊動畫，所以完全看不出
+異常；攻擊方沒有待處理的 travel，重啟後就掉回 Start → idle。解凍時還原
+`callback_mode_process` 會再觸發一次同樣的重啟，此時 `is_attacking` 仍為 true，
+動畫層便再 travel 一次攻擊動畫 —— 於是「解凍後打擊動畫又播一次（甚至多次）」。
+`hitstop_frames` 越大，這個錯誤姿勢停留得越久，所以在 60 幀時特別明顯。
+
+改用 `process_mode` 定格完全不碰 `active`，兩個症狀的根都被拔掉；順帶也不再每次
+hitstop 都因為 `set_active(false)` 而 `_clear_caches()` 重建整份 track cache。
+
+回歸測試：`tests/frame_tests/cases/test_39_attacker_pose_frozen_on_hit.gd`
+（以及 `test_37_hitstop_decoupled.gd` / `test_38_long_hitstop_single_attack.gd`）。
 - Hit stop 結束：`hitstop_finished` → `SlowMoController` 廣播 `hit_slowmo_finished`
   → `Fighter._on_hit_slowmo_finished()` 啟動被延遲的 hitstun/knockback/blockstun。
 
