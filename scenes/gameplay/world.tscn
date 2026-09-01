@@ -4,8 +4,8 @@
 [ext_resource type="Resource" uid="uid://8t8x274i6ynj" path="res://characters/WOO.character.tres" id="2_ks4gd"]
 [ext_resource type="PackedScene" uid="uid://dbco08lthgtd" path="res://scenes/gameplay/FollowCamera.tscn" id="3_gbfbk"]
 [ext_resource type="PackedScene" uid="uid://bsep286kjt22p" path="res://scenes/ui/healthbar.tscn" id="4_036b0"]
-[ext_resource type="Texture2D" uid="uid://rqhvkfoo2tes" path="res://assets/stage3.jpeg" id="4_ks4gd"]
-[ext_resource type="FontFile" uid="uid://cj4hyo1deaafb" path="res://assets/fonts/RZ Musashi.ttf" id="6_bc84e"]
+[ext_resource type="Texture2D" uid="uid://cmiihfqdpyws0" path="res://assets/stage3.jpeg" id="4_ks4gd"]
+[ext_resource type="FontFile" uid="uid://dqxxky5sx8p1t" path="res://assets/fonts/RZ Musashi.ttf" id="6_bc84e"]
 [ext_resource type="Script" uid="uid://c30axqnah7mg" path="res://ai/cpu_controller.gd" id="6_dwbse"]
 [ext_resource type="Texture2D" uid="uid://cg7oq8rcyxuqm" path="res://assets/hpbar/progress_atlas_p2.tres" id="7_2o6r5"]
 [ext_resource type="Script" uid="uid://bs6fqmlpgueqb" path="res://scripts/core/slow_mo_controller.gd" id="7_pkg7o"]
@@ -355,11 +355,9 @@ restricted_moves_a = Array[String](["powerkk"])
 script = ExtResource("7_pkg7o")
 
 [node name="HitStopController" type="Node" parent="." unique_id=1934090925]
+process_mode = 3
 script = ExtResource("23_hitstop")
-hitstop_frames = 8
-jitter_target = 0
-jitter_amplitude_x = 2.0
-jitter_amplitude_y = 1.5
+hitstop_frames = 20
 
 [node name="PushManager" type="Node" parent="." unique_id=921268698]
 script = ExtResource("9_ioo17")
