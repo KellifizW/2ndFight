@@ -173,20 +173,11 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 	var anim_sprite = node.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 	var sprite = node.get_node_or_null("Sprite2D") as Sprite2D
 
-	# 凍結動畫。放在 Dictionary/Array 記錄之前，確保即使後續記錄失敗動畫仍然停住。
-	if freeze_animation and anim_player:
-		# 只凍結「可見播放速度」，不讓 AnimationTree.active=false：
-		# StateMachine 仍要正常推進攻擊/受擊狀態與 hitbox 啟用時機，
-		# 否則攻擊會重複判定、角色狀態層與動畫層會分岔。
-		anim_player.speed_scale = 0.0
-	if freeze_animation and anim_sprite:
-		anim_sprite.speed_scale = 0.0
-		anim_sprite.playing = false
-
+	# 先快照原本的動畫速度 / 狀態，再凍結動畫。快照必須在改動之前取得，
+	# 否則 hitstop 結束時會把 speed_scale 還原成 0。
 	var anim_player_speed: float = anim_player.speed_scale if anim_player else 1.0
 	var anim_tree_active: bool = anim_tree.active if anim_tree else true
 	var anim_sprite_speed: float = anim_sprite.speed_scale if anim_sprite else 1.0
-	var anim_sprite_playing: bool = anim_sprite.playing if anim_sprite else false
 	var anim_sprite_frame: int = anim_sprite.frame if anim_sprite else 0
 	var anim_sprite_offset: Vector2 = anim_sprite.offset if anim_sprite else Vector2.ZERO
 	var anim_sprite_position: Vector2 = anim_sprite.position if anim_sprite else Vector2.ZERO
@@ -194,6 +185,17 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 	var sprite_offset: Vector2 = sprite.offset if sprite else Vector2.ZERO
 	var sprite_position: Vector2 = sprite.position if sprite else Vector2.ZERO
 	var sprite_rotation: float = sprite.rotation_degrees if sprite else 0.0
+
+	# 凍結動畫。放在 Dictionary/Array 記錄之前，確保即使後續記錄失敗動畫仍然停住。
+	if freeze_animation and anim_player:
+		# 只凍結「可見播放速度」，不讓 AnimationTree.active=false：
+		# StateMachine 仍要正常推進攻擊/受擊狀態與 hitbox 啟用時機，
+		# 否則攻擊會重複判定、角色狀態層與動畫層會分岔。
+		anim_player.speed_scale = 0.0
+	if freeze_animation and anim_sprite:
+		# Godot 4 的 AnimatedSprite2D 沒有 `playing` 屬性（Godot 3 遺留），
+		# 凍結動畫請用 speed_scale = 0；恢復時再還原原本的 speed_scale。
+		anim_sprite.speed_scale = 0.0
 
 	var entry: Dictionary = {
 		"node": node,
@@ -206,7 +208,6 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 		"anim_player_speed": anim_player_speed,
 		"anim_tree_active": anim_tree_active,
 		"anim_sprite_speed": anim_sprite_speed,
-		"anim_sprite_playing": anim_sprite_playing,
 		"anim_sprite_frame": anim_sprite_frame,
 		"anim_sprite_offset": anim_sprite_offset,
 		"anim_sprite_position": anim_sprite_position,
@@ -314,7 +315,6 @@ func _restore_actor_defaults(player: Node) -> void:
 		anim_tree.active = true
 	if anim_sprite:
 		anim_sprite.speed_scale = 1.0
-		anim_sprite.playing = true
 	if sprite:
 		sprite.offset = Vector2.ZERO
 		sprite.position = Vector2.ZERO
@@ -328,11 +328,10 @@ func _restore_entries() -> void:
 		var sprite = entry.get("sprite") as Sprite2D
 
 		if anim_player:
-			# hitstop 期間速度被設為 0，結束時一律回到正常速度。
-			anim_player.speed_scale = 1.0
+			# hitstop 期間速度被設為 0，結束時還原原本的播放速度。
+			anim_player.speed_scale = float(entry.get("anim_player_speed", 1.0))
 		if anim_sprite:
-			anim_sprite.speed_scale = 1.0
-			anim_sprite.playing = true
+			anim_sprite.speed_scale = float(entry.get("anim_sprite_speed", 1.0))
 			anim_sprite.frame = int(entry.get("anim_sprite_frame", 0))
 			anim_sprite.offset = entry.get("anim_sprite_offset", Vector2.ZERO) as Vector2
 			anim_sprite.position = entry.get("anim_sprite_position", Vector2.ZERO) as Vector2
