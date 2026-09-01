@@ -18,6 +18,7 @@
 [ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="16_wkibw"]
 [ext_resource type="AudioStream" uid="uid://uxhsj285rci4" path="res://assets/audio/dash.mp3" id="32_dash1"]
 [ext_resource type="AudioStream" uid="uid://bgs6lvw2i4i6a" path="res://assets/audio/bdash.mp3" id="33_bdash1"]
+[ext_resource type="Script" uid="uid://6s9vhksdyl5q9" path="res://scripts/combat/movesets/WOOMoveSet.gd" id="34_wooms"]
 
 [sub_resource type="Resource" id="Resource_n8wgw"]
 script = ExtResource("3_mpuaf")
@@ -5933,6 +5934,12 @@ animation = &"super"
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_ph7k6"]
 animation = &"wakeup"
 
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_214k"]
+animation = &"214K"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_623k"]
+animation = &"623K"
+
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_meopb"]
 advance_mode = 2
 
@@ -5952,6 +5959,10 @@ advance_mode = 2
 advance_condition = &"cr_down"
 
 [sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_mbed6"]
+states/214K/node = SubResource("AnimationNodeAnimation_214k")
+states/214K/position = Vector2(950, 300)
+states/623K/node = SubResource("AnimationNodeAnimation_623k")
+states/623K/position = Vector2(950, 370)
 states/Backdash/node = SubResource("AnimationNodeAnimation_3h1ys")
 states/Backdash/position = Vector2(-14, 124)
 states/Dash/node = SubResource("AnimationNodeAnimation_46qut")
@@ -6094,7 +6105,7 @@ position = Vector2(50, 0)
 debug_color = Color(0.62189, 0.533606, 0, 0.42)
 
 [node name="MoveSet" type="Node" parent="." unique_id=865844842]
-script = ExtResource("6_mpuaf")
+script = ExtResource("34_wooms")
 
 [node name="AIBehavior" type="Node" parent="." unique_id=914807502]
 script = ExtResource("7_nbdmm")

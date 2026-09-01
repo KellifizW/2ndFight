@@ -355,8 +355,106 @@ def run_all_tests():
     assert sim.check_motion(dp_data) == True, "Multi-button DP must succeed"
     print("✅ 4.2 Multi-button overlap (LP+MP) -> DP detected")
 
+    # -------------------------------------------------------------
+    # TEST SUITE 5: WOO 214K / 623K (214/623 + any kick)
+    # -------------------------------------------------------------
+    woo214_data = parse_tres_file(os.path.join(inputs_dir, "214K_input.tres"))
+    woo623_data = parse_tres_file(os.path.join(inputs_dir, "623K_input.tres"))
+
+    print(f"Loaded 214K sequences: {len(woo214_data['ValidInputs'])}, buffer={woo214_data['InputBuffer']}")
+    print(f"Loaded 623K sequences: {len(woo623_data['ValidInputs'])}, buffer={woo623_data['InputBuffer']}")
+
+    assert len(woo214_data['ValidInputs']) >= 15, "214K should cover LK/MK/HK variants"
+    assert len(woo623_data['ValidInputs']) >= 30, "623K should cover LK/MK/HK variants"
+
+    # 5.1 Standard 214+LK (facing right)
+    sim = InputManagerSim(facing=1.0)
+    sim.insert_input(D.DOWN, B.NONE, duration_frames=8)
+    sim.insert_input(D.DOWN_BACK, B.NONE, duration_frames=8)
+    sim.insert_input(D.BACK, B.ST_LK, duration_frames=2)
+    assert sim.check_motion(woo214_data) == True, "214+LK must detect 214K"
+    print("✅ 5.1 Standard 214+LK -> 214K detected")
+
+    # 5.2 Standard 214+MK (24 shortcut)
+    sim = InputManagerSim(facing=1.0)
+    sim.insert_input(D.DOWN, B.NONE, duration_frames=8)
+    sim.insert_input(D.BACK, B.ST_MK, duration_frames=2)
+    assert sim.check_motion(woo214_data) == True, "24+MK must detect 214K"
+    print("✅ 5.2 24 shortcut +MK -> 214K detected")
+
+    # 5.3 214+HK facing left (physical mirrored)
+    sim = InputManagerSim(facing=-1.0)
+    sim.insert_input(D.DOWN, B.NONE, duration_frames=8)         # Physical Down = Relative Down
+    sim.insert_input(D.DOWN_FORWARD, B.NONE, duration_frames=8) # Physical Down-Right = Relative Down-Back
+    sim.insert_input(D.FORWARD, B.ST_HK, duration_frames=2)     # Physical Right = Relative Back
+    assert sim.check_motion(woo214_data) == True, "Facing Left 214+HK must detect 214K"
+    print("✅ 5.3 Facing Left 214+HK -> 214K detected")
+
+    # 5.4 Kick pressed early (21+MK, button on down-back)
+    sim = InputManagerSim(facing=1.0)
+    sim.insert_input(D.DOWN, B.NONE, duration_frames=8)
+    sim.insert_input(D.DOWN_BACK, B.ST_MK, duration_frames=2)
+    assert sim.check_motion(woo214_data) == True, "21+MK (early kick) must detect 214K"
+    print("✅ 5.4 Early kick 21+MK -> 214K detected")
+
+    # 5.5 Standard 623+LK (facing right)
+    sim = InputManagerSim(facing=1.0)
+    sim.insert_input(D.FORWARD, B.NONE, duration_frames=8)
+    sim.insert_input(D.DOWN, B.NONE, duration_frames=8)
+    sim.insert_input(D.DOWN_FORWARD, B.ST_LK, duration_frames=2)
+    assert sim.check_motion(woo623_data) == True, "623+LK must detect 623K"
+    print("✅ 5.5 Standard 623+LK -> 623K detected")
+
+    # 5.6 Arcade stick roll 63236+HK
+    sim = InputManagerSim(facing=1.0)
+    sim.insert_input(D.FORWARD, B.NONE, duration_frames=6)
+    sim.insert_input(D.DOWN_FORWARD, B.NONE, duration_frames=6)
+    sim.insert_input(D.DOWN, B.NONE, duration_frames=6)
+    sim.insert_input(D.DOWN_FORWARD, B.NONE, duration_frames=6)
+    sim.insert_input(D.FORWARD, B.ST_HK, duration_frames=2)
+    assert sim.check_motion(woo623_data) == True, "63236+HK must detect 623K"
+    print("✅ 5.6 Arcade stick roll 63236+HK -> 623K detected")
+
+    # 5.7 62 shortcut +MK
+    sim = InputManagerSim(facing=1.0)
+    sim.insert_input(D.FORWARD, B.NONE, duration_frames=8)
+    sim.insert_input(D.DOWN, B.ST_MK, duration_frames=2)
+    assert sim.check_motion(woo623_data) == True, "62+MK must detect 623K"
+    print("✅ 5.7 62 shortcut +MK -> 623K detected")
+
+    # 5.8 Facing Left 623+MK (physical mirrored)
+    sim = InputManagerSim(facing=-1.0)
+    sim.insert_input(D.BACK, B.NONE, duration_frames=8)        # Physical Left = Relative Forward
+    sim.insert_input(D.DOWN, B.NONE, duration_frames=8)
+    sim.insert_input(D.DOWN_BACK, B.ST_MK, duration_frames=2)  # Physical Down-Left = Relative Down-Forward
+    assert sim.check_motion(woo623_data) == True, "Facing Left 623+MK must detect 623K"
+    print("✅ 5.8 Facing Left 623+MK -> 623K detected")
+
+    # 5.9 Punch buttons must NOT trigger kick specials
+    sim = InputManagerSim(facing=1.0)
+    sim.insert_input(D.DOWN, B.NONE, duration_frames=8)
+    sim.insert_input(D.DOWN_BACK, B.NONE, duration_frames=8)
+    sim.insert_input(D.BACK, B.ST_MP, duration_frames=2)
+    assert sim.check_motion(woo214_data) == False, "214+MP must NOT detect 214K (kick only)"
+    print("✅ 5.9 214+MP (punch) -> 214K NOT detected (correct)")
+
+    sim = InputManagerSim(facing=1.0)
+    sim.insert_input(D.FORWARD, B.NONE, duration_frames=8)
+    sim.insert_input(D.DOWN, B.NONE, duration_frames=8)
+    sim.insert_input(D.DOWN_FORWARD, B.ST_HP, duration_frames=2)
+    assert sim.check_motion(woo623_data) == False, "623+HP must NOT detect 623K (kick only)"
+    print("✅ 5.10 623+HP (punch) -> 623K NOT detected (correct)")
+
+    # 5.11 Forward motion must NOT trigger 214K (guard against QCF mixups)
+    sim = InputManagerSim(facing=1.0)
+    sim.insert_input(D.DOWN, B.NONE, duration_frames=8)
+    sim.insert_input(D.DOWN_FORWARD, B.NONE, duration_frames=8)
+    sim.insert_input(D.FORWARD, B.ST_HK, duration_frames=2)
+    assert sim.check_motion(woo214_data) == False, "236+HK must NOT detect 214K"
+    print("✅ 5.11 236+HK -> 214K NOT detected (correct)")
+
     print("\n=======================================================")
-    print("🎉 ALL 14 MOTION DETECTION TESTS PASSED SUCCESSFULLY! 🎉")
+    print("🎉 ALL 27 MOTION DETECTION TESTS PASSED SUCCESSFULLY! 🎉")
     print("=======================================================")
 
 

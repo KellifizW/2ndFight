@@ -73,7 +73,7 @@ func compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, ani
 	
 	if move_set and move_set.is_spmove:
 		var active_move_name = move_set.get_active_move_name()
-		if active_move_name in ["super", "hdk", "powerkk", "spnk", "dp", "fireball", "100p"]:
+		if active_move_name in ["super", "hdk", "powerkk", "spnk", "dp", "fireball", "100p", "214K", "623K"]:
 			return active_move_name
 	
 	if movement_node.is_proximity_blocking:
@@ -83,7 +83,7 @@ func compute_target_state(_dir_x: float, crouch_input: bool, on_floor: bool, ani
 	
 	if movement_node.is_attacking:
 		var atype = movement_node.get("attack_type") if "attack_type" in movement_node else "none"
-		if atype in ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk", "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk", "throw_enter", "throw_seq", "super", "dp", "powerkk", "spnk", "fireball", "hdk", "100p"]:
+		if atype in ["st_lp", "st_mp", "st_hp", "st_lk", "st_mk", "st_hk", "cr_lp", "cr_mp", "cr_hp", "cr_lk", "cr_mk", "cr_hk", "throw_enter", "throw_seq", "super", "dp", "powerkk", "spnk", "fireball", "hdk", "100p", "214K", "623K"]:
 			return atype
 		return "Walk"
 	
@@ -136,7 +136,7 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	# 🟢 【只在實際改變時打印】避免冗餘日誌（Start→Walk在啟動時會重複很多次）
 	if curr_state != target_state:
 		# 過濾掉遊戲啟動時的 Start→Walk 重複（只打印特殊招式和重要狀態轉換）
-		var _sp_states = ["dp", "dpL", "dpM", "dpH", "powerkk", "super", "hdk", "spnk", "fireball", "fireballL", "fireballM", "fireballH", "knockfly", "layground", "landing"]
+		var _sp_states = ["dp", "dpL", "dpM", "dpH", "powerkk", "super", "hdk", "spnk", "fireball", "fireballL", "fireballM", "fireballH", "knockfly", "layground", "landing", "214K", "623K"]
 		var is_special_relevant = target_state in _sp_states or curr_state in _sp_states
 		if is_special_relevant:
 			# 🟢 去重：只打印新的狀態轉換（不是上一幀已經打過的相同轉換）

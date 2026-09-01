@@ -42,6 +42,8 @@
 - `powerkk` - Power KK（DAV 專屬）
 - `spnk` - Special NK（DEN 專屬）
 - `hdk` - Heavy DK（DEN 專屬）
+- `214K` - 214 後半圈 + 任意腳（WOO 專屬）
+- `623K` - 623 升龍系 + 任意腳（WOO 專屬）
 - `super` - 超必殺技
 
 #### 普通攻擊

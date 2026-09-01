@@ -89,7 +89,7 @@ const TRACKED_ANIMS := [
 	# Jump attacks
 	"jump_lp","jump_mp","jump_hp","jump_lk","jump_mk","jump_hk",
 	# Special moves
-	"powerkk","spnk","fireball","dpL","dpM","dpH","super",
+	"powerkk","spnk","fireball","dpL","dpM","dpH","super","214K","623K",
 	# Movement
 	"Dash","Backdash","block","cr_block",
 	"Jump_F","Jump_B","Jump_V","hit","knockfly","layground","wakeup"
@@ -102,7 +102,7 @@ const ATTACK_ANIMS := [
 	# Jump attacks
 	"jump_lp","jump_mp","jump_hp","jump_lk","jump_mk","jump_hk",
 	# Special moves
-	"powerkk","spnk","fireball","dpL","dpM","dpH","super"
+	"powerkk","spnk","fireball","dpL","dpM","dpH","super","214K","623K"
 ]
 const JUMP_ANIMS := ["Jump_F","Jump_B","Jump_V"]
 
