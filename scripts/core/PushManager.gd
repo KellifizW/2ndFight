@@ -318,7 +318,14 @@ func _physics_process(delta: float) -> void:
 						player.animation_player.speed_scale = 1.0
 
 	# 推開處理
+	# 🟢 Hitstop：定格期間**不得**改變任何角色的位置。
+	# pushbox 分離會直接寫 fixed_position / global_position，若在定格中照跑，
+	# 攻擊者仍開著的 Hitbox 會被推得離開再重新進入對手的 Hurtbox，
+	# 於是同一次揮拳被判定成第二次命中（hitstop_frames 越大越容易發生）。
+	# 定格結束後下一幀就會照常分離，最終位置不變。
 	for i in range(players.size()):
+		if in_hitstop:
+			break
 		var parent = players[i]
 		var move_set = parent.get_node_or_null("MoveSet")
 		var is_penetrable = false

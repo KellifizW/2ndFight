@@ -53,33 +53,39 @@ func run() -> bool:
 			% [fighter.name, fighter.animation_tree.callback_mode_process if fighter.animation_tree else -1])
 
 	# ── 受擊者：hitstop 期間就必須「已進入並停在」受擊動畫第 0 格 ──
-	# p1（WOO）被打中：hit 狀態的動畫會把 AnimatedSprite2D 切到 "hit" 第 0 格。
-	# （被打前 sprite 停在 Walk/idle 的動畫上 —— 這正是舊版 hitstop 的症狀。）
-	var p1_sprite := p1.get_node("AnimatedSprite2D") as AnimatedSprite2D
-	check(p1_sprite.animation == &"hit",
+	# 【角色分工】p1 = player_a（DAV）按 st_mp 出招 → 攻擊者；
+	#            p2 = player_b（DEN）被打中 → 受擊者。
+	# （舊版這裡把兩者寫反，於是斷言一直拿攻擊者的 sprite 去比 "hit"。）
+	var defender_sprite := p2.get_node("AnimatedSprite2D") as AnimatedSprite2D
+	check(defender_sprite.animation == &"hit",
 		"Defender sprite should already show the hit animation during hitstop, got '%s'"
-		% p1_sprite.animation)
-	check(p1_sprite.frame == 0,
-		"Defender should be frozen on hit animation frame 0, got %d" % p1_sprite.frame)
+		% defender_sprite.animation)
+	check(defender_sprite.frame == 0,
+		"Defender should be frozen on hit animation frame 0, got %d" % defender_sprite.frame)
 
 	# ── 攻擊者：定格在打中瞬間的姿勢 ──
-	var p2_sprite := p2.get_node("AnimatedSprite2D") as AnimatedSprite2D
-	var att_anim_at_hitstop_start: StringName = p2_sprite.animation
-	var att_frame_at_hitstop_start: int = p2_sprite.frame
+	var attacker_sprite := p1.get_node("AnimatedSprite2D") as AnimatedSprite2D
+	var att_anim_at_hitstop_start: StringName = attacker_sprite.animation
+	var att_frame_at_hitstop_start: int = attacker_sprite.frame
+	var att_offset_at_hitstop_start: Vector2 = attacker_sprite.offset
 
 	# hitstop 只有 8 物理幀：取樣兩次，雙方 sprite 的動畫名與格數都不得推進。
 	for sample in 2:
 		await await_frames(2)
 		if not slowmo.is_hit_slowmo:
 			break  # CI 偶發卡頓讓 hitstop 提前結束時，略過「期間取樣」（結束後另有斷言）
-		check(p2_sprite.animation == att_anim_at_hitstop_start
-			and p2_sprite.frame == att_frame_at_hitstop_start,
+		check(attacker_sprite.animation == att_anim_at_hitstop_start
+			and attacker_sprite.frame == att_frame_at_hitstop_start,
 			"Attacker pose must be frozen during hitstop (%s/%d → %s/%d)" % [
 				att_anim_at_hitstop_start, att_frame_at_hitstop_start,
-				p2_sprite.animation, p2_sprite.frame])
-		check(p1_sprite.animation == &"hit" and p1_sprite.frame == 0,
+				attacker_sprite.animation, attacker_sprite.frame])
+		# 震抖只屬於受擊方：攻擊者的 sprite offset 不得被 jitter 動到。
+		check(attacker_sprite.offset == att_offset_at_hitstop_start,
+			"Attacker sprite must not jitter during hitstop (%s → %s)" % [
+				att_offset_at_hitstop_start, attacker_sprite.offset])
+		check(defender_sprite.animation == &"hit" and defender_sprite.frame == 0,
 			"Defender must stay on hit animation frame 0 during hitstop, got %s/%d"
-			% [p1_sprite.animation, p1_sprite.frame])
+			% [defender_sprite.animation, defender_sprite.frame])
 
 	var hitstop_ended: bool = await wait_until(
 		func(): return not bool(slowmo.is_hit_slowmo), 120)
@@ -108,15 +114,15 @@ func run() -> bool:
 
 	# ── 結束後：受擊動畫從凍結點開始播放（格數推進）──
 	# hitstun 還有約 28 物理幀，動畫 0.05s 換一格：20 幀窗口內必然推進。
-	var frozen_frame: int = p1_sprite.frame
+	var frozen_frame: int = defender_sprite.frame
 	var advanced: bool = await wait_until(
-		func(): return p1_sprite.frame > frozen_frame, 20)
+		func(): return defender_sprite.frame > frozen_frame, 20)
 	check(advanced,
 		"Hit animation should start playing after hitstop ends (frame stuck at %d)"
 		% frozen_frame)
 	if advanced:
-		check(p1_sprite.animation == &"hit",
+		check(defender_sprite.animation == &"hit",
 			"Hit animation should keep playing after hitstop, got '%s'"
-			% p1_sprite.animation)
+			% defender_sprite.animation)
 
 	return not has_failures()

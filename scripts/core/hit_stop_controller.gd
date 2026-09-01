@@ -1,3 +1,4 @@
+@tool
 class_name HitStopController
 extends Node
 
@@ -14,7 +15,8 @@ extends Node
 ## - 凍結開始時對每個凍結的 AnimationTree 做 advance(0)：把 take_hit() 已排定
 ##   的 travel（受擊 / 格擋動畫）以 delta=0 立即套用 —— 讓 hitstop 期間雙方
 ##   定格在「打中瞬間／受擊反應第 0 格」，而不是 hitstop 結束後才切進動畫。
-## - 只在 Sprite / AnimatedSprite 的 offset / rotation 上做像素級微震動。
+## - 只在「被擊中者／格擋者」的 Sprite / AnimatedSprite 的 offset / rotation 上做
+##   像素級微震動；攻擊方只定格、不震動（jitter_target 預設 = Defender only）。
 ## - 不修改 CharacterBody2D 的 position / velocity，因此不影響 Hitbox / Hurtbox。
 ## - 背景、粒子特效、UI 全部維持正常時間運行。
 ## - 所有關鍵參數都是用 @export，可在編輯器直接調整。
@@ -24,12 +26,40 @@ signal hitstop_finished
 
 const LOG_TAG := "[HITSTOP]"
 
+## `hitstop_frames` 的計量單位。
+##
+## 這是「編輯器不知道 hitstop_frames 到底是 60 還是 120 FPS」問題的正式答案：
+## 引擎內部**永遠**以物理幀（project.godot: physics_ticks_per_second = 120）倒數，
+## 但設計者可以選擇用自己習慣的單位輸入，由本控制器換算成物理幀。
+enum HitstopUnit {
+	PHYSICS_FRAMES_120FPS,  ## 物理幀（120 FPS，引擎原生單位）
+	LOGIC_FRAMES_60FPS,     ## 邏輯幀（60 FPS，格鬥遊戲慣用的「幀數」）
+	MILLISECONDS,           ## 毫秒
+}
+
 # ═══════════════════════════════════════════════════════════════════
 # Hitstop 設定
 # ═══════════════════════════════════════════════════════════════════
 @export var enabled: bool = true
-## 定格持續時間（物理幀；120 FPS 時 8 幀約 66ms）
-@export_range(0, 60, 1, "or_greater") var hitstop_frames: int = 8
+## `hitstop_frames` 的單位。改這個不會改變已填的數字，只改變它的解讀方式；
+## 換算結果即時顯示在下方唯讀的 `Hitstop Duration Readout`。
+@export var hitstop_unit: HitstopUnit = HitstopUnit.PHYSICS_FRAMES_120FPS:
+	set(value):
+		hitstop_unit = value
+		notify_property_list_changed()
+## 定格持續時間。單位由上面的 `hitstop_unit` 決定（預設＝物理幀 @120 FPS，
+## 即引擎每個 _physics_process 扣 1 的那個單位；8 物理幀 ≈ 66 ms）。
+@export_range(0, 120, 1, "or_greater") var hitstop_frames: int = 8:
+	set(value):
+		hitstop_frames = max(0, value)
+		notify_property_list_changed()
+## 【唯讀】把上面的設定換算成三種單位一起顯示，避免再猜「這是 60 還是 120 FPS」。
+@export_custom(PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY)
+var hitstop_duration_readout: String = "":
+	get:
+		return describe_duration()
+	set(_value):
+		pass  # 唯讀顯示用，永遠由 describe_duration() 計算
 ## 攻擊者動畫是否也要一起定格（近身打擊通常兩邊都停）
 @export var freeze_attacker: bool = true
 ## 受擊者動畫是否要定格
@@ -48,7 +78,10 @@ const LOG_TAG := "[HITSTOP]"
 # ═══════════════════════════════════════════════════════════════════
 @export_group("Visual Jitter")
 @export var jitter_enabled: bool = true
-@export_enum("Defender only", "Defender + Attacker", "Attacker only") var jitter_target: int = 1
+## 誰的 sprite 會震抖。
+## 【設計約定】只有「被擊中者／格擋者」會震 —— 攻擊方只定格、不震動，
+## 否則兩邊一起抖會分不出誰吃了這一下，打擊感反而變糊。
+@export_enum("Defender only", "Defender + Attacker", "Attacker only") var jitter_target: int = 0
 @export_range(0.0, 20.0, 0.1, "or_greater") var jitter_amplitude_x: float = 2.0
 @export_range(0.0, 20.0, 0.1, "or_greater") var jitter_amplitude_y: float = 1.5
 @export_range(0.0, 20.0, 0.1, "or_greater") var jitter_rotation_degrees: float = 0.0
@@ -80,6 +113,54 @@ var _attacker: Node = null
 var _defender: Node = null
 var _entries: Array = []
 var _jitter_phase: int = 0
+## 本次 hitstop 中被震動過的 sprite 的「原始 offset / rotation」（key = instance_id）。
+## 用途：即使 _entries 快照遺失，收尾時也能把 sprite 放回原本的位置，
+## 而不是硬設成 Vector2.ZERO（角色 sprite 本來就有 offset，例如 (0,-50)）。
+## 每次 hitstop 結束／取消時清空，避免把過期的 offset 寫回新的動畫姿勢。
+var _jitter_baselines: Dictionary = {}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# 單位換算 / 編輯器顯示
+# ═══════════════════════════════════════════════════════════════════
+
+## 引擎實際使用的定格長度（物理幀）。`_physics_process` 每幀扣 1 的就是它。
+func get_hitstop_physics_frames() -> int:
+	var ticks: float = float(Engine.physics_ticks_per_second)
+	match hitstop_unit:
+		HitstopUnit.LOGIC_FRAMES_60FPS:
+			# Stage 1 約定：邏輯幀 → 物理幀只走 Movement 這唯一轉換點。
+			return Movement.logic_frames_to_physics_frames(float(hitstop_frames))
+		HitstopUnit.MILLISECONDS:
+			return int(round(float(hitstop_frames) * ticks / 1000.0))
+		_:
+			return max(0, hitstop_frames)
+
+
+## 三種單位一起講清楚，給編輯器唯讀欄位與 debug log 共用。
+func describe_duration() -> String:
+	var ticks: float = float(Engine.physics_ticks_per_second)
+	if ticks <= 0.0:
+		ticks = 120.0
+	var phys: int = get_hitstop_physics_frames()
+	var logic: float = float(phys) * 60.0 / ticks
+	var ms: float = float(phys) * 1000.0 / ticks
+	return "%d 物理幀 @%d FPS　=　%.1f 邏輯幀 @60 FPS　=　%.1f ms" % [
+		phys, int(ticks), logic, ms
+	]
+
+
+func _validate_property(property: Dictionary) -> void:
+	# 讓 Inspector 的數字欄位直接把單位寫在後面（suffix），不必再翻文件。
+	if property.name == "hitstop_frames":
+		var suffix := "物理幀 @120 FPS"
+		match hitstop_unit:
+			HitstopUnit.LOGIC_FRAMES_60FPS:
+				suffix = "邏輯幀 @60 FPS"
+			HitstopUnit.MILLISECONDS:
+				suffix = "ms"
+		property.hint = PROPERTY_HINT_RANGE
+		property.hint_string = "0,120,1,or_greater,suffix:%s" % suffix
 
 
 func _ready() -> void:
@@ -90,9 +171,10 @@ func _ready() -> void:
 func begin_hitstop(attacker: Node, defender: Node) -> bool:
 	if not enabled or is_active:
 		return false
-	if hitstop_frames <= 0:
+	var duration_frames: int = get_hitstop_physics_frames()
+	if duration_frames <= 0:
 		if debug_log:
-			Debug.log("%s hitstop_frames <= 0，略過定格。" % LOG_TAG)
+			Debug.log("%s 定格長度為 0（%s），略過定格。" % [LOG_TAG, describe_duration()])
 		return false
 
 	debug_begin_count += 1
@@ -105,7 +187,7 @@ func begin_hitstop(attacker: Node, defender: Node) -> bool:
 	_entries.clear()
 	_jitter_phase = 0
 	is_active = true
-	remaining_frames = hitstop_frames
+	remaining_frames = duration_frames
 
 	if _defender:
 		_register_actor(_defender, freeze_defender, _should_jitter(_defender))
@@ -114,16 +196,18 @@ func begin_hitstop(attacker: Node, defender: Node) -> bool:
 
 	# 防呆：若呼叫端沒有傳入攻擊者/受擊者（例如舊呼叫或暫態 null），
 	# 直接凍結場景中所有 players，避免 hitstop 已啟動卻完全沒有定格。
+	# 【注意】這條路徑分不出誰是受擊方，所以一律**不震動** ——
+	# 寧可少一次震動，也不要讓攻擊方莫名其妙抖起來。
 	if _defender == null and _attacker == null:
 		for p in get_tree().get_nodes_in_group("players"):
 			if is_instance_valid(p) and p != null:
-				_register_actor(p, true, true)
+				_register_actor(p, true, false)
 		if debug_log:
-			Debug.log("%s 未指定參與者，回退為凍結所有 players。" % LOG_TAG)
+			Debug.log("%s 未指定參與者，回退為凍結所有 players（不震動）。" % LOG_TAG)
 	elif _entries.is_empty():
 		for p in get_tree().get_nodes_in_group("players"):
 			if is_instance_valid(p) and p != null:
-				_register_actor(p, true, true)
+				_register_actor(p, true, _should_jitter(p))
 
 	# ── 凍結開始：立刻把「打中瞬間／受擊反應」的姿勢套用到位 ──
 	# take_hit() 只是把狀態機的 travel 排進佇列，真正換姿勢要等 AnimationTree
@@ -137,8 +221,8 @@ func begin_hitstop(attacker: Node, defender: Node) -> bool:
 	_apply_jitter()
 
 	if debug_log:
-		Debug.log("%s 開始：frames=%d attacker=%s defender=%s" % [
-			LOG_TAG, hitstop_frames,
+		Debug.log("%s 開始：%s attacker=%s defender=%s" % [
+			LOG_TAG, describe_duration(),
 			_attacker.name if _attacker else "none",
 			_defender.name if _defender else "none",
 		])
@@ -149,6 +233,8 @@ func begin_hitstop(attacker: Node, defender: Node) -> bool:
 
 ## 每次物理幀：推進視覺微震動，並倒數剩餘幀數。
 func _physics_process(_delta: float) -> void:
+	if Engine.is_editor_hint():
+		return  # @tool 腳本：編輯器內不跑遊戲邏輯
 	if not is_active:
 		return
 	_apply_jitter()
@@ -170,6 +256,7 @@ func cancel() -> void:
 	_restore_entries()
 	_resume_frame_counter()
 	_entries.clear()
+	_jitter_baselines.clear()
 	_attacker = null
 	_defender = null
 	if debug_log:
@@ -214,11 +301,11 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 		# （單把 AnimationPlayer.speed_scale 設 0 對 Tree 驅動的播放無效，見檔頭說明。）
 		if freeze_animation_tree:
 			anim_tree.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
-	if freeze_animation and anim_player:
+	if freeze_animation and freeze_animation_player and anim_player:
 		# 覆蓋繞過 AnimationTree、直接用 AnimationPlayer 播放的場合（例如 landing）。
 		# 只凍結「可見播放速度」，讓 hitstop 結束時能從凍結點無縫繼續。
 		anim_player.speed_scale = 0.0
-	if freeze_animation and anim_sprite:
+	if freeze_animation and freeze_animated_sprite and anim_sprite:
 		# Godot 4 的 AnimatedSprite2D 沒有 `playing` 屬性（Godot 3 遺留），
 		# 凍結動畫請用 speed_scale = 0；恢復時再還原原本的 speed_scale。
 		anim_sprite.speed_scale = 0.0
@@ -307,14 +394,23 @@ func _apply_jitter() -> void:
 		if anim_sprite:
 			var base_anim_sprite_offset: Vector2 = entry.get("base_anim_sprite_offset", Vector2.ZERO) as Vector2
 			var base_anim_sprite_rotation: float = entry.get("anim_sprite_rotation", 0.0) as float
+			_remember_jitter_baseline(anim_sprite, base_anim_sprite_offset, base_anim_sprite_rotation)
 			anim_sprite.offset = base_anim_sprite_offset + Vector2(jitter_x, jitter_y)
 			anim_sprite.rotation_degrees = base_anim_sprite_rotation + jitter_rot
 
 		if sprite:
 			var base_sprite_offset: Vector2 = entry.get("base_sprite_offset", Vector2.ZERO) as Vector2
 			var base_sprite_rotation: float = entry.get("sprite_rotation", 0.0) as float
+			_remember_jitter_baseline(sprite, base_sprite_offset, base_sprite_rotation)
 			sprite.offset = base_sprite_offset + Vector2(jitter_x, jitter_y)
 			sprite.rotation_degrees = base_sprite_rotation + jitter_rot
+
+
+## 記住某個 sprite 沒被震動前的 offset / rotation（只記第一次）。
+func _remember_jitter_baseline(node: Node2D, offset: Vector2, rotation_deg: float) -> void:
+	var key: int = node.get_instance_id()
+	if not _jitter_baselines.has(key):
+		_jitter_baselines[key] = {"offset": offset, "rotation": rotation_deg}
 
 
 func _finish() -> void:
@@ -326,6 +422,7 @@ func _finish() -> void:
 	_restore_entries()
 	_resume_frame_counter()
 	_entries.clear()
+	_jitter_baselines.clear()
 	_attacker = null
 	_defender = null
 
@@ -363,10 +460,23 @@ func _restore_actor_defaults(player: Node) -> void:
 		anim_tree.active = true
 	if anim_sprite:
 		anim_sprite.speed_scale = 1.0
+		_restore_jitter_baseline(anim_sprite)
 	if sprite:
-		sprite.offset = Vector2.ZERO
-		sprite.position = Vector2.ZERO
-		sprite.rotation_degrees = 0.0
+		# 【修正】不能硬設成 Vector2.ZERO —— 角色場景本來就替 sprite 設了 offset
+		# （WOO 的 AnimatedSprite2D offset = (0,-50)）。只把「我們震過的」放回原位。
+		_restore_jitter_baseline(sprite)
+
+
+## 把某個曾被震動的 sprite 放回它被震動前的 offset / rotation。
+func _restore_jitter_baseline(node: Node2D) -> void:
+	if not is_instance_valid(node):
+		return
+	var key: int = node.get_instance_id()
+	if not _jitter_baselines.has(key):
+		return
+	var base: Dictionary = _jitter_baselines[key]
+	node.set("offset", base.get("offset", Vector2.ZERO))
+	node.rotation_degrees = float(base.get("rotation", 0.0))
 
 
 func _restore_entries() -> void:
@@ -378,15 +488,17 @@ func _restore_entries() -> void:
 		if anim_player:
 			# hitstop 期間速度被設為 0，結束時還原原本的播放速度。
 			anim_player.speed_scale = float(entry.get("anim_player_speed", 1.0))
+		# 【只還原我們動過的東西】speed_scale 與震動用的 offset / rotation。
+		# 舊版連 `frame` / `position` 也一併還原 —— 但那兩個是動畫軌道在寫的，
+		# 快照又是在「沖洗受擊姿勢之前」取的，於是 hitstop 結束的那一幀會把
+		# 受擊者的 sprite 倒回被打前的格數，閃一下才被動畫改回來。
 		if anim_sprite:
 			anim_sprite.speed_scale = float(entry.get("anim_sprite_speed", 1.0))
-			anim_sprite.frame = int(entry.get("anim_sprite_frame", 0))
-			anim_sprite.offset = entry.get("anim_sprite_offset", Vector2.ZERO) as Vector2
-			anim_sprite.position = entry.get("anim_sprite_position", Vector2.ZERO) as Vector2
-			anim_sprite.rotation_degrees = float(entry.get("anim_sprite_rotation", 0.0))
-		if sprite:
-			sprite.offset = entry.get("sprite_offset", Vector2.ZERO) as Vector2
-			sprite.position = entry.get("sprite_position", Vector2.ZERO) as Vector2
+			if bool(entry.get("jitter", false)):
+				anim_sprite.offset = entry.get("base_anim_sprite_offset", Vector2.ZERO) as Vector2
+				anim_sprite.rotation_degrees = float(entry.get("anim_sprite_rotation", 0.0))
+		if sprite and bool(entry.get("jitter", false)):
+			sprite.offset = entry.get("base_sprite_offset", Vector2.ZERO) as Vector2
 			sprite.rotation_degrees = float(entry.get("sprite_rotation", 0.0))
 
 		# AnimationTree 在 hitstop 時被切到手動模式（MANUAL），結束時還原本來的
