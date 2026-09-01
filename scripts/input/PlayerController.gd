@@ -398,6 +398,9 @@ static func resolve_attack_type(d: Dictionary) -> String:
 	if dp_pressed and character_id == "DAV": return "dp"
 	if spm1_pressed and character_id == "DEN": return "spnk"
 	if spm3_pressed and character_id == "DEN": return "hdk"
+	# 🔴 【WOO 一鍵招式】spmove1 → 214K、spmove3 → 623K（與 DAV/DEN 的快捷鍵分流對齊）
+	if spm1_pressed and character_id == "WOO": return "214K"
+	if spm3_pressed and character_id == "WOO": return "623K"
 	if fireballL_pressed: return "fireballL"
 	if fireballM_pressed: return "fireballM"
 	if fireballH_pressed: return "fireballH"
