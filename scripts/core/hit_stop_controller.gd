@@ -4,7 +4,16 @@ extends Node
 ## 専門 Hitstop 管理器。
 ##
 ## 這不是全域時間停止（Engine.time_scale = 0），而是「角色動畫與視覺解耦」：
-## - 只暫停參與打擊的角色的 AnimationPlayer / AnimatedSprite2D（speed_scale = 0）。
+## - 角色動畫由 AnimationTree（狀態機）驅動 AnimationPlayer 播放。Godot 官方文件
+##   明載：AnimationTree 接管後，AnimationPlayer 自身的播放屬性（含 speed_scale）
+##   不會生效 —— 因此真正用來定格的是把 AnimationTree 的 callback_mode_process
+##   切到 MANUAL：保持 active=true，狀態機節點身分、travel 目標與條件參數全部
+##   保留，只是不再自動推進動畫時間。
+## - AnimationPlayer / AnimatedSprite2D 的 speed_scale = 0 仍會一併設下，
+##   覆蓋繞過 AnimationTree 直接播放的場合（例如 landing）。
+## - 凍結開始時對每個凍結的 AnimationTree 做 advance(0)：把 take_hit() 已排定
+##   的 travel（受擊 / 格擋動畫）以 delta=0 立即套用 —— 讓 hitstop 期間雙方
+##   定格在「打中瞬間／受擊反應第 0 格」，而不是 hitstop 結束後才切進動畫。
 ## - 只在 Sprite / AnimatedSprite 的 offset / rotation 上做像素級微震動。
 ## - 不修改 CharacterBody2D 的 position / velocity，因此不影響 Hitbox / Hurtbox。
 ## - 背景、粒子特效、UI 全部維持正常時間運行。
@@ -25,10 +34,14 @@ const LOG_TAG := "[HITSTOP]"
 @export var freeze_attacker: bool = true
 ## 受擊者動畫是否要定格
 @export var freeze_defender: bool = true
-## 是否將 AnimationPlayer 的 speed_scale 設為 0
+## 是否將 AnimationPlayer 的 speed_scale 設為 0（覆蓋繞過 AnimationTree 的直接播放）
 @export var freeze_animation_player: bool = true
 ## 是否將 AnimatedSprite2D 的 speed_scale 設為 0（若角色直接使用 AnimatedSprite2D）
 @export var freeze_animated_sprite: bool = true
+## 是否把 AnimationTree 切到手動模式（MANUAL）凍結。
+## 這才是 Tree 驅動動畫（本專案的標準配置）的真正定格開關；關閉的話
+## AnimationTree 會繼續推進動畫，hitstop 將完全沒有「定格」的視覺效果。
+@export var freeze_animation_tree: bool = true
 
 # ═══════════════════════════════════════════════════════════════════
 # 視覺微震動（Visual Jitter）
@@ -112,6 +125,12 @@ func begin_hitstop(attacker: Node, defender: Node) -> bool:
 			if is_instance_valid(p) and p != null:
 				_register_actor(p, true, true)
 
+	# ── 凍結開始：立刻把「打中瞬間／受擊反應」的姿勢套用到位 ──
+	# take_hit() 只是把狀態機的 travel 排進佇列，真正換姿勢要等 AnimationTree
+	# 下一次 process。若不在凍結時沖洗一次，sprite 會停在舊姿勢、直到 hitstop
+	# 結束才切進受擊動畫 —— 這正是舊版「hitstop 完全沒有感覺」的成因之一。
+	_apply_frozen_poses()
+
 	if pause_frame_counter:
 		_pause_frame_counter()
 
@@ -176,6 +195,7 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 	# 先快照原本的動畫速度 / 狀態，再凍結動畫。快照必須在改動之前取得，
 	# 否則 hitstop 結束時會把 speed_scale 還原成 0。
 	var anim_player_speed: float = anim_player.speed_scale if anim_player else 1.0
+	var anim_tree_process: int = anim_tree.callback_mode_process if anim_tree else AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
 	var anim_tree_active: bool = anim_tree.active if anim_tree else true
 	var anim_sprite_speed: float = anim_sprite.speed_scale if anim_sprite else 1.0
 	var anim_sprite_frame: int = anim_sprite.frame if anim_sprite else 0
@@ -187,10 +207,16 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 	var sprite_rotation: float = sprite.rotation_degrees if sprite else 0.0
 
 	# 凍結動畫。放在 Dictionary/Array 記錄之前，確保即使後續記錄失敗動畫仍然停住。
+	if freeze_animation and anim_tree:
+		# 動畫實際由 AnimationTree 驅動：把 mixer 切到手動模式（MANUAL）才是真正的定格。
+		# 刻意保持 active=true、不動狀態機內部 —— 節點身分、travel 目標與條件參數
+		# 全部保留，只是不再自動推進；結束時還原本來的 process mode。
+		# （單把 AnimationPlayer.speed_scale 設 0 對 Tree 驅動的播放無效，見檔頭說明。）
+		if freeze_animation_tree:
+			anim_tree.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	if freeze_animation and anim_player:
-		# 只凍結「可見播放速度」，不讓 AnimationTree.active=false：
-		# StateMachine 仍要正常推進攻擊/受擊狀態與 hitbox 啟用時機，
-		# 否則攻擊會重複判定、角色狀態層與動畫層會分岔。
+		# 覆蓋繞過 AnimationTree、直接用 AnimationPlayer 播放的場合（例如 landing）。
+		# 只凍結「可見播放速度」，讓 hitstop 結束時能從凍結點無縫繼續。
 		anim_player.speed_scale = 0.0
 	if freeze_animation and anim_sprite:
 		# Godot 4 的 AnimatedSprite2D 沒有 `playing` 屬性（Godot 3 遺留），
@@ -206,6 +232,7 @@ func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
 		"anim_sprite": anim_sprite,
 		"sprite": sprite,
 		"anim_player_speed": anim_player_speed,
+		"anim_tree_process": anim_tree_process,
 		"anim_tree_active": anim_tree_active,
 		"anim_sprite_speed": anim_sprite_speed,
 		"anim_sprite_frame": anim_sprite_frame,
@@ -233,6 +260,24 @@ func _should_jitter(actor: Node) -> bool:
 		2:
 			return actor == _attacker
 	return false
+
+
+## 凍結開始時的一次性「姿勢沖洗」：
+## 以 delta=0 推進每個凍結的 AnimationTree 一次 —— 不推進任何動畫時間，只把
+## 已排定的 travel / 切換套用到位：
+## - 受擊者：take_hit() 已把狀態機推往 hit / cr_hit / block / knockfly，
+##   沖洗後 sprite 立即停在受擊（或格擋）動畫的第 0 格。
+## - 攻擊者：重新套用打中瞬間的當前姿勢（位置不動，只是確保定格）。
+func _apply_frozen_poses() -> void:
+	for entry in _entries:
+		if not bool(entry.get("freeze", false)):
+			continue
+		var anim_tree = entry.get("anim_tree") as AnimationTree
+		if anim_tree and anim_tree.active \
+				and anim_tree.callback_mode_process == AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL:
+			# MANUAL 模式下 advance() 是唯一的推進入口（引擎的 _notification 會跳過
+			# MANUAL 的 mixer）；delta = 0 代表「只套用、不前進」。
+			anim_tree.advance(0.0)
 
 
 func _apply_jitter() -> void:
@@ -312,6 +357,9 @@ func _restore_actor_defaults(player: Node) -> void:
 	if anim_player:
 		anim_player.speed_scale = 1.0
 	if anim_tree:
+		# 防呆：快照遺失時若 tree 還停在凍結用的 MANUAL，退回場景預設的 IDLE。
+		if anim_tree.callback_mode_process == AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL:
+			anim_tree.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
 		anim_tree.active = true
 	if anim_sprite:
 		anim_sprite.speed_scale = 1.0
@@ -341,9 +389,12 @@ func _restore_entries() -> void:
 			sprite.position = entry.get("sprite_position", Vector2.ZERO) as Vector2
 			sprite.rotation_degrees = float(entry.get("sprite_rotation", 0.0))
 
-		# AnimationTree 在 hitstop 時被設為 inactive，結束時一律恢復啟用。
+		# AnimationTree 在 hitstop 時被切到手動模式（MANUAL），結束時還原本來的
+		# process mode，讓狀態機從凍結點無縫繼續（travel 目標與節點身分都沒丟過）。
 		var anim_tree = entry.get("anim_tree") as AnimationTree
 		if anim_tree:
+			anim_tree.callback_mode_process = int(entry.get(
+				"anim_tree_process", AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE))
 			anim_tree.active = true
 
 

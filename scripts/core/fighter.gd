@@ -438,6 +438,16 @@ func take_hit(
 				hit_push_velocity = hit_push_initial_velocity
 				# 不在這裡設置 knockback_start_time，讓 PushManager 首次執行時記錄
 
+		# 🟢 【關鍵】普通受擊也要立刻把狀態機推向受擊動畫：
+		# 格擋 / knockfly 分支本來就會呼叫 _update_animation_state，唯獨普通受擊
+		# 漏掉了 —— 結果 sprite 在 hitstop 期間一直停在被打前的舊姿勢，要等
+		# hitstop 結束、_physics_process 恢復後才切進 hit / cr_hit，完全沒有
+		# 「定格在受擊幀」的感覺。這裡把 travel 排進佇列（is_hit 已為 true，
+		# compute_target_state 會選對受擊動畫）；真正套用由 HitStopController
+		# 凍結時的 advance(0)（delta=0 沖洗）完成，sprite 會停在受擊動畫第 0 格、
+		# 直到 hitstop 結束才開始播放。
+		_update_animation_state(0, input_data.crouch_pressed)
+
 func take_knockfly() -> void:
 	var move_set = $MoveSet if has_node("MoveSet") else null
 	var is_spmove = move_set and move_set.is_spmove
