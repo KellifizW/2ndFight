@@ -19,6 +19,9 @@ class MoveData:
 	var move_distance: float
 	var jump_delay: float
 	var jump_speed: float
+	## 出招者是否會升空（SpecialMoveData.caster_jump_enabled）。
+	## 為 true 時：升空期間鎖定招式動畫，timer 結束若仍在空中也不提前結束招式。
+	var caster_jump_enabled: bool = false
 	var is_freeze: bool
 	var is_projectile: bool
 	var gravity: float = 0.0
@@ -39,6 +42,10 @@ class MoveData:
 	# Multi-hit parameters (for moves like 100p)
 	var is_multi_hit: bool = false
 	var hit_phases: Array = []  # Array of Dictionaries: {frame, damage, hitstun, blockstun, knockback}
+
+	## 此招是否會令出招者離地（Inspector 勾選 caster_jump，或舊資料 jump_speed≠0）。
+	func is_caster_airborne_move() -> bool:
+		return caster_jump_enabled or jump_speed != 0.0
 
 	func _init(
 		p_name: String,
@@ -220,6 +227,11 @@ func _smd_to_move_data(res: Resource) -> MoveData:
 		md.projectile_speed = res.get("projectile_speed")
 	if "knockfly_force_enable" in res:
 		md.knockfly_force_enable = res.get("knockfly_force_enable")
+	# 出招者升空旗標：Inspector 勾選 caster_jump_enabled，或舊資料有 jump_speed/jump_delay
+	if "caster_jump_enabled" in res:
+		md.caster_jump_enabled = bool(res.get("caster_jump_enabled"))
+	elif md.jump_speed != 0.0 or md.jump_delay > 0.0:
+		md.caster_jump_enabled = true
 	return md
 
 ## export_var 優先；若為 null 則從 fallback_path 載入
@@ -615,14 +627,16 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 		push_warning("World node missing")
 		return false
 	
-	# 🔴 【特殊招式jump保護】即使被擊中也要執行jump邏輯（只針對jump_delay > 0的招式）
-	if is_spmove and current_move_state.active_move and current_move_state.active_move.jump_delay > 0:
+	# 🔴 【特殊招式 jump 保護】出招者升空招（caster_jump_enabled 或 jump_speed≠0）
+	# 即使被擊中也要執行 jump 邏輯；不再硬編碼只看 jump_delay > 0
+	if is_spmove and current_move_state.active_move and current_move_state.active_move.is_caster_airborne_move():
 		# 只在尚未跳躍時才記錄日誌，避免每幀狂刷
 		if not current_move_state.has_jumped:
 			var _move_name_log = current_move_state.active_move.name
 			var _seat_log = parent.seat if "seat" in parent else "?"
-			Debug.log("[DP_PROCESS_JUMP_CALLED] %s: %s | jump_delay=%.2f | jump_timer=%.3f" % [
-				_seat_log, _move_name_log, current_move_state.active_move.jump_delay, current_move_state.jump_timer
+			Debug.log("[DP_PROCESS_JUMP_CALLED] %s: %s | jump_delay=%.2f | jump_timer=%d | caster_jump=%s" % [
+				_seat_log, _move_name_log, current_move_state.active_move.jump_delay, current_move_state.jump_timer,
+				current_move_state.active_move.caster_jump_enabled
 			])
 		_process_jump(delta, world, current_move_state.active_move)
 	
@@ -726,7 +740,16 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	
 	# Check if move is finished
 	if current_move_state.timer <= 0:
-		stop_special_move()
+		# 升空招：timer 結束但人還在空中 → 延長招式狀態，鎖定招式動畫直到落地。
+		# 否則 is_spmove 一清掉，is_jumping 會立刻把動畫切成 Jump_*（WOO 623K 的 bug）。
+		if _should_defer_stop_while_airborne():
+			current_move_state.timer = 1  # 維持 is_spmove，下一幀再檢查落地
+			Debug.log("[SPMOVE_AIR_EXTEND] %s: '%s' timer ended but still airborne — keep special until landing" % [
+				parent.seat if "seat" in parent else "?",
+				move.name if move else "?"
+			])
+		else:
+			stop_special_move()
 	
 	return true
 
@@ -994,12 +1017,35 @@ func _process_jump(_delta: float, world: Node, move: MoveData) -> void:
 		parent.fixed_velocity.y = int(move.jump_speed * scale)
 		parent.fixed_position.y = world.FLOOR_Y - 1 if world else 199999
 		parent.is_jumping = true
+		# 升空瞬間也設 just_jumped，避免同幀 GravityHandler / LandingHandler 把速度清零
+		if "just_jumped" in parent:
+			parent.just_jumped = true
 		current_move_state.has_jumped = true
-		Debug.log("[DP_JUMP_TRIGGERED] %s: %s | velocity.y=%d | is_on_floor=%s" % [seat, move_name, parent.fixed_velocity.y, parent.is_on_floor()])
+		Debug.log("[DP_JUMP_TRIGGERED] %s: %s | velocity.y=%d | is_on_floor=%s | caster_jump=%s" % [
+			seat, move_name, parent.fixed_velocity.y, parent.is_on_floor(),
+			move.caster_jump_enabled if move else false
+		])
 	elif timer_ready and current_move_state.has_jumped:
 		pass  # Already jumped
 	elif current_move_state.jump_timer > 0 and not current_move_state.has_jumped:
 		pass  # Waiting for jump timer
+
+## 升空招 timer 結束後、人還在空中時，暫緩 stop_special_move。
+func _should_defer_stop_while_airborne() -> bool:
+	if not current_move_state or not current_move_state.active_move:
+		return false
+	if not current_move_state.active_move.is_caster_airborne_move():
+		return false
+	if not current_move_state.has_jumped:
+		return false
+	# 已落地則可正常結束
+	if parent.has_method("is_on_floor") and parent.is_on_floor():
+		return false
+	var world = get_tree().get_first_node_in_group("world") if get_tree() else null
+	var floor_y = world.FLOOR_Y if world else 200000
+	if "fixed_position" in parent and parent.fixed_position.y >= floor_y and parent.fixed_velocity.y >= 0:
+		return false
+	return true
 
 func _apply_gravity(delta: float, world: Node, gravity: float) -> void:
 	if parent.fixed_position.y < world.FLOOR_Y:
@@ -1020,6 +1066,12 @@ func _on_spmove_animation_finished(anim_name: String) -> void:
 			current_move_state.timer if current_move_state else -1,
 			parent.character_id if parent and "character_id" in parent else "?"])
 	if is_spmove_animation_playing and anim_name in move_library:
+		# 升空招：動畫播完但人還在空中 → 不結束特殊狀態、不解除 is_special_moving。
+		# 否則 is_jumping 會把動畫鎖打開並切成 Jump_*（與 Player 動畫結束路徑一致）。
+		if _should_defer_stop_while_airborne():
+			Debug.log("[ANIM_FINISHED_SPMOVE] defer stop — caster still airborne on '%s'" % anim_name)
+			return
+
 		is_spmove_animation_playing = false
 		if "is_special_moving" in parent:
 			parent.is_special_moving = false

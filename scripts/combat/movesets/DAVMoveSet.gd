@@ -53,10 +53,12 @@ func _initialize_move_library() -> void:
 		)
 
 	# ── 升龍拳（dp generic fallback 常駐，讓 start_dp() 有基礎條目）──
-	move_library["dp"] = MoveData.new(
+	var _dp_fallback = MoveData.new(
 		"dp", "DAV", 5.0, 100.0, 47.0, 40.0, 4.0, -2100.0, false, false, 7200000.0, "special", true, "none", 0.0, 0.0, 0.0,
 		10000000.0, -3200.0, 20.0, 39, 23, false, []
 	)
+	_dp_fallback.caster_jump_enabled = true
+	move_library["dp"] = _dp_fallback
 	_md = _load_smd(smd_dp, "res://data/specials/dav_dp.tres")
 	if _md: move_library[_md.name] = _md
 

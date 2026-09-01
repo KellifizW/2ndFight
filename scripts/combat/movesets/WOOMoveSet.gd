@@ -30,11 +30,14 @@ func _initialize_move_library() -> void:
 			"214K", "WOO", 8.0, 80.0, 0.0, 0.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20, 12, false, []
 		)
 
-	# ── 623K（623 + 任意腳）──────────────────────────────
+	# ── 623K（623 + 任意腳，升空飛踢）────────────────────
 	_md = _load_smd(smd_623K, "res://data/specials/woo_623K.tres")
 	if _md:
 		move_library[_md.name] = _md
 	else:
-		move_library["623K"] = MoveData.new(
-			"623K", "WOO", 10.0, 120.0, 0.0, 0.0, 0.0, 0.0, false, false, 0.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 24, 14, false, []
+		# 後備：duration 0 = 自動同步動畫；jump_delay/jump_speed 對應 caster jump
+		var _fallback_623k = MoveData.new(
+			"623K", "WOO", 30.0, 200.0, 0.0, 300.0, 6.0, -1500.0, false, false, 6000000.0, "special", false, "none", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 24, 14, false, []
 		)
+		_fallback_623k.caster_jump_enabled = true
+		move_library["623K"] = _fallback_623k

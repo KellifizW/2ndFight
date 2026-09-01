@@ -19,13 +19,18 @@ func handle_gravity(delta: float, move_set) -> void:
 	# 🟢 【修正】地面時清除垂直速度 - 但DP等特殊招式期間不清零
 	if not movement_node.is_knockfly and movement_node.jump_delay_timer <= 0 and movement_node.is_on_floor():
 		if not movement_node.just_jumped:
-			# 檢查是否在特殊招式的跳躍階段
+			# 檢查是否在特殊招式的跳躍階段（任何 caster-jump 招，不靠招式名白名單）
 			var in_special_jump = false
 			if move_set and move_set.is_spmove and move_set.current_move_state.active_move:
-				var move_name = move_set.current_move_state.active_move.name
-				if (move_name.begins_with("dp") or move_name in ["hdk", "powerkk", "super"]) and movement_node.is_jumping:
+				var active = move_set.current_move_state.active_move
+				var is_caster_air = false
+				if active.has_method("is_caster_airborne_move"):
+					is_caster_air = active.is_caster_airborne_move()
+				else:
+					is_caster_air = ("caster_jump_enabled" in active and active.caster_jump_enabled) or ("jump_speed" in active and active.jump_speed != 0.0)
+				if is_caster_air and movement_node.is_jumping:
 					in_special_jump = true
-					Debug.log("[GRAVITY_SKIP] %s 在%s期間跳過速度清零 | velocity.y=%d" % [movement_node.name, move_name, movement_node.fixed_velocity.y])
+					Debug.log("[GRAVITY_SKIP] %s 在%s期間跳過速度清零 | velocity.y=%d" % [movement_node.name, active.name, movement_node.fixed_velocity.y])
 			
 			if not in_special_jump:
 				movement_node.fixed_velocity.y = 0
