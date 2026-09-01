@@ -59,7 +59,12 @@ func run() -> bool:
 	var frames_in_hitstop: int = 0
 	while slowmo.is_hit_slowmo and frames_in_hitstop < HITSTOP_FRAMES * 3:
 		await await_frames(1)
+		if not slowmo.is_hit_slowmo:
+			break  # 這一幀已經解凍，之後的動作屬於正常恢復，不再套用定格斷言
 		frames_in_hitstop += 1
+		check(abs(px(attacker) - attacker_x_at_freeze) < 1.0,
+			"定格期間攻擊方不應該繼續前衝（第 %d 幀，%.2f → %.2f）"
+			% [frames_in_hitstop, attacker_x_at_freeze, px(attacker)])
 		check(int(attacker.debug_attack_execution_count) == attacks_before + 1,
 			"定格期間不得再出招（第 %d 幀，count=%d）"
 			% [frames_in_hitstop, attacker.debug_attack_execution_count])
@@ -74,9 +79,6 @@ func run() -> bool:
 	check(defender_offsets.size() > 1,
 		"受擊方 sprite 應該有震抖（jitter_target = Defender only，實測 %d 種 offset）"
 		% defender_offsets.size())
-	check(abs(px(attacker) - attacker_x_at_freeze) < 1.0,
-		"定格期間攻擊方不應該繼續前衝（%.2f → %.2f）"
-		% [attacker_x_at_freeze, px(attacker)])
 
 	# ── 定格結束後再觀察 90 幀：不得有第二次出招／第二次命中 ──
 	for i in 90:

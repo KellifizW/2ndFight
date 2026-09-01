@@ -56,10 +56,14 @@ func run() -> bool:
 	# 【角色分工】p1 = player_a（DAV）按 st_mp 出招 → 攻擊者；
 	#            p2 = player_b（DEN）被打中 → 受擊者。
 	# （舊版這裡把兩者寫反，於是斷言一直拿攻擊者的 sprite 去比 "hit"。）
+	# DEN 的受擊動畫有多個變體（hit / hitb / hitc / cr_hit），由 take_hit 依
+	# 攻擊強度與姿勢挑選 —— 這裡只在意「已經切進某個受擊動畫」。
+	var hit_anims := [&"hit", &"hitb", &"hitc", &"cr_hit"]
 	var defender_sprite := p2.get_node("AnimatedSprite2D") as AnimatedSprite2D
-	check(defender_sprite.animation == &"hit",
-		"Defender sprite should already show the hit animation during hitstop, got '%s'"
-		% defender_sprite.animation)
+	var defender_hit_anim: StringName = defender_sprite.animation
+	check(defender_hit_anim in hit_anims,
+		"Defender sprite should already show a hit animation during hitstop, got '%s'"
+		% defender_hit_anim)
 	check(defender_sprite.frame == 0,
 		"Defender should be frozen on hit animation frame 0, got %d" % defender_sprite.frame)
 
@@ -83,8 +87,8 @@ func run() -> bool:
 		check(attacker_sprite.offset == att_offset_at_hitstop_start,
 			"Attacker sprite must not jitter during hitstop (%s → %s)" % [
 				att_offset_at_hitstop_start, attacker_sprite.offset])
-		check(defender_sprite.animation == &"hit" and defender_sprite.frame == 0,
-			"Defender must stay on hit animation frame 0 during hitstop, got %s/%d"
+		check(defender_sprite.animation == defender_hit_anim and defender_sprite.frame == 0,
+			"Defender must stay on the hit animation frame 0 during hitstop, got %s/%d"
 			% [defender_sprite.animation, defender_sprite.frame])
 
 	var hitstop_ended: bool = await wait_until(
@@ -121,7 +125,7 @@ func run() -> bool:
 		"Hit animation should start playing after hitstop ends (frame stuck at %d)"
 		% frozen_frame)
 	if advanced:
-		check(defender_sprite.animation == &"hit",
+		check(defender_sprite.animation == defender_hit_anim,
 			"Hit animation should keep playing after hitstop, got '%s'"
 			% defender_sprite.animation)
 
