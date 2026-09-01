@@ -204,7 +204,9 @@ func get_input_data() -> Dictionary:
 	var spm3_pressed  = input_buffer.is_input_buffered("spmove3")
 	var super_pressed = input_buffer.is_input_buffered("super")
 	var dp_pressed    = false
-	
+	# 🔴 【WOO 新招】214K / 623K 標誌（由 buffer 偵測結果設置）
+	var sp214k_pressed = false
+	var sp623k_pressed = false
 	# === 檢查 buffer 中的特殊招式（優先級最高）===
 	var fireball_buffered = input_buffer.is_input_buffered("fireball")
 	var fireballL_buffered = input_buffer.is_input_buffered("fireballL")
@@ -221,6 +223,10 @@ func get_input_data() -> Dictionary:
 	
 	# 🔴 【新增 100p 檢查】CRUCIAL: 100p must be checked and buffered
 	var move_100p_buffered = input_buffer.is_input_buffered("100p")
+	
+	# 🔴 【WOO 新招】214K / 623K（214/623 + 任意腳）檢查
+	var sp214k_buffered = input_buffer.is_input_buffered("214K")
+	var sp623k_buffered = input_buffer.is_input_buffered("623K")
 	
 	# DEBUG: 每幀顯示 100p buffer 狀態
 	if move_100p_buffered:
@@ -250,6 +256,16 @@ func get_input_data() -> Dictionary:
 		st_mp_pressed = false
 		st_lp_pressed = false
 		st_hp_pressed = false
+	if sp214k_buffered:
+		sp214k_pressed = true
+		st_lk_pressed = false  # 清除腳按鈕，防止同時觸發普通攻擊
+		st_mk_pressed = false
+		st_hk_pressed = false
+	if sp623k_buffered:
+		sp623k_pressed = true
+		st_lk_pressed = false
+		st_mk_pressed = false
+		st_hk_pressed = false
 	
 	# 🔴 【新增】Handle 100p buffered input (DAV only, multi-hit punch)
 	if move_100p_buffered:
@@ -275,6 +291,8 @@ func get_input_data() -> Dictionary:
 		"spm2_pressed": spm2_pressed,
 		"spm3_pressed": spm3_pressed,
 		"dp_pressed": dp_pressed,
+		"sp214k_pressed": sp214k_pressed,
+		"sp623k_pressed": sp623k_pressed,
 		"fireballL_pressed": fireballL_buffered,
 		"fireballM_pressed": fireballM_buffered,
 		"fireballH_pressed": fireballH_buffered,
@@ -319,6 +337,8 @@ func get_input_data() -> Dictionary:
 		"spm3_pressed": spm3_pressed,
 		"super_pressed": super_pressed,
 		"dp_pressed": dp_pressed,
+		"sp214k_pressed": sp214k_pressed,
+		"sp623k_pressed": sp623k_pressed,
 		"dash_pressed": dash_pressed,
 		"backdash_pressed": backdash_pressed,
 		"100p_pressed": move_100p_buffered  # 🔴 【新增】 Return 100p flag to MoveSet
@@ -355,6 +375,8 @@ static func resolve_attack_type(d: Dictionary) -> String:
 	var spm2_pressed: bool = bool(d.get("spm2_pressed", false))
 	var spm3_pressed: bool = bool(d.get("spm3_pressed", false))
 	var dp_pressed: bool = bool(d.get("dp_pressed", false))
+	var sp214k_pressed: bool = bool(d.get("sp214k_pressed", false))
+	var sp623k_pressed: bool = bool(d.get("sp623k_pressed", false))
 	var fireballL_pressed: bool = bool(d.get("fireballL_pressed", false))
 	var fireballM_pressed: bool = bool(d.get("fireballM_pressed", false))
 	var fireballH_pressed: bool = bool(d.get("fireballH_pressed", false))
@@ -380,6 +402,8 @@ static func resolve_attack_type(d: Dictionary) -> String:
 	if fireballM_pressed: return "fireballM"
 	if fireballH_pressed: return "fireballH"
 	if spm2_pressed: return "fireball"
+	if sp623k_pressed: return "623K"
+	if sp214k_pressed: return "214K"
 	if st_hp_pressed: return "st_hp"
 	if st_mp_pressed: return "st_mp"
 	if st_lp_pressed: return "st_lp"

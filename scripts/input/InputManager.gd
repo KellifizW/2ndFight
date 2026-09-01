@@ -34,7 +34,9 @@ const SPECIAL_INPUT_RESOURCES: Array[String] = [
 	"res://data/specials/inputs/spnk_input.tres",
 	"res://data/specials/inputs/dp_input.tres",
 	"res://data/specials/inputs/hdk_input.tres",
-	"res://data/specials/inputs/100p_input.tres"
+	"res://data/specials/inputs/100p_input.tres",
+	"res://data/specials/inputs/214K_input.tres",
+	"res://data/specials/inputs/623K_input.tres"
 ]
 
 var special_input_registry: Dictionary = {}
@@ -240,6 +242,8 @@ func check_fireball_input() -> bool: return check_motion_for("fireball")
 func check_powerkk_input() -> bool:  return check_motion_for("powerkk")
 func check_spnk_input()    -> bool:  return check_motion_for("spnk")
 func check_hdk_input()     -> bool:  return check_motion_for("hdk")
+func check_214K_input()    -> bool:  return check_motion_for("214K")
+func check_623K_input()    -> bool:  return check_motion_for("623K")
 
 func check_dp_input() -> bool:
 	var motion = _get_motion_for("dp")
@@ -421,7 +425,7 @@ func check_motion(motion: Dictionary) -> bool:
 func detect_special_move() -> String:
 	"""
 	檢測所有可能的特殊招式，返回檢測到的招式名稱
-	優先級：super > DP > powerkk/100p > spnk > fireball/hdk
+	優先級：super > DP > 623K/214K(WOO) > powerkk/100p > spnk > fireball/hdk
 	"""
 	# Prevent double-detection in same frame
 	if last_detection_frame == Engine.get_physics_frames():
@@ -480,6 +484,18 @@ func detect_special_move() -> String:
 			Debug.log("[DETECT_SPECIAL] DP detected → %s (strength=%s | %s)" % [dp_variant, strength, _dp_avail_debug])
 			detected_special_this_frame = dp_variant
 			return dp_variant
+	
+	# 【WOO 新招】623K（623 + 任意輕/中/重腳）- WOO only
+	if can_use_special.call("623K") and check_623K_input():
+		Debug.log("[DETECT_SPECIAL] 623K detected (WOO kick special)")
+		detected_special_this_frame = "623K"
+		return "623K"
+	
+	# 【WOO 新招】214K（214 + 任意輕/中/重腳）- WOO only
+	if can_use_special.call("214K") and check_214K_input():
+		Debug.log("[DETECT_SPECIAL] 214K detected (WOO kick special)")
+		detected_special_this_frame = "214K"
+		return "214K"
 	
 	# 【新增】100p 多段連打（236+MK）- DAV only
 	if character_id == "DAV" and can_use_special.call("100p") and check_100p_input():

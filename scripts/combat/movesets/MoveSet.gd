@@ -451,6 +451,14 @@ func start_dp_variant(variant: String) -> void:
 func start_hdk() -> void:
 	_start_special("hdk")
 
+func start_214K() -> void:
+	# 🔴 【WOO 新招】214K（214 後半圈 + 任意腳）
+	_start_special("214K")
+
+func start_623K() -> void:
+	# 🔴 【WOO 新招】623K（623 升龍系 + 任意腳）
+	_start_special("623K")
+
 func start_fireball() -> void:
 	var _frame = Engine.get_physics_frames()
 	var _seat = parent.seat if "seat" in parent else "?"
@@ -628,10 +636,12 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 	# But special moves (spm2_pressed, dp_pressed, spm1_pressed, super_pressed) should still be allowed
 	# Check if there's any special move input that should bypass landing lock
 	var has_special_move_input = (input_data.get("spm2_pressed", false) or 
-								   input_data.get("spm1_pressed", false) or 
-								   input_data.get("spm3_pressed", false) or 
-								   input_data.get("dp_pressed", false) or 
-								   input_data.get("super_pressed", false))
+								input_data.get("spm1_pressed", false) or 
+								input_data.get("spm3_pressed", false) or 
+								input_data.get("dp_pressed", false) or 
+								input_data.get("super_pressed", false) or
+								input_data.get("sp214k_pressed", false) or
+								input_data.get("sp623k_pressed", false))
 	
 	var can_process_special_input = has_special_move_input and parent.is_on_floor()
 	
@@ -774,6 +784,20 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 					controller.consume_button_input("st_mk")
 				start_hdk()
 				return true
+		elif ai_variant == "214K" or ai_variant == "623K":
+			# 🔴 【WOO 新招】AI 直接請求 214K / 623K（不需手動輸入方向）
+			if not parent.is_attacking and not is_spmove:
+				if controller:
+					controller.consume_button_input(ai_variant)
+					# 消耗觸發用的腳按鈕（任意輕/中/重腳皆可觸發）
+					controller.consume_button_input("st_lk")
+					controller.consume_button_input("st_mk")
+					controller.consume_button_input("st_hk")
+				if ai_variant == "214K":
+					start_214K()
+				else:
+					start_623K()
+				return true
 	
 	if input_data.get("super_pressed", false) and not parent.is_attacking and not is_spmove:
 		# Consume the buffered input
@@ -791,6 +815,27 @@ func _handle_input(input_data: Dictionary, _world: Node) -> bool:
 			controller.consume_button_input("st_mp")
 			controller.consume_button_input("st_hp")
 		start_dp()
+		return true
+	
+	# 🔴 【WOO 新招】623K（623 + 任意輕/中/重腳）— WOO 專屬
+	if input_data.get("sp623k_pressed", false) and not parent.is_attacking and not is_spmove:
+		if controller and controller.has_method("consume_button_input"):
+			controller.consume_button_input("623K")  # 消耗招式緩衝
+			# 同時消耗觸發按鈕（任意腳），避免又觸發普通踢擊
+			controller.consume_button_input("st_lk")
+			controller.consume_button_input("st_mk")
+			controller.consume_button_input("st_hk")
+		start_623K()
+		return true
+	
+	# 🔴 【WOO 新招】214K（214 + 任意輕/中/重腳）— WOO 專屬
+	if input_data.get("sp214k_pressed", false) and not parent.is_attacking and not is_spmove:
+		if controller and controller.has_method("consume_button_input"):
+			controller.consume_button_input("214K")  # 消耗招式緩衝
+			controller.consume_button_input("st_lk")
+			controller.consume_button_input("st_mk")
+			controller.consume_button_input("st_hk")
+		start_214K()
 		return true
 	
 	if input_data.get("spm2_pressed", false) and not parent.is_attacking and not is_spmove:

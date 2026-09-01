@@ -56,7 +56,7 @@ const FIREBALL_JUMP_MIN_FRAMES: int = 16
 const FIREBALL_JUMP_MAX_FRAMES: int = 42
 const FIREBALL_FAR_DISTANCE: float = 280.0
 
-const SPECIAL_MOVE_ACTIONS = ["fireball", "fireballL", "fireballM", "fireballH", "spm2", "powerkk", "spnk", "hdk", "dp", "dpL", "dpM", "dpH", "100p", "super"]
+const SPECIAL_MOVE_ACTIONS = ["fireball", "fireballL", "fireballM", "fireballH", "spm2", "powerkk", "spnk", "hdk", "dp", "dpL", "dpM", "dpH", "100p", "super", "214K", "623K"]
 
 class Decision:
 	var layer: DecisionLayer

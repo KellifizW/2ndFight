@@ -847,6 +847,22 @@ func _action_to_input(action: String) -> Dictionary:
 				return _neutral_input()
 			input.spm3_pressed = true
 			input["ai_special_variant"] = action
+		"214K":
+			# 🔴 【WOO 新招】214 + 任意腳（WOO 專屬）
+			if parent.character_id != "WOO":
+				return _neutral_input()
+			if enable_move_restrictions and "214K" in restricted_moves:
+				return _neutral_input()
+			input["sp214k_pressed"] = true
+			input["ai_special_variant"] = action
+		"623K":
+			# 🔴 【WOO 新招】623 + 任意腳（WOO 專屬）
+			if parent.character_id != "WOO":
+				return _neutral_input()
+			if enable_move_restrictions and "623K" in restricted_moves:
+				return _neutral_input()
+			input["sp623k_pressed"] = true
+			input["ai_special_variant"] = action
 		# 🔴 【新增】DP 變體 (L/M/H)
 		"dpL", "dpM", "dpH":
 			if enable_move_restrictions and "dp" in restricted_moves:

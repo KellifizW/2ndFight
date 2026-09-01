@@ -184,8 +184,9 @@ func _spawn_fireball() -> void:
 # FighterState.GROUND_ATTACK_IDS / AIR_ATTACK_IDS（同一份清單，不再各抄一份）。
 const JUMP_ANIMS = ["jump_v", "Jump_V", "Jump_F", "Jump_B"]
 const SPECIAL_ANIMS = ["fireball", "powerkk", "spnk", "dp", "hdk",
-					   "fireballL", "fireballM", "fireballH",
-					   "dpL", "dpM", "dpH"]
+				   "fireballL", "fireballM", "fireballH",
+				   "dpL", "dpM", "dpH",
+				   "214K", "623K"]
 
 # ── 輸入輔助函數（取代 3 處重複的 6-button OR 檢查）──────────────────────────
 static func _has_any_input(d: Dictionary) -> bool:

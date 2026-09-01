@@ -187,7 +187,8 @@ var animation_conditions: Array = [
 	"Jump_F", "Jump_B", "Jump_V",
 	"hit", "knockfly", "block", "cr_block",
 	"powerkk", "spnk", "fireball", "100p",
-	"jump_mp", "jump_mk", "landing", "wakeup", "super", "dp", "hdk", "layground"
+	"jump_mp", "jump_mk", "landing", "wakeup", "super", "dp", "hdk", "layground",
+	"214K", "623K"
 ]
 
 var anim_resets: Dictionary = {
@@ -212,6 +213,7 @@ const ACTIONABLE_INPUT_KEYS: Array = [
 	"dp_pressed", "super_pressed",
 	"dash_pressed", "backdash_pressed",
 	"throw_pressed", "100p_pressed",
+	"sp214k_pressed", "sp623k_pressed",
 ]
 
 ## 這一幀的輸入字典裡是否含有任何「可執行動作」的輸入（含方向）。
