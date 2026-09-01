@@ -382,7 +382,8 @@ func _get_contact_point_internal(area: Area2D) -> Vector2:
 	return parent_player.get_contact_point(hitbox, area)
 
 func _spawn_hit_vfx(is_blocked: bool, contact: Vector2, target_on_floor: bool) -> void:
-	"""生成擊中特效；所有角色的中攻擊命中另加 hit_spark_m（遊戲全局特效）。"""
+	"""生成擊中特效；所有角色的普通攻擊（輕/中/重）命中時，依強度另加
+	hit_spark_l / hit_spark_m / hit_spark_h（遊戲全局特效）。"""
 	var vfx_type = "block" if is_blocked else "hit"
 	var adjusted_contact = contact
 	
@@ -393,18 +394,28 @@ func _spawn_hit_vfx(is_blocked: bool, contact: Vector2, target_on_floor: bool) -
 	var facing = parent_player.facing_direction if "facing_direction" in parent_player else 1.0
 	VFXImpact.spawn_vfx(world, vfx_type, adjusted_contact, facing)
 
-	# 只在真正命中（不是格擋）且攻擊是中攻擊時播放。hit_spark_m 是遊戲全局
-	# 特效：不再綁定 WOO，任何角色都適用 —— suffix 判斷涵蓋 st_mp / cr_mp /
-	# jump_mp 以及對應的 mk，同時自然排除輕攻擊與重攻擊。
-	if not is_blocked and _is_medium_attack():
-		VFXSmoke.spawn_animation(world, adjusted_contact, VFXSmoke.MEDIUM_HIT_ANIMATION, facing)
+	# 只在真正命中（不是格擋）且是普通攻擊時播放。hit_spark_l / hit_spark_m /
+	# hit_spark_h 是遊戲全局特效：不再綁定角色，任何角色都適用 —— 依 attack_type
+	# 的強度（l / m / h）選擇對應動畫，非普通攻擊（特殊招式等）不播放。
+	if not is_blocked:
+		var spark_animation: StringName = _get_hit_spark_animation()
+		if spark_animation != &"":
+			VFXSmoke.spawn_animation(world, adjusted_contact, spark_animation, facing)
 
-func _is_medium_attack() -> bool:
-	"""是否為「中攻擊」（*_mp / *_mk）——對所有角色一致的全局判定。"""
+func _get_hit_spark_animation() -> StringName:
+	"""依攻擊強度回傳對應的命中火花動畫：輕→hit_spark_l、中→hit_spark_m、
+	重→hit_spark_h。suffix 判斷涵蓋 st / cr / jump 的 lp/lk、mp/mk、hp/hk；
+	非普通攻擊（特殊招式、摔投等）回傳空 StringName 表示不播放。"""
 	if parent_player == null:
-		return false
+		return &""
 	var attack_type: String = str(parent_player.get("attack_type"))
-	return attack_type.ends_with("_mp") or attack_type.ends_with("_mk")
+	if attack_type.ends_with("_mp") or attack_type.ends_with("_mk"):
+		return VFXSmoke.MEDIUM_HIT_ANIMATION
+	if attack_type.ends_with("_lp") or attack_type.ends_with("_lk"):
+		return VFXSmoke.LIGHT_HIT_ANIMATION
+	if attack_type.ends_with("_hp") or attack_type.ends_with("_hk"):
+		return VFXSmoke.HEAVY_HIT_ANIMATION
+	return &""
 
 func _handle_corner_pushback(target: Node, stun_duration: float, knockback_distance: float = -1.0) -> void:
 	"""

@@ -38,7 +38,9 @@ class_name VFXSmoke
 ##   - `bdashsmoke`   後撤步煙 —— 仿照前衝煙，後衝（backdash）發動時播放
 ##   - `land_smoke`   著地煙 —— 遊戲全局：所有角色著地都會噴
 ##   - `vjumpsmoke`   跳起煙 —— 仿照著地煙，角色離地那一瞬間播放
+##   - `hit_spark_l`  輕攻擊命中火花 —— 遊戲全局：所有角色的 *_lp / *_lk 命中都播
 ##   - `hit_spark_m`  中攻擊命中火花 —— 遊戲全局：所有角色的 *_mp / *_mk 命中都播
+##   - `hit_spark_h`  重攻擊命中火花 —— 遊戲全局：所有角色的 *_hp / *_hk 命中都播
 ##
 ## 【要調每個角色特效的出現點】角色場景裡 `DashSmokePoint`（Marker2D）
 ##   的位置就是生成點；沒有 Marker 的角色，著地煙退回角色自身座標。
@@ -58,6 +60,10 @@ const VJUMP_ANIMATION: StringName = &"vjumpsmoke"
 ## 後撤步煙：後衝（backdash）發動時生成（bdashsmoke，仿照前衝煙 dashsmoke）。
 const BDASH_ANIMATION: StringName = &"bdashsmoke"
 const MEDIUM_HIT_ANIMATION: StringName = &"hit_spark_m"
+## 輕攻擊命中火花（hit_spark_l）：遊戲全局，所有角色的 *_lp / *_lk 命中都播。
+const LIGHT_HIT_ANIMATION: StringName = &"hit_spark_l"
+## 重攻擊命中火花（hit_spark_h）：遊戲全局，所有角色的 *_hp / *_hk 命中都播。
+const HEAVY_HIT_ANIMATION: StringName = &"hit_spark_h"
 var animation_name: StringName = ANIMATION
 
 ## 標記「世界場景裡的模板」。放在 world.tscn（VFXLayer/SmokeVFX）時勾選；
@@ -85,9 +91,10 @@ static func spawn(parent: Node, pos: Vector2, facing: float = 1.0) -> VFXSmoke:
 	return spawn_animation(parent, pos, ANIMATION, facing)
 
 ## Spawn one of the one-shot sprite-sheet animations stored in vfx.tscn
-## (smoke / land_smoke / hit_spark_m).  The instance is placed under the
-## world rather than the fighter so the effect stays at the point where the
-## event occurred — every character shares the same effect set (global VFX).
+## (smoke / land_smoke / hit_spark_l / hit_spark_m / hit_spark_h).  The
+## instance is placed under the world rather than the fighter so the effect
+## stays at the point where the event occurred — every character shares the
+## same effect set (global VFX).
 ##
 ## 優先複製 world.tscn 上的模板（編輯器所見即所得），沒有模板才退回
 ## 預載場景實例化。
