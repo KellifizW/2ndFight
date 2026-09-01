@@ -1,6 +1,28 @@
 # Hit Stop 延遲實現 - 功能文檔
 
-## 概述
+## 概述（2026-09 更新：解耦式 Hitstop）
+
+現行架構由 World 下的 `HitStopController` 全權負責定格，**不再修改 `Engine.time_scale`**：
+
+- Hit stop 期間（`hitstop_frames` 個物理幀，預設 8 幀 ≈ 66ms）：
+  - 雙方角色的 AnimationTree 被切到手動模式（`callback_mode_process = MANUAL`）——
+    角色動畫由 AnimationTree 驅動 AnimationPlayer 播放，此時 AnimationPlayer 自身的
+    `speed_scale` 不會生效（Godot 官方文件明載），MANUAL 才是真正的定格開關；
+    `AnimationPlayer` / `AnimatedSprite2D` 的 `speed_scale = 0` 仍一併設下，
+    覆蓋繞過 AnimationTree 的直接播放（如 landing）。
+  - `Fighter` / `Player` 的 `_physics_process` 早退，hitstun / blockstun / knockback
+    等幀數計數全部凍結。
+  - 背景、粒子特效、VFX、UI 維持正常時間運行。
+- 凍結開始當下，`HitStopController._apply_frozen_poses()` 會對每個凍結的
+  AnimationTree `advance(0)`（delta=0 沖洗）：把 `take_hit()` 已排定的 travel 立即
+  套用 —— **受擊者在 hitstop 期間就停在受擊／格擋動畫第 0 格，攻擊者定格在打中
+  瞬間的姿勢**；hitstop 結束後才從凍結點繼續播放。
+- Hit stop 結束：`hitstop_finished` → `SlowMoController` 廣播 `hit_slowmo_finished`
+  → `Fighter._on_hit_slowmo_finished()` 啟動被延遲的 hitstun/knockback/blockstun。
+
+> 以下為舊版（全域 time_scale 時代）的實現記錄，`pending_hit_params` /
+> `waiting_for_hit_stop_end` 的延遲啟動機制沿用至今。
+
 現在 **knockback、hitstun、blockstun 都會在 hit stop 效果完成後才真正開始計時**。
 
 這確保了更精確的遊戲感受：

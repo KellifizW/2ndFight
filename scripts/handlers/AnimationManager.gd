@@ -112,8 +112,10 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 		return
 	
 	# 🟢 Hitstop 期間不要重新呼叫動畫更新：
-	# HitStopController 會把 AnimationPlayer/AnimatedSprite2D 的 speed_scale 設為 0，
-	# 若每個 _physics_process 仍呼叫本函式，可能會把動畫狀態重新推回，破壞定格。
+	# HitStopController 凍結期間會把 AnimationTree 切到手動模式（MANUAL），此時
+	# 就算排 travel 也不會被套用，反而會積壓到恢復後一次生效、跳過中間狀態。
+	# 這裡直接跳過，讓 hitstop 結束後的第一次更新接手（凍結瞬間的姿勢切換
+	# 由 HitStopController._apply_frozen_poses() 的 delta=0 沖洗完成）。
 	var world = movement_node.get_tree().get_first_node_in_group("world") if movement_node.get_tree() else null
 	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
 	if slowmo_controller and slowmo_controller.is_hit_slowmo:
