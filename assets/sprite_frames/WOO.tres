@@ -11,16 +11,16 @@
 [ext_resource type="Texture2D" uid="uid://dcw3ofxngj0p" path="res://assets/HD_Woo/woo_dash.png" id="10_p5qmx"]
 [ext_resource type="Texture2D" uid="uid://btq0sscj5cd0m" path="res://assets/HD_dav/dpA.png" id="11_ni26j"]
 [ext_resource type="Texture2D" uid="uid://cmxo7mmesfilc" path="res://assets/HD_dav/hadoken.png" id="12_mpfbh"]
-[ext_resource type="Texture2D" uid="uid://vqlwphjpixxv" path="res://assets/HD_dav/hit.png" id="13_m88cc"]
+[ext_resource type="Texture2D" uid="uid://dgfofkxv8pm7u" path="res://assets/HD_dav/hit.png" id="13_m88cc"]
 [ext_resource type="Texture2D" uid="uid://2j41d073tev0" path="res://assets/HD_Woo/idle2.png" id="14_4tpku"]
 [ext_resource type="Texture2D" uid="uid://djfl7ahwx1l4l" path="res://assets/HD_Woo/idle_woo.png" id="14_uj0eo"]
-[ext_resource type="Texture2D" uid="uid://bsr57y6kdikq6" path="res://assets/HD_dav/jumpB.png" id="15_kui3s"]
-[ext_resource type="Texture2D" uid="uid://cxwcluq1aalsh" path="res://assets/HD_dav/jumpF.png" id="16_5ojok"]
+[ext_resource type="Texture2D" uid="uid://74rrk7cuif1y" path="res://assets/HD_dav/jumpB.png" id="15_kui3s"]
+[ext_resource type="Texture2D" uid="uid://ber4vsj8mu3a5" path="res://assets/HD_dav/jumpF.png" id="16_5ojok"]
 [ext_resource type="Texture2D" uid="uid://dpecty0rjiw68" path="res://assets/HD_dav/jump_mk.png" id="17_c1hw2"]
 [ext_resource type="Texture2D" uid="uid://donbtbtqd1c64" path="res://assets/HD_dav/jumpp.png" id="18_wwd8a"]
-[ext_resource type="Texture2D" uid="uid://dbumqjoqkf24q" path="res://assets/HD_Woo/jumpv.png" id="19_uj0eo"]
-[ext_resource type="Texture2D" uid="uid://1r426xbmt1bc" path="res://assets/HD_dav/knockfly.png" id="20_we44t"]
-[ext_resource type="Texture2D" uid="uid://cx71wj5yc07l7" path="res://assets/HD_dav/wakeup.png" id="21_kppis"]
+[ext_resource type="Texture2D" uid="uid://c05e78ye7h2hh" path="res://assets/HD_Woo/jumpv.png" id="19_uj0eo"]
+[ext_resource type="Texture2D" uid="uid://q7vwugxnjpb8" path="res://assets/HD_dav/knockfly.png" id="20_we44t"]
+[ext_resource type="Texture2D" uid="uid://8tbt4ku1msm0" path="res://assets/HD_dav/wakeup.png" id="21_kppis"]
 [ext_resource type="Texture2D" uid="uid://v5vwaeigbpks" path="res://assets/HD_dav/powerkk1.png" id="22_f1cke"]
 [ext_resource type="Texture2D" uid="uid://rdl5p2ishtrd" path="res://assets/HD_Woo/woo_mp.png" id="23_8ghm8"]
 [ext_resource type="Texture2D" uid="uid://4a8r11vh5n1l" path="res://assets/HD_dav/stHK.png" id="23_46rqm"]
@@ -28,8 +28,10 @@
 [ext_resource type="Texture2D" uid="uid://2frmbok3a2yh" path="res://assets/HD_Woo/woo_st_hk.png" id="24_ie74b"]
 [ext_resource type="Texture2D" uid="uid://chf7u0yw453ka" path="res://assets/HD_Woo/woo_lk.png" id="24_uj0eo"]
 [ext_resource type="Texture2D" uid="uid://dr5oa6q870qjb" path="res://assets/HD_Woo/woo_lp.png" id="25_uj0eo"]
-[ext_resource type="Texture2D" uid="uid://chdaryoa10neh" path="res://assets/HD_Woo/b_walk2.png" id="26_uj0eo"]
+[ext_resource type="Texture2D" uid="uid://dffuleq3y758" path="res://assets/HD_Woo/b_walk2.png" id="26_uj0eo"]
+[ext_resource type="Texture2D" uid="uid://pbl0e0l4yvkk" path="res://assets/HD_Woo/st_hp1.png" id="27_8b2lu"]
 [ext_resource type="Texture2D" uid="uid://cdfn2uwjnvvh3" path="res://assets/HD_Woo/woowalk1.png" id="27_8ghm8"]
+[ext_resource type="Texture2D" uid="uid://dj7qry5ull25v" path="res://assets/HD_Woo/st_hp2.png" id="28_7y8lf"]
 [ext_resource type="Texture2D" uid="uid://b8cwhenwcxn4c" path="res://assets/HD_Woo/woowalk2.png" id="28_uj0eo"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_qwt0x"]
@@ -786,6 +788,50 @@ region = Rect2(682, 1364, 682, 682)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_tgu34"]
 atlas = ExtResource("24_ie74b")
+region = Rect2(1364, 1364, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ljqft"]
+atlas = ExtResource("27_8b2lu")
+region = Rect2(0, 0, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jmp3w"]
+atlas = ExtResource("28_7y8lf")
+region = Rect2(0, 0, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_1e7fc"]
+atlas = ExtResource("27_8b2lu")
+region = Rect2(682, 0, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_667wh"]
+atlas = ExtResource("27_8b2lu")
+region = Rect2(1364, 1364, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ee522"]
+atlas = ExtResource("28_7y8lf")
+region = Rect2(682, 0, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_crds1"]
+atlas = ExtResource("28_7y8lf")
+region = Rect2(1364, 0, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_is1kk"]
+atlas = ExtResource("28_7y8lf")
+region = Rect2(0, 682, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8j6k8"]
+atlas = ExtResource("27_8b2lu")
+region = Rect2(682, 1364, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_bwbvw"]
+atlas = ExtResource("27_8b2lu")
+region = Rect2(0, 1364, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ahws3"]
+atlas = ExtResource("28_7y8lf")
+region = Rect2(682, 1364, 682, 682)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ui41l"]
+atlas = ExtResource("28_7y8lf")
 region = Rect2(1364, 1364, 682, 682)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_yh7ws"]
@@ -1734,6 +1780,44 @@ animations = [{
 "loop": 1,
 "name": &"st_hk",
 "speed": 11.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ljqft")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_jmp3w")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_1e7fc")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_667wh")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ee522")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_crds1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_is1kk")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8j6k8")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_bwbvw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ahws3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ui41l")
+}],
+"loop": 1,
+"name": &"st_hp",
+"speed": 15.0
 }, {
 "frames": [{
 "duration": 1.0,

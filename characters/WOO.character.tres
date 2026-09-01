@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="CharacterData" format=3 uid="uid://8t8x274i6ynj"]
 
 [ext_resource type="PackedScene" uid="uid://dajuv35ogv4m3" path="res://characters/WOO.tscn" id="1_fyxqy"]
-[ext_resource type="Texture2D" uid="uid://bihibnpxxbef3" path="res://assets/ui/char/woo_XL.png" id="1_gpdwr"]
-[ext_resource type="Texture2D" uid="uid://dfcs6luebvndl" path="res://assets/ui/char/woo.png" id="1_w73va"]
+[ext_resource type="Texture2D" uid="uid://dxuqi7wdagxmk" path="res://assets/cover/woo1.png" id="1_gpdwr"]
+[ext_resource type="Texture2D" uid="uid://cjfic8mf2k1gp" path="res://assets/cover/mini_char/woo1.png" id="2_ovmuy"]
 [ext_resource type="Script" uid="uid://biahbprhmtfti" path="res://characters/CharacterData.gd" id="2_w73va"]
 
 [resource]
@@ -10,6 +10,6 @@ script = ExtResource("2_w73va")
 display_name = "Woody"
 short_id = "WOO"
 scene = ExtResource("1_fyxqy")
-portrait = ExtResource("1_w73va")
+portrait = ExtResource("2_ovmuy")
 large_portrait = ExtResource("1_gpdwr")
 metadata/_custom_type_script = "uid://biahbprhmtfti"

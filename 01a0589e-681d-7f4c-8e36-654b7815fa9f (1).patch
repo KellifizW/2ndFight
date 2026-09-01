@@ -1,0 +1,969 @@
+diff --git a/NEXT_SESSION_HITSTOP_GUIDE.md b/NEXT_SESSION_HITSTOP_GUIDE.md
+new file mode 100644
+index 0000000..7d7ed9f
+--- /dev/null
++++ b/NEXT_SESSION_HITSTOP_GUIDE.md
+@@ -0,0 +1,175 @@
++# Hitstop decoupling — next-session execution guide
++
++## TL;DR
++
++- PR: https://github.com/KellifizW/2ndFight/pull/44
++- Branch: `arena/01a0589e-2ndfight`
++- Reconnect GitHub, then push the working branch (it is at local commit `efc9ddf`, remote is at `d139573`).
++- There is already a robust hitstop implementation committed locally; it has NOT been verified in CI because GitHub auth expired before the last push.
++- Two patch files are available:
++  - `/home/user/hitstop_pr_full.patch` — full PR diff vs `main`.
++  - `/home/user/hitstop_unpushed_commit.patch` — just the final un-pushed commit (`d139573..efc9ddf`).
++
++## Current state of the repository
++
++- Branch: `arena/01a0589e-2ndfight`
++- Local `HEAD`: `efc9ddf` — `fix: freeze actors before snapshot and restore all players as fallback`
++- Last **pushed** commit: `d139573` — `test: trace hitstop registration inputs`
++- Remote branch is therefore 1 commit behind local.
++- Local working tree is clean (everything is committed).
++- GitHub auth expired during this session:
++  - `git push origin arena/01a0589e-2ndfight` fails with `could not read Username`.
++  - `gh` fails with `HTTP 401: Bad credentials`.
++  - The next agent must reconnect GitHub in Arena before pushing.
++
++## What the feature does
++
++Implements modern decoupled hitstop instead of the old `Engine.time_scale = 0` / `get_tree().paused` approach:
++
++- Only character animation is frozen during hitstop:
++  - `AnimationTree.active = false`
++  - `AnimationPlayer.speed_scale = 0`
++  - `AnimatedSprite2D.speed_scale = 0`, `playing = false`
++- Visual pixel jitter is applied to `Sprite2D` / `AnimatedSprite2D` `offset` / `rotation_degrees`.
++- Background, particles, VFX, projectiles, and UI continue at normal speed (`Engine.time_scale` stays `1.0`).
++- All hitstop parameters are `@export` on `HitStopController`:
++  - `enabled`, `hitstop_frames`, `freeze_attacker`, `freeze_defender`, `freeze_animation_player`, `freeze_animated_sprite`
++  - `jitter_enabled`, `jitter_target`, `jitter_amplitude_x`, `jitter_amplitude_y`, `jitter_rotation_degrees`
++  - `pause_frame_counter`, `debug_log`
++
++## Files changed in this PR vs `main`
++
++```
++scenes/gameplay/world.tscn                              |   7 +
++scripts/combat/handlers/HitResponseHandler.gd          |   5 +-
++scripts/combat/movesets/MoveSet.gd                     |   2 +
++scripts/combat/projectiles/fireball.gd                 |   5 +-
++scripts/core/hit_stop_controller.gd                    | 361 +++
++scripts/core/hit_stop_controller.gd.uid                |   1 +
++scripts/core/player.gd                                 |  19 +-
++scripts/core/slow_mo_controller.gd                     | 110 ++-
++scripts/core/world.gd                                  |   8 +-
++scripts/handlers/AnimationManager.gd                   |   8 +
++tests/frame_tests/cases/test_37_hitstop_decoupled.gd   |  89 ++
++tests/frame_tests/run_tests.gd                         |   1 +
++12 files changed, 565 insertions(+), 51 deletions(-)
++```
++
++## Root cause found so far
++
++Frame tests (GH Actions, Godot 4.7.2 headless) fail only in `test_37_hitstop_decoupled`:
++
++```
++✗ Attacker AnimationTree should be frozen during hitstop, got active=true entries=0 freeze_att=true freeze_def=true
++✗ Defender AnimationTree should be frozen during hitstop, got active=true entries=0
++✗ Attacker AnimationPlayer.speed_scale should also be 0 during hitstop, got 1.0 entries=0
++✗ Defender AnimationPlayer.speed_scale should also be 0 during hitstop, got 1.0 entries=0
++```
++
++The debug counters in the last pushed commit `d139573` showed:
++
++```
++is_active=true remaining=8 hit_slowmo=true begin_ret=true entries_begin=0 active_begin=true
++ctrl_found=true begins=1 finishes=0 cancels=0
++a=DAV d=DEN group=2 reg=4
++```
++
++Interpretation:
++- `begin_hitstop()` IS called, returns `true`, and the controller stays active (`is_active=true`, `remaining=8`).
++- `_attacker` = `DAV`, `_defender` = `DEN` (so participants are valid).
++- Players group contains 2 players.
++- `_register_actor()` is called **4 times** (DAV, DEN, then the all-players fallback twice).
++- Yet `_entries.size()` stays `0` and `AnimationTree.active`/`speed_scale` are never changed.
++- This means `_register_actor()` aborts during its bookkeeping before the freeze assignments took effect. The typed `Array[Dictionary]` member did not persist appended entries in the CI runtime, and because the freeze happened after the snapshot dictionary construction, the abort prevented the freeze too.
++
++## The fix currently committed locally (`efc9ddf`)
++
++In `scripts/core/hit_stop_controller.gd`:
++
++1. `_entries` changed from `Array[Dictionary]` to plain `Array` to avoid typed-array append not persisting.
++2. In `_register_actor()`:
++   - Grab the `AnimationPlayer` / `AnimationTree` / `AnimatedSprite2D` / `Sprite2D` node references.
++   - **Freeze the animation FIRST** (speed_scale = 0, active = false, playing = false).
++   - Only after freezing, snapshot original values and build the entry dictionary.
++   - Even if the snapshot/bookkeeping fails, the character is already frozen.
++3. Added `_restore_all_players_defaults()`.
++   - On `_finish()` and `cancel()`, restore **all** players in the `players` group to normal values before applying per-actor snapshots:
++     - `AnimationPlayer.speed_scale = 1.0`
++     - `AnimationTree.active = true`
++     - `AnimatedSprite2D.speed_scale = 1.0`, `playing = true`
++     - `Sprite2D.offset/position/rotation` to zero
++   - This guarantees restore even if `_entries` is empty.
++
++This makes the freeze and restore behavior resilient even when the dictionary entries do not persist. The visual jitter only runs when entries exist (unchanged), but the frame test does not assert jitter.
++
++## How to apply / push
++
++The files are already committed locally. To get this into CI:
++
++```bash
++cd /home/user/2ndFight
++git log --oneline -3
++# Should show efc9ddf at top of arena/01a0589e-2ndfight
++
++# Only needed if starting from a clean checkout of the remote branch at d139573:
++# git apply /home/user/hitstop_unpushed_commit.patch
++# git add -A
++# git commit -m "fix: freeze actors before snapshot and restore all players as fallback"
++
++# After GitHub is reconnected:
++git push origin arena/01a0589e-2ndfight
++```
++
++Then check the PR checks:
++
++```bash
++gh pr checks 44
++# or view https://github.com/KellifizW/2ndFight/pull/44/checks
++```
++
++Expected: `GDScript static check` pass, `Export Web build` pass, `Frame tests` should now pass the freeze/restore assertions.
++
++## If Frame tests still fail after `efc9ddf`
++
++1. Fetch the CI annotation (public page if `gh` is unavailable):
++   - `https://github.com/KellifizW/2ndFight/actions/runs/<RUN_ID>/job/<JOB_ID>`
++2. The test now reports: `dict=... freezed=... appended=...`.
++   - If `freezed=true` and `dict=true` and `appended=true` but entries still 0 → the `_entries` read is the problem; simplify further (remove `_entries` entirely and use direct actor lists).
++   - If `freezed=false` → the abort is still before the freeze; move the four node-reference `get_node_or_null` lookups into a separate helper and/or remove snapshot locals for any risky property.
++3. If `active=true` persists after `freezed=true`, then some other handler is re-enabling the animation after the hitstop begins. Re-check:
++   - `scripts/core/player.gd` `_physics_process`
++   - `scripts/handlers/AnimationManager.gd` `update_animation_state`
++   - `scripts/core/PushManager.gd`
++   - `scripts/core/world.gd` reset paths
++   - Add `is_hit_slowmo` guard on the re-enabling site.
++
++## Cleanup after CI passes
++
++Remove (or keep behind `debug_log`) these diagnostics from the production scripts:
++
++- `scripts/core/hit_stop_controller.gd`:
++  - `debug_begin_count`, `debug_finish_count`, `debug_cancel_count`
++  - `debug_register_calls`, `debug_attacker_name`, `debug_defender_name`, `debug_players_group_count`
++  - `debug_dict_built`, `debug_freeze_applied`, `debug_entry_appended`, `debug_register_error_unknown`
++- `scripts/core/slow_mo_controller.gd`:
++  - `debug_controller_found`, `debug_begin_returned`, `debug_entries_after_begin`, `debug_active_after_begin`
++- `tests/frame_tests/cases/test_37_hitstop_decoupled.gd`:
++  - Remove the long diagnostic suffix from the assert message.
++  - Keep the simple freeze/restore assertions.
++
++## Re-running the full frame tests locally (if a Godot binary is available)
++
++```bash
++cd /home/user/2ndFight
++bash tests/frame_tests/run_frame_tests.sh
++# or GODOT_BIN=/path/to/godot bash tests/frame_tests/run_frame_tests.sh
++```
++
++The repo itself has no Godot binary; the sandbox cannot download one (GitHub release assets are blocked). Use the CI job for runtime verification.
++
++## Constraints (do not regress)
++
++- Must NOT use `Engine.time_scale = 0` or `get_tree().paused = true` for hitstop (except unrelated special-move freeze `MoveSet.freeze_game`).
++- Background, particles, and UI must continue at normal speed.
++- Parameters must stay `@export` on `HitStopController`.
++- Existing frame tests 10 / 19 / 20 / 34 must keep passing.
+diff --git a/scenes/gameplay/world.tscn b/scenes/gameplay/world.tscn
+index 18f7f46..82d6a20 100644
+--- a/scenes/gameplay/world.tscn
++++ b/scenes/gameplay/world.tscn
+@@ -24,6 +24,7 @@
+ [ext_resource type="AudioStream" uid="uid://bkyfe2jr2q8vb" path="res://assets/audio/BGM2.mp3" id="20_ks4gd"]
+ [ext_resource type="PackedScene" path="res://scenes/ui/PauseMenu.tscn" id="21_pause"]
+ [ext_resource type="PackedScene" uid="uid://claqmk01wwasq" path="res://assets/vfx/vfx.tscn" id="22_vfxsmk"]
++[ext_resource type="Script" uid="uid://bake8vxq7l2wq" path="res://scripts/core/hit_stop_controller.gd" id="23_hitstop"]
+ 
+ [sub_resource type="ShaderMaterial" id="ShaderMaterial_2u3nc"]
+ 
+@@ -353,6 +354,12 @@ restricted_moves_a = Array[String](["powerkk"])
+ [node name="SlowMoController" type="Node" parent="." unique_id=1834090566]
+ script = ExtResource("7_pkg7o")
+ 
++[node name="HitStopController" type="Node" parent="." unique_id=1934090925]
++script = ExtResource("23_hitstop")
++hitstop_frames = 8
++jitter_amplitude_x = 2.0
++jitter_amplitude_y = 1.5
++
+ [node name="PushManager" type="Node" parent="." unique_id=921268698]
+ script = ExtResource("9_ioo17")
+ knockback_deceleration_mode = 2
+diff --git a/scripts/combat/handlers/HitResponseHandler.gd b/scripts/combat/handlers/HitResponseHandler.gd
+index 2243df4..709de76 100644
+--- a/scripts/combat/handlers/HitResponseHandler.gd
++++ b/scripts/combat/handlers/HitResponseHandler.gd
+@@ -121,10 +121,11 @@ func handle_hitbox_collision(area: Area2D) -> void:
+ 		hit_params.knockback
+ 	)
+ 	
+-	# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（Slow-mo）
++	# 🟢 【重要】在 take_hit() 之後才請求擊中定格（Hitstop）
+ 	# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中，而不是在啟動時
++	# 新架構只凍結這兩個角色的動畫 + 視覺微震動，不改 Engine.time_scale。
+ 	if slow_mo_controller:
+-		slow_mo_controller.request_hit_freeze()
++		slow_mo_controller.request_hit_freeze(parent_player, target)
+ 	
+ 	# ── 播放音效 ──
+ 	var is_blocked: bool = target.is_blocking
+diff --git a/scripts/combat/movesets/MoveSet.gd b/scripts/combat/movesets/MoveSet.gd
+index 0574c0f..1517a20 100644
+--- a/scripts/combat/movesets/MoveSet.gd
++++ b/scripts/combat/movesets/MoveSet.gd
+@@ -509,6 +509,8 @@ func start_100p() -> void:
+ 	_start_special("100p")
+ 
+ # === Freeze logic ===
++# ⚠️ 這是「超必殺開場式全域凍結」，與 Hitstop 分開；Hitstop 已改由 HitStopController
++# 以「角色動畫 + 視覺微震動」實作，不會再動 Engine.time_scale。
+ func freeze_game(duration: float) -> void:
+ 	var tween = create_tween().set_ignore_time_scale(true)
+ 	Engine.time_scale = 0.0
+diff --git a/scripts/combat/projectiles/fireball.gd b/scripts/combat/projectiles/fireball.gd
+index 75a50ec..c54f338 100644
+--- a/scripts/combat/projectiles/fireball.gd
++++ b/scripts/combat/projectiles/fireball.gd
+@@ -267,12 +267,13 @@ func _on_hitbox_area_entered(area: Area2D) -> void:
+ 		# 與普通攻擊統一：傳遞所有參數
+ 		target.take_hit(final_hitstun, final_blockstun, final_damage, false, false, {}, final_knockback)
+ 		
+-		# 🟢 【重要】在 take_hit() 之後才請求擊中凍結（Slow-mo）
++		# 🟢 【重要】在 take_hit() 之後才請求擊中定格（Hitstop）
+ 		# 這樣受擊動畫已經開始播放，hitstop 凍結會發生在動畫進行中
++		# 火球不凍結攻擊者（距離遠），只定格受擊者並施予視覺微震動。
+ 		if world:
+ 			var slowmo_controller = world.get_node_or_null("SlowMoController")
+ 			if slowmo_controller:
+-				slowmo_controller.request_hit_freeze()
++				slowmo_controller.request_hit_freeze(null, target)
+ 		var is_blocked = target.is_blocking and target.block_type == "ordinary"
+ 		# Fireball is owned by the attacker, so emit hit_detected from the owner.
+ 		# This keeps hit-confirm/cancel and combo ownership identical to melee hits.
+diff --git a/scripts/core/hit_stop_controller.gd b/scripts/core/hit_stop_controller.gd
+new file mode 100644
+index 0000000..60e257e
+--- /dev/null
++++ b/scripts/core/hit_stop_controller.gd
+@@ -0,0 +1,361 @@
++class_name HitStopController
++extends Node
++
++## 専門 Hitstop 管理器。
++##
++## 這不是全域時間停止（Engine.time_scale = 0），而是「角色動畫與視覺解耦」：
++## - 只暫停參與打擊的角色的 AnimationPlayer / AnimatedSprite2D。
++## - 只在 Sprite / AnimatedSprite 的 offset / rotation 上做像素級微震動。
++## - 不修改 CharacterBody2D 的 position / velocity，因此不影響 Hitbox / Hurtbox。
++## - 背景、粒子特效、UI 全部維持正常時間運行。
++## - 所有關鍵參數都是用 @export，可在編輯器直接調整。
++
++signal hitstop_started
++signal hitstop_finished
++
++const LOG_TAG := "[HITSTOP]"
++
++# ═══════════════════════════════════════════════════════════════════
++# Hitstop 設定
++# ═══════════════════════════════════════════════════════════════════
++@export var enabled: bool = true
++## 定格持續時間（物理幀；120 FPS 時 8 幀約 66ms）
++@export_range(0, 60, 1, "or_greater") var hitstop_frames: int = 8
++## 攻擊者動畫是否也要一起定格（近身打擊通常兩邊都停）
++@export var freeze_attacker: bool = true
++## 受擊者動畫是否要定格
++@export var freeze_defender: bool = true
++## 是否將 AnimationPlayer 的 speed_scale 設為 0
++@export var freeze_animation_player: bool = true
++## 是否將 AnimatedSprite2D 的 speed_scale 設為 0（若角色直接使用 AnimatedSprite2D）
++@export var freeze_animated_sprite: bool = true
++
++# ═══════════════════════════════════════════════════════════════════
++# 視覺微震動（Visual Jitter）
++# ═══════════════════════════════════════════════════════════════════
++@export_group("Visual Jitter")
++@export var jitter_enabled: bool = true
++@export_enum("Defender only", "Defender + Attacker", "Attacker only") var jitter_target: int = 1
++@export_range(0.0, 20.0, 0.1, "or_greater") var jitter_amplitude_x: float = 2.0
++@export_range(0.0, 20.0, 0.1, "or_greater") var jitter_amplitude_y: float = 1.5
++@export_range(0.0, 20.0, 0.1, "or_greater") var jitter_rotation_degrees: float = 0.0
++
++# ═══════════════════════════════════════════════════════════════════
++# 相容性 / 除錯
++# ═══════════════════════════════════════════════════════════════════
++@export_group("Compatibility / Debug")
++## 是否在 hitstop 期間暫停 FrameCounter（保留舊版對全局幀計數器的行為）
++@export var pause_frame_counter: bool = true
++@export var debug_log: bool = false
++
++# ═══════════════════════════════════════════════════════════════════
++# 狀態
++# ═══════════════════════════════════════════════════════════════════
++var is_active: bool = false
++var remaining_frames: int = 0
++
++# 🔍 Debug counters for CI diagnostics (not gameplay behavior).
++var debug_begin_count: int = 0
++var debug_finish_count: int = 0
++var debug_cancel_count: int = 0
++var debug_register_calls: int = 0
++var debug_attacker_name: String = "none"
++var debug_defender_name: String = "none"
++var debug_players_group_count: int = -1
++var debug_dict_built: bool = false
++var debug_freeze_applied: bool = false
++var debug_entry_appended: bool = false
++var debug_register_error_unknown: bool = false
++
++var _attacker: Node = null
++var _defender: Node = null
++var _entries: Array = []
++var _jitter_phase: int = 0
++
++
++func _ready() -> void:
++	process_mode = Node.PROCESS_MODE_ALWAYS
++
++
++## 開始一次 hitstop。回傳 true 代表成功開始，false 代表參數無效或已在進行中。
++func begin_hitstop(attacker: Node, defender: Node) -> bool:
++	if not enabled or is_active:
++		return false
++	if hitstop_frames <= 0:
++		if debug_log:
++			Debug.log("%s hitstop_frames <= 0，略過定格。" % LOG_TAG)
++		return false
++
++	debug_begin_count += 1
++	debug_register_calls = 0
++	_attacker = attacker if is_instance_valid(attacker) else null
++	_defender = defender if is_instance_valid(defender) else null
++	debug_attacker_name = _attacker.name if _attacker else "none"
++	debug_defender_name = _defender.name if _defender else "none"
++	debug_players_group_count = get_tree().get_nodes_in_group("players").size() if get_tree() else -1
++	_entries.clear()
++	_jitter_phase = 0
++	is_active = true
++	remaining_frames = hitstop_frames
++
++	if _defender:
++		_register_actor(_defender, freeze_defender, _should_jitter(_defender))
++	if _attacker:
++		_register_actor(_attacker, freeze_attacker, _should_jitter(_attacker))
++
++	# 防呆：若呼叫端沒有傳入攻擊者/受擊者（例如舊呼叫或暫態 null），
++	# 直接凍結場景中所有 players，避免 hitstop 已啟動卻完全沒有定格。
++	if _defender == null and _attacker == null:
++		for p in get_tree().get_nodes_in_group("players"):
++			if is_instance_valid(p) and p != null:
++				_register_actor(p, true, true)
++		if debug_log:
++			Debug.log("%s 未指定參與者，回退為凍結所有 players。" % LOG_TAG)
++	elif _entries.is_empty():
++		for p in get_tree().get_nodes_in_group("players"):
++			if is_instance_valid(p) and p != null:
++				_register_actor(p, true, true)
++
++	if pause_frame_counter:
++		_pause_frame_counter()
++
++	_apply_jitter()
++
++	if debug_log:
++		Debug.log("%s 開始：frames=%d attacker=%s defender=%s" % [
++			LOG_TAG, hitstop_frames,
++			_attacker.name if _attacker else "none",
++			_defender.name if _defender else "none",
++		])
++
++	emit_signal("hitstop_started")
++	return true
++
++
++## 每次物理幀：推進視覺微震動，並倒數剩餘幀數。
++func _physics_process(_delta: float) -> void:
++	if not is_active:
++		return
++	_apply_jitter()
++	remaining_frames -= 1
++	if remaining_frames <= 0:
++		_finish()
++
++
++## 立即取消（用於 reset / 離開場景）。不會發射 hitstop_finished，
++## 因為這不是一次正常的 hitstop 結束。
++func cancel() -> void:
++	if not is_active:
++		return
++	debug_cancel_count += 1
++	is_active = false
++	remaining_frames = 0
++	# 先對 group 內所有玩家復原到正常值，再用快照覆寫已記錄的原始狀態。
++	_restore_all_players_defaults()
++	_restore_entries()
++	_resume_frame_counter()
++	_entries.clear()
++	_attacker = null
++	_defender = null
++	if debug_log:
++		Debug.log("%s 已被取消。" % LOG_TAG)
++
++
++## 強制清除（reset 時也要把任何殘留快照救回）。
++func reset() -> void:
++	cancel()
++
++
++# ═══════════════════════════════════════════════════════════════════
++# 內部實作
++# ═══════════════════════════════════════════════════════════════════
++
++func _register_actor(node: Node, freeze_animation: bool, jitter: bool) -> void:
++	debug_register_calls += 1
++	var anim_player = node.get_node_or_null("AnimationPlayer") as AnimationPlayer
++	var anim_tree = node.get_node_or_null("AnimationTree") as AnimationTree
++	var anim_sprite = node.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
++	var sprite = node.get_node_or_null("Sprite2D") as Sprite2D
++
++	# 凍結優先：就算後續快照/記錄出錯，角色動畫此刻也必須先停止。
++	if freeze_animation and anim_player:
++		# 透過 AnimationTree 播放時 AnimationPlayer.speed_scale 通常會被忽略，
++		# 但對直接播放 AnimationPlayer 的狀態（如 landing）仍然有效。
++		anim_player.speed_scale = 0.0
++	if freeze_animation and anim_tree:
++		# AnimationTree 是 StateMachine root，active=false 才能真正凍結狀態機與播放。
++		anim_tree.active = false
++	if freeze_animation and anim_sprite:
++		anim_sprite.speed_scale = 0.0
++		anim_sprite.playing = false
++
++	debug_freeze_applied = true
++
++	# 再快照原始值（供 hitstop 結束時還原）。
++	var anim_player_speed: float = anim_player.speed_scale if anim_player else 1.0
++	var anim_tree_active: bool = anim_tree.active if anim_tree else true
++	var anim_sprite_speed: float = anim_sprite.speed_scale if anim_sprite else 1.0
++	var anim_sprite_playing: bool = anim_sprite.playing if anim_sprite else false
++	var anim_sprite_frame: int = anim_sprite.frame if anim_sprite else 0
++	var anim_sprite_offset: Vector2 = anim_sprite.offset if anim_sprite else Vector2.ZERO
++	var anim_sprite_position: Vector2 = anim_sprite.position if anim_sprite else Vector2.ZERO
++	var anim_sprite_rotation: float = anim_sprite.rotation_degrees if anim_sprite else 0.0
++	var sprite_offset: Vector2 = sprite.offset if sprite else Vector2.ZERO
++	var sprite_position: Vector2 = sprite.position if sprite else Vector2.ZERO
++	var sprite_rotation: float = sprite.rotation_degrees if sprite else 0.0
++
++	var entry: Dictionary = {
++		"node": node,
++		"freeze": freeze_animation,
++		"jitter": jitter,
++		"anim_player": anim_player,
++		"anim_tree": anim_tree,
++		"anim_sprite": anim_sprite,
++		"sprite": sprite,
++		"anim_player_speed": anim_player_speed,
++		"anim_tree_active": anim_tree_active,
++		"anim_sprite_speed": anim_sprite_speed,
++		"anim_sprite_playing": anim_sprite_playing,
++		"anim_sprite_frame": anim_sprite_frame,
++		"anim_sprite_offset": anim_sprite_offset,
++		"anim_sprite_position": anim_sprite_position,
++		"anim_sprite_rotation": anim_sprite_rotation,
++		"sprite_offset": sprite_offset,
++		"sprite_position": sprite_position,
++		"sprite_rotation": sprite_rotation,
++		"base_anim_sprite_offset": anim_sprite_offset,
++		"base_sprite_offset": sprite_offset,
++	}
++	debug_dict_built = true
++	_entries.append(entry)
++	debug_entry_appended = true
++
++
++func _should_jitter(actor: Node) -> bool:
++	if not jitter_enabled:
++		return false
++	match jitter_target:
++		0:
++			return actor == _defender
++		1:
++			return actor == _defender or actor == _attacker
++		2:
++			return actor == _attacker
++	return false
++
++
++func _apply_jitter() -> void:
++	if _entries.is_empty():
++		return
++
++	_jitter_phase += 1
++	var phase: int = _jitter_phase
++
++	# 刻意使用確定性震動：X 每幀換向，Y 以 4 幀為週期換向。
++	# 這讓 hitstop 期間的抖動穩定且易於遊戲測試，同時避免畫面死寂。
++	var x_sign: float = 1.0 if phase % 2 == 1 else -1.0
++	var y_sign: float = 1.0 if (phase % 4) < 2 else -1.0
++	var rot_sign: float = 1.0 if (phase % 4) < 2 else -1.0
++
++	var jitter_x: float = x_sign * jitter_amplitude_x
++	var jitter_y: float = y_sign * jitter_amplitude_y
++	var jitter_rot: float = rot_sign * jitter_rotation_degrees
++
++	for entry in _entries:
++		if not bool(entry.get("jitter", false)):
++			continue
++
++		var anim_sprite = entry.get("anim_sprite") as AnimatedSprite2D
++		var sprite = entry.get("sprite") as Sprite2D
++
++		if anim_sprite:
++			var base_anim_sprite_offset: Vector2 = entry.get("base_anim_sprite_offset", Vector2.ZERO) as Vector2
++			var base_anim_sprite_rotation: float = entry.get("anim_sprite_rotation", 0.0) as float
++			anim_sprite.offset = base_anim_sprite_offset + Vector2(jitter_x, jitter_y)
++			anim_sprite.rotation_degrees = base_anim_sprite_rotation + jitter_rot
++
++		if sprite:
++			var base_sprite_offset: Vector2 = entry.get("base_sprite_offset", Vector2.ZERO) as Vector2
++			var base_sprite_rotation: float = entry.get("sprite_rotation", 0.0) as float
++			sprite.offset = base_sprite_offset + Vector2(jitter_x, jitter_y)
++			sprite.rotation_degrees = base_sprite_rotation + jitter_rot
++
++
++func _finish() -> void:
++	debug_finish_count += 1
++	is_active = false
++	remaining_frames = 0
++	# 先對 group 內所有玩家復原到正常值，再用快照覆寫已記錄的原始狀態。
++	_restore_all_players_defaults()
++	_restore_entries()
++	_resume_frame_counter()
++	_entries.clear()
++	_attacker = null
++	_defender = null
++
++	if debug_log:
++		Debug.log("%s 結束。" % LOG_TAG)
++
++	emit_signal("hitstop_finished")
++
++
++func _restore_all_players_defaults() -> void:
++	var tree := get_tree()
++	if tree == null:
++		return
++	for player in tree.get_nodes_in_group("players"):
++		if not is_instance_valid(player):
++			continue
++		var anim_player := player.get_node_or_null("AnimationPlayer") as AnimationPlayer
++		var anim_tree := player.get_node_or_null("AnimationTree") as AnimationTree
++		var anim_sprite := player.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
++		var sprite := player.get_node_or_null("Sprite2D") as Sprite2D
++		if anim_player:
++			anim_player.speed_scale = 1.0
++		if anim_tree:
++			anim_tree.active = true
++		if anim_sprite:
++			anim_sprite.speed_scale = 1.0
++			anim_sprite.playing = true
++		if sprite:
++			sprite.offset = Vector2.ZERO
++			sprite.position = Vector2.ZERO
++			sprite.rotation_degrees = 0.0
++
++
++func _restore_entries() -> void:
++	for entry in _entries:
++		var anim_player = entry.get("anim_player") as AnimationPlayer
++		var anim_sprite = entry.get("anim_sprite") as AnimatedSprite2D
++		var sprite = entry.get("sprite") as Sprite2D
++
++		if anim_player:
++			anim_player.speed_scale = float(entry.get("anim_player_speed", 1.0))
++		if anim_sprite:
++			anim_sprite.speed_scale = float(entry.get("anim_sprite_speed", 1.0))
++			anim_sprite.playing = bool(entry.get("anim_sprite_playing", false))
++			anim_sprite.frame = int(entry.get("anim_sprite_frame", 0))
++			anim_sprite.offset = entry.get("anim_sprite_offset", Vector2.ZERO) as Vector2
++			anim_sprite.position = entry.get("anim_sprite_position", Vector2.ZERO) as Vector2
++			anim_sprite.rotation_degrees = float(entry.get("anim_sprite_rotation", 0.0))
++		if sprite:
++			sprite.offset = entry.get("sprite_offset", Vector2.ZERO) as Vector2
++			sprite.position = entry.get("sprite_position", Vector2.ZERO) as Vector2
++			sprite.rotation_degrees = float(entry.get("sprite_rotation", 0.0))
++
++		# AnimationTree 在 hitstop 時被設為 inactive，結束時還原為快照值。
++		var anim_tree = entry.get("anim_tree") as AnimationTree
++		if anim_tree:
++			anim_tree.active = bool(entry.get("anim_tree_active", true))
++
++
++func _pause_frame_counter() -> void:
++	var frame_counter = get_tree().get_first_node_in_group("frame_counter") if get_tree() else null
++	if frame_counter and frame_counter.has_method("pause"):
++		frame_counter.pause()
++
++
++func _resume_frame_counter() -> void:
++	var frame_counter = get_tree().get_first_node_in_group("frame_counter") if get_tree() else null
++	if frame_counter and frame_counter.has_method("resume"):
++		frame_counter.resume()
+diff --git a/scripts/core/hit_stop_controller.gd.uid b/scripts/core/hit_stop_controller.gd.uid
+new file mode 100644
+index 0000000..672d723
+--- /dev/null
++++ b/scripts/core/hit_stop_controller.gd.uid
+@@ -0,0 +1 @@
++uid://bake8vxq7l2wq
+diff --git a/scripts/core/player.gd b/scripts/core/player.gd
+index eebca0e..8d36e96 100644
+--- a/scripts/core/player.gd
++++ b/scripts/core/player.gd
+@@ -503,21 +503,14 @@ func _physics_process(delta: float) -> void:
+ 
+ 	# 【重點】landing_lock_frames 現在由 TimerHandler 管理，不在這裡遞減
+ 
+-	# Countdown wakeup timer (FRAME-BASED)
+-	if wakeup_timer > 0:
+-		wakeup_timer -= 1
+-		if wakeup_timer <= 0 and is_wakeup_locked:
+-			is_wakeup = false
+-			is_wakeup_locked = false
+-			is_landing = false
+-			attack_duration_timer = 0
+-			update_facing_direction()
+-	
+-	if not (landing_lock_frames > 0):
+-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+-	
+ 	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
+ 	var is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo
++	# 🟢 Hitstop 期間不呼叫 _update_animation_state：
++	# 新 HitStopController 用 AnimationTree.active=false 凍結角色動畫，
++	# 若這裡每個物理幀又呼叫 update，AnimationManager 會把 active 重新設回 true。
++	if not is_in_hitstop and not (landing_lock_frames > 0):
++		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
++
+ 	# Stage 2 切片 2：`_was_in_hitstop` 已刪除（死旗標）。
+ 	# 它唯一的讀取點是一段 hitstop 邊緣偵測：進入 hitstop 的那一幀讀取
+ 	# animation_player.current_animation / current_animation_position 存進兩個
+diff --git a/scripts/core/slow_mo_controller.gd b/scripts/core/slow_mo_controller.gd
+index 4e7d66a..1619d2e 100644
+--- a/scripts/core/slow_mo_controller.gd
++++ b/scripts/core/slow_mo_controller.gd
+@@ -6,10 +6,16 @@ signal time_scale_changed(new_time_scale: float)
+ signal hit_slowmo_finished  # 🟢 Hit stop 完成信號，讓 hitstun/knockback 在 hit stop 後開始
+ 
+ # ⚙️ 設置選項
++# 注意：hitstop 的實際參數（frame 數、jitter、是否凍結攻擊者/受擊者）在
++# World 子節點「HitStopController」上編輯；這裡只保留舊式總開關。
+ @export var enable_hitstop: bool = true  # 是否開啟 hitstop 功能
+ @export var sync_animation_speed: bool = true  # 是否同步動畫速度（解決連段時機問題）
+ 
+-# 時間縮放參數
++# 🟢 専門 Hitstop 管理器（可視覺動畫與全域時間解耦）
++# 用普通 var + 時查找，避免節點建立時序造成 _ready 連不到信號。
++var hitstop_controller: HitStopController = null
++
++# 時間縮放參數（只供 slow-mo / super freeze 相容使用；hitstop 不再修改 Engine.time_scale）
+ var normal_time_scale: float = 1
+ var slowmo_time_scale: float = 0.2
+ var hit_slowmo_time_scale: float = 0.02
+@@ -30,6 +36,12 @@ var tween: Tween
+ # 除錯：記錄擊中慢動作開始的真實時間（毫秒）
+ var hit_start_time: int = 0
+ 
++# 🔍 Debug diagnostics for CI (not gameplay behavior).
++var debug_controller_found: bool = false
++var debug_begin_returned: bool = false
++var debug_entries_after_begin: int = -1
++var debug_active_after_begin: bool = false
++
+ func _ready():
+ 	# 設置 process_mode 為始終運行
+ 	process_mode = Node.PROCESS_MODE_ALWAYS
+@@ -38,6 +50,9 @@ func _ready():
+ 	emit_signal("time_scale_changed", normal_time_scale)
+ 	Debug.log("Debug: SlowMoController initialized, time_scale set to %s, process_mode set to ALWAYS" % normal_time_scale)
+ 
++	# 🟢 連接 HitStopController：hitstop 完成後才廣播 hit_slowmo_finished
++	_setup_hitstop_controller()
++
+ func _process(_delta):
+ 	pass
+ 
+@@ -52,44 +67,53 @@ func request_slowmo_change():
+ 	else:
+ 		enter_slowmo_animation()
+ 
+-# 請求擊中慢動作效果
+-func request_hit_freeze():
++# 🟢 延遲連接 / 重新查找 HitStopController
++func _setup_hitstop_controller() -> void:
++	if hitstop_controller == null:
++		hitstop_controller = get_node_or_null("../HitStopController") as HitStopController
++	debug_controller_found = hitstop_controller != null
++	if hitstop_controller and not hitstop_controller.hitstop_finished.is_connected(_on_hitstop_finished):
++		hitstop_controller.hitstop_finished.connect(_on_hitstop_finished)
++
++# 請求擊中定格（Hitstop）
++# 現在走 HitStopController：只凍結角色動畫 + 視覺微震動，不再縮放 Engine.time_scale，
++# 因此背景、粒子特效、UI 都會以正常速度繼續播放。
++func request_hit_freeze(attacker: Node = null, target: Node = null):
++	_setup_hitstop_controller()
+ 	if not enable_hitstop:
+-		Debug.log("Debug: Hit slowmo request ignored (enable_hitstop=%s)" % enable_hitstop)
+-		# 🟢 即使跳過慢動作，仍發送信號讓 hitstun/knockback 正常進行
++		Debug.log("Debug: Hit stop request ignored (enable_hitstop=%s)" % enable_hitstop)
++		# 🟢 即使跳過 hitstop，仍發送信號讓 hitstun/knockback 正常進行
+ 		emit_signal("hit_slowmo_finished")
+ 		return
++	# 若旗標殘留（例如上一輪 finish signal 未接到），先做一次安全清除再開始新 hitstop。
++	if is_hit_slowmo and (not hitstop_controller or not hitstop_controller.is_active):
++		is_hit_slowmo = false
+ 	if slowmo_active or is_hit_slowmo:
+-		Debug.log("Debug: Hit slowmo request ignored (slowmo_active=%s, is_hit_slowmo=%s)" % [slowmo_active, is_hit_slowmo])
++		Debug.log("Debug: Hit stop request ignored (slowmo_active=%s, is_hit_slowmo=%s)" % [slowmo_active, is_hit_slowmo])
+ 		return  # 避免重複觸發
++
++	if not hitstop_controller:
++		Debug.log("Debug: HitStopController not found; skipping global time freeze (hitstop will be zero-frame).")
++		emit_signal("hit_slowmo_finished")
++		return
++
++	if not hitstop_controller.begin_hitstop(attacker, target):
++		# 參數無效（例如 hitstop_frames = 0）時不下拉長，直接結束。
++		debug_begin_returned = false
++		debug_entries_after_begin = hitstop_controller._entries.size()
++		debug_active_after_begin = hitstop_controller.is_active
++		emit_signal("hit_slowmo_finished")
++		return
++
++	# 🟢 保持舊版旗標語義：Fighter / PushManager / FrameBar 都靠它凍結幀數遞減。
++	debug_begin_returned = true
++	debug_entries_after_begin = hitstop_controller._entries.size()
++	debug_active_after_begin = hitstop_controller.is_active
+ 	is_hit_slowmo = true
+-	
+-	# 🟢 【新增】暫停幀計數器
+-	var frame_counter = get_tree().root.get_node_or_null("World/FrameCounter")
+-	if frame_counter:
+-		frame_counter.pause()
+-	
+-	if tween and tween.is_running():
+-		tween.kill()  # 停止正在運行的 Tween
+-	
+-	# 🟢 【修正】同步所有玩家的動畫速度，確保動畫與物理同步暫停
+-	if sync_animation_speed:
+-		_sync_player_animations(hit_slowmo_time_scale)
+-	
+-	tween = create_tween()
+-	tween.set_trans(Tween.TRANS_LINEAR)
+-	tween.set_ease(Tween.EASE_IN_OUT)
+-	tween.set_ignore_time_scale(true)  # 使用真實時間計時
+-	# 立即進入擊中慢動作
+-	Engine.time_scale = hit_slowmo_time_scale
+-	emit_signal("time_scale_changed", hit_slowmo_time_scale)
+-	# 除錯：記錄開始真實時間
+ 	hit_start_time = Time.get_ticks_msec()
+-	# 持續慢動作 0.09 秒（真實時間）
+-	tween.tween_interval(hit_slowmo_time)
+-	# 退出慢動作（0.01秒，真實時間）
+-	tween.tween_property(Engine, "time_scale", normal_time_scale, hit_slowmo_exit_time)
+-	tween.tween_callback(_on_hit_slowmo_finished)
++	Debug.log("Debug: Hit stop started (dedicated), frames=%s, time_scale kept=%s" % [
++		hitstop_controller.hitstop_frames, Engine.time_scale
++	])
+ 
+ 
+ # 進入慢動作的動畫（手動切換）
+@@ -150,6 +174,28 @@ func _on_hit_slowmo_finished():
+ 	if pending_slowmo_request:
+ 		pending_slowmo_request = false
+ 		enter_slowmo_animation()
++
++# 🟢 HitStopController 完成後的回呼（新架構：僅改旗標和發信號，不再動 Engine.time_scale）
++func _on_hitstop_finished() -> void:
++	is_hit_slowmo = false
++	Debug.log("Debug: Hit stop finished at %s ms, time_scale=%s" % [Time.get_ticks_msec(), Engine.time_scale])
++	# 發送信號通知所有 Fighter，hit stop 已完成，可以開始 hitstun/knockback/blockstun
++	emit_signal("hit_slowmo_finished")
++	if pending_slowmo_request:
++		pending_slowmo_request = false
++		enter_slowmo_animation()
++
++## 安全取消 hitstop（用於 reset / 離開場景）。不會發射 hit_slowmo_finished，
++## 避免在重置時誤觸發 pending hitstun。
++func cancel_hitstop() -> void:
++	_setup_hitstop_controller()
++	if hitstop_controller and hitstop_controller.has_method("cancel"):
++		hitstop_controller.cancel()
++	is_hit_slowmo = false
++	pending_slowmo_request = false
++	Engine.time_scale = normal_time_scale
++	emit_signal("time_scale_changed", normal_time_scale)
++
+ # 手動切換慢動作開關（用於測試或手動控制）
+ func toggle_slowmo():
+ 	request_slowmo_change()
+diff --git a/scripts/core/world.gd b/scripts/core/world.gd
+index 13cbc86..f712f48 100644
+--- a/scripts/core/world.gd
++++ b/scripts/core/world.gd
+@@ -703,10 +703,14 @@ func reset_players() -> void:
+ 	
+ 	if slowmo_controller:
+ 		slowmo_controller.exit_slowmo_animation()
+-		slowmo_controller.is_hit_slowmo = false
++		# 🟢 新架構：clear hitstop via 專用管理器，恢復被定格的角色動畫與視覺 offset。
++		if slowmo_controller.has_method("cancel_hitstop"):
++			slowmo_controller.cancel_hitstop()
++		else:
++			slowmo_controller.is_hit_slowmo = false
+ 		slowmo_triggered = false
+ 		Engine.time_scale = slowmo_controller.normal_time_scale
+-		Debug.log("Debug: Slow motion and hit slowmo states reset, time_scale=%s at %s ms" % [Engine.time_scale, Time.get_ticks_msec()])
++		Debug.log("Debug: Slow motion and hit stop states reset, time_scale=%s at %s ms" % [Engine.time_scale, Time.get_ticks_msec()])
+ 	
+ 	if bgm_player:
+ 		bgm_player.stop()
+diff --git a/scripts/handlers/AnimationManager.gd b/scripts/handlers/AnimationManager.gd
+index b46cc5a..6008bcd 100644
+--- a/scripts/handlers/AnimationManager.gd
++++ b/scripts/handlers/AnimationManager.gd
+@@ -111,6 +111,14 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
+ 	if not movement_node.animation_state:
+ 		return
+ 	
++	# 🟢 Hitstop 期間禁止重新啟用 AnimationTree：
++	# HitStopController 會把 AnimationTree.active 設為 false 來凍結角色動畫。
++	# 每個 _physics_process 若仍呼叫本函式，會把 active 又設回 true，破壞定格。
++	var world = movement_node.get_tree().get_first_node_in_group("world") if movement_node.get_tree() else null
++	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
++	if slowmo_controller and slowmo_controller.is_hit_slowmo:
++		return
++
+ 	var curr_state: String = movement_node.animation_state.get_current_node() if movement_node.animation_state else ""
+ 	var on_floor: bool = movement_node.is_on_floor()
+ 	var anim_dir: float = dir_x * movement_node.facing_direction
+diff --git a/tests/frame_tests/cases/test_37_hitstop_decoupled.gd b/tests/frame_tests/cases/test_37_hitstop_decoupled.gd
+new file mode 100644
+index 0000000..d876203
+--- /dev/null
++++ b/tests/frame_tests/cases/test_37_hitstop_decoupled.gd
+@@ -0,0 +1,89 @@
++extends "res://tests/frame_tests/frame_test_case.gd"
++## Hitstop 使用「角色動畫 + 視覺微震動」而非全域 Engine.time_scale。
++##
++## 目標：
++## - hitstop 期間 Engine.time_scale 必須維持 1.0（特效用正常速度播放）。
++## - 攻擊者與受擊者的 AnimationPlayer.speed_scale 被凍結為 0。
++## - hitstop 結束後，角色動畫速度恢復為 1.0。
++
++func run() -> bool:
++	await await_frames(10)
++	teleport_x(p2, 680.0)
++	await await_frames(5)
++
++	Input.action_press("st_mp")
++	await await_frames(1)
++	Input.action_release("st_mp")
++
++	var slowmo = p2.slow_mo_controller
++	var hitstop_started: bool = await wait_until(
++		func(): return slowmo != null and slowmo.is_hit_slowmo, 120)
++	check(hitstop_started, "Hitstop should start when st_mp connects")
++	if not hitstop_started:
++		return not has_failures()
++
++	check(Engine.time_scale == 1.0,
++		"Hitstop must not change Engine.time_scale (got %s)"
++		% [Engine.time_scale])
++
++	var hitstop_controller = world.get_node_or_null("HitStopController")
++	check(hitstop_controller != null,
++		"World should contain a HitStopController node")
++	check(hitstop_controller != null and hitstop_controller.hitstop_frames > 0,
++		"HitStopController should have a positive frame duration")
++
++	# 攻擊者與受擊者的動畫都應定格（只有視覺，不改物理座標）。
++	check(p1.animation_tree != null, "Attacker should have an AnimationTree")
++	check(p2.animation_tree != null, "Defender should have an AnimationTree")
++	var entries_count: int = hitstop_controller._entries.size() if hitstop_controller else -1
++	check(p1.animation_tree != null and not p1.animation_tree.active,
++		"Attacker AnimationTree should be frozen during hitstop, got active=%s entries=%d freeze_att=%s freeze_def=%s is_active=%s remaining=%s hit_slowmo=%s begin_ret=%s entries_begin=%d active_begin=%s ctrl_found=%s begins=%d finishes=%d cancels=%d a=%s d=%s group=%d reg=%d dict=%s freezed=%s appended=%s"
++		% [p1.animation_tree.active if p1.animation_tree else "null",
++			entries_count,
++			hitstop_controller.freeze_attacker if hitstop_controller else "null",
++			hitstop_controller.freeze_defender if hitstop_controller else "null",
++			hitstop_controller.is_active if hitstop_controller else "null",
++			hitstop_controller.remaining_frames if hitstop_controller else "null",
++			slowmo.is_hit_slowmo if slowmo else "null",
++			slowmo.debug_begin_returned if slowmo else "null",
++			slowmo.debug_entries_after_begin if slowmo else -1,
++			slowmo.debug_active_after_begin if slowmo else "null",
++			slowmo.debug_controller_found if slowmo else "null",
++			hitstop_controller.debug_begin_count if hitstop_controller else -1,
++			hitstop_controller.debug_finish_count if hitstop_controller else -1,
++			hitstop_controller.debug_cancel_count if hitstop_controller else -1,
++			hitstop_controller.debug_attacker_name if hitstop_controller else "?",
++			hitstop_controller.debug_defender_name if hitstop_controller else "?",
++			hitstop_controller.debug_players_group_count if hitstop_controller else -1,
++			hitstop_controller.debug_register_calls if hitstop_controller else -1,
++			hitstop_controller.debug_dict_built if hitstop_controller else "?",
++			hitstop_controller.debug_freeze_applied if hitstop_controller else "?",
++			hitstop_controller.debug_entry_appended if hitstop_controller else "?"])
++	check(p2.animation_tree != null and not p2.animation_tree.active,
++		"Defender AnimationTree should be frozen during hitstop, got active=%s entries=%d"
++		% [p2.animation_tree.active if p2.animation_tree else "null", entries_count])
++	check(abs(p1.animation_player.speed_scale) < 0.01,
++		"Attacker AnimationPlayer.speed_scale should also be 0 during hitstop, got %s entries=%d"
++		% [p1.animation_player.speed_scale, entries_count])
++	check(abs(p2.animation_player.speed_scale) < 0.01,
++		"Defender AnimationPlayer.speed_scale should also be 0 during hitstop, got %s entries=%d"
++		% [p2.animation_player.speed_scale, entries_count])
++
++	var hitstop_ended: bool = await wait_until(
++		func(): return not bool(slowmo.is_hit_slowmo), 120)
++	check(hitstop_ended, "Hitstop should end")
++	if not hitstop_ended:
++		return not has_failures()
++
++	check(p1.animation_tree != null and p1.animation_tree.active,
++		"Attacker AnimationTree should be restored after hitstop")
++	check(p2.animation_tree != null and p2.animation_tree.active,
++		"Defender AnimationTree should be restored after hitstop")
++	check(abs(p1.animation_player.speed_scale - 1.0) < 0.01,
++		"Attacker AnimationPlayer should be restored after hitstop, got %s"
++		% [p1.animation_player.speed_scale])
++	check(abs(p2.animation_player.speed_scale - 1.0) < 0.01,
++		"Defender AnimationPlayer should be restored after hitstop, got %s"
++		% [p2.animation_player.speed_scale])
++
++	return not has_failures()
+diff --git a/tests/frame_tests/run_tests.gd b/tests/frame_tests/run_tests.gd
+index 9b84b0f..92717ab 100644
+--- a/tests/frame_tests/run_tests.gd
++++ b/tests/frame_tests/run_tests.gd
+@@ -52,6 +52,7 @@ const CASES: Array = [
+ 	"res://tests/frame_tests/cases/test_34_hit_reaction_gates_match_legacy.gd",
+ 	"res://tests/frame_tests/cases/test_35_ai_backdash_blocked_while_crouching.gd",
+ 	"res://tests/frame_tests/cases/test_36_block_gates_match_legacy.gd",
++	"res://tests/frame_tests/cases/test_37_hitstop_decoupled.gd",
+ ]
+ 
+ var _passed: int = 0

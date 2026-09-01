@@ -503,21 +503,14 @@ func _physics_process(delta: float) -> void:
 
 	# 【重點】landing_lock_frames 現在由 TimerHandler 管理，不在這裡遞減
 
-	# Countdown wakeup timer (FRAME-BASED)
-	if wakeup_timer > 0:
-		wakeup_timer -= 1
-		if wakeup_timer <= 0 and is_wakeup_locked:
-			is_wakeup = false
-			is_wakeup_locked = false
-			is_landing = false
-			attack_duration_timer = 0
-			update_facing_direction()
-	
-	if not (landing_lock_frames > 0):
-		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
-	
 	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
 	var is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo
+	# 🟢 Hitstop 期間不呼叫 _update_animation_state：
+	# 新 HitStopController 用 AnimationPlayer.speed_scale=0 凍結角色動畫，
+	# 若這裡每個物理幀又呼叫 update，AnimationManager 可能把動畫狀態重新推回。
+	if not is_in_hitstop and not (landing_lock_frames > 0):
+		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
+
 	# Stage 2 切片 2：`_was_in_hitstop` 已刪除（死旗標）。
 	# 它唯一的讀取點是一段 hitstop 邊緣偵測：進入 hitstop 的那一幀讀取
 	# animation_player.current_animation / current_animation_position 存進兩個

@@ -9,13 +9,13 @@
 [ext_resource type="Script" uid="uid://dk761pkdpjnrd" path="res://ai/ai_behavior.gd" id="7_nbdmm"]
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_o64jn"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://scripts/input/InputManager.gd" id="9_pid0y"]
-[ext_resource type="AudioStream" uid="uid://donxd3nqn4jt2" path="res://assets/audio/heavy_hit_sound.wav" id="10_6t1g5"]
-[ext_resource type="AudioStream" uid="uid://dbe6n06qwaw2i" path="res://assets/audio/block_sound.wav" id="11_061tp"]
-[ext_resource type="AudioStream" uid="uid://g3rf7nob7jv3" path="res://assets/audio/hurt_grunt_p1.wav" id="12_sffaq"]
-[ext_resource type="AudioStream" uid="uid://bxlmatohwkn4l" path="res://assets/audio/powerkk_call.mp3" id="13_vn450"]
-[ext_resource type="AudioStream" uid="uid://drhqr2x37xtuj" path="res://assets/audio/fireball_call_p1.wav" id="14_wkibw"]
-[ext_resource type="AudioStream" uid="uid://chf6ovrhyejma" path="res://assets/audio/loud3.mp3" id="15_wkibw"]
-[ext_resource type="AudioStream" uid="uid://bdoof7d18fx5a" path="res://assets/audio/heavyblock.mp3" id="16_wkibw"]
+[ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://assets/audio/heavy_hit_sound.wav" id="10_6t1g5"]
+[ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://assets/audio/block_sound.wav" id="11_061tp"]
+[ext_resource type="AudioStream" uid="uid://chhkw2i6yrqqj" path="res://assets/audio/hurt_grunt_p1.wav" id="12_sffaq"]
+[ext_resource type="AudioStream" uid="uid://b1h32xlp7um3u" path="res://assets/audio/powerkk_call.mp3" id="13_vn450"]
+[ext_resource type="AudioStream" uid="uid://bhgx3a8oi1nxg" path="res://assets/audio/fireball_call_p1.wav" id="14_wkibw"]
+[ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://assets/audio/loud3.mp3" id="15_wkibw"]
+[ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="16_wkibw"]
 [ext_resource type="AudioStream" uid="uid://uxhsj285rci4" path="res://assets/audio/dash.mp3" id="32_dash1"]
 [ext_resource type="AudioStream" uid="uid://bgs6lvw2i4i6a" path="res://assets/audio/bdash.mp3" id="33_bdash1"]
 
@@ -456,10 +456,22 @@ tracks/4/path = NodePath("AnimatedSprite2D:scale")
 tracks/4/interp = 1
 tracks/4/loop_wrap = true
 tracks/4/keys = {
-"times": PackedFloat32Array(),
-"transitions": PackedFloat32Array(),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 0,
-"values": []
+"values": [Vector2(0.51, 0.51)]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("AnimatedSprite2D:offset")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0, 0)]
 }
 
 [sub_resource type="Animation" id="Animation_6ev7e"]
@@ -2928,7 +2940,7 @@ tracks/7/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_md12c"]
-size = Vector2(200, 60)
+size = Vector2(130, 60)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_c5mkm"]
 size = Vector2(30, 60)
@@ -4187,7 +4199,7 @@ tracks/13/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_woueq"]
-size = Vector2(80, 20)
+size = Vector2(130, 60)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_bjfdx"]
 size = Vector2(30, 60)
@@ -4397,11 +4409,11 @@ tracks/15/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_yev3d"]
-size = Vector2(140, 40)
+size = Vector2(130, 60)
 
 [sub_resource type="Animation" id="Animation_wooatk_st_hp"]
 resource_name = "st_hp"
-length = 0.5
+length = 0.6333333
 step = 0.0167
 tracks/0/type = "value"
 tracks/0/imported = false
@@ -4410,7 +4422,7 @@ tracks/0/path = NodePath("Hitbox/HitShape:shape")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.15, 0.21666667),
+"times": PackedFloat32Array(0, 0.16666667, 0.23333333),
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
 "values": [null, SubResource("RectangleShape2D_yev3d"), null]
@@ -4422,7 +4434,7 @@ tracks/1/path = NodePath("Hitbox/HitShape:shape:size")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
-"times": PackedFloat32Array(0.15),
+"times": PackedFloat32Array(0.16666667),
 "transitions": PackedFloat32Array(1),
 "update": 1,
 "values": [Vector2(130, 60)]
@@ -4434,10 +4446,10 @@ tracks/2/path = NodePath("Hitbox/HitShape:position")
 tracks/2/interp = 1
 tracks/2/loop_wrap = true
 tracks/2/keys = {
-"times": PackedFloat32Array(0.15),
+"times": PackedFloat32Array(0.16666667),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [Vector2(70, -70)]
+"values": [Vector2(75, -50)]
 }
 tracks/3/type = "value"
 tracks/3/imported = false
@@ -4482,7 +4494,7 @@ tracks/6/path = NodePath("Hitbox/HitShape:disabled")
 tracks/6/interp = 1
 tracks/6/loop_wrap = true
 tracks/6/keys = {
-"times": PackedFloat32Array(0, 0.15, 0.21666667),
+"times": PackedFloat32Array(0, 0.16666667, 0.23333333),
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 1,
 "values": [true, false, true]
@@ -4515,6 +4527,54 @@ tracks/8/keys = {
 "transitions": PackedFloat32Array(1, 1),
 "update": 1,
 "values": [false, true]
+}
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("AnimatedSprite2D:frame")
+tracks/9/interp = 1
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0.016666668, 0.033333335, 0.050000004, 0.06666667, 0.1, 0.16666667, 0.25, 0.31666666, 0.4, 0.5, 0.56666666),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [1, 2, 3, 3, 5, 6, 7, 8, 3, 9, 10]
+}
+tracks/10/type = "value"
+tracks/10/imported = false
+tracks/10/enabled = true
+tracks/10/path = NodePath("AnimatedSprite2D:animation")
+tracks/10/interp = 1
+tracks/10/loop_wrap = true
+tracks/10/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [&"st_hp"]
+}
+tracks/11/type = "value"
+tracks/11/imported = false
+tracks/11/enabled = true
+tracks/11/path = NodePath("AnimatedSprite2D:scale")
+tracks/11/interp = 1
+tracks/11/loop_wrap = true
+tracks/11/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0.48, 0.5)]
+}
+tracks/12/type = "value"
+tracks/12/imported = false
+tracks/12/enabled = true
+tracks/12/path = NodePath("AnimatedSprite2D:offset")
+tracks/12/interp = 1
+tracks/12/loop_wrap = true
+tracks/12/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0, 0)]
 }
 
 [sub_resource type="Animation" id="Animation_wooatk_st_lk"]

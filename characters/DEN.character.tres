@@ -1,15 +1,15 @@
 [gd_resource type="Resource" script_class="CharacterData" format=3 uid="uid://bnbes5q0352er"]
 
-[ext_resource type="Texture2D" uid="uid://dqfk3vnmo6u0p" path="res://assets/ui/char/den.png" id="1_ge76s"]
 [ext_resource type="PackedScene" uid="uid://b6x784i20q4tq" path="res://characters/DEN.tscn" id="1_hyr68"]
 [ext_resource type="Texture2D" uid="uid://cjedktvxpdkos" path="res://assets/cover/den1.png" id="1_qgrsi"]
 [ext_resource type="Script" uid="uid://biahbprhmtfti" path="res://characters/CharacterData.gd" id="1_sm5l7"]
+[ext_resource type="Texture2D" uid="uid://cg31ium0vx1j" path="res://assets/cover/mini_char/den1.png" id="2_qgrsi"]
 
 [resource]
 script = ExtResource("1_sm5l7")
 display_name = "Dennis"
 short_id = "DEN"
 scene = ExtResource("1_hyr68")
-portrait = ExtResource("1_ge76s")
+portrait = ExtResource("2_qgrsi")
 large_portrait = ExtResource("1_qgrsi")
 metadata/_custom_type_script = "uid://biahbprhmtfti"

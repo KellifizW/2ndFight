@@ -111,6 +111,14 @@ func update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	if not movement_node.animation_state:
 		return
 	
+	# 🟢 Hitstop 期間不要重新呼叫動畫更新：
+	# HitStopController 會把 AnimationPlayer/AnimatedSprite2D 的 speed_scale 設為 0，
+	# 若每個 _physics_process 仍呼叫本函式，可能會把動畫狀態重新推回，破壞定格。
+	var world = movement_node.get_tree().get_first_node_in_group("world") if movement_node.get_tree() else null
+	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
+	if slowmo_controller and slowmo_controller.is_hit_slowmo:
+		return
+
 	var curr_state: String = movement_node.animation_state.get_current_node() if movement_node.animation_state else ""
 	var on_floor: bool = movement_node.is_on_floor()
 	var anim_dir: float = dir_x * movement_node.facing_direction
