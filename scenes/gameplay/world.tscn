@@ -357,6 +357,7 @@ script = ExtResource("7_pkg7o")
 [node name="HitStopController" type="Node" parent="." unique_id=1934090925]
 script = ExtResource("23_hitstop")
 hitstop_frames = 8
+jitter_target = 0
 jitter_amplitude_x = 2.0
 jitter_amplitude_y = 1.5
 

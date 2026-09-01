@@ -24,6 +24,17 @@ var slow_mo_controller: Node = null  # cached in _ready()
 # ── 多段招式追蹤 ──
 var multi_hit_targets: Dictionary = {}  # {target_id: {hit_index: int, last_hit_frame: int}}
 
+# ── 單段攻擊的命中登記（一次揮拳只能命中同一目標一次）──
+# key = target instance_id, value = 攻擊實例 token（attack_type + Player.attack_instance_id）。
+# 沒有這層保護時，只要 Hitbox 在同一次出招內離開再重新進入 Hurtbox
+#（hitstop 期間攻擊者仍在前衝 / PushManager 仍在推開 pushbox 時很容易發生），
+# area_entered 就會再觸發一次完整的命中流程：第二次 take_hit、第二次音效 /
+# 特效、第二次 hitstop —— 玩起來就像「一拳打出兩次」。
+var single_hit_registry: Dictionary = {}
+
+# 🔍 Debug counter for CI diagnostics（登記過幾次命中，不影響行為）。
+var debug_hit_registered_count: int = 0
+
 # ── VFX 系統 ──
 const VFXImpact = preload("res://scripts/vfx/vfx_impact.gd")
 const VFXSmoke = preload("res://scripts/vfx/vfx_smoke.gd")
@@ -100,6 +111,14 @@ func handle_hitbox_collision(area: Area2D) -> void:
 				Debug.log("[HitResponseHandler] ⚠️  phase_data=null for multi-hit move '%s', elapsed_frames=%d, target=%s" % [active_move.name, elapsed_frames, target.name])
 				return
 	
+	# ── 單段攻擊：同一次出招不得重複命中同一目標 ──
+	# 多段招式（is_multi_hit）走 hit_phases 的段數判定，不套用這條。
+	var is_multi_hit_move: bool = active_move != null and active_move.is_multi_hit
+	if not is_multi_hit_move:
+		if not _register_single_hit(target):
+			Debug.log("[HitResponseHandler] ⚠️ 同一次出招已命中過 %s，忽略重複命中" % target.name)
+			return
+
 	# ── 獲取攻擊參數 ──
 	var hit_params = _get_hit_parameters(phase_data)
 	
@@ -246,6 +265,36 @@ func _make_knockfly_params(source: Object, hitstun: int) -> Dictionary:
 
 func reset_multi_hit_state() -> void:
 	multi_hit_targets.clear()
+	single_hit_registry.clear()
+
+
+## 登記「這一次出招」對 target 的命中。已登記過就回傳 false（拒絕重複命中）。
+func _register_single_hit(target: Node) -> bool:
+	var token: String = _attack_instance_token()
+	var target_id: int = target.get_instance_id()
+	if single_hit_registry.get(target_id, "") == token:
+		return false
+	single_hit_registry[target_id] = token
+	debug_hit_registered_count += 1
+	return true
+
+
+## 「同一次揮拳」的識別碼：招式名 + 出招流水號。
+## 流水號由 Player._execute_attack() 每次成功出招 +1，因此連續兩次同名攻擊
+## （例如快速連按兩下 st_lp）會拿到不同 token，第二拳照樣能打中。
+func _attack_instance_token() -> String:
+	if parent_player == null:
+		return "none#0"
+	var move_set = parent_player.move_set if "move_set" in parent_player else null
+	if move_set and move_set.is_spmove and move_set.current_move_state.active_move:
+		# 特殊招式：用招式名 + 目前這一招的起始幀當識別碼。
+		return "sp:%s#%d" % [
+			move_set.current_move_state.active_move.name,
+			int(parent_player.attack_instance_id) if "attack_instance_id" in parent_player else 0,
+		]
+	var atype: String = str(parent_player.attack_type) if "attack_type" in parent_player else "none"
+	var instance_id: int = int(parent_player.attack_instance_id) if "attack_instance_id" in parent_player else 0
+	return "%s#%d" % [atype, instance_id]
 
 func _get_multi_hit_phase(active_move, target: Node, elapsed_frames: int):
 	if elapsed_frames < 0:

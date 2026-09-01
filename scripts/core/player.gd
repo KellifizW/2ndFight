@@ -46,6 +46,11 @@ var active_fireball: Node = null
 # 根本原因：reset_attack_state() 後，同一幀仍可被重新觸發
 # 解決方案：鎖定上一次執行的攻擊，在新動畫完全開始前拒絕重複
 var last_executed_attack: String = ""  # Track which attack was just executed (e.g., "st_hp")
+## 出招流水號：每次 _execute_attack() 成功執行 +1。用來識別「同一次揮拳」，
+## 讓 HitResponseHandler 能擋掉單次攻擊對同一目標的重複命中。
+var attack_instance_id: int = 0
+## 🔍 Debug counter for CI diagnostics（成功執行過幾次普通攻擊，不影響行為）。
+var debug_attack_execution_count: int = 0
 var last_executed_attack_frame: int = -999  # Frame when it was executed
 # 【修復】鎖定改為 1 物理幀（只防止真正的同幀重複執行）
 # 原為 2 造成可感知的鎖定間隔（玩家進行快速連按時有明顯頓感）
@@ -323,6 +328,27 @@ func take_hit(
 func _physics_process(delta: float) -> void:
 	if has_node("InputManager"):
 		$InputManager.update_input()
+
+	# ══════════════════════════════════════════════════════════════
+	# 🟢 Hitstop：角色的「行動層」整段凍結
+	# ══════════════════════════════════════════════════════════════
+	# 定格期間這個角色不得再做任何**新**動作。舊版只凍結了動畫與少數計時器，
+	# 但下面這一整段（攻擊移動、摔投、MoveSet、攻擊執行、取消判定）仍然每個
+	# 物理幀照跑 —— 於是在定格期間：
+	#   1. 攻擊者會繼續往前滑（attack movement 沒被凍結），Hitbox 也還開著，
+	#      有機會在同一次揮拳中重新命中對手；
+	#   2. 任何在定格期間通過守衛的攻擊執行都會呼叫 animation_state.travel()，
+	#      而 AnimationTree 此時是 MANUAL（凍結中），travel 只會排隊，
+	#      **等 hitstop 結束的那一幀才一次生效** —— 玩家看到的就是
+	#      「打中之後，定格一結束，同一招又自己放了一次」。
+	# hitstop_frames 設得越大（例如 60），這兩條路徑的時間窗越長，
+	# 所以問題在高 hitstop 值才穩定重現。定格就是定格：整段跳過。
+	#
+	# （InputManager.update_input() 刻意留在上面：定格期間仍要記錄輸入歷史，
+	#   讓玩家可以在定格中預輸入下一招，解凍後才由 InputBuffer 正常吐出來。）
+	if _is_in_hitstop():
+		return
+
 	if hit_response_handler:
 		hit_response_handler.process_multi_hit_overlaps()
 	
@@ -503,12 +529,8 @@ func _physics_process(delta: float) -> void:
 
 	# 【重點】landing_lock_frames 現在由 TimerHandler 管理，不在這裡遞減
 
-	var slowmo_controller = world.get_node_or_null("SlowMoController") if world else null
-	var is_in_hitstop = slowmo_controller and slowmo_controller.is_hit_slowmo
-	# 🟢 Hitstop 期間不呼叫 _update_animation_state：
-	# HitStopController 凍結期間 AnimationTree 停在手動模式（MANUAL），排 travel
-	# 只會積壓到恢復後一次生效；hitstop 結束後的第一次更新會自動接手。
-	if not is_in_hitstop and not (landing_lock_frames > 0):
+	# 本函式在 hitstop 期間已於開頭 return，所以走到這裡必定不在定格中。
+	if not (landing_lock_frames > 0):
 		_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
 	# Stage 2 切片 2：`_was_in_hitstop` 已刪除（死旗標）。
@@ -516,10 +538,24 @@ func _physics_process(delta: float) -> void:
 	# animation_player.current_animation / current_animation_position 存進兩個
 	# **從未被使用**的區域變數，離開 hitstop 的那一幀則是 `pass`。
 	# 兩個分支都是空操作，所以整段連同旗標一起移除，行為一幀不變。
-	# （真正需要 is_in_hitstop 的地方只有下面攻擊計時器的凍結判斷。）
+
+	# 🟢 【回歸修復】起身（wakeup）計時器倒數。
+	# 這段在 hitstop 解耦那一版被連同舊的 _update_animation_state 呼叫一起刪掉了，
+	# 但全代碼再也沒有第二個地方遞減 wakeup_timer —— 結果角色被擊倒起身後
+	# `is_wakeup_locked` 永遠是 true（只有 world.reset_players() 會清），
+	# can_start_ground_attack / can_jump 全部被擋死。這裡照原樣補回，
+	# 並與其他計時器一樣在 hitstop 期間凍結（開頭 return 已保證）。
+	if wakeup_timer > 0:
+		wakeup_timer -= 1
+		if wakeup_timer <= 0 and is_wakeup_locked:
+			is_wakeup = false
+			is_wakeup_locked = false
+			is_landing = false
+			attack_duration_timer = 0
+			update_facing_direction()
 
 	# Countdown attack duration timer (FRAME-BASED, only when actually attacking)
-	if is_attacking and attack_duration_timer > 0 and not is_in_hitstop:
+	if is_attacking and attack_duration_timer > 0:
 		attack_duration_timer -= 1
 		if attack_duration_timer <= 0:
 			reset_attack_state()
@@ -781,6 +817,14 @@ func _enter_landing_state(debug_tag: String) -> void:
 	Debug.log("[%s] is_landing set | forced lock: %df" % [debug_tag, landing_lock_frames])
 	_update_animation_state(input_data.input_dir, input_data.crouch_pressed)
 
+## 這一刻是否正處於 hitstop（擊中定格）。
+## 定格期間角色的「行動層」整段凍結：不得出招、不得推進攻擊移動 / 計時器。
+func _is_in_hitstop() -> bool:
+	var w = world if world else get_tree().get_first_node_in_group("world")
+	var slowmo = w.get_node_or_null("SlowMoController") if w else null
+	return slowmo != null and bool(slowmo.is_hit_slowmo)
+
+
 func force_update_facing_direction() -> void:
 	if facing_handler:
 		facing_handler.update_facing_direction(true)
@@ -794,7 +838,25 @@ func force_update_facing_direction() -> void:
 func _execute_attack(attack_name: String) -> void:
 	"""統一的攻擊執行函式，處理傷害設置、狀態變更和移動啟動"""
 	Debug.log("[EXECUTE_ATTACK] attack_name: ", attack_name, " | Seat: ", seat)
-	
+
+	# 【FIX】Hitstop 期間絕不開新招。
+	# 定格中 AnimationTree 是 MANUAL，travel() 只會排隊、等解凍才一次生效 ——
+	# 玩家看到的就是「定格一結束，同一招又自己再放了一次」。
+	if _is_in_hitstop():
+		Debug.log("[LOCK_TRACE:HITSTOP] F=%d Seat=%s | Rejecting '%s' - hitstop 進行中，不得開新招" % [
+			Engine.get_physics_frames(), seat, attack_name
+		])
+		return
+
+	# 【FIX】同一招尚未結束前不得再次觸發自己。
+	# 正常的連段取消會先呼叫 stop_attack()（is_attacking → false）再執行下一招，
+	# 所以這條守衛只擋「同一次揮拳被重複觸發」，不影響 gatling / hit-confirm cancel。
+	if is_attacking and attack_type == attack_name:
+		Debug.log("[LOCK_TRACE:IN_PROGRESS] F=%d Seat=%s | Rejecting '%s' - 同一招仍在進行中" % [
+			Engine.get_physics_frames(), seat, attack_name
+		])
+		return
+
 	# 【FIX】攻擊去重防護：防止同一攻擊在相鄰幀中重複執行（業界標準）
 	# 根本原因：reset_attack_state()後同一幀可能再次觸發相同按鍵
 	# 如果上一幀剛剛執行了這個攻擊，拒絕這一幀的重複執行
@@ -821,6 +883,10 @@ func _execute_attack(attack_name: String) -> void:
 		current_damage = 0.0
 	is_attacking = true
 	attack_type = attack_name
+	# 每次成功出招都是一個新的「攻擊實例」。HitResponseHandler 用它保證
+	# 同一次揮拳最多只對同一個目標登記一次命中（多段招式另有 hit_phases 機制）。
+	attack_instance_id += 1
+	debug_attack_execution_count += 1
 	if is_throw_attack and throw_handler:
 		throw_handler.try_initiate_throw({})
 	
