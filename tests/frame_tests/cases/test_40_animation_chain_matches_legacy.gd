@@ -168,7 +168,7 @@ func _legacy_chain(f: Node, crouch_input: bool, on_floor: bool, anim_jump_dir: f
 		return "layground"
 	if f.is_knockfly:
 		return "knockfly"
-	if f.is_wakeup_locked:
+	if f.is_wakeup:
 		return "wakeup"
 	if f.is_hit:
 		if not on_floor and bool(f.is_air_hit_backjump):

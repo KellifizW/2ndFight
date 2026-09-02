@@ -49,7 +49,7 @@
 |---|---|---|---|
 | Stage 0 | 止血 + 安全網(DebugLogger / frame 測試 / frame data 表 / 守則) | ✅ 已併入 main | — |
 | Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | ✅ 完成(六族計時器全數遷移; CI 已啟用並自動跑全部用例) | 已完成 |
-| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1~6 完成(唯讀狀態層 → 攻擊 → 移動 → 受擊 → 格擋 → 動畫鏈; AI 蹲下後衝 bug 一併修復; 旗標 33→32; 用例 30→39); 剩餘: 旗標實際移除、兩處狀態/動畫分岔 | 1~2 週末 |
+| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1~7 完成(唯讀狀態層 → 攻擊 → 移動 → 受擊 → 格擋 → 動畫鏈 → 第一個重複旗標刪除; AI 蹲下後衝 bug 一併修復; 旗標 33→31; 用例 30→39); 剩餘: 其餘旗標實際移除/摺進狀態欄位、兩處狀態/動畫分岔 | 1~2 週末 |
 | Stage 3 | FrameData 收攏 + 數據問題清理 | 🔄 slice 1 完成(DEN fireball source routing); 其餘 embedded specials、FrameData schema、0f 動畫與 generated table 待處理 | 1~2 週末 |
 | Stage 4 | 輸入系統收斂(單一 ActionMapper) | 🔄 收攏 #1 完成(AI `attack_type` 與人類路徑對齊, hit-confirm cancel 恢復); `InputManager`/`PlayerController` 合併待辦 | 1~2 週末 |
 | Stage 5 | 清理(死代碼/文檔/tscn 拆分/CI) | ⏳ | 1 週末 |
@@ -382,9 +382,21 @@ layground) / Wakeup, 加上摔投兩個「輸入被外部接管」的階段。
      死路徑(零呼叫點)整函式刪除 —— 對不可達代碼「改讀 resolve()」只是
      化妝, 刪除才是有意義的處理; 其 buffer 消費副作用由
      InputBuffer 30 幀自動過期兜底。
-   - 待辦: 動畫鏈(`Player._compute_target_state` /
-     `AnimationManager.compute_target_state`)改讀 `resolve()` +
-     狀態→動畫名映射, 之後**實際刪旗標**(DoD: 旗標數 < 10)。
+   - ✅ **切片 6 完成**(2026-09-02): 動畫鏈(`Player._compute_target_state` /
+     `AnimationManager.compute_target_state`)收攏為 `FighterState.animation_for()`
+     —— 先前 §6.5 待辦裡的「動畫鏈改讀 resolve() + 狀態→動畫名映射」以
+     「唯一定義 + 逐值等價」落地(見 §12 第 11 條)。旗標數仍 32。
+   - ✅ **切片 7 完成**(2026-09-02): **第一個重複旗標刪除**。
+     `is_wakeup_locked` 與 `is_wakeup` 是永遠成對寫入/清除的重複對
+     (4 個寫入點全部成對), 讀寫普查證明兩者不可能分歧, 刪除其一並把
+     讀者改指 `is_wakeup` 是逐值等價的純刪除。讀者重指向:
+     `FighterState.resolve()` / `animation_for()` / `check_invariants()`、
+     `FrameBar.gd`、`test_40` 對照組; `ci/verify_animation_chain.py`
+     18,874,368 組合重指後仍 0 分岔。核心三檔旗標 **32 → 31**。
+   - 待辦: 其餘 31 個旗標按族摺進狀態欄位/幀計數器(順序見 README
+     「Next slices」表: block 站姿 → air-hit backjump → landing → wakeup →
+     hit/block → knockdown/knockfly → movement → attack → throw; 物理/衍生
+     族保留為成員), 之後達成 DoD(旗標數 < 10)。
 
 **驗收(DoD)**:
 - [x] 狀態層存在且被 frame 測試釘住(`test_25`/`test_26`)
@@ -669,6 +681,16 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
    `_load_smd` routing 並鎖住 external/fallback path 一致。其餘 12 個
    embedded SpecialMoveData source、FrameData schema、0f 動畫、active window
    收攏及 generated table 留給下一個 Stage 3 slice，避免後續 AI 重做 Stage 2。
+---
+13. **[已完成 2026-09-02]** Stage 2 切片 7: 第一個重複旗標刪除。
+   `is_wakeup_locked` 與 `is_wakeup` 是永遠成對寫入/清除的重複對（4 個寫入點
+   全部成對：player.gd 起身進入/結束、world.reset_players、KnockflyHandler
+   起身觸發），讀寫普查證明兩者不可能分歧，刪除 `is_wakeup_locked` 並把讀者
+   改指 `is_wakeup` 是逐值等價的純刪除。讀者重指向：`FighterState.resolve()` /
+   `animation_for()` / `check_invariants()`、`FrameBar.gd`、`test_40` 對照組、
+   `ci/verify_animation_chain.py`（18,874,368 組合重指後仍 0 分岔）。
+   核心三檔 bool 旗標 **32 → 31**（計數規則見 §6.2 第 7 點）。**行為零變更**。
+   剩餘 31 個旗標的摺疊順序見 README「Next slices」表與 §6.5 待辦。
 ---
 ## 附錄 A: 關鍵代碼位置(供各階段參考)
 | 系統 | 檔案 |

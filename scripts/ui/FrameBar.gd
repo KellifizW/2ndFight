@@ -333,7 +333,7 @@ func _get_player_flags() -> Dictionary:
 			  (target_player.has_method("is_in_hitstun") and target_player.is_in_hitstun()),
 		knockfly = "is_knockfly" in target_player and target_player.is_knockfly,
 		layground = "is_layground" in target_player and target_player.is_layground,
-		wakeup = "is_wakeup_locked" in target_player and target_player.is_wakeup_locked
+		wakeup = "is_wakeup" in target_player and target_player.is_wakeup
 	}
 
 func _update_airborne(anim_name: String, on_floor: bool) -> void:

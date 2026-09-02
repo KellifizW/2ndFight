@@ -675,7 +675,6 @@ func reset_players() -> void:
 		# 否則殘留鎖會凍結 _update_animation_state 最多 25 幀
 		player.landing_lock_frames = 0
 		player.is_wakeup = false
-		player.is_wakeup_locked = false
 		player.hit_lock_frames = 0
 		player.block_lock_frames = 0
 		player.knockfly_frames = 0
