@@ -21,7 +21,7 @@ structural problems that make every new feature more expensive than the last:
 | Problem | Symptom |
 |---|---|
 | Four coexisting time domains | Seconds, 60 FPS logical frames, 120 FPS physics frames, and a `FrameCounter` all mixed together, with dozens of scattered `*2` / `*120` / `/2.0` conversions |
-| ~34 boolean state flags | `is_hit`, `is_knockfly`, `is_blocking`, `is_attacking`, `is_dashing`… combinations are unenforceable, so illegal states are reachable. Stage 2 slice 1 added a state layer that makes the remainder testable and deleted 6 dead flags; slice 2 ported the attack subsystem onto it and deleted one more; slice 3 ported the movement subsystem onto it (no further deletions, 32 held). Reproducible count (member-level `var x: bool` in `Movement`/`fighter`/`player`, excluding `@export` config and locals): **33 → 32** |
+| ~34 boolean state flags | `is_hit`, `is_knockfly`, `is_blocking`, `is_attacking`, `is_dashing`… combinations are unenforceable, so illegal states are reachable. Stage 2 slice 1 added a state layer that makes the remainder testable and deleted 6 dead flags; slice 2 ported the attack subsystem onto it and deleted one more; slice 3 ported the movement subsystem onto it (no further deletions, 32 held); slice 7 deleted the first *duplicate* flag (`is_wakeup_locked` ≡ `is_wakeup`, 31 held). Reproducible count (member-level `var x: bool` in `Movement`/`fighter`/`player`, excluding `@export` config and locals): **33 → 31** |
 | Frame data spread across sources | The same numbers live in scripts, scenes, and tables, so they drift apart |
 | Two overlapping input paths | `InputManager` and `PlayerController` both interpret input, with different buffering rules |
 
@@ -52,7 +52,7 @@ These are non-negotiable and apply to every contribution:
 |---|---|---|
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
 | **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated) |
-| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–6 landed (read-only state layer, attack / movement / hit-reaction / block subsystems ported, animation chain unified into one definition, AI `attack_type` parity fixed, AI crouch-backdash bug fixed, dead `_physics_process_jump` entry and the duplicate `Player._compute_target_state` removed; 7 dead flags deleted, 33 → 32, test count 30 → 39) |
+| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–7 landed (read-only state layer, attack / movement / hit-reaction / block subsystems ported, animation chain unified into one definition, AI `attack_type` parity fixed, AI crouch-backdash bug fixed, dead `_physics_process_jump` entry and the duplicate `Player._compute_target_state` removed; first duplicate flag pair `is_wakeup`/`is_wakeup_locked` collapsed; 7 dead flags deleted + 1 duplicate, 33 → 31, test count 30 → 39) |
 | **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | 🔄 Slice 1 landed — DEN `fireball` now uses one external `SpecialMoveData` source; source routing is CI-checked; remaining embedded specials and frame-data migration are still pending |
 | **4** | **Converge input handling** — a single `ActionMapper` | 🔄 Partial — parity fix #1 landed (AI `attack_type` restored via shared `PlayerController.resolve_attack_type`); `InputManager` / `PlayerController` collapse to a single `ActionMapper` still pending |
 | **5** | **Cleanup** — dead code, docs, scene splitting | ⏳ Planned |
@@ -573,11 +573,63 @@ mode Stage 2 exists to remove.
    with its `resolve()` state, and `test_26` keeps comparing the two with the
    divergences counted as explicit exemptions.
 
-**Next slices**: with the chain unified, the tail of Stage 2 is *deleting* the
-duplicate flags — the surviving read sites are now few enough to attack one
-family at a time (block stance, air-hit backjump, landing) and fold each into
-a state field (plan DoD: flag count < 10 across the three core scripts). The
-two disclosed state/animation divergences are the behavior-changing part and
+**Slice 7 — the first duplicate flag is deleted (landed)**
+
+Slices 2–6 consolidated every *guard* and the animation chain into one definition
+each, but the booleans themselves remained — duplicated by the state layer yet
+still authoritative. Slice 7 starts deleting them, beginning with the cleanest
+case: a flag pair that provably always holds the same value.
+
+- ✅ **`is_wakeup_locked` deleted (32 → 31).** `is_wakeup` and
+  `is_wakeup_locked` were a redundant pair: every write site set or cleared
+  **both** in the same block — the two wakeup entries
+  (`Player._on_animation_tree_finished`, `KnockflyHandler.reset_layground_with_health_check`)
+  set both `true` together, and the two exits (`Player._physics_process`
+  wakeup-timer end, `world.reset_players()`) clear both together. Verified by a
+  read/write census over every `.gd`: exactly **4 write sites, all paired**,
+  zero sites touching one without the other — so they can never diverge at
+  runtime, and deleting one (pointing its readers at the other) is provably
+  behavior-preserving. Readers rerouted to `is_wakeup`: `FighterState.resolve()`
+  (WAKEUP), `FighterState.animation_for()` (`"wakeup"`),
+  `FighterState.check_invariants()` (wakeup-lock invariant),
+  `scripts/ui/FrameBar.gd` (frame-bar wakeup phase), and the `test_40` legacy
+  control group. `ci/verify_animation_chain.py` (18,874,368 combinations) was
+  re-pointed at `is_wakeup` and still reports **0 mismatches**.
+- ✅ **No behavior change.** This is a pure duplicate removal; the authoritative
+  wakeup duration (`wakeup_timer`) and every other read/write site are untouched.
+  The wakeup paths are already covered by `test_25` (invariants), `test_26`,
+  `test_34` (input-lock) and `test_40` (animation chain).
+- ✅ Boolean state flags in the three core scripts: **32 → 31** (slice 2's rule).
+
+**Disclosed finding (deliberately *not* fixed here)**
+
+- **`is_wakeup` itself can fold into `wakeup_timer > 0` next.** The two wakeup
+  entries always seed `wakeup_timer > 0` alongside `is_wakeup = true`, and the
+  exit clears both on the frame the timer crosses zero — so the flag is already
+  fully derivable from the timer **except** `world.reset_players()` clears
+  `is_wakeup` while leaving `wakeup_timer` stale. Deleting `is_wakeup` too
+  requires also zeroing `wakeup_timer` in `reset_players()` (harmless: the
+  stale timer only ever decremented as no-ops). Left for the next slice so this
+  one stays a single, provable deletion.
+
+**Next slices**: the tail of Stage 2 is still *deleting* the duplicate flags and
+*folding* each family into a state field (plan DoD: flag count < 10 across the
+three core scripts). The surviving 31 flags, grouped by how they should die:
+
+| Family | Flags (member-level `var x: bool`) | Fold target |
+|---|---|---|
+| Block stance | `is_holding_back`, `is_crouch_blocking`, `is_proximity_blocking` | a `block_stance` sub-field / `PROXIMITY_BLOCK` state |
+| Air-hit backjump | `is_air_hit_backjump` | `air_hit_backjump_timer > 0` (one set site, one clear site) |
+| Landing | `is_landing` | `landing_lock_frames > 0` (one direction already pinned by `test_25`) |
+| Wakeup | `is_wakeup` | `wakeup_timer > 0` (+ zero `wakeup_timer` in reset, see slice 7) |
+| Hit / block reaction | `is_hit`, `is_blocking` | `hitstun_frames > 0` / `blockstun_frames > 0` |
+| Knockdown / knockfly | `is_layground`, `is_knockfly` | stored `State` (`KNOCKDOWN`/`KO`, `KNOCKFLY`) |
+| Movement | `is_dashing`, `is_backdashing`, `is_jumping`, `is_crouching` | stored `State` (`DASH`/`BACKDASH`/`JUMP`/`CROUCH`) |
+| Attack | `is_attacking`, `is_air_attacking`, `is_special_moving`, `has_air_attacked` | stored `State` (`ATTACK`/`AIR_ATTACK`/`SPECIAL_MOVE`) + a `has_air_attacked` field |
+| Throw | `is_being_thrown`, `just_thrown` | stored `State` (`BEING_THROWN`) + transient `just_thrown` |
+| Physical / derived (stay as members) | `is_opponent_proximity`, `was_in_air`, `was_crouching_last_frame`, `was_hit_while_crouching`, `just_jumped`, `is_immune_to_floor_snap`, `landing_facing_lock`, `is_facing_locked`, `is_knockfly_animation_finished`, `waiting_for_hit_stop_end`, `_landing_checkpoint_executed` | not state flags (physical detection / per-frame caches / facing locks) |
+
+The two disclosed state/animation divergences are the behavior-changing part and
 still need their own slice.
 
 ### Stage 3 — Consolidate frame data 🔄 (slice 1 landed 2026-09-02)
@@ -693,7 +745,7 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   failure is reproducible). Every frame it asserts the resolver is a pure
   function, returns a defined state, and that the structural invariants hold
   (dash/backdash mutually exclusive; `is_landing` always accompanied by lock
-  frames; `is_wakeup_locked` always accompanied by a running `wakeup_timer`;
+  frames; `is_wakeup` always accompanied by a running `wakeup_timer`;
   since slice 2, `is_attacking` always accompanied by a legal `attack_type`).
   It also prints the observed state distribution and requires ≥4 distinct
   states — otherwise "standing still" would pass it trivially.
@@ -867,10 +919,12 @@ plan_game.md         The full six-stage refactor plan
   combo-stunned", "can a throw start / land"), since slice 5 the block-stance
   entry/release gates, and since slice 6 the animation priority chain itself
   ("which animation plays this frame") all live in `FighterState`, and the
-  orphan-attack state is structurally impossible. What remains for the tail of
-  Stage 2 is *deleting* the now-duplicated boolean flags: the guards and the
-  chain read them through one definition each, so the read sites are finally
-  few enough to retire a flag family at a time. Until then the illegal flag
+  orphan-attack state is structurally impossible. Slice 7 deleted the first
+  duplicate flag (`is_wakeup_locked` ≡ `is_wakeup`, 32 → 31). What remains for
+  the tail of Stage 2 is *deleting* the rest of the now-duplicated boolean
+  flags: the guards and the chain read them through one definition each, so the
+  read sites are finally few enough to retire a flag family at a time (the
+  fold order is tabulated under "Next slices"). Until then the illegal flag
   combinations remain *detectable* (and are detected by `test_25`) rather than
   *unrepresentable*.
 - **AI crouch-backdash** ✅ (fixed in Stage 2 slice 4) — the AI's direct

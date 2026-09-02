@@ -17,6 +17,11 @@ class_name FighterState extends RefCounted
 ## 切片 5 — 格擋族守衛：
 ##   - can_enter_block_stance（BlockingHandler 站姿進入 / 持續擋向重取樣）
 ##   - can_release_block_stance（BlockingHandler 站姿釋放）
+## 切片 6 — 動畫鏈唯一定義：
+##   - animation_for（取代 Player._compute_target_state 與
+##     AnimationManager.compute_target_state 兩份抄本）
+## 切片 7 — 第一個重複旗標刪除：
+##   - `is_wakeup_locked` 刪除（與 `is_wakeup` 永遠成對寫入/清除，重複對）
 ##
 ## ── 為什麼先做解析器，而不是直接改寫控制流 ─────────────────────────────
 ## plan_game.md §6 的遷移策略寫得很清楚：「按子系統切段，旗標與狀態並行期間
@@ -183,7 +188,7 @@ static func resolve(f: Node) -> int:
 	# 判定一致（摔投最後的拋飛階段屬於 KNOCKFLY）。
 	if _flag(f, "is_being_thrown"):
 		return State.BEING_THROWN
-	if _flag(f, "is_wakeup_locked"):
+	if _flag(f, "is_wakeup"):
 		return State.WAKEUP
 
 	# ── 受擊/防禦族 ──
@@ -410,7 +415,7 @@ static func can_jump(f: Node, jump_pressed: bool, is_special_moving: bool = fals
 ##      那是另一道閘門。）
 ##   2. **不含 layground 之外的 KO**。KO 是 layground 的細化（resolve() 內
 ##      `is_layground + 血量歸零`），is_layground 已涵蓋。
-##   3. `is_wakeup`（起身后搖，等價於 is_wakeup_locked）有收 —— 醒來那幾幀
+##   3. `is_wakeup`（起身後搖）有收 —— 醒來那幾幀
 ##      輸入是被吃掉的，與動畫鏈的 wakeup 優先序一致。
 static func is_input_locked(f: Node) -> bool:
 	if f == null:
@@ -577,8 +582,8 @@ static func check_invariants(f: Node) -> Array:
 			% _int(f, "landing_lock_frames"))
 
 	# wakeup 鎖定必然伴隨仍在倒數的 wakeup_timer（歸零那幀一起清除）。
-	if _flag(f, "is_wakeup_locked") and _int(f, "wakeup_timer") <= 0:
-		broken.append("is_wakeup_locked 為真但 wakeup_timer=%d"
+	if _flag(f, "is_wakeup") and _int(f, "wakeup_timer") <= 0:
+		broken.append("is_wakeup 為真但 wakeup_timer=%d"
 			% _int(f, "wakeup_timer"))
 
 	# ── Stage 2 切片 2 新增：攻擊狀態必須「成對」出現 ──
@@ -650,7 +655,7 @@ static func animation_for(
 		return "layground"
 	if _flag(f, "is_knockfly"):
 		return "knockfly"
-	if _flag(f, "is_wakeup_locked"):
+	if _flag(f, "is_wakeup"):
 		return "wakeup"
 
 	# 4. HITSTUN —— 空中受擊一律 Jump_B（舊鏈的 is_air_hit_backjump 子判斷

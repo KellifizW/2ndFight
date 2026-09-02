@@ -56,7 +56,7 @@ MOVE_LIBRARY = {"dp", "hdk", "powerkk"}
 FLAG_NAMES = [
     "is_layground",
     "is_knockfly",
-    "is_wakeup_locked",
+    "is_wakeup",
     "is_hit",
     "is_air_hit_backjump",
     "was_hit_while_crouching",
@@ -97,7 +97,7 @@ def legacy_chain(f: dict, attack_type: str, active_move: str, jump_dir: float) -
         return "layground"
     if f["is_knockfly"]:
         return "knockfly"
-    if f["is_wakeup_locked"]:
+    if f["is_wakeup"]:
         return "wakeup"
     if f["is_hit"]:
         if not on_floor and f["is_air_hit_backjump"]:
@@ -127,7 +127,7 @@ def legacy_chain(f: dict, attack_type: str, active_move: str, jump_dir: float) -
         return "layground"
     if f["is_knockfly"]:                                # 不可達
         return "knockfly"
-    if f["is_wakeup_locked"]:                           # 不可達
+    if f["is_wakeup"]:                                  # 不可達
         return "wakeup"
     if f["landing_lock_pos"] and not f["is_spmove"]:    # 不可達
         return "landing"
@@ -165,7 +165,7 @@ def unified_chain(f: dict, attack_type: str, active_move: str, jump_dir: float) 
         return "layground"
     if f["is_knockfly"]:
         return "knockfly"
-    if f["is_wakeup_locked"]:
+    if f["is_wakeup"]:
         return "wakeup"
     if f["is_hit"]:
         if not on_floor:
@@ -231,7 +231,7 @@ def main() -> int:
             # 否則「順序放這裡是對的」這件事沒有被證明。
             if old == "Jump_B" and not f["is_hit"] and f["is_air_hit_backjump"] \
                     and not f["is_knockfly"] and not f["is_layground"] \
-                    and not f["is_wakeup_locked"]:
+                    and not f["is_wakeup"]:
                 dead_branch_hits += 1
 
     print("combinations checked : %d (%d flag masks × %d parameter tuples)"
