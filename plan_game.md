@@ -50,7 +50,7 @@
 | Stage 0 | 止血 + 安全網(DebugLogger / frame 測試 / frame data 表 / 守則) | ✅ 已併入 main | — |
 | Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | ✅ 完成(六族計時器全數遷移; CI 已啟用並自動跑全部用例) | 已完成 |
 | Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1~6 完成(唯讀狀態層 → 攻擊 → 移動 → 受擊 → 格擋 → 動畫鏈; AI 蹲下後衝 bug 一併修復; 旗標 33→32; 用例 30→39); 剩餘: 旗標實際移除、兩處狀態/動畫分岔 | 1~2 週末 |
-| Stage 3 | FrameData 收攏 + 數據問題清理 | ⏳ | 1~2 週末 |
+| Stage 3 | FrameData 收攏 + 數據問題清理 | 🔄 slice 1 完成(DEN fireball source routing); 其餘 embedded specials、FrameData schema、0f 動畫與 generated table 待處理 | 1~2 週末 |
 | Stage 4 | 輸入系統收斂(單一 ActionMapper) | 🔄 收攏 #1 完成(AI `attack_type` 與人類路徑對齊, hit-confirm cancel 恢復); `InputManager`/`PlayerController` 合併待辦 | 1~2 週末 |
 | Stage 5 | 清理(死代碼/文檔/tscn 拆分/CI) | ⏳ | 1 週末 |
 ---
@@ -399,7 +399,7 @@ layground) / Wakeup, 加上摔投兩個「輸入被外部接管」的階段。
 - [ ] `world.reset_players()` 簡化為單一 reset 調用
 - [ ] 新增一個攻擊只需: frame data 資源 + 動畫(不再改 8 處)
 ---
-## 7. Stage 3: FrameData 收攏 + 數據問題清理 ⏳
+## 7. Stage 3: FrameData 收攏 + 數據問題清理 🔄（slice 1 完成 2026-09-02）
 **目標**: 每個招式一張 `FrameData` 資源, 單一真相來源:
 ```
 startup / active_from / active_to / recovery /
@@ -410,20 +410,57 @@ multi-hit phases[] / knockfly params / projectile params
 - hitbox active 窗口由 FrameData 驅動(每物理幀切換), 動畫純視覺
   (動畫長度應 = total, 但邏輯不再讀動畫長度)
 - 普通攻擊(AttackData)與特殊招式(SpecialMoveData)合併為同一格式
-**必須處理的數據問題**(詳見 `FRAME_DATA_TABLE.md` §已知數據問題):
-1. **雙真相來源**: 場景內嵌 `smd_*`(生效) vs `data/specials/*.tres`(被忽略) —
-   以生效值為準, .tres 對齊後刪除重複
+
+### 7.1 已完成 slice 1：先固定生效來源，再搬一招
+
+- ✅ DEN `fireball` 原本在 `characters/DEN.tscn` 內嵌一份 partial
+  `smd_fireball`，導致 `data/specials/den_fireball.tres` 的修改不會生效。
+- ✅ 已把 scene export 改成直接引用 `data/specials/den_fireball.tres`，並
+  將原本生效的 8.0 damage、30.0 knockback、18/10 stun、projectile、
+  `FireballCallPlayer` 與 `duration_frames=0` 保留下來；此 slice 不改
+  gameplay 行為。
+- ✅ `ci/check_special_move_sources.py` 會解析三個角色的 `_load_smd` fallback
+  與 scene `smd_*` assignments，檢查 fallback 存在、external reference 對得上，
+  並鎖住已完成的 DEN fireball routing。
+- ✅ `test_41_den_fireball_resource_source.gd` 驗證實際載入的 `MoveData` 與
+  `SpecialMoveData` source path；frame harness case count 由 39 增至 40。
+- ✅ `FRAME_DATA_TABLE.md` 已記錄 slice 1 的有效值與剩餘 12 個 embedded
+  SpecialMoveData source；沒有把尚未搬動的 fallback 誤標為生效來源。
+
+### 7.2 尚未完成（下一個 Stage 3 slice）
+
+1. 先用 source routing report + frame test 對照生效值，再處理 DAV
+   `powerkk`、`dpL/M/H`、`fireballL/M/H`、`100p`，DEN `spnk`/`hdk`，及 WOO
+   `214K`/`623K` 的 embedded resources；不可直接覆蓋 fallback。
+2. 建立共用 `FrameData` resource schema，承接 startup/active/recovery、命中
+   數值、movement、projectile、knockfly 與 multi-hit phases；移除
+   `MoveData` 的 27 參數 positional constructor 要等資料 schema 與測試都能
+   取代後再做。
+3. 逐招加入 active window / total / hit parameter tests，先保留
+   `duration_frames=0` 的「用動畫長度 fallback」語意；`100p` 四段必須各自
+   驗證。
+4. 在有逐幀等價測試後，才把 hitbox active window 從 AnimationPlayer track
+   搬進 FrameData；動畫只留視覺，避免此階段偷偷改 timing。
+5. 最後再處理 DEN `spnk`、DAV `dpM`/`dpH` 等 0-frame 動畫、DAV super
+   active window 異常、WOO shipping/WIP 決策、generated `FRAME_DATA_TABLE`，
+   以及孤兒 `data/attacks/*.tres`。
+
+**目前仍需處理的數據問題**(詳見 `FRAME_DATA_TABLE.md` §已知數據問題):
+1. **雙真相來源（剩餘項目）**: 場景內嵌 `smd_*`(生效) vs
+   `data/specials/*.tres`(fallback) — 先比對後對齊、再刪除重複
 2. **動畫長 0f**: DAV dpM/dpH(靠 smd duration 撐住)、DEN spnk(兩者皆無 → 疑似損毀, 需補)
 3. **DAV super** hitbox 窗口解析異常(on=16 > off=10), 人工核對
 4. **孤兒資源**: `data/attacks/*.tres`(引用不存在的 `res://AttackData.gd`) — 刪除
-5. **WOO**: base MoveSet 無招式資料 — 決定: 完成 WOOMoveSet 或標記 WIP 並從選角移除
-6. **hitbox 由動畫軌道驅動** — 改 FrameData 驅動
+5. **WOO**: 決定完整支援或標記 WIP 並從選角移除
+6. **hitbox 由動畫軌道驅動** — 逐步改由 FrameData 驅動
+
 **測試方法**:
-- 既有全部用例全綠
-- 每個角色的每個招式: `test_14_<char>_move_frames` 模式 —
-  觸發招式 → 斷言 active 窗口(幀)、總長(幀)、命中參數(伤害/hitstun/blockstun)
-  與 FrameData 一致
-- 100p 四段各自命中參數斷言
+- 既有全部用例全綠；CI static-check 先跑 `ci/check_special_move_sources.py`
+- 每個角色的每個招式: `test_<n>_<char>_move_frames` 模式 — 觸發招式 →
+  斷言 active 窗口(幀)、總長(幀)、命中參數(damage/hitstun/blockstun) 與
+  FrameData 一致
+- `100p` 四段各自命中參數斷言
+
 **驗收(DoD)**:
 - [ ] 每招式只有一個數據來源; `MoveData` 27 參數構造消失(改 Resource 欄位)
 - [ ] 動畫 0f 問題全部修正; 孤兒資源刪除
@@ -497,7 +534,7 @@ bash tests/frame_tests/run_frame_tests.sh
 godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 # 退出碼: 0 = 全綠, 1 = 有失敗
 ```
-### 10.3 現有用例(9 個, Stage 0)
+### 10.3 Stage 0 基準用例（01~09；目前完整 suite 為 40 個）
 | 用例 | 驗證 | 依賴的基準值 |
 |---|---|---|
 | 01 world_spawn | 生成/血量 100/面向/初始 Walk | — |
@@ -514,7 +551,7 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 |---|---|
 | Stage 1 | 10 hitstun 遞減 / 11 landing lock / 12 dash / 16 landing 轉換公式 / 18 knockfly 幀制 / 19 hit_lock hitstop 凍結 / 20 block_lock |
 | Stage 2 | 25 狀態機不變式(隨機輸入 600 幀) / 26 狀態層 vs 動畫層對齊 / 29 攻擊狀態成對(孤兒攻擊不可達) / 30 出招守衛 / 31 移動守衛 / 32 AI attack_type 對齊 / 34 受擊守衛 vs 舊表達式逐幀等價 / 35 AI 蹲下不得後衝 / 36 格擋站姿守衛 / 40 動畫鏈 vs 舊兩份抄本逐幀等價 |
-| Stage 3 | 14 每角色每招式 frame 斷言 / 100p 四段 |
+| Stage 3 | 41 DEN fireball source/runtime data；後續每角色每招式 frame 斷言 / 100p 四段 |
 | Stage 4 | 15 QCF 宏 / 16 DP 宏 / 17 摔投窗口 / 18 AI 對稱性 |
 | Stage 5 | CI 化(無新用例, 全部進 CI) — ✅ 已啟用, 見 §12.2 |
 ### 10.5 寫新用例的規則(詳見 `tests/frame_tests/README.md`)
@@ -623,6 +660,16 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
    **行為變更**: 無(僅 `[LANDING_ANIMATION_PLAY]` 日誌由死代碼變成會輸出、
    `[LANDING_BLOCKED_BY_SPMOVE]` 隨不可達分支移除)。
 ---
+12. **[已完成 2026-09-02]** Stage 3 slice 1: 先固定特殊招式生效來源。
+   DEN `smd_fireball` 從場景內嵌 partial resource 改為直接引用
+   `data/specials/den_fireball.tres`，並保留原本生效的 8.0 damage、30.0
+   knockback、18/10 stun、projectile、`FireballCallPlayer`、
+   `duration_frames=0`；沒有刻意改 gameplay。新增 `test_41`(suite 共 40
+   用例) 與 `ci/check_special_move_sources.py`，後者列出三角色所有
+   `_load_smd` routing 並鎖住 external/fallback path 一致。其餘 12 個
+   embedded SpecialMoveData source、FrameData schema、0f 動畫、active window
+   收攏及 generated table 留給下一個 Stage 3 slice，避免後續 AI 重做 Stage 2。
+---
 ## 附錄 A: 關鍵代碼位置(供各階段參考)
 | 系統 | 檔案 |
 |---|---|
@@ -635,10 +682,10 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | 輸入 | `scripts/input/InputManager.gd` + `PlayerController.gd` + `InputBuffer.gd` |
 | 世界/優勢計算 | `scripts/core/world.gd` (883 行) |
 | hitstop | `scripts/core/slow_mo_controller.gd` |
-| 幀數據資源 | `data/AttackData.gd` + `data/p1_attack_data.tres`(DAV/WOO) + `data/p2_attack_data.tres`(DEN) + `data/specials/*.tres` + 場景內嵌 `smd_*` |
+| 幀數據資源 | `data/AttackData.gd` + `data/p1_attack_data.tres`(DAV/WOO) + `data/p2_attack_data.tres`(DEN) + `data/specials/*.tres` + 尚未遷移的場景內嵌 `smd_*`（DEN fireball 已外部化） |
 | AI | `ai/` (AIBehavior 為主; cpu_controller/specs 為殘骸) |
 | 顯式狀態層 | `scripts/core/FighterState.gd` (Stage 2 切片 1 唯讀解析器; 切片 2/3/4 起也是出招/移動/受擊守衛、攻擊 id、摔投判定、吞輸入/連段續航判定的唯一定義) |
-| 測試 | `tests/frame_tests/` (35 用例) |
+| 測試 | `tests/frame_tests/` (40 用例；Stage 3 slice 1 新增 `test_41`) |
 | 行為基準 | `docs/systems/FRAME_DATA_TABLE.md` |
 ## 附錄 B: 已完成 commit 記錄(歷史參考)
 Stage 0 原始 5 commits + 修正 commit 已合併入 main, 並隨 Godot 4.7.2 升級

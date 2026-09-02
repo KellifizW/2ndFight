@@ -1,8 +1,16 @@
-# Frame Data 表（Stage 0 行為基準）
+# Frame Data 表（Stage 0 行為基準；Stage 3 收攏中）
 
 > 建立日期: 2026-08-21。本表是 Stage 0 產物，用途:
 > 1. 重構（Stage 1 統一時間域、Stage 2 狀態機）前後比對「遊戲手感是否改變」的基準
 > 2. frame 測試（`tests/frame_tests/`）斷言值的來源
+>
+> **Stage 3 slice 1（2026-09-02）**: DEN 的 `fireball` 已由場景內嵌的
+> partial `smd_fireball` 改為直接引用 `data/specials/den_fireball.tres`。
+> 外部資源保留原本實際生效的值（8 傷害、30 knockback、18/10 硬直、
+> `duration_frames=0`、`FireballCallPlayer`），因此這一刀只收攏來源，沒有
+> 改變招式行為。`test_41_den_fireball_resource_source.gd` 與
+> `ci/check_special_move_sources.py` 會分別釘住 runtime 資料與 scene/fallback
+> 路由；其餘內嵌 `smd_*` 尚未搬動。
 >
 > **單位慣例**: 所有幀數為 **60 FPS 邏輯幀**（業界 frame data 慣例）。
 > 物理執行為 120 FPS → **1 邏輯幀 = 2 物理幀**。
@@ -16,7 +24,7 @@
 >
 > **數據來源（注意優先級）**:
 > - 普通攻擊: `characters/<X>.tscn` 的 `attack_data` → `data/p1_attack_data.tres`（DAV/WOO）、`data/p2_attack_data.tres`（DEN）覆蓋 `data/AttackData.gd` 預設值
-> - 特殊招式: **場景內嵌 smd_* 資源優先**（`_load_smd` 的 export 優先於 `data/specials/*.tres` fallback）
+> - 特殊招式: `MoveSet._load_smd()` 的 scene export 優先；沒有 export 時才使用 `data/specials/*.tres` fallback。已收攏的 DEN `fireball` 例外是 scene export 直接引用該 fallback `.tres`，所以它現在只有一份 runtime 資料。
 
 ---
 
@@ -134,7 +142,7 @@
 |---|---|---|---|---|---|---|---|---|
 | spnk | 0 ⚠️ | 14 | 14–16 | 5.0(內嵌) / 12.0(.tres) | 20(內嵌) / 27(.tres) | 10(預設) / 23(.tres) | 70(內嵌) / 280(.tres) | ⚠️ 內嵌 smd 無 duration、動畫長 0f，疑似損毀 |
 | hdk | 66 | 6 | 6–10 | 3.0 | 27 | 23 | 290 | 來源 den_hdk.tres（smd 未設定）；位移 200px |
-| fireball | 42 | — | — | 5.0(內嵌) / 10.0(.tres) | 20(內嵌) / 24(.tres) | 10(預設) / 14(.tres) | 70(內嵌) / 80(.tres) | ⚠️ 內嵌無 projectile_speed（→800 fallback）；內嵌多餘 move_distance=200 |
+| fireball | 42 | — | — | 8.0 | 18 | 10 | 30 | ✅ `smd_fireball` 已改為直接引用 `data/specials/den_fireball.tres`；`projectile_speed=0` 仍由 runtime fallback 為 800；`duration_frames=0` 仍依動畫長度 |
 
 ### 其他動畫（DEN）
 
@@ -173,10 +181,13 @@
 
 ## ⚠️ 已知數據問題（重構時必須處理）
 
-1. **特殊招式雙真相來源**: `data/specials/*.tres` 與場景內嵌 `smd_*` 數值不同，
-   內嵌 export 優先生效。DAV 的 dpL/M/H、fireballL/M/H、100p 與 DEN 的 spnk、fireball
-   兩套數值互相矛盾（例: dpM 傷害 5.0 vs 8.0、hitstun 39 vs 24）。
-   → Stage 3 收攏為單一 FrameData 資源時，以**內嵌（生效中）數值**為準，.tres 對齊後刪除重複。
+1. **特殊招式雙真相來源（部分已收攏）**: `data/specials/*.tres` 與場景內嵌
+   `smd_*` 數值曾經不同，內嵌 export 優先生效。Stage 3 slice 1 已處理 DEN
+   `fireball`：`smd_fireball` 現在直接引用 `data/specials/den_fireball.tres`，並以
+   原本內嵌的 8.0 / 30.0 / 18 / 10 等生效值為準。仍待處理的是 DAV 的
+   dpL/M/H、fireballL/M/H、100p 與 DEN 的 spnk（例: dpM 傷害 5.0 vs 8.0、
+   hitstun 39 vs 24）。後續切片要先比對生效值，再把每一招收攏為單一 FrameData
+   資源；不能直接假設 fallback `.tres` 已生效。
 2. **動畫長 0f**: DAV dpM/dpH、DEN spnk（及 DEN fireball 的 `fw_mp`）動畫 length=0，
    但 hitbox 軌道 key 在 5–16f。dpM/dpH 靠 smd duration_frames 撐住 timer；DEN spnk 兩者皆無 → 疑似損毀。
 3. **DAV super** hitbox disabled 軌道解析出 on=16 > off=10，需人工在編輯器核對。

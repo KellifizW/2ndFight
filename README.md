@@ -53,7 +53,7 @@ These are non-negotiable and apply to every contribution:
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
 | **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated) |
 | **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–6 landed (read-only state layer, attack / movement / hit-reaction / block subsystems ported, animation chain unified into one definition, AI `attack_type` parity fixed, AI crouch-backdash bug fixed, dead `_physics_process_jump` entry and the duplicate `Player._compute_target_state` removed; 7 dead flags deleted, 33 → 32, test count 30 → 39) |
-| **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | ⏳ Planned |
+| **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | 🔄 Slice 1 landed — DEN `fireball` now uses one external `SpecialMoveData` source; source routing is CI-checked; remaining embedded specials and frame-data migration are still pending |
 | **4** | **Converge input handling** — a single `ActionMapper` | 🔄 Partial — parity fix #1 landed (AI `attack_type` restored via shared `PlayerController.resolve_attack_type`); `InputManager` / `PlayerController` collapse to a single `ActionMapper` still pending |
 | **5** | **Cleanup** — dead code, docs, scene splitting | ⏳ Planned |
 | — | **CI** — run frame tests on every push/PR | ✅ Active (`.github/workflows/frame-tests.yml`) |
@@ -580,11 +580,47 @@ a state field (plan DoD: flag count < 10 across the three core scripts). The
 two disclosed state/animation divergences are the behavior-changing part and
 still need their own slice.
 
-### Stage 3 — Consolidate frame data ⏳
+### Stage 3 — Consolidate frame data 🔄 (slice 1 landed 2026-09-02)
 
-Make `docs/systems/FRAME_DATA_TABLE.md` generated rather than hand-maintained,
-and fix the known-corrupt entries (DEN `spnk`, DAV `dpM`/`dpH` report 0-frame
-animations). Decide whether WOO ships or is cut.
+**Completed in this slice — source routing before data migration:**
+
+- ✅ DEN `fireball` no longer embeds a second partial `SpecialMoveData` in
+  `characters/DEN.tscn`; its `smd_fireball` export now references
+  `data/specials/den_fireball.tres` directly.
+- ✅ The external resource preserves the values that were actually effective in
+  the scene (damage `8.0`, knockback `30.0`, hitstun/blockstun `18/10`,
+  `duration_frames=0`, projectile behavior, and `FireballCallPlayer`). This is
+  a routing-only change; no gameplay behavior is intentionally changed.
+- ✅ `ci/check_special_move_sources.py` reports the selected source for every
+  scene-configured special and fails if an externalized export points at a
+  different fallback. `test_41_den_fireball_resource_source.gd` checks the
+  loaded runtime resource and its frame-data values.
+- ✅ `docs/systems/FRAME_DATA_TABLE.md` now records the completed slice and the
+  remaining embedded-source count instead of implying that every fallback is
+  active.
+
+**Still pending — this is the next work, not Stage 2:**
+
+1. Compare and reconcile the remaining effective scene values before changing
+   them: DAV `powerkk`, `dpL/M/H`, `fireballL/M/H`, `100p`; DEN `spnk`/`hdk`;
+   and WOO `214K`/`623K` still have embedded resources (the routing check lists
+   all of them).
+2. Add the shared `FrameData` resource shape for startup/active/recovery,
+   damage/stun/knockback, movement, projectiles, and multi-hit phases; then
+   migrate one character/move at a time. `duration_frames=0` must continue to
+   mean “use the animation length” until an equivalent explicit duration is
+   verified.
+3. Move active hitbox windows out of AnimationPlayer tracks only after a
+   frame-test comparison exists; animation remains visual until that slice is
+   proven.
+4. Add per-move frame tests, including the four `100p` phases, and decide
+   whether WOO ships or stays explicitly WIP.
+5. Only after those tests are green, generate `FRAME_DATA_TABLE.md` from the
+   authoritative resources and remove the obsolete `data/attacks/*.tres` files.
+
+The known corrupt entries (DEN `spnk`, DAV `dpM`/`dpH` zero-length animations)
+are deliberately **not** “fixed” in this slice: fixing their timing may change
+behavior and requires its own measured slice.
 
 ### Stage 4 — Converge input handling 🔄 (收攏 #1 已落地)
 
@@ -632,7 +668,7 @@ runs on every push and pull request, in two jobs:
 
 | Job | What it runs |
 |---|---|
-| `static-check` | `gdparse` over every `.gd`, plus `ci/check_signatures.py` — a parent/child override signature check that catches the class of hard compile error `gdparse` cannot see (see PR #20) |
+| `static-check` | `gdparse` over every `.gd`, plus `ci/check_signatures.py` and `ci/check_special_move_sources.py` — override signatures and Stage 3 scene/fallback routing are checked before the engine job |
 | `frame-tests` | The full harness on real Godot 4.7.2 headless, in `barichello/godot-ci:4.7.2` |
 
 This is what makes the agent-sandbox limitation below stop mattering: the
@@ -647,7 +683,7 @@ The rules that bite hardest:
 - Measure in physics frames, never seconds. 1 logical frame = 2 physics frames.
 - Leave generous wait windows around hits — hitstop slows physics-frame advance by 50×.
 
-Frame tests currently cover 39 cases (`test_01`–`test_32`, `test_34`–`test_40`); the redundant dash-smoke `test_33` was removed because that feature is already stable. `test_37`–`test_39` cover the hitstop rework (animation freeze instead of `Engine.time_scale`, no double-trigger on long hitstop, attacker pose frozen on the connecting frame). Stage 1 contributed
+Frame tests currently cover 40 cases (`test_01`–`test_32`, `test_34`–`test_41`); the redundant dash-smoke `test_33` was removed because that feature is already stable. `test_37`–`test_39` cover the hitstop rework (animation freeze instead of `Engine.time_scale`, no double-trigger on long hitstop, attacker pose frozen on the connecting frame). Stage 1 contributed
 the landing, PushManager stun-lock and conversion-boundary families (`test_21`
 combo-window frame counting, `test_22` the three conversion boundaries including
 the "families must not be swapped" guard, `test_23` AI decision/commitment tick
@@ -755,6 +791,13 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   animations including `Walk` and a `Jump_*`, so "everything is Walk" cannot
   pass green. The exhaustive half of the proof lives in
   `ci/verify_animation_chain.py` (18,874,368 combinations, 0 mismatches).
+- **`test_41`** (Stage 3 slice 1) — DEN's `smd_fireball` must resolve through
+  `data/specials/den_fireball.tres`, not a scene-local copy, while preserving
+  its effective 8.0 damage / 30.0 knockback / 18-and-10 stun values,
+  `duration_frames=0`, projectile flag, and sound node. The static
+  `ci/check_special_move_sources.py` check covers all DAV/DEN/WOO mappings and
+  reports the 12 embedded SpecialMoveData resources that remain for later
+  slices.
 
 ### Not yet covered (honest disclosure)
 
@@ -861,4 +904,5 @@ plan_game.md         The full six-stage refactor plan
 - AI input parity now keeps `attack_type` / `character_id` present on locked input, resolves character-specific specials only after injecting the character ID, and tests the AI path through an `AIBehavior` stub instead of the human-only `InputMap` path.
 - Dynamically spawned players no longer lose AI dash/backdash requests when Godot leaves the scene root `owner` unset; `Movement` safely falls back to the `Player` instance itself. This restores the standing backdash control case while `FighterState.can_dash` continues to block crouching backdash.
 - The ground-attack frame test waits for both gameplay state and the asynchronous AnimationTree transition before measuring recovery, avoiding a version-dependent one-frame sampling race.
-- The redundant `test_33_dash_smoke_one_shot` case was removed; the suite now contains 35 cases.
+- The redundant `test_33_dash_smoke_one_shot` case was removed; the suite now contains 40 cases, including Stage 3 `test_41_den_fireball_resource_source`.
+- Stage 3 source routing now has a CI guard: DEN `fireball` uses the external resource that preserves the former scene-effective values; the remaining embedded special resources are intentionally listed as next slices rather than silently treated as fallbacks.
