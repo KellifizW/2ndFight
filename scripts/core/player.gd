@@ -576,41 +576,21 @@ func _physics_process(delta: float) -> void:
 # 未消耗的輸入有 30 幀自動過期（InputBuffer._expire_old_inputs），
 # 跳躍輸入不會因少了這個消費點而永久殘留。
 
-func _compute_target_state(dir_x: float, crouch_input: bool, on_floor: bool, anim_jump_dir: float) -> String:
-	if is_layground: return "layground"
-	if is_knockfly: return "knockfly"
-	if is_wakeup_locked: return "wakeup"
-	if is_hit:
-		if not on_floor and ("is_air_hit_backjump" in self and self.is_air_hit_backjump):
-			return "Jump_B"
-		# 地面受擊：根據受擊時的姿勢選擇動畫
-		if on_floor:
-			return "cr_hit" if was_hit_while_crouching else "hit"
-		return "Jump_B"
-
-	# 特殊招式進行中：一律鎖定招式動畫，禁止被 Jump_* / Walk 等狀態覆寫。
-	# 不可再用白名單（漏掉 623K 等新招時，升空後 is_jumping=true 會立刻切成跳躍動畫）。
-	# 任何 moveset 勾選 caster_jump / 未來新增升空招，只要 is_spmove 為真就安全。
-	if move_set and move_set.is_spmove:
-		var active_move_name = move_set.get_active_move_name()
-		if active_move_name != "":
-			return active_move_name
-
-	if is_blocking:
-		return "cr_block" if is_crouch_blocking and crouch_input else "block"
-
-	if is_landing and landing_lock_frames > 0:
-		return "landing"
-
-	# Air attack animation logic - only when actually in the air
-	if not on_floor and (is_jumping or is_air_attacking):
-		if is_air_attacking and attack_type in FighterState.AIR_ATTACK_IDS:
-			return attack_type
-		if anim_jump_dir > 0: return "Jump_F"
-		elif anim_jump_dir < 0: return "Jump_B"
-		else: return "Jump_V"
-
-	return super._compute_target_state(dir_x, crouch_input, on_floor, anim_jump_dir)
+# ── Stage 2 切片 6：`_compute_target_state()` 覆寫已刪除（動畫鏈第二份抄本）──
+#
+# 這個覆寫原本攔截 layground / knockfly / wakeup / hit / spmove / blocking /
+# landing / 空中八段，其餘 `super` 交還 AnimationManager —— 而 AnimationManager
+# 把**同樣八段**又寫了一次（順序還不同：is_air_hit_backjump 在最前、is_hit 在
+# layground 之前）。因為所有角色場景掛的都是本檔，AnimationManager 的那八段
+# 實機上永遠跑不到，兩份抄本從來沒被同步過也沒人發現 —— 這正是 Stage 2 想
+# 消滅的「同一條優先序有兩份定義」。
+#
+# 現在唯一定義在 FighterState.animation_for()，內容 = 兩份合成後**實際生效**
+# 的順序（本檔頭段 + AnimationManager 尾段），逐值等價：
+#   - ci/verify_animation_chain.py 窮舉 18,874,368 組合，0 分岔
+#   - test_40 引擎內 600 幀逐幀比對（對照組為舊表達式原樣重寫）
+# 刪除覆寫後呼叫鏈為 Movement._compute_target_state → AnimationManager
+# → FighterState.animation_for，只剩一條路。
 
 func _update_animation_state(dir_x: float, crouch_input: bool) -> void:
 	super._update_animation_state(dir_x, crouch_input)

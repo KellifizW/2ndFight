@@ -2,8 +2,10 @@ extends "res://tests/frame_tests/frame_test_case.gd"
 ## Stage 2：顯式狀態層必須與**現行動畫判定鏈**逐狀態對齊。
 ##
 ## 為什麼需要這個用例：
-## FighterState.resolve() 是照著 Player._compute_target_state() +
-## AnimationManager.compute_target_state() 兩條 if 鏈抄出來的優先序。
+## FighterState.resolve() 是照著當年的動畫判定鏈抄出來的優先序
+## （切片 6 之前是 Player._compute_target_state() + AnimationManager
+##  .compute_target_state() 兩份抄本；切片 6 起合成為唯一的
+##  FighterState.animation_for()，逐值等價，由 test_40 釘住）。
 ## 抄一次容易，保持同步難 —— 只要有人改了動畫鏈而忘了狀態表（或反過來），
 ## 兩者就會悄悄分岔，而 Stage 2 後續切片正要把控制流改成讀狀態。
 ## 本用例在幾個**可確定性重現**的關鍵狀態上比對兩層，讓分岔立刻失敗。

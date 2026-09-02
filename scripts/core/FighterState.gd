@@ -601,6 +601,129 @@ static func check_invariants(f: Node) -> Array:
 
 	return broken
 
+# ── 動畫鏈的唯一定義（Stage 2 切片 6）───────────────────────────────────
+##
+## 切片 6 之前，「這一幀該播哪個動畫」這條優先序鏈有**兩份抄本**：
+##   1. `Player._compute_target_state()` —— 攔截頭段（layground / knockfly /
+##      wakeup / hit / spmove / blocking / landing / 空中），其餘 `super` 下去
+##   2. `AnimationManager.compute_target_state()` —— 又把**同樣八段**重寫一遍
+##      （順序還不一樣：is_air_hit_backjump 在最前、is_hit 在 layground 之前），
+##      後面再接尾段（proximity / attacking / dash / crouch / Walk）
+## 因為所有角色場景（DAV / DEN / WOO）掛的都是 `player.gd`，抄本 2 的頭段
+## **在實機上完全不可達** —— Player 早就攔掉了。於是那八段變成「看起來在維護、
+## 其實改了也不會生效」的假程式碼：兩份順序不同這件事本身就證明沒人同步過它們。
+##
+## 本函式是那條鏈**唯一**的定義，內容 = 兩份抄本合成後**實際生效**的順序
+## （Player 頭段 + AnimationManager 尾段），逐值等價：
+##   - Python 暴力窮舉 `ci/verify_animation_chain.py`：19 個旗標位元
+##     （含 crouch_input / on_floor）× 6 種 attack_type × 2 種 active_move
+##     × 3 個 anim_jump_dir = 18,874,368 組合，0 分岔
+##   - 引擎內由 `test_40` 逐幀比對（對照組是舊表達式原樣重寫）
+##
+## 兩件從抄本 2 保留下來、值得寫下來的事：
+##   1. `is_air_hit_backjump` 那條（下面第 9 段）**是活的**：它只在 Player 頭段
+##      全部落空時才會跑到（在地上、或人在空中但 is_jumping/is_air_attacking
+##      皆假），語意是「空中受擊後跳的殘留幀繼續播 Jump_B」。抄本 2 把它放在
+##      最前面，但因為 Player 先攔了 hit/knockfly/…，實際生效位置就是第 9 段。
+##   2. 攻擊 id 的**第四份清單**（抄本 2 內嵌的字面值）在此消滅：改讀
+##      `GROUND_ATTACK_IDS` / `AIR_ATTACK_IDS` / `THROW_ATTACK_TYPES`
+##      （切片 2 收攏了前三份，這份當時被留給動畫層，現在動畫層搬進來了）。
+##
+## 為什麼**不是**直接 `match resolve(f)`：resolve() 與這條鏈有兩處已知分岔
+## （檔頭列出的 BEING_THROWN / 空中無 is_jumping），照 resolve() 驅動動畫會
+## 改變畫面 —— 守則第 2 條不允許。因此本函式維持「動畫層事實鏈」的順序，
+## 並在每一段標註它對應 resolve() 的哪個 State；`test_26` 繼續比對兩者，
+## 分岔仍然是被記錄且被計數的例外，而不是悄悄消失。
+##
+## 純函數：不寫入 fighter 的任何欄位、不觸發任何動畫轉場。
+## （舊抄本 2 在 crouch 分支裡順手做了一次 `travel("cr_down")` 的副作用，
+##   那個副作用留在 AnimationManager —— 它屬於「播放」而不是「決定播什麼」。）
+static func animation_for(
+	f: Node, crouch_input: bool, on_floor: bool, anim_jump_dir: float
+) -> String:
+	if f == null:
+		return "Walk"
+	var move_set: Node = f.get_node_or_null("MoveSet")
+
+	# 1/2/3. KNOCKDOWN·KO / KNOCKFLY / WAKEUP —— 吞掉一切的倒地擊飛族。
+	if _flag(f, "is_layground"):
+		return "layground"
+	if _flag(f, "is_knockfly"):
+		return "knockfly"
+	if _flag(f, "is_wakeup_locked"):
+		return "wakeup"
+
+	# 4. HITSTUN —— 空中受擊一律 Jump_B（舊鏈的 is_air_hit_backjump 子判斷
+	#    與 else 分支回傳同一個字串，故此處合併，值不變）。
+	if _flag(f, "is_hit"):
+		if not on_floor:
+			return "Jump_B"
+		return "cr_hit" if _flag(f, "was_hit_while_crouching") else "hit"
+
+	# 5. SPECIAL_MOVE —— 招式進行中鎖定招式動畫（不用白名單，見 MoveSet）。
+	if move_set != null and _flag(move_set, "is_spmove"):
+		var active_move_name: String = ""
+		if move_set.has_method("get_active_move_name"):
+			active_move_name = str(move_set.get_active_move_name())
+		if active_move_name != "":
+			return active_move_name
+
+	# 6. BLOCKSTUN
+	if _flag(f, "is_blocking"):
+		return "cr_block" if _flag(f, "is_crouch_blocking") and crouch_input else "block"
+
+	# 7. LANDING（Stage 1 不變式：權威是幀計數器，不是動畫長度）
+	if _flag(f, "is_landing") and _int(f, "landing_lock_frames") > 0:
+		return "landing"
+
+	# 8. AIR_ATTACK / JUMP
+	if not on_floor and (_flag(f, "is_jumping") or _flag(f, "is_air_attacking")):
+		var air_id: String = _string(f, "attack_type")
+		if _flag(f, "is_air_attacking") and air_id in AIR_ATTACK_IDS:
+			return air_id
+		return jump_animation(anim_jump_dir)
+
+	# 9. 空中受擊後跳的殘留幀（見上：抄本 2 的第一條，實際生效於此）。
+	if _flag(f, "is_air_hit_backjump"):
+		return "Jump_B"
+
+	# 10. PROXIMITY_BLOCK
+	if _flag(f, "is_proximity_blocking"):
+		return "cr_block" if _flag(f, "is_crouching") else "block"
+
+	# 11. ATTACK / THROWING
+	if _flag(f, "is_attacking"):
+		var atype: String = _string(f, "attack_type")
+		if atype in GROUND_ATTACK_IDS or is_throw_attack_id(atype):
+			return atype
+		# 特殊招式 id 若誤入 is_attacking，也原樣回傳（不切 Walk）。
+		if atype != "" and atype != "none" and move_set != null \
+				and move_set.has_method("has_move_id") and move_set.has_move_id(atype):
+			return atype
+		return "Walk"
+
+	# 12/13. DASH / BACKDASH
+	if _flag(f, "is_dashing"):
+		return "Dash"
+	if _flag(f, "is_backdashing"):
+		return "Backdash"
+
+	# 14. CROUCH —— 舊鏈此處還有一項 `not is_blocking`，但第 6 段已經在
+	#     is_blocking 為真時回傳，該項恆為真（窮舉確認），故不再重複判斷。
+	if crouch_input and on_floor:
+		return "cr_idle"
+
+	# 15. WALK / IDLE（動畫層同一個節點，靠 blend_position 區分）
+	return "Walk"
+
+## 跳躍方向 → 動畫節點名。anim_jump_dir 已經乘過 facing_direction。
+static func jump_animation(anim_jump_dir: float) -> String:
+	if anim_jump_dir > 0:
+		return "Jump_F"
+	if anim_jump_dir < 0:
+		return "Jump_B"
+	return "Jump_V"
+
 ## 已知**可達但不應存在**的旗標重疊（Stage 2 的待辦清單，非失敗條件）。
 ## 提供給測試印出來，讓「還沒修完」這件事有數據而不是感覺。
 static func known_illegal_overlaps(f: Node) -> Array:

@@ -52,7 +52,7 @@ These are non-negotiable and apply to every contribution:
 |---|---|---|
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
 | **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated) |
-| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–5 landed (read-only state layer, attack / movement / hit-reaction / block subsystems ported, AI `attack_type` parity fixed, AI crouch-backdash bug fixed, dead `_physics_process_jump` entry removed; 7 dead flags deleted, 33 → 32, test count 30 → 35) |
+| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–6 landed (read-only state layer, attack / movement / hit-reaction / block subsystems ported, animation chain unified into one definition, AI `attack_type` parity fixed, AI crouch-backdash bug fixed, dead `_physics_process_jump` entry and the duplicate `Player._compute_target_state` removed; 7 dead flags deleted, 33 → 32, test count 30 → 39) |
 | **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | ⏳ Planned |
 | **4** | **Converge input handling** — a single `ActionMapper` | 🔄 Partial — parity fix #1 landed (AI `attack_type` restored via shared `PlayerController.resolve_attack_type`); `InputManager` / `PlayerController` collapse to a single `ActionMapper` still pending |
 | **5** | **Cleanup** — dead code, docs, scene splitting | ⏳ Planned |
@@ -499,12 +499,86 @@ comparison.
    handlers to the stance handler — a Stage 4 (block/input convergence)
    concern, not a state-layer one.
 
-**Next slices**: the last remaining boolean reads are the two animation
-chains (`Player._compute_target_state` / `AnimationManager.compute_target_state`,
-already mirrored by `test_26`) — reroute them to `FighterState.resolve()`
-plus a state→animation-name mapping, then delete the duplicate flags whose
-readers those chains are (plan DoD: flag count < 10 across the three core
-scripts). That is the tail of Stage 2.
+**Slice 6 — the animation chain has one definition (landed)**
+
+Slices 2–5 ported the *guards*; slice 6 takes the last big duplicated
+read-site: the animation priority chain itself. Before this slice, "which
+animation should play this frame" existed **twice**:
+
+| Copy | What it did |
+|---|---|
+| `Player._compute_target_state()` | Intercepted eight segments (layground / knockfly / wakeup / hit / spmove / blocking / landing / airborne), then handed the rest to `super` |
+| `AnimationManager.compute_target_state()` | Wrote **the same eight segments again** — in a *different order* (`is_air_hit_backjump` first, `is_hit` before `layground`) — then the tail (proximity block / attacking / dash / crouch / Walk) |
+
+Every character scene (DAV / DEN / WOO) runs `player.gd`, so copy 2's head was
+**unreachable in the shipped game**: the eight segments looked maintained but
+could not take effect, and the fact that the two orders had drifted apart is
+the proof nobody had been keeping them in sync. That is exactly the failure
+mode Stage 2 exists to remove.
+
+- ✅ **One chain, in the state layer.** `FighterState.animation_for(f,
+  crouch_input, on_floor, anim_jump_dir)` is now the only definition. Its
+  content is the **composite chain that actually executed** (Player's head +
+  AnimationManager's tail), with each segment annotated with the
+  `resolve()` state it corresponds to. Both copies are deleted:
+  `Player._compute_target_state` is gone (call path is now
+  `Movement._compute_target_state` → `AnimationManager` →
+  `FighterState.animation_for`, one road), and `AnimationManager` keeps only
+  what belongs to a *playback* layer — the `cr_down` transition side effect
+  and the landing diagnostics.
+- ✅ **Proven value-identical, not eyeballed.** `ci/verify_animation_chain.py`
+  transcribes the old composite chain **including its unreachable branches**
+  (unreachability is a conclusion of the proof, not an assumption of it) and
+  the new one, then enumerates **18,874,368** combinations — 19 flag bits
+  (including `crouch_input` / `on_floor`) × 6 `attack_type` values × 2
+  `active_move` values × 3 `anim_jump_dir` values — with **0 mismatches**. The
+  script also asserts the `is_air_hit_backjump` tail segment is genuinely
+  reachable (81,408 hits), so "the order is right" is measured, not assumed.
+  `test_40` pins it per-frame in the engine, `test_30`-style: the old
+  composite chain is rewritten verbatim as a control group and compared every
+  frame over a scripted phase (crouch / jump / land / hit) plus 600 frames of
+  seeded random input (`seed=20260903`), with coverage assertions requiring
+  ≥5 distinct animations.
+- ✅ **The fourth attack-id list is gone.** Slice 2 consolidated three of the
+  four copies and explicitly left `AnimationManager`'s inline literal list for
+  later "because it is an animation-layer table". The animation layer now
+  *lives* in `FighterState`, so that list reads `GROUND_ATTACK_IDS` /
+  `AIR_ATTACK_IDS` / `THROW_ATTACK_TYPES` like everything else.
+- ✅ **One provably-constant term dropped.** The tail's crouch branch tested
+  `crouch_input and on_floor and not is_blocking`; the blocking segment
+  returns earlier, so that last term is constant-true (confirmed by the
+  enumeration).
+- ✅ **No flags removed this slice.** As in slices 3–5, this changes what the
+  control flow *reads*, not the flag count: every flag the deleted copies read
+  is still read by the single chain. The reproducible member-level
+  `var x: bool` count across `Movement.gd` + `fighter.gd` + `player.gd` stays
+  at **32** (slice 2's rule). The two copies (~125 lines of branching between
+  them) collapse into one ~64-line function.
+
+**Disclosed findings (deliberately *not* fixed here)**
+
+1. **Two landing diagnostics were dead and are now live.** `[LANDING_ANIMATION_PLAY]`
+   and `[LANDING_BLOCKED_BY_SPMOVE]` sat inside copy 2's unreachable head, so
+   they never printed. The unified version keeps the first one (it now really
+   fires) and drops the second, because the spmove segment returns before
+   landing in the effective order — i.e. "landing blocked by spmove" cannot
+   happen in the chain that actually runs. This is log output only (`Debug` is
+   off by default), disclosed rather than hidden.
+2. **`animation_for()` is deliberately *not* `match resolve(f)`.** The state
+   layer and the animation chain still have the two divergences disclosed in
+   slice 1 (`BEING_THROWN` has no animation branch; airborne without
+   `is_jumping` falls through to `Walk`). Driving animation from `resolve()`
+   would change what is on screen, which ground rule 2 forbids. So the chain
+   keeps the animation layer's factual order, annotated segment-by-segment
+   with its `resolve()` state, and `test_26` keeps comparing the two with the
+   divergences counted as explicit exemptions.
+
+**Next slices**: with the chain unified, the tail of Stage 2 is *deleting* the
+duplicate flags — the surviving read sites are now few enough to attack one
+family at a time (block stance, air-hit backjump, landing) and fold each into
+a state field (plan DoD: flag count < 10 across the three core scripts). The
+two disclosed state/animation divergences are the behavior-changing part and
+still need their own slice.
 
 ### Stage 3 — Consolidate frame data ⏳
 
@@ -573,7 +647,7 @@ The rules that bite hardest:
 - Measure in physics frames, never seconds. 1 logical frame = 2 physics frames.
 - Leave generous wait windows around hits — hitstop slows physics-frame advance by 50×.
 
-Frame tests currently cover 35 cases (`test_01`–`test_32`, `test_34`–`test_36`); the redundant dash-smoke `test_33` was removed because that feature is already stable. Stage 1 contributed
+Frame tests currently cover 39 cases (`test_01`–`test_32`, `test_34`–`test_40`); the redundant dash-smoke `test_33` was removed because that feature is already stable. `test_37`–`test_39` cover the hitstop rework (animation freeze instead of `Engine.time_scale`, no double-trigger on long hitstop, attacker pose frozen on the connecting frame). Stage 1 contributed
 the landing, PushManager stun-lock and conversion-boundary families (`test_21`
 combo-window frame counting, `test_22` the three conversion boundaries including
 the "families must not be swapped" guard, `test_23` AI decision/commitment tick
@@ -630,7 +704,7 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   both paths. The same attack_type is observed on both paths ≥ 3 times, and
   the AI path's `attack_type` is non-`"none"` at least once — otherwise the
   test would silently pass on inputs that never trigger an attack.
-- **`test_34`** (slice 4) — the consolidated **hit-reaction** guards
+- **`test_34`** (slice 4; coverage phase added in slice 6) — the consolidated **hit-reaction** guards
   (`is_input_locked` / `is_combo_stunned` / `can_initiate_throw` /
   `can_be_thrown`) must stay **value-identical** to the flag expressions they
   replaced. Same `test_30`/`test_31` pattern: 600 frames of seeded random input
@@ -640,6 +714,13 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   group is exhaustive-verified in Python (384 / 64 / 192 / 4 flag combinations
   per predicate, 0 mismatches). Coverage assertions require each guard's true
   and false sides to actually occur, so "all always the same" cannot pass.
+  Slice 6 added a deterministic phase 1 in front of the random run: the
+  `can_be_thrown = false` side needs a knockfly, and 600 frames of random
+  input did not reliably produce one in CI (the case was failing on the
+  *coverage* assertion, never on equivalence). Phase 1 now forces it via
+  `take_hit(..., force_knockfly = true)` — the same entry point `test_18`
+  uses — so the sample is guaranteed, exactly like `test_36`'s scripted
+  blockstun phase.
 - **`test_35`** (slice 4, the disclosed behavior fix) — a crouching AI must not
   backdash. It forces the AI's committed input to `backdash` (with the crouch
   flag driven through the AI input dict, since `is_crouching` for an AI comes
@@ -662,6 +743,18 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   each guard's true and false sides to occur, and ≥1 re-sampling frame — the
   re-sampling assertion is what a future "fix" adding `is_blocking` to the
   entry guard would fail while the pure equivalence check would still pass.
+
+- **`test_40`** (slice 6) — the unified **animation chain**
+  (`FighterState.animation_for`) must stay **value-identical** to the two
+  copies it replaced. Same `test_30`/`test_31`/`test_34`/`test_36` pattern:
+  the old composite chain (Player's head + AnimationManager's tail) is
+  rewritten verbatim as a control group and compared every frame, first over
+  a scripted phase (crouch → jump → land → connect a hit, so the high-priority
+  segments are guaranteed to be sampled) and then over 600 frames of seeded
+  random input (`seed=20260903`). Coverage assertions require ≥5 distinct
+  animations including `Walk` and a `Jump_*`, so "everything is Walk" cannot
+  pass green. The exhaustive half of the proof lives in
+  `ci/verify_animation_chain.py` (18,874,368 combinations, 0 mismatches).
 
 ### Not yet covered (honest disclosure)
 
@@ -692,7 +785,11 @@ in Python — float64-identical conversion checks (Python doubles ≡ Godot floa
 used in PR #19 to prove every routed seed reproduces the old tick counts), and
 in Stage 2 a brute-force of the state resolver against both animation chains
 across 55k+ flag combinations, which is what surfaced the two divergences
-disclosed above. **What only the engine can claim**: the physics-frame
+disclosed above, and in slice 6 `ci/verify_animation_chain.py` — 18,874,368
+combinations proving the unified animation chain equals the two copies it
+replaced (run it with `python3 ci/verify_animation_chain.py`; ~7 s — it is a
+standalone proof artifact, not a CI gate, because the sandbox's GitHub App
+cannot edit workflow files). **What only the engine can claim**: the physics-frame
 assertions themselves.
 
 Since the workflow was activated that gap is closed automatically — every push
@@ -719,27 +816,29 @@ plan_game.md         The full six-stage refactor plan
 
 ## Known limitations
 
-- **Hitstop uses `Engine.time_scale`.** It works, and after Stage 1 every gameplay timer counts physics ticks instead of scaled `delta`, so the remaining exposure is UI-only (labels/`FrameCounter`). Documented as an accepted limitation rather than fixed.
-- **The state layer drives attacks, movement, hit reactions, and blocking —
-  but the booleans themselves still exist.** Since slice 2 the attack gates,
-  since slice 3 the Walk/Dash/Jump gates, since slice 4 the hit-reaction gates
-  ("is input swallowed", "is the target still combo-stunned", "can a throw
-  start / land"), and since slice 5 the block-stance entry/release gates
-  ("can the held-back direction be (re-)sampled", "can the stance flags be
-  released") all live in `FighterState`, and the orphan-attack state is
-  structurally impossible. What remains for the tail of Stage 2 is *deleting*
-  the now-duplicated boolean flags and rerouting the last readers — the two
-  animation chains (`Player._compute_target_state` /
-  `AnimationManager.compute_target_state`) — through `resolve()`. Until then
-  the illegal flag combinations remain *detectable* (and are detected by
-  `test_25`) rather than *unrepresentable*.
+- **Hitstop no longer uses `Engine.time_scale`.** It now freezes the fighters' animation and action layers directly (`HitStopController`), so effects keep playing at normal speed; `test_37`–`test_39` pin the freeze, the attacker's frozen pose, and the "one swing hits once" rule on long hitstop values. The historical exposure — gameplay timers stretching with a scaled `delta` — is gone twice over, since Stage 1 also moved every gameplay timer to physics-tick counting.
+- **The state layer drives attacks, movement, hit reactions, blocking and the
+  animation chain — but the booleans themselves still exist.** Since slice 2
+  the attack gates, since slice 3 the Walk/Dash/Jump gates, since slice 4 the
+  hit-reaction gates ("is input swallowed", "is the target still
+  combo-stunned", "can a throw start / land"), since slice 5 the block-stance
+  entry/release gates, and since slice 6 the animation priority chain itself
+  ("which animation plays this frame") all live in `FighterState`, and the
+  orphan-attack state is structurally impossible. What remains for the tail of
+  Stage 2 is *deleting* the now-duplicated boolean flags: the guards and the
+  chain read them through one definition each, so the read sites are finally
+  few enough to retire a flag family at a time. Until then the illegal flag
+  combinations remain *detectable* (and are detected by `test_25`) rather than
+  *unrepresentable*.
 - **AI crouch-backdash** ✅ (fixed in Stage 2 slice 4) — the AI's direct
   backdash branch used a looser guard missing `not is_crouching`; both AI dash
   branches and the human double-tap path now share `FighterState.can_dash`
   (pinned by `test_35`).
 - **Two state/animation divergences are known and unfixed** — `is_being_thrown`
   has no animation branch, and being airborne without `is_jumping` falls through
-  to the walk animation. Documented in `FighterState.gd`, skipped-with-counting
+  to the walk animation. This is also why `animation_for()` is a documented
+  mirror of `resolve()`'s priority rather than a `match` on it: driving
+  animation from the state enum would change what is on screen. Documented in `FighterState.gd`, skipped-with-counting
   in `test_26`; fixing them changes behavior, so they wait for their own slice.
 - **Some flag overlaps are still reachable** — e.g. `hitstun_frames` and
   `blockstun_frames` can both be non-zero (getting hit during blockstun).
