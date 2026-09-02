@@ -54,7 +54,11 @@ jobs:
       # gdparse 只驗語法；覆寫簽名不匹配（如 fighter.gd:52 那次事故：
       # 非 static + int 覆寫 static + float）是 gdtoolkit 看不見的編譯錯誤。
       - name: Parent/child signature consistency check
-        run: python ci/check_signatures.py
+        run: python ci/check_signatures.py        
+      # Stage 2 切片 6 的等價證明：舊的兩份動畫判定鏈（合成後）vs
+      # FighterState.animation_for()，18,874,368 組合窮舉（約 7 秒）。
+      - name: Animation chain equivalence proof
+        run: python ci/verify_animation_chain.py
 
   frame-tests:
     name: Frame tests (Godot 4.7.2 headless)
