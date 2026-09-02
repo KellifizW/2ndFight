@@ -58,6 +58,7 @@ const CASES: Array = [
 	"res://tests/frame_tests/cases/test_40_animation_chain_matches_legacy.gd",
 	"res://tests/frame_tests/cases/test_41_den_fireball_resource_source.gd",
 	"res://tests/frame_tests/cases/test_42_dash_commitment.gd",
+	"res://tests/frame_tests/cases/test_43_woo_fireball.gd",
 ]
 
 var _passed: int = 0
@@ -84,7 +85,16 @@ func _run_all() -> void:
 			print("  ✗ FAIL: script load failed")
 			continue
 
-		var world = await _spawn_world()
+		# 允許個別用例指定對戰角色（例如 WOO fireball 測試需要 WOO 上場）。
+		# 用例可宣告 `func case_characters() -> Array` 回傳 [p1, p2] 兩個
+		# .character.tres 路徑；未宣告時維持預設 DAV vs DEN。
+		var case_characters: Array = []
+		var tc_probe = script.new()
+		if tc_probe and tc_probe.has_method("case_characters"):
+			case_characters = tc_probe.case_characters()
+		tc_probe = null  # RefCounted：釋放參照後自動回收，勿手動 free()
+
+		var world = await _spawn_world(case_characters)
 		if world == null:
 			_failed += 1
 			_failed_names.append(path.get_file() + " (world spawn failed)")
@@ -165,18 +175,24 @@ func _release_autoload_stubs() -> void:
 	await physics_frame
 
 ## 生成全新 world；失敗回傳 null
-func _spawn_world() -> Node:
+## case_characters 可選：回傳 [p1, p2] 的 .character.tres 路徑（見 _run_all 的說明）
+func _spawn_world(case_characters: Array = []) -> Node:
+	var p1_char_path: String = "res://characters/DAV.character.tres"
+	var p2_char_path: String = "res://characters/DEN.character.tres"
+	if case_characters.size() >= 2:
+		p1_char_path = str(case_characters[0])
+		p2_char_path = str(case_characters[1])
 	var ps: PackedScene = load(WORLD_SCENE)
 	if ps == null:
 		print("  ERROR: cannot load %s" % WORLD_SCENE)
 		return null
 	var world = ps.instantiate()
-	# 明確指定對戰角色（與選角畫面預設一致：DAV vs DEN）
+	# 明確指定對戰角色（預設與選角畫面一致：DAV vs DEN）
 	# ⚠️ 必须在 add_child(world) 之前：world._ready() 會讀取 SelectedCharacters
 	if root.has_node("SelectedCharacters"):
 		var sc = root.get_node("SelectedCharacters")
-		sc.p1_character = load("res://characters/DAV.character.tres")
-		sc.p2_character = load("res://characters/DEN.character.tres")
+		sc.p1_character = load(p1_char_path)
+		sc.p2_character = load(p2_char_path)
 	# 模擬正常遊戲：world 是 current_scene（fireball 等生成節點會加到 current_scene）
 	root.add_child(world)
 	current_scene = world
