@@ -10,7 +10,6 @@
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_808jx"]
 [ext_resource type="Script" uid="uid://um826wha4t60" path="res://data/HitPhaseData.gd" id="8_wv6ou"]
 [ext_resource type="Script" uid="uid://tld6w015ripa" path="res://data/SpecialMoveData.gd" id="9_808jx"]
-[ext_resource type="Resource" path="res://data/specials/den_fireball.tres" id="35_den_fireball"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://scripts/input/InputManager.gd" id="9_mhb1e"]
 [ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://assets/audio/heavy_hit_sound.wav" id="10_bi6lw"]
 [ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://assets/audio/block_sound.wav" id="11_ysvx1"]
@@ -32,6 +31,7 @@
 [ext_resource type="AudioStream" uid="uid://c0bjul7hfpktq" path="res://assets/audio/den_grunt_h2.mp3" id="30_muuk7"]
 [ext_resource type="AudioStream" uid="uid://uxhsj285rci4" path="res://assets/audio/dash.mp3" id="32_dash1"]
 [ext_resource type="AudioStream" uid="uid://bgs6lvw2i4i6a" path="res://assets/audio/bdash.mp3" id="33_bdash1"]
+[ext_resource type="Resource" path="res://data/specials/den_fireball.tres" id="35_den_fireball"]
 
 [sub_resource type="Resource" id="Resource_4lg2u"]
 script = ExtResource("3_jo7nc")
@@ -6292,7 +6292,6 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 3
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
