@@ -177,9 +177,12 @@ func _sample(fighter: Node, frame: int) -> void:
 			bool(fighter.is_air_hit_backjump), bool(fighter.is_knockfly),
 			bool(fighter.is_hit)])
 
-	# ── 對照組 3：can_initiate_throw（ThrowHandler._can_initiate_throw 舊守衛）──
+	# ── 對照組 3：can_initiate_throw（ThrowHandler._can_initiate_throw 舊守衛
+	#    + 衝刺承諾條款：dash/backdash 視同普通攻擊，期間不得發起摔投）──
 	var legacy_throw_init: bool = true
 	if is_attacking and attack_type != "throw_enter":
+		legacy_throw_init = false
+	if bool(fighter.is_dashing) or bool(fighter.is_backdashing):
 		legacy_throw_init = false
 	if bool(fighter.is_knockfly) or bool(fighter.is_hit) or bool(fighter.is_blocking):
 		legacy_throw_init = false

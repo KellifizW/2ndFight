@@ -474,10 +474,16 @@ static func is_combo_stunned(target: Node) -> bool:
 ## 注意此守衛**未**列 is_layground / is_wakeup —— 那些狀態下 get_input()
 ## 早已被 is_input_locked 吞成中性輸入，throw_pressed 根本到不了這裡；
 ## 守衛維持與舊式逐值等價（不無故加嚴）。
+##
+## 【衝刺承諾（dash commitment）】dash / backdash 視同普通攻擊：發動後必須
+## 跑完全程，期間不得發起摔投（與 can_start_ground_attack 的 dash 條款對齊，
+## test_34 對照組已同步收錄此條款）。
 static func can_initiate_throw(f: Node) -> bool:
 	if f == null:
 		return false
 	if _flag(f, "is_attacking") and _string(f, "attack_type") != "throw_enter":
+		return false
+	if _flag(f, "is_dashing") or _flag(f, "is_backdashing"):
 		return false
 	if _flag(f, "is_knockfly") or _flag(f, "is_hit") or _flag(f, "is_blocking"):
 		return false

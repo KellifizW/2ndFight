@@ -347,7 +347,9 @@ func _on_proximitybox_area_entered(area: Area2D) -> void:
 	if area.name == "Hurtbox" and area.get_parent().is_in_group("players"):
 		var target = area.get_parent()
 		
-		if target.is_holding_back or target.is_crouch_blocking:
+		# 【衝刺承諾】dash / backdash 途中不得觸發格擋（含火球近距離穿透格擋）。
+		if (target.is_holding_back or target.is_crouch_blocking) \
+				and not target.is_dashing and not target.is_backdashing:
 			# 進入穿透模式
 			is_active = false
 			is_penetrating = true

@@ -290,6 +290,14 @@ func _start_special(move_name: String) -> void:
 	if parent.is_attacking or is_spmove:
 		Debug.log("[MoveSet] %s cannot use %s: already attacking or in special move" % [parent.name, move_name])
 		return
+
+	# 【衝刺承諾】dash / backdash 期間不得開任何特殊招式。
+	# 這裡是所有 start_*() 入口（含 TouchControls 直呼）最終都會經過的
+	# 唯一收口，確保「衝刺必須跑完全程」對特殊招式一體生效。
+	if ("is_dashing" in parent and parent.is_dashing) \
+			or ("is_backdashing" in parent and parent.is_backdashing):
+		Debug.log("[MoveSet] %s cannot use %s: dash/backdash in progress (dash commitment)" % [parent.name, move_name])
+		return
 	
 	# Set up move state
 	is_spmove = true
@@ -657,7 +665,13 @@ func process_move(delta: float, input_data: Dictionary, is_valid_state: bool) ->
 								input_data.get("sp214k_pressed", false) or
 								input_data.get("sp623k_pressed", false))
 	
-	var can_process_special_input = has_special_move_input and parent.is_on_floor()
+	# 【衝刺承諾】dash / backdash 視同普通攻擊的不可取消段：發動後必須跑完
+	# 全程，期間不得經由這條「特殊招式繞過 landing lock」的旁路出招。
+	# is_valid_state（= can_start_ground_attack）本來就擋 dash，但這條旁路
+	# 沒有 —— 導致衝刺途中可以直接取消成火球 / DP / 超必殺。
+	var is_dash_committed: bool = bool(parent.is_dashing) or bool(parent.is_backdashing)
+	var can_process_special_input = has_special_move_input and parent.is_on_floor() \
+			and not is_dash_committed
 	
 	if not is_valid_state and not can_process_special_input:
 		# DEBUG: Track why input is rejected (for AI)
