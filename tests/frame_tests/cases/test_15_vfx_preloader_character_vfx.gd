@@ -15,4 +15,6 @@ func run() -> bool:
 	check(preloader.preloaded_resources.has("vfx_spawnfire"), "preloaded_resources 應包含 vfx_spawnfire")
 	check(preloader.has_fireball("DAV"), "DAV fireball 應已預載")
 	check(preloader.has_fireball("DEN"), "DEN fireball 應已預載")
+	check(preloader.has_fireball("WOO"), "WOO fireball 應已預載")
+	check(preloader.preloaded_resources.has("fireball_WOO"), "preloaded_resources 應包含 fireball_WOO")
 	return not has_failures()

@@ -9,7 +9,7 @@
 ##
 ## 快速招式對應（與 PlayerController.resolve_attack_type / MoveSet._handle_input 一致）：
 ##   SPM1：DAV=powerkk、DEN=spnk、WOO=214K
-##   SPM2：fireball（DAV / DEN）
+##   SPM2：fireball（DAV / DEN / WOO）
 ##   SPM3：DAV=dp、DEN=hdk、WOO=623K
 ##   SPM4：super（DAV）
 extends Control
@@ -120,8 +120,8 @@ func _on_skill_pressed(slot: int) -> void:
 				"WOO":
 					ms.start_214K()
 		2:
-			# WOO 沒有火球場景（ResourcePreloader 只提供 DAV/DEN），僅 DAV/DEN 可用。
-			if pa.character_id in ["DAV", "DEN"]:
+			# DAV/DEN/WOO 皆有火球（投射物場景由 ResourcePreloader 依角色提供）。
+			if pa.character_id in ["DAV", "DEN", "WOO"]:
 				ms.start_fireball()
 		3:
 			match pa.character_id:

@@ -19,6 +19,7 @@ const VFX_SPAWNFIRE: PackedScene = preload("res://scenes/vfx/spawnfire.tscn")
 const VFX_DASH_SMOKE: PackedScene = preload("res://assets/vfx/vfx.tscn")
 const FIREBALL_DAV: PackedScene = preload("res://scenes/projectiles/DAV_fireball.tscn")
 const FIREBALL_DEN: PackedScene = preload("res://scenes/projectiles/DEN_fireball.tscn")
+const FIREBALL_WOO: PackedScene = preload("res://scenes/projectiles/WOO_fireball.tscn")
 
 # 資源映射（用於接口查詢/測試）
 var preloaded_resources: Dictionary = {
@@ -27,7 +28,8 @@ var preloaded_resources: Dictionary = {
 	"vfx_spawnfire": VFX_SPAWNFIRE,
 	"vfx_dash_smoke": VFX_DASH_SMOKE,
 	"fireball_DAV": FIREBALL_DAV,
-	"fireball_DEN": FIREBALL_DEN
+	"fireball_DEN": FIREBALL_DEN,
+	"fireball_WOO": FIREBALL_WOO
 }
 
 var _warmup_instances: Array[Node] = []
@@ -55,6 +57,7 @@ func _warmup_resources() -> void:
 	# 預熱 Fireball 投射物
 	_warmup_scene("Fireball", "DAV", FIREBALL_DAV)
 	_warmup_scene("Fireball", "DEN", FIREBALL_DEN)
+	_warmup_scene("Fireball", "WOO", FIREBALL_WOO)
 
 	_schedule_warmup_cleanup()
 
@@ -180,13 +183,15 @@ func get_vfx_scene(vfx_type: String) -> PackedScene:
 func get_fireball_scene(character_id: String) -> PackedScene:
 	"""
 	獲取 Fireball 投射物場景 (已預載和預熱)
-	@param character_id: "DAV" 或 "DEN"
+	@param character_id: "DAV" / "DEN" / "WOO"
 	@return: 預載的 PackedScene
 	"""
 	if character_id == "DAV":
 		return FIREBALL_DAV
 	elif character_id == "DEN":
 		return FIREBALL_DEN
+	elif character_id == "WOO":
+		return FIREBALL_WOO
 	else:
 		push_error("[ResourcePreloadManager] 未知的角色 ID: %s" % character_id)
 		return null
@@ -197,4 +202,4 @@ func has_vfx(vfx_type: String) -> bool:
 
 func has_fireball(character_id: String) -> bool:
 	"""檢查 Fireball 資源是否已載入"""
-	return character_id in ["DAV", "DEN"]
+	return character_id in ["DAV", "DEN", "WOO"]
