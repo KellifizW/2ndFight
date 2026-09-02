@@ -4883,7 +4883,7 @@ tracks/12/loop_wrap = true
 tracks/12/keys = {
 "times": PackedFloat32Array(0.016666668, 0.033333335, 0.050000004, 0.06666667, 0.1, 0.16666667, 0.25, 0.31666666, 0.4, 0.5, 0.56666666),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
-"update": 0,
+"update": 1,
 "values": [1, 2, 3, 3, 5, 6, 7, 8, 3, 9, 10]
 }
 
@@ -6173,6 +6173,7 @@ collision_mask = 0
 
 [node name="ProxShape" type="CollisionShape2D" parent="Proximitybox" unique_id=1457268009]
 position = Vector2(50, 0)
+disabled = true
 debug_color = Color(0.62189, 0.533606, 0, 0.42)
 
 [node name="MoveSet" type="Node" parent="." unique_id=865844842]
