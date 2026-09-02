@@ -25,7 +25,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/PauseMenu.tscn" id="21_pause"]
 [ext_resource type="PackedScene" uid="uid://claqmk01wwasq" path="res://assets/vfx/vfx.tscn" id="22_vfxsmk"]
 [ext_resource type="Script" uid="uid://bake8vxq7l2wq" path="res://scripts/core/hit_stop_controller.gd" id="23_hitstop"]
-[ext_resource type="Script" path="res://scripts/ui/TouchControls.gd" id="25_touch"]
+[ext_resource type="Script" uid="uid://bmtouch2ndf1g" path="res://scripts/ui/TouchControls.gd" id="25_touch"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_2u3nc"]
 

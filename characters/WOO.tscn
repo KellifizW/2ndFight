@@ -11,13 +11,13 @@
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_o64jn"]
 [ext_resource type="Script" uid="uid://tld6w015ripa" path="res://data/SpecialMoveData.gd" id="9_061tp"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://scripts/input/InputManager.gd" id="9_pid0y"]
-[ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://assets/audio/heavy_hit_sound.wav" id="10_6t1g5"]
-[ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://assets/audio/block_sound.wav" id="11_061tp"]
-[ext_resource type="AudioStream" uid="uid://chhkw2i6yrqqj" path="res://assets/audio/hurt_grunt_p1.wav" id="12_sffaq"]
-[ext_resource type="AudioStream" uid="uid://b1h32xlp7um3u" path="res://assets/audio/powerkk_call.mp3" id="13_vn450"]
-[ext_resource type="AudioStream" uid="uid://bhgx3a8oi1nxg" path="res://assets/audio/fireball_call_p1.wav" id="14_wkibw"]
-[ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://assets/audio/loud3.mp3" id="15_wkibw"]
-[ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="16_wkibw"]
+[ext_resource type="AudioStream" uid="uid://donxd3nqn4jt2" path="res://assets/audio/heavy_hit_sound.wav" id="10_6t1g5"]
+[ext_resource type="AudioStream" uid="uid://dbe6n06qwaw2i" path="res://assets/audio/block_sound.wav" id="11_061tp"]
+[ext_resource type="AudioStream" uid="uid://g3rf7nob7jv3" path="res://assets/audio/hurt_grunt_p1.wav" id="12_sffaq"]
+[ext_resource type="AudioStream" uid="uid://bxlmatohwkn4l" path="res://assets/audio/powerkk_call.mp3" id="13_vn450"]
+[ext_resource type="AudioStream" uid="uid://drhqr2x37xtuj" path="res://assets/audio/fireball_call_p1.wav" id="14_wkibw"]
+[ext_resource type="AudioStream" uid="uid://chf6ovrhyejma" path="res://assets/audio/loud3.mp3" id="15_wkibw"]
+[ext_resource type="AudioStream" uid="uid://bdoof7d18fx5a" path="res://assets/audio/heavyblock.mp3" id="16_wkibw"]
 [ext_resource type="AudioStream" uid="uid://uxhsj285rci4" path="res://assets/audio/dash.mp3" id="32_dash1"]
 [ext_resource type="AudioStream" uid="uid://bgs6lvw2i4i6a" path="res://assets/audio/bdash.mp3" id="33_bdash1"]
 [ext_resource type="Script" uid="uid://v0wq4gdgy5o5" path="res://scripts/combat/movesets/WOOMoveSet.gd" id="34_wooms"]
@@ -177,7 +177,7 @@ tracks/10/keys = {
 
 [sub_resource type="Animation" id="Animation_nbdmm"]
 resource_name = "623K"
-length = 1.0666667
+length = 0.9
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
@@ -281,7 +281,7 @@ tracks/8/path = NodePath("AnimatedSprite2D:frame")
 tracks/8/interp = 1
 tracks/8/loop_wrap = true
 tracks/8/keys = {
-"times": PackedFloat32Array(0, 0.1, 0.2, 0.3, 0.46666667, 0.53333336, 0.6666667, 0.8, 0.93333334),
+"times": PackedFloat32Array(0, 0.1, 0.2, 0.3, 0.36666667, 0.43333334, 0.6666667, 0.73333335, 0.8),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
 "values": [0, 1, 2, 3, 4, 5, 6, 7, 8]
@@ -6050,7 +6050,7 @@ graph_offset = Vector2(-84, -58)
 
 [sub_resource type="Resource" id="Resource_pid0y"]
 script = ExtResource("8_6t1g5")
-frame = 7
+frame = 8
 damage = 10.0
 hitstun = 30
 blockstun = 20
@@ -6068,7 +6068,7 @@ metadata/_custom_type_script = "uid://um826wha4t60"
 
 [sub_resource type="Resource" id="Resource_061tp"]
 script = ExtResource("8_6t1g5")
-frame = 23
+frame = 24
 damage = 10.0
 hitstun = 20
 blockstun = 20
@@ -6094,13 +6094,21 @@ metadata/_custom_type_script = "uid://tld6w015ripa"
 script = ExtResource("9_061tp")
 damage = 30.0
 knockback = 200.0
-duration_frames = 0
-movement_duration_frames = 0
-move_distance = 300.0
+knockfly_force_enable = true
+knockfly_gravity = 7000000.0
+knockfly_vertical_speed = -1500.0
+knockfly_horizontal_speed = 3000.0
+duration_frames = 22
+movement_duration_frames = 22
+move_distance = 200.0
+acceleration_curve = 3
+stationary_ratio = 0.2
+acceleration_ratio = 0.01
+deceleration_ratio = 1.0
 caster_jump_enabled = true
-caster_jump_delay_frames = 6
+caster_jump_delay_frames = 10
 caster_jump_vertical_speed = -1500.0
-caster_jump_gravity = 6000000.0
+caster_jump_gravity = 8000000.0
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
 [node name="WOO" type="CharacterBody2D" unique_id=809306713]
