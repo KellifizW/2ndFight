@@ -49,7 +49,7 @@
 |---|---|---|---|
 | Stage 0 | 止血 + 安全網(DebugLogger / frame 測試 / frame data 表 / 守則) | ✅ 已併入 main | — |
 | Stage 1 | 統一時間域(全遊戲邏輯 = int 物理幀) | ✅ 完成(六族計時器全數遷移; CI 已啟用並自動跑全部用例) | 已完成 |
-| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1~4 完成(唯讀狀態層 → 攻擊 → 移動 → 受擊子系統; AI 蹲下後衝 bug 一併修復; 旗標 33→32; 用例 30→35); 剩餘: 旗標實際移除/最後少數讀點改讀 resolve() | 2~4 週末 |
+| Stage 2 | 顯式狀態機(消除 34 旗標) | 🔄 切片 1~6 完成(唯讀狀態層 → 攻擊 → 移動 → 受擊 → 格擋 → 動畫鏈; AI 蹲下後衝 bug 一併修復; 旗標 33→32; 用例 30→39); 剩餘: 旗標實際移除、兩處狀態/動畫分岔 | 1~2 週末 |
 | Stage 3 | FrameData 收攏 + 數據問題清理 | ⏳ | 1~2 週末 |
 | Stage 4 | 輸入系統收斂(單一 ActionMapper) | 🔄 收攏 #1 完成(AI `attack_type` 與人類路徑對齊, hit-confirm cancel 恢復); `InputManager`/`PlayerController` 合併待辦 | 1~2 週末 |
 | Stage 5 | 清理(死代碼/文檔/tscn 拆分/CI) | ⏳ | 1 週末 |
@@ -513,7 +513,7 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | 階段 | 新增用例 |
 |---|---|
 | Stage 1 | 10 hitstun 遞減 / 11 landing lock / 12 dash / 16 landing 轉換公式 / 18 knockfly 幀制 / 19 hit_lock hitstop 凍結 / 20 block_lock |
-| Stage 2 | 25 狀態機不變式(隨機輸入 600 幀) / 26 狀態層 vs 動畫層對齊 / 29 攻擊狀態成對(孤兒攻擊不可達) / 30 出招守衛 / 31 移動守衛 / 32 AI attack_type 對齊 / 34 受擊守衛 vs 舊表達式逐幀等價 / 35 AI 蹲下不得後衝 |
+| Stage 2 | 25 狀態機不變式(隨機輸入 600 幀) / 26 狀態層 vs 動畫層對齊 / 29 攻擊狀態成對(孤兒攻擊不可達) / 30 出招守衛 / 31 移動守衛 / 32 AI attack_type 對齊 / 34 受擊守衛 vs 舊表達式逐幀等價 / 35 AI 蹲下不得後衝 / 36 格擋站姿守衛 / 40 動畫鏈 vs 舊兩份抄本逐幀等價 |
 | Stage 3 | 14 每角色每招式 frame 斷言 / 100p 四段 |
 | Stage 4 | 15 QCF 宏 / 16 DP 宏 / 17 摔投窗口 / 18 AI 對稱性 |
 | Stage 5 | CI 化(無新用例, 全部進 CI) — ✅ 已啟用, 見 §12.2 |
@@ -603,6 +603,25 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
    0 分岔; `test_35` 蹲下不得後衝、站立必須後衝)。旗標數仍 32;
    新增 `test_34`/`test_35`(共 35 用例)。詳見 §6.4。
    **行為變更**: 僅限「蹲下的 AI 觸發 backdash」此後被正確擋下(舊守衛漏網)。
+---
+10. **[已完成 2026-09-01]** Stage 2 切片 5: 格擋站姿守衛改讀狀態。
+   `BlockingHandler.handle_blocking` 的兩份內聯守衛 →
+   `FighterState.can_enter_block_stance` / `can_release_block_stance`
+   (兩者刻意不可合併: 進入不含 `is_blocking` 以支援 blockstun 重取樣);
+   同時刪除零呼叫點的 `Player._physics_process_jump`。窮舉 256/16(+512
+   靈敏度)組合 0 分岔, `test_36` 逐幀釘住。旗標數仍 32。
+---
+11. **[已完成 2026-09-02]** Stage 2 切片 6: 動畫判定鏈收攏成唯一定義。
+   `Player._compute_target_state()`(頭段) 與
+   `AnimationManager.compute_target_state()`(把同樣八段又寫一次, 順序不同,
+   實機不可達) 兩份抄本 → `FighterState.animation_for()`, 內容 = 兩份合成後
+   **實際生效**的順序; `AnimationManager` 只保留播放層副作用(cr_down 轉場、
+   著地診斷日誌)。動畫層內嵌的第四份攻擊 id 清單一併消滅(改讀
+   `GROUND_ATTACK_IDS`/`AIR_ATTACK_IDS`/`THROW_ATTACK_TYPES`)。
+   `ci/verify_animation_chain.py` 窮舉 18,874,368 組合 0 分岔(對照組含不可達
+   分支), `test_40` 引擎內逐幀釘住(共 39 用例)。旗標數仍 32。
+   **行為變更**: 無(僅 `[LANDING_ANIMATION_PLAY]` 日誌由死代碼變成會輸出、
+   `[LANDING_BLOCKED_BY_SPMOVE]` 隨不可達分支移除)。
 ---
 ## 附錄 A: 關鍵代碼位置(供各階段參考)
 | 系統 | 檔案 |
