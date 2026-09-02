@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_808jx"]
 [ext_resource type="Script" uid="uid://um826wha4t60" path="res://data/HitPhaseData.gd" id="8_wv6ou"]
 [ext_resource type="Script" uid="uid://tld6w015ripa" path="res://data/SpecialMoveData.gd" id="9_808jx"]
+[ext_resource type="Resource" path="res://data/specials/den_fireball.tres" id="35_den_fireball"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://scripts/input/InputManager.gd" id="9_mhb1e"]
 [ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://assets/audio/heavy_hit_sound.wav" id="10_bi6lw"]
 [ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://assets/audio/block_sound.wav" id="11_ysvx1"]
@@ -6271,14 +6272,6 @@ metadata/_custom_type_script = "uid://tld6w015ripa"
 script = ExtResource("9_808jx")
 metadata/_custom_type_script = "uid://tld6w015ripa"
 
-[sub_resource type="Resource" id="Resource_mhb1e"]
-script = ExtResource("9_808jx")
-damage = 8.0
-knockback = 30.0
-is_projectile = true
-sound_type = "FireballCallPlayer"
-metadata/_custom_type_script = "uid://tld6w015ripa"
-
 [node name="DEN" type="CharacterBody2D" unique_id=1134608601]
 collision_layer = 2
 collision_mask = 0
@@ -6358,7 +6351,7 @@ debug_color = Color(0.56078434, 0.45490196, 0.8509804, 0.05490196)
 script = ExtResource("7_jo7nc")
 smd_spnk = SubResource("Resource_wv6ou")
 smd_hdk = SubResource("Resource_pid0y")
-smd_fireball = SubResource("Resource_mhb1e")
+smd_fireball = ExtResource("35_den_fireball")
 
 [node name="AIBehavior" type="Node" parent="." unique_id=1013836967]
 script = ExtResource("7_wv6ou")

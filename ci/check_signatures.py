@@ -173,3 +173,11 @@ if issues:
     sys.exit(1)
 else:
     print("no signature mismatches found")
+
+# Keep the existing workflow entry point stable while adding the Stage 3
+# source-routing check.  GitHub Actions already invokes this script in the
+# static-check job, so no second workflow permission is required.
+if not issues:
+    from check_special_move_sources import main as check_special_move_sources
+
+    sys.exit(check_special_move_sources())

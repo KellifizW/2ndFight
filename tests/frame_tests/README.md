@@ -54,6 +54,11 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | test_34_hit_reaction_gates_match_legacy | Stage 2 切片 4：`FighterState` 受擊守衛（is_input_locked / is_combo_stunned / can_initiate_throw / can_be_thrown）與它取代的舊旗標表達式逐幀等價（對照組刻意保留舊寫法） |
 | test_35_ai_backdash_blocked_while_crouching | Stage 2 切片 4：蹲下時 AI 直接後衝必須被 `can_dash` 擋下、站立時必須發動（切片 3 披露的 backdash 守衛 bug 修復） |
 | test_36_block_gates_match_legacy | Stage 2 切片 5：`FighterState` 格擋守衛（can_enter_block_stance / can_release_block_stance）與它取代的舊旗標表達式逐幀等價；階段 1 確定性逼出 blockstun 重取樣路徑（對照組刻意保留舊寫法） |
+| test_37_hitstop_decoupled | hitstop 直接凍結角色動畫/行動層，不再依賴 `Engine.time_scale` |
+| test_38_long_hitstop_single_attack | 長 hitstop 期間單次揮擊對同一目標只命中一次 |
+| test_39_attacker_pose_frozen_on_hit | 命中連接幀攻擊者姿勢保持凍結 |
+| test_40_animation_chain_matches_legacy | Stage 2 切片 6：統一後的動畫判定鏈與舊合成鏈逐幀等價 |
+| test_41_den_fireball_resource_source | Stage 3 slice 1：DEN `fireball` 使用外部 `SpecialMoveData`，且保留原本生效的命中資料 |
 
 ## 設計規則（寫新用例時請遵守）
 
