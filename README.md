@@ -704,7 +704,7 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   both paths. The same attack_type is observed on both paths ≥ 3 times, and
   the AI path's `attack_type` is non-`"none"` at least once — otherwise the
   test would silently pass on inputs that never trigger an attack.
-- **`test_34`** (slice 4) — the consolidated **hit-reaction** guards
+- **`test_34`** (slice 4; coverage phase added in slice 6) — the consolidated **hit-reaction** guards
   (`is_input_locked` / `is_combo_stunned` / `can_initiate_throw` /
   `can_be_thrown`) must stay **value-identical** to the flag expressions they
   replaced. Same `test_30`/`test_31` pattern: 600 frames of seeded random input
@@ -714,6 +714,13 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   group is exhaustive-verified in Python (384 / 64 / 192 / 4 flag combinations
   per predicate, 0 mismatches). Coverage assertions require each guard's true
   and false sides to actually occur, so "all always the same" cannot pass.
+  Slice 6 added a deterministic phase 1 in front of the random run: the
+  `can_be_thrown = false` side needs a knockfly, and 600 frames of random
+  input did not reliably produce one in CI (the case was failing on the
+  *coverage* assertion, never on equivalence). Phase 1 now forces it via
+  `take_hit(..., force_knockfly = true)` — the same entry point `test_18`
+  uses — so the sample is guaranteed, exactly like `test_36`'s scripted
+  blockstun phase.
 - **`test_35`** (slice 4, the disclosed behavior fix) — a crouching AI must not
   backdash. It forces the AI's committed input to `backdash` (with the crouch
   flag driven through the AI input dict, since `is_crouching` for an AI comes
