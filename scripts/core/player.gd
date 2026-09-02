@@ -514,7 +514,12 @@ func _physics_process(delta: float) -> void:
 				fixed_velocity.x = 0
 	
 	# 【NEW】Throw can interrupt normal attacks (check separately)
-	elif input_data.get("throw_pressed", false) and not is_crouching and not FighterState.is_throw_in_progress(self):
+	# 【衝刺承諾】dash / backdash 是不可取消的整段動作（視同普通攻擊），
+	# 期間不得經由這條「摔投打斷」旁路發起摔投 —— 守衛與
+	# FighterState.can_initiate_throw 的 dash 條款一致。
+	elif input_data.get("throw_pressed", false) and not is_crouching \
+			and not is_dashing and not is_backdashing \
+			and not FighterState.is_throw_in_progress(self):
 		Debug.log("[THROW INTERRUPT EXECUTION] Frame=%d Seat=%s | Interrupting '%s' with throw" % [
 			Engine.get_physics_frames(), seat, attack_type
 		])

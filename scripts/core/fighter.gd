@@ -250,8 +250,13 @@ func take_hit(
 		if is_spmove:
 			move_set.stop_special_move()
 	
-	# ── 格擋判斷（不變）──
-	if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_spmove:
+	# ── 格擋判斷 ──
+	# 【衝刺承諾】dash / backdash 途中受擊一律不觸發格擋：衝刺視同普通攻擊
+	# 的不可取消段。BlockingHandler 在衝刺期間本來就會清掉站姿旗標，但
+	# 「後撤步發動的那一幀」is_holding_back 仍是前一幀採樣的 true（雙擊後退
+	# 觸發後撤步必然按著後退），這裡補上 dash 守衛把那一幀的漏洞關掉。
+	if (is_holding_back or is_crouch_blocking) and is_on_floor() and not is_spmove \
+			and not is_dashing and not is_backdashing:
 		# ...（格擋部分保持原樣，不改動）
 		is_blocking = true
 		is_crouch_blocking = input_data.crouch_pressed and input_data.input_dir * get_facing_multiplier() < 0
