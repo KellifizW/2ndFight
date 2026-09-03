@@ -183,6 +183,17 @@ func _physics_process(delta: float) -> void:
 	# 處理計時器
 	var in_hitstop: bool = _is_hitstop_active()
 	for player in players:
+		# ── 【空中重置】水平速度由 AirReset 獨佔 ──
+		# 空中重置狀態下的 X 軸推力是「一組固定向量 + 空氣阻力」，
+		# 不能再被 knockback / block knockback / corner push 每幀改寫，
+		# 否則重置向量會在下一個物理幀就被覆蓋（舊版就是這樣壞掉的）。
+		if "is_air_hit_backjump" in player and player.is_air_hit_backjump:
+			player.knockback_frames = 0
+			player.hit_push_velocity = 0.0
+			player.block_knockback_frames = 0
+			player.corner_push_frames = 0
+			continue
+
 		# Stage 2：此處原有一段 `if player.is_push_back:` 的推開減速分支，已刪除。
 		# `is_push_back` 全倉庫唯一的寫入點就在該分支自己的 else 裡（寫 false），
 		# 沒有任何程式碼把它設為 true，整段因此永不執行；
