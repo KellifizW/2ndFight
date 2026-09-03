@@ -321,6 +321,12 @@ func take_hit(
 	
 	var facing_mult = get_facing_multiplier()
 	var should_knockfly: bool = force_knockfly or damage > 10.0 or (healthbar != null and healthbar.current_health <= 0)
+
+	# ── 【全局機制】空中重置（Air Reset / Flip-out）判定 ──────────────────
+	# 非擊倒性攻擊（無 Launch / Hard Knockdown、未達 knockfly 門檻）打中
+	# Airborne 目標時，走 AirReset 而不是 knockfly / 地面 hitstun。
+	# 判定與參數只有一份（scripts/combat/AirReset.gd），全角色共用。
+	var will_air_reset: bool = AirReset.should_air_reset(self, should_knockfly)
 	
 	# ── 清除跳躍延遲（避免與受擊狀態衝突）──
 	if not is_on_floor():
@@ -406,28 +412,24 @@ func take_hit(
 		# 舊 hit_timer 的幀制版：與 hitstun_frames 同長度，由 PushManager 遞減
 		hit_lock_frames = hit_frames
 		
-		if not is_on_floor():
-			# 空中普通攻擊：強制使用後跳邏輯，垂直速度為正常跳躍的 0.7 倍
-			is_air_hit_backjump = true
-			# Stage 1：秒數種子統一經 Movement.seconds_to_frames_nearest 轉物理幀
-			# （0.2s×120=24，數值與舊式 round(dur*LOGIC_FPS*2) 完全相同，僅收攏轉換點）
-			air_hit_backjump_timer = Movement.seconds_to_frames_nearest(air_hit_backjump_duration)
-			is_jumping = true  # 確保 GravityHandler 正常懂用重力
-			just_jumped = true  # 防止 GravityHandler 重置速度為 0
-			fixed_velocity.x = int(-air_hit_backjump_speed * world.SIMULATION_SCALE * facing_mult)
-			# 使用正常跳躍速度的 0.7 倍作為垂直速度(jump_vertical_speed 約為 -2300)
-			var normal_jump_speed = jump_vertical_speed if "jump_vertical_speed" in self else -2300.0
-			fixed_velocity.y = int(normal_jump_speed * 0.7 * world.SIMULATION_SCALE)
-			is_immune_to_floor_snap = true
-			floor_snap_immunity_timer = Movement.seconds_to_frames_nearest(floor_snap_immunity_duration)
-			Debug.log("[AIR HIT DEBUG] air_hit_backjump_timer: %.3fs -> %d frames, floor_snap_immunity_timer: %.3fs -> %d frames @120 FPS physics" % [air_hit_backjump_duration, air_hit_backjump_timer, floor_snap_immunity_duration, floor_snap_immunity_timer])
-			fixed_position.y -= 2
-			Debug.log("[AIR HIT] %s 空中受擊 → 後跳速度 x=%d, y=%d (0.7x 正常跳躍)" % [name, fixed_velocity.x, fixed_velocity.y])
+		if will_air_reset:
+			# ── 空中重置（Air Reset）：唯一入口 ──
+			# 舊版在這裡直接寫「後跳」速度，但沒有取消受擊方的攻擊狀態，
+			# 也沒有阻止 PushManager 的水平 knockback 在下一幀覆蓋掉這組速度，
+			# 於是玩起來只是「往後飄一下」而不是真正的空中重置。
+			AirReset.apply(self, hit_frames, facing_mult)
+			# hitstop 期間的延遲套用路徑同樣不得補一發 knockback。
+			if waiting_for_hit_stop_end:
+				pending_hit_params["skip_push"] = true
+				pending_hit_params["hit_push_initial_velocity"] = 0.0
 		else:
 			# 地面普通受擊 → 只有 hitstun，無垂直速度（讓 PushManager 處理水平推擊）
 			fixed_velocity.y = 0
 		
-		if not skip_push:
+		# 空中重置期間的水平位移由 AirReset 的固定向量 + 空氣阻力負責，
+		# 不能再疊一層 knockback（PushManager 每幀改寫 fixed_velocity.x，
+		# 會直接把重置向量吃掉 —— 這正是舊版「後跳軌跡怪怪的」的主因）。
+		if not skip_push and not will_air_reset:
 			var push_distance = knockback_distance if knockback_distance > 0 else hit_push_distance
 			# knockback 使用固定幀數系統，持續時間 = hitstun 時間（物理幀）
 			

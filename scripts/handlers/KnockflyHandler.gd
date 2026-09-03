@@ -17,19 +17,19 @@ func handle_knockfly_layground(_delta: float, _floor_y: int) -> void:
 		return
 	
 	if movement_node.is_air_hit_backjump:
-		# 【重要】air_hit_backjump_timer 由 KnockflyHandler 管理，避免 TimerHandler 重複遞減
-		movement_node.air_hit_backjump_timer = max(0, movement_node.air_hit_backjump_timer - 1)
-		# 【統一重力系統】直接應用重力（這個狀態獨立於 GravitySystem）
-		var gravity: int = movement_node.world.GRAVITY if movement_node.world else 6000000
-		# 重力應用改為 1/60 秒固定（相當於 120 FPS 的 delta = 1/120）
-		var physics_timestep = 1.0 / 60.0  # Fixed 60 FPS reference
-		movement_node.fixed_velocity.y += int(float(gravity) * physics_timestep)
-		apply_air_friction(movement_node.default_air_friction)
-		if movement_node.air_hit_backjump_timer <= 0 or movement_node.is_on_floor():
+		# ── 空中重置（Air Reset）的每幀物理 ──
+		# 計時器、重力（GRAVITY_SCALE 滯空）、空氣阻力全部由 AirReset.step()
+		# 一處負責；此狀態刻意獨立於 GravityHandler（後者直接 return）。
+		# 【重要】air_hit_backjump_timer 由這裡管理，避免 TimerHandler 重複遞減。
+		var finished: bool = AirReset.step(movement_node)
+		if finished:
 			movement_node.is_air_hit_backjump = false
 			# 空中被打回到地面後不播放 hit 動畫，清除受擊狀態
 			movement_node.is_hit = false
 			movement_node.hitstun_frames = 0
+			# PushManager 在空中重置期間跳過了這個角色的計時器段，
+			# 這裡補清舊 hit lock，避免殘留幀讓下一幀又被判成受擊。
+			movement_node.hit_lock_frames = 0
 			# 只在落地時清除跳躍狀態，如果還在空中就設置 jump_dir 為後跳方向
 			if movement_node.is_on_floor():
 				movement_node.is_jumping = false
