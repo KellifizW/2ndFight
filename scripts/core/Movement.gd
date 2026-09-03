@@ -188,7 +188,7 @@ var animation_conditions: Array = [
 	"hit", "knockfly", "block", "cr_block",
 	"powerkk", "spnk", "fireball", "100p",
 	"jump_mp", "jump_mk", "landing", "wakeup", "super", "dp", "hdk", "layground",
-	"214K", "623K"
+	"air_reset", "214K", "623K"
 ]
 
 var anim_resets: Dictionary = {

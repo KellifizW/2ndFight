@@ -696,7 +696,7 @@ static func animation_for(
 
 	# 9. 空中受擊後跳的殘留幀（見上：抄本 2 的第一條，實際生效於此）。
 	if _flag(f, "is_air_hit_backjump"):
-		return "Jump_B"
+		return "air_reset"
 
 	# 10. PROXIMITY_BLOCK
 	if _flag(f, "is_proximity_blocking"):
