@@ -474,6 +474,8 @@ func _compute_ai_input() -> Dictionary:
 				Debug.log("[AI INTERRUPT] Frame=%d Seat=%s | Committed to '%s' but entered throw range (dist=%.0f) → Re-evaluating" % [
 					Engine.get_physics_frames(), seat, current_committed_action, commitment_distance
 				])
+			# Cancel dash state immediately on interruption
+			_cancel_dash_state()
 			commitment_frames = 0
 			committed_input = {}
 			decision_cooldown_frames = 0  # 【FIX】Also clear cooldown to allow immediate re-evaluation
@@ -690,6 +692,15 @@ func _commit_action(action: String, duration: float) -> Dictionary:
 	if action in ["stand_block", "crouch_block"]:
 		_cancel_dash_state()
 
+	if parent and (parent.is_dashing or parent.is_backdashing):
+		# Enforce FighterState guard restrictions during dash/backdash
+		if action in ["dash_forward", "backdash"]:
+			if not FighterState.can_dash(parent, false):
+				return _neutral_input()
+		else:
+			if not FighterState.can_dash(parent, false) or not FighterState.can_start_ground_attack(parent) or not FighterState.can_jump(parent, false, false) or not FighterState.can_start_air_attack(parent):
+				return _neutral_input()
+
 	current_committed_action = action
 	# Stage 1：承諾時長（動畫秒）→ 物理幀種子，經唯一邊界轉換
 	commitment_frames = Movement.seconds_to_frames_nearest(duration)
@@ -894,9 +905,15 @@ func _action_to_input(action: String) -> Dictionary:
 			input.super_pressed = true
 			input["ai_special_variant"] = "super"
 		"dash_forward":
+			if parent and (parent.is_dashing or parent.is_backdashing):
+				if not FighterState.can_dash(parent, false) or not FighterState.can_start_ground_attack(parent) or not FighterState.can_jump(parent, false, false) or not FighterState.can_start_air_attack(parent):
+					return _neutral_input()
 			input.dash_pressed = true
 			input.input_dir = int(relative_dir)
 		"backdash":
+			if parent and (parent.is_dashing or parent.is_backdashing):
+				if not FighterState.can_dash(parent, false) or not FighterState.can_start_ground_attack(parent) or not FighterState.can_jump(parent, false, false) or not FighterState.can_start_air_attack(parent):
+					return _neutral_input()
 			input.backdash_pressed = true
 			input.input_dir = -int(relative_dir)
 		"jump_forward":
