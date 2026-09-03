@@ -171,8 +171,12 @@ func _legacy_chain(f: Node, crouch_input: bool, on_floor: bool, anim_jump_dir: f
 	if f.is_wakeup:
 		return "wakeup"
 	if f.is_hit:
-		if not on_floor and bool(f.is_air_hit_backjump):
-			return "Jump_B"
+		# 【AIR RESET 修正】空中重置期間 is_air_hit_backjump 與 is_hit 同時為真，
+		# 必須優先回 air_reset（否則被下方 Jump_B 吃掉 → 空中被打播後跳）。
+		# 這是刻意偏離舊鏈的行為修正（PR #60 尾段改動無效，因 is_hit 遮蔽），
+		# FighterState.animation_for 與本對照組同步收錄此規則。
+		if bool(f.is_air_hit_backjump):
+			return "air_reset"
 		if on_floor:
 			return "cr_hit" if f.was_hit_while_crouching else "hit"
 		return "Jump_B"
@@ -196,7 +200,7 @@ func _legacy_chain(f: Node, crouch_input: bool, on_floor: bool, anim_jump_dir: f
 
 	# ── AnimationManager 尾段（舊 super；與頭段重複的段落略過，見檔頭）──
 	if bool(f.is_air_hit_backjump):
-		return "Jump_B"
+		return "air_reset"
 	if f.is_proximity_blocking:
 		return "cr_block" if f.is_crouching else "block"
 	if f.is_attacking:

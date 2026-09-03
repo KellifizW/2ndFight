@@ -55,6 +55,24 @@ func run() -> bool:
 	check(not p2.is_air_attacking, "空中重置應取消受擊方的空中攻擊")
 	check(p2.has_air_attacked, "空中重置後該次滯空不得再出招")
 
+	# ── 3b. 【AIR RESET 動畫】空中重置必須播 air_reset，而不是後跳 Jump_B。
+	# 允許幾幀讓 AnimationTree.travel() 生效，並在重置結束前抽樣當前動畫節點。
+	# （FighterState.animation_for 在 is_hit 分支優先偵測 is_air_hit_backjump →
+	# "air_reset"；此斷言直接釘住「空中被打播後跳」這個回歸。）
+	var saw_air_reset_anim: bool = false
+	for i in 20:
+		if not p2.is_air_hit_backjump:
+			break
+		if p2.animation_state and p2.animation_tree and p2.animation_tree.active:
+			if str(p2.animation_state.get_current_node()) == "air_reset":
+				saw_air_reset_anim = true
+				break
+		await await_frames(1)
+	check(saw_air_reset_anim,
+		"空中重置期間應播放 air_reset 動畫（實際未觀察到，可能仍在播 Jump_B）")
+	if p2.is_air_hit_backjump:
+		await await_frames(1)
+
 	# ── 4. 水平速度單調收斂，且不被 knockback 覆蓋 ──
 	var prev_abs: int = abs(p2.fixed_velocity.x)
 	var monotonic: bool = true

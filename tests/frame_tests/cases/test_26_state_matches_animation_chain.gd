@@ -35,6 +35,7 @@ const ANIM_TO_STATES: Dictionary = {
 	"Jump_F": ["JUMP", "AIR_ATTACK"],
 	"Jump_B": ["JUMP", "AIR_ATTACK", "HITSTUN"],
 	"Jump_V": ["JUMP", "AIR_ATTACK"],
+	"air_reset": ["HITSTUN"],
 	"hit": ["HITSTUN"],
 	"cr_hit": ["HITSTUN"],
 	"block": ["BLOCKSTUN", "PROXIMITY_BLOCK"],
