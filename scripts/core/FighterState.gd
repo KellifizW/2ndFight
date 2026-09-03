@@ -632,10 +632,12 @@ static func check_invariants(f: Node) -> Array:
 ##   - 引擎內由 `test_40` 逐幀比對（對照組是舊表達式原樣重寫）
 ##
 ## 兩件從抄本 2 保留下來、值得寫下來的事：
-##   1. `is_air_hit_backjump` 那條（下面第 9 段）**是活的**：它只在 Player 頭段
-##      全部落空時才會跑到（在地上、或人在空中但 is_jumping/is_air_attacking
-##      皆假），語意是「空中受擊後跳的殘留幀繼續播 Jump_B」。抄本 2 把它放在
-##      最前面，但因為 Player 先攔了 hit/knockfly/…，實際生效位置就是第 9 段。
+##   1. `is_air_hit_backjump`（空中重置 / Air Reset）：實機上 AirReset.apply 會
+##      把 is_air_hit_backjump 與 is_hit 同時設為 true，且 Fighter._physics_process
+##      會在重置全程維持 is_hit（見第 4 段註解）—— 所以正確生效位置是第 4 段
+##      HITSTUN 分支**內**的優先偵測（回 "air_reset"），第 9 段只剩 is_hit 為假的
+##      理論殘留幀作後備，一樣回 "air_reset"。舊鏈（及 PR #60 誤改的尾段）把它
+##      放在 is_hit / 空中族之後，整段被 Jump_B 吃掉，故「空中被打播後跳」。
 ##   2. 攻擊 id 的**第四份清單**（抄本 2 內嵌的字面值）在此消滅：改讀
 ##      `GROUND_ATTACK_IDS` / `AIR_ATTACK_IDS` / `THROW_ATTACK_TYPES`
 ##      （切片 2 收攏了前三份，這份當時被留給動畫層，現在動畫層搬進來了）。
@@ -664,9 +666,16 @@ static func animation_for(
 	if _flag(f, "is_wakeup"):
 		return "wakeup"
 
-	# 4. HITSTUN —— 空中受擊一律 Jump_B（舊鏈的 is_air_hit_backjump 子判斷
-	#    與 else 分支回傳同一個字串，故此處合併，值不變）。
+	# 4. HITSTUN
 	if _flag(f, "is_hit"):
+		# 空中受擊（Air Reset / Flip-out）優先：AirReset.apply 設 is_air_hit_backjump
+		# 之後，Fighter._physics_process 會在重置全程把 is_hit 一路維持為 true
+		# （hitstun 歸零後只要 is_air_hit_backjump 仍為 true 就不清 is_hit）。
+		# 因此若不在此處、而在第 9 段尾段偵測，整段重置都會先被下面
+		# `not on_floor → Jump_B` 吃掉 —— 這就是「空中被打仍播後跳」的根源：
+		# PR #60 只改了尾段，那段在 is_hit 為真時根本到不了。
+		if _flag(f, "is_air_hit_backjump"):
+			return "air_reset"
 		if not on_floor:
 			return "Jump_B"
 		return "cr_hit" if _flag(f, "was_hit_while_crouching") else "hit"
@@ -694,7 +703,8 @@ static func animation_for(
 			return air_id
 		return jump_animation(anim_jump_dir)
 
-	# 9. 空中受擊後跳的殘留幀（見上：抄本 2 的第一條，實際生效於此）。
+	# 9. 空中受擊後跳的殘留幀（後備防線：第 4 段已優先偵測，is_hit 為假的
+	#     殘餘幀才會到這裡 —— 照樣播 air_reset，不落回後跳）。
 	if _flag(f, "is_air_hit_backjump"):
 		return "air_reset"
 

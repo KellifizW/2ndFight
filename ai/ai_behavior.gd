@@ -104,6 +104,25 @@ const OPPONENT_RETRY_DELAY: float = 0.5   # 找不到對手時的重試間隔（
 var _last_block_trace_attack_frame: int = -1
 var _last_block_trace_action: String = ""
 
+# ============================================================
+# Bug 3：dash/backdash 濫用抑制（anti-spam）
+# ============================================================
+# 一次前衝/後衝結束後，鎖定一小段時間禁止再立刻衝刺，迫使 AI 先用步行趨近/後退
+# 調整間距，避免「衝完馬上又衝」的連續衝撞看起來像抽搐、過度使用前後衝。
+#
+# 用「物理幀時間戳」而非每幀遞減的計數器：這樣任何 return 路徑都不用負責遞減，
+# 只消比對 Engine.get_physics_frames() 是否仍在鎖定期內即可（同 EXECUTION WINDOW
+# 的「等待窗」精神 —— 讓一整套衝刺動作自然跑完，期間不做第二次衝刺決策）。
+const DASH_REUSE_LOCKOUT_SECONDS: float = 0.55  # 0.35s 一次衝刺 + 0.2s 步行緩衝
+var dash_reuse_locked_until_physics_frame: int = 0
+
+func _is_dash_reuse_locked() -> bool:
+	return Engine.get_physics_frames() < dash_reuse_locked_until_physics_frame
+
+func _lock_dash_reuse() -> void:
+	dash_reuse_locked_until_physics_frame = Engine.get_physics_frames() \
+		+ Movement.seconds_to_frames_nearest(DASH_REUSE_LOCKOUT_SECONDS)
+
 func _adjust_decision_interval(threat_level: int, distance: float) -> void:
 	"""根據威脅等級和距離動態調整決策速度"""
 	if not enable_adaptive_interval:
@@ -401,6 +420,52 @@ func _compute_ai_input() -> Dictionary:
 		])
 	
 	# ============================================================
+	# DASH / BACKDASH EXECUTION WINDOW
+	# ============================================================
+	# dash / backdash 由引擎自走（is_dashing / is_backdashing + dash_timer，見
+	# test_42）：一旦發動，引擎會自己跑完衝刺，期間 FighterState 的所有行動守衛
+	# （walk / jump / attack / dash / block stance / throw）全部關閉 —— 而且它
+	# **不需要 AI 持續餵 dash_pressed**。
+	#
+	# 舊版 AI 犯了兩個錯，造成「AI 無視 dash/backdash 限制」與「濫用前後衝」：
+	#   1. 用 _cancel_dash_state() 在決策時強行清掉 is_dashing / dash_timer /
+	#      landing_facing_lock / 水平速度，再立刻發新指令（緊急格擋、再衝一次）
+	#      —— 等於繞過引擎守衛，衝刺動畫未結束就能格擋 / 再衝。
+	#   2. 在整個承諾期持續送 dash_pressed。引擎在**同一幀**先把 is_dashing 歸零
+	#      （TimerHandler 先跑）、後處理 dash 輸入 —— AI 在最後一幀早已送出
+	#      dash_pressed，於是衝刺一結束馬上又發動一次 → 連續 dash 濫用。
+	#
+	# 這裡把「一次衝刺」當成 AI 層的**等待窗**：只要還承諾著這次衝刺、且引擎
+	# 正在跑這次衝刺（is_dashing / is_backdashing），AI 就回**中立**並只倒數承諾，
+	# **完全不再餵任何可執行的輸入**（不餵 dash_pressed，因此不會在引擎把
+	# is_dashing 歸零的那一幀立刻又發動一次 → 不會連續衝刺濫用）。
+	# 引擎的衝刺本身由 is_dashing / dash_timer / 固定速度自走，**不需要 AI 每幀
+	# 提供方向或按鍵** —— 所以中立回傳在衝刺期間是安全且必要的：它既不會讓引擎
+	# 重開衝刺，也讓任何「衝刺動畫中想格擋 / 出手 / 再衝」的新決策（含 LAYER 0
+	# 緊急格擋）都到不了引擎。引擎一結束衝刺（is_dashing 轉 false）就清除承諾。
+	#
+	# 注意：此分支只在「上一幀已承諾衝刺」時觸發（commit 發生在下方 LAYER 4，
+	# 那一幀會先送一次 dash_pressed 讓引擎發動，之後每幀都走這裡）。因此若
+	# current_committed_action 不是衝刺（例如測試刻意清零），會正常落到下方
+	# 決策層，不影響 LAYER 3 冷卻計時的既有測試語意。
+	if current_committed_action in ["dash_forward", "backdash"]:
+		if parent and (parent.is_dashing or parent.is_backdashing):
+			# 引擎正跑這次衝刺：回中立（不餵任何可執行輸入），只倒數承諾。
+			commitment_frames = max(0, commitment_frames - 1)
+			if commitment_frames <= 0:
+				current_committed_action = ""
+				committed_input = _neutral_input()
+				decision_cooldown_frames = 0
+			return _neutral_input()
+		# 引擎沒在衝刺 → 這次衝刺已結束（或從未發動）。立即清除承諾，
+		# 不殘留 dash_pressed，避免「衝完立刻再衝」。
+		commitment_frames = 0
+		committed_input = _neutral_input()
+		current_committed_action = ""
+		decision_cooldown_frames = 0
+		return _neutral_input()
+
+	# ============================================================
 	# LAYER 0: EMERGENCY BLOCK OVERRIDE (Highest Priority)
 	# ============================================================
 	# If opponent is attacking (normal OR special) and in range, ALWAYS block immediately
@@ -418,8 +483,10 @@ func _compute_ai_input() -> Dictionary:
 				attack_range = threat_system.get_attack_range_for(opponent, attack_type)
 			
 			if attack_distance <= attack_range + 20.0:
-				# Cancel any dash state
-				_cancel_dash_state()
+				# 不 cancel dash：若 AI 正處於衝刺狀態，上面的 DASH/BACKDASH EXECUTION
+				# WINDOW 早已回傳、根本到不了這裡；若不在衝刺，這裡直接給格擋輸入即可
+				# （引擎的 can_enter_block_stance 會自行判斷）。移除舊版「先清掉衝刺
+				# 狀態再格擋」的繞行 —— 那正是「衝刺動畫未結束就格擋」的漏洞來源。
 				
 				# Force block immediately
 				var relative_dir = sign(opponent.global_position.x - parent.global_position.x)
@@ -463,9 +530,11 @@ func _compute_ai_input() -> Dictionary:
 			])
 		
 		if (commitment_threat and commitment_threat.level >= ThreatAssessment.ThreatLevel.MEDIUM) or imminent_contact or has_fireball_threat:
-			if current_committed_action in ["dash_forward", "backdash"]:
-				_cancel_dash_state()
-			if current_committed_action not in ["stand_block", "crouch_block"]:
+			# 不再對 dash/backdash 承諾呼叫 _cancel_dash_state()：進行中的衝刺由上面的
+			# DASH/BACKDASH EXECUTION WINDOW 全權把守（此處根本到不了）；這裡只允許
+			# 中斷**非衝刺**的承諾（walk/block 等可被緊急格擋取代的動作）。
+			if current_committed_action not in ["stand_block", "crouch_block"] \
+					and current_committed_action not in ["dash_forward", "backdash"]:
 				commitment_frames = 0
 				committed_input = {}
 		elif entered_throw_range and opponent and not opponent.is_attacking:
@@ -474,8 +543,8 @@ func _compute_ai_input() -> Dictionary:
 				Debug.log("[AI INTERRUPT] Frame=%d Seat=%s | Committed to '%s' but entered throw range (dist=%.0f) → Re-evaluating" % [
 					Engine.get_physics_frames(), seat, current_committed_action, commitment_distance
 				])
-			# Cancel dash state immediately on interruption
-			_cancel_dash_state()
+			# 不呼叫 _cancel_dash_state()：進行中的衝刺由上面的 EXECUTION WINDOW 把守，
+			# 此處只中斷尚未真正開始衝刺的走/衝承諾（進入投擲距離 → 重新評估想摔投）。
 			commitment_frames = 0
 			committed_input = {}
 			decision_cooldown_frames = 0  # 【FIX】Also clear cooldown to allow immediate re-evaluation
@@ -680,6 +749,22 @@ func _compute_ai_input() -> Dictionary:
 			Debug.log("[AI] WARNING: Final check caught restricted move '%s', reverting to walk_forward" % decision.action)
 		decision.action = "walk_forward"
 	
+	# ============================================================
+	# Bug 3：dash/backdash 濫用抑制（commit 前攔截）
+	# ============================================================
+	# 若決策層想前衝/後衝，但在上次衝刺的鎖定期內 → 降級成「同向步行」趨近/後退，
+	# 讓 AI 不會剛結束一次衝刺又立刻再衝（上一幀的殘餘 dash_pressed 已由
+	# EXECUTION WINDOW 清掉，這裡再擋掉決策層「又想再衝一次」的重複選擇）。
+	# 反之，若不在鎖定期且真的要衝 → 立刻上鎖，讓這次衝刺 + 一小段緩衝都處在鎖定期。
+	# 鎖定只針對「主動衝刺」，不影響 LAYER 0/LAYER 1 的緊急防守 return 路徑。
+	if decision.action in ["dash_forward", "backdash"]:
+		if _is_dash_reuse_locked():
+			decision.action = "walk_forward" if decision.action == "dash_forward" else "walk_backward"
+			if debug_mode:
+				Debug.log("[AI] Dash reuse locked → downgraded to '%s' (walk to adjust spacing)" % decision.action)
+		else:
+			_lock_dash_reuse()
+
 	# Commit to the decided action
 	var duration = _get_action_duration(decision.action)
 	return _commit_action(decision.action, duration)
@@ -689,8 +774,10 @@ func _commit_action(action: String, duration: float) -> Dictionary:
 	Commit to executing an action for a minimum duration
 	This is the core of preventing jittery behavior
 	"""
-	if action in ["stand_block", "crouch_block"]:
-		_cancel_dash_state()
+	# 不再對格擋承諾 _cancel_dash_state()：進行中的衝刺由 _compute_ai_input 的
+	# DASH/BACKDASH EXECUTION WINDOW 把守，_commit_action 只會在不衝刺時被呼叫；
+	# 格擋與否由引擎的 can_enter_block_stance 自行判定。移除「先清衝刺狀態再擋」
+	# 的舊繞行（那是「衝刺動畫未結束就格擋」的另一個漏洞來源）。
 
 	if parent and (parent.is_dashing or parent.is_backdashing):
 		# Enforce FighterState guard restrictions during dash/backdash
@@ -980,27 +1067,11 @@ func _neutral_input() -> Dictionary:
 		"attack_type": "none",
 	}
 
-func _cancel_dash_state() -> void:
-	if not parent:
-		return
-	if "is_dashing" in parent:
-		parent.is_dashing = false
-	if "is_backdashing" in parent:
-		parent.is_backdashing = false
-	if "dash_timer" in parent:
-		parent.dash_timer = 0
-	# 🟢 【修復】不在 knockback / block_knockback 期間清零速度，
-	# 否則每幀都會抹掉 PushManager 設置的格擋退後速度，導致 AI 格擋時沒有後退位移。
-	var in_knockback = "knockback_frames" in parent and parent.knockback_frames > 0
-	var in_block_knockback = "block_knockback_frames" in parent and parent.block_knockback_frames > 0
-	if "fixed_velocity" in parent and not in_knockback and not in_block_knockback:
-		parent.fixed_velocity.x = 0
-	if "landing_facing_lock" in parent:
-		parent.landing_facing_lock = false
-	if "dash_initial_speed" in parent:
-		parent.dash_initial_speed = 0.0
-	if "dash_total_time" in parent:
-		parent.dash_total_time = 0.0
+# 註：舊的 _cancel_dash_state() 已刪除 —— 它會強行清掉 is_dashing / dash_timer /
+# landing_facing_lock / 水平速度，正是「AI 繞過 dash/backdash 承諾（衝刺動畫未結束
+# 就能格擋 / 再衝）」的根因。現在衝刺承諾由 _compute_ai_input 的
+# DASH/BACKDASH EXECUTION WINDOW + 引擎 FighterState 守衛一體把守，
+# 不再需要任何「由 AI 側手動取消衝刺」的機制。切勿重新引入。
 
 # ============================================================
 # SPECIAL MOVE COMMITMENT CLEARING (Combat Deduplication)

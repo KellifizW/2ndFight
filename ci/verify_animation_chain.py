@@ -100,8 +100,10 @@ def legacy_chain(f: dict, attack_type: str, active_move: str, jump_dir: float) -
     if f["is_wakeup"]:
         return "wakeup"
     if f["is_hit"]:
-        if not on_floor and f["is_air_hit_backjump"]:
-            return "Jump_B"
+        # 【AIR RESET 修正】空中重置期間 is_air_hit_backjump 與 is_hit 同時為真，
+        # 優先回 air_reset（否則被下方 Jump_B 吃掉 → 空中被打播後跳）。
+        if f["is_air_hit_backjump"]:
+            return "air_reset"
         if on_floor:
             return "cr_hit" if f["was_hit_while_crouching"] else "hit"
         return "Jump_B"
@@ -118,7 +120,7 @@ def legacy_chain(f: dict, attack_type: str, active_move: str, jump_dir: float) -
 
     # ── AnimationManager 尾段（super）──
     if f["is_air_hit_backjump"]:
-        return "Jump_B"
+        return "air_reset"
     if f["is_hit"]:                                     # 不可達（頭段已攔）
         if not on_floor:
             return "Jump_B"
@@ -168,6 +170,9 @@ def unified_chain(f: dict, attack_type: str, active_move: str, jump_dir: float) 
     if f["is_wakeup"]:
         return "wakeup"
     if f["is_hit"]:
+        # 【AIR RESET 修正】空中重置優先於泛用 HITSTUN（見 animation_for 註解）。
+        if f["is_air_hit_backjump"]:
+            return "air_reset"
         if not on_floor:
             return "Jump_B"
         return "cr_hit" if f["was_hit_while_crouching"] else "hit"
@@ -182,7 +187,7 @@ def unified_chain(f: dict, attack_type: str, active_move: str, jump_dir: float) 
             return attack_type
         return "Jump_F" if jump_dir > 0 else ("Jump_B" if jump_dir < 0 else "Jump_V")
     if f["is_air_hit_backjump"]:
-        return "Jump_B"
+        return "air_reset"
     if f["is_proximity_blocking"]:
         return "cr_block" if f["is_crouching"] else "block"
     if f["is_attacking"]:
@@ -227,9 +232,9 @@ def main() -> int:
                 mismatches.append((dict(f), attack_type, active_move, jump_dir, old, new))
             elif old != new:
                 pass
-            # 覆蓋度：第 9 段（is_air_hit_backjump 殘留幀）必須真的被走到過，
-            # 否則「順序放這裡是對的」這件事沒有被證明。
-            if old == "Jump_B" and not f["is_hit"] and f["is_air_hit_backjump"] \
+            # 覆蓋度：air_reset 分支（空中重置；is_air_hit_backjump）必須真的被
+            # 走到過，否則「air_reset 在 HITSTUN 內優先於 Jump_B」沒有被證明。
+            if old == "air_reset" and f["is_air_hit_backjump"] \
                     and not f["is_knockfly"] and not f["is_layground"] \
                     and not f["is_wakeup"]:
                 dead_branch_hits += 1
@@ -237,7 +242,7 @@ def main() -> int:
     print("combinations checked : %d (%d flag masks × %d parameter tuples)"
           % (total, len(list(combos)) if args.quick else 1 << bits,
              len(ATTACK_TYPES) * len(ACTIVE_MOVES) * len(JUMP_DIRS)))
-    print("air-hit-backjump tail branch reached: %d" % dead_branch_hits)
+    print("air_reset (air-hit-backjump) branch reached: %d" % dead_branch_hits)
 
     if mismatches:
         print("\nMISMATCHES (first %d):" % len(mismatches))
@@ -248,7 +253,7 @@ def main() -> int:
         return 1
 
     if dead_branch_hits == 0:
-        print("\nERROR: 第 9 段從未被走到 —— 覆蓋度不足，等價結論無意義")
+        print("\nERROR: air_reset 分支從未被走到 —— 覆蓋度不足，等價結論無意義")
         return 1
 
     print("\nOK: 舊合成鏈與 FighterState.animation_for() 逐值等價（0 分岔）")
