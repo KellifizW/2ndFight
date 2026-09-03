@@ -632,6 +632,58 @@ tracks/33/keys = {
 "values": [false]
 }
 
+[sub_resource type="Animation" id="Animation_7j3j6"]
+resource_name = "air_reset"
+length = 0.46666667
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("AnimatedSprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.06666667, 0.13333334, 0.18333334, 0.23333333, 0.28333333, 0.33333334, 0.4),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [0, 1, 2, 3, 4, 4, 4, 5]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("AnimatedSprite2D:animation")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [&"air_reset"]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("AnimatedSprite2D:rotation")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.25, 0.41666666),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 1,
+"values": [0.0, 2.3143065881444813, 0.0]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("AnimatedSprite2D:flip_h")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.25, 0.41666666),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 1,
+"values": [false, true, false]
+}
+
 [sub_resource type="Animation" id="Animation_meopb"]
 resource_name = "davis_backdash"
 length = 0.4
@@ -6916,6 +6968,7 @@ tracks/4/keys = {
 _data = {
 &"100p": SubResource("Animation_nf08n"),
 &"RESET": SubResource("Animation_3ch2m"),
+&"air_reset": SubResource("Animation_7j3j6"),
 &"backdash": SubResource("Animation_meopb"),
 &"block": SubResource("Animation_3h1ys"),
 &"cr_block": SubResource("Animation_6ev7e"),
@@ -7002,6 +7055,9 @@ blend_point_1/name = &"1"
 blend_point_2/node = SubResource("AnimationNodeAnimation_aar5g")
 blend_point_2/pos = -1.0
 blend_point_2/name = &"2"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_1q03r"]
+animation = &"air_reset"
 
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_qr7ep"]
 animation = &"block"
@@ -7151,6 +7207,8 @@ states/Jump_V/position = Vector2(371, -31)
 states/Start/position = Vector2(-84, -73)
 states/Walk/node = SubResource("AnimationNodeBlendSpace1D_idi7q")
 states/Walk/position = Vector2(334, 134)
+states/air_reset/node = SubResource("AnimationNodeAnimation_1q03r")
+states/air_reset/position = Vector2(-92.33333, -2)
 states/block/node = SubResource("AnimationNodeAnimation_qr7ep")
 states/block/position = Vector2(-150, 112)
 states/cr_block/node = SubResource("AnimationNodeAnimation_5b203")
@@ -7228,7 +7286,7 @@ states/throw_seq/position = Vector2(235, 348)
 states/wakeup/node = SubResource("AnimationNodeAnimation_ph7k6")
 states/wakeup/position = Vector2(-108, 193)
 transitions = ["Start", "Walk", SubResource("AnimationNodeStateMachineTransition_meopb"), "landing", "Dash", SubResource("AnimationNodeStateMachineTransition_lyl3y"), "landing", "Backdash", SubResource("AnimationNodeStateMachineTransition_ak627"), "cr_down", "cr_idle", SubResource("AnimationNodeStateMachineTransition_shoen"), "Walk", "cr_down", SubResource("AnimationNodeStateMachineTransition_3c2oy")]
-graph_offset = Vector2(27, -35)
+graph_offset = Vector2(-233, -38)
 
 [sub_resource type="Resource" id="Resource_opo8r"]
 script = ExtResource("9_0wmxw")
