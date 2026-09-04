@@ -36,6 +36,11 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # 執行期代碼的搜尋範圍（不含 addons/ 與 backup/，與先前切片的普查口徑一致）
 CODE_DIRS = ["scripts", "ai", "tests", "characters", "data", "scenes"]
 
+# 「wakeup_timer 有幾個寫入點」只對**生產碼**有意義：frame 用例為了逼出情境
+# 會直接種值（test_45 階段 3 的 reset 補償測試就是一例），那不是一個新的
+# 狀態寫入路徑，不該進這個普查。下面 PART 1 的識別字檢查仍然涵蓋 tests/。
+PROD_DIRS = ["scripts"]
+
 # 只允許出現在註解/文件裡的名字（執行期不得再有識別字）
 DEAD_FLAG_NAMES = ("is_wakeup", "is_wakeup_locked")
 
@@ -51,8 +56,8 @@ def strip_code(line: str) -> str:
     return re.sub(r'"[^"]*"', '""', line).split("#", 1)[0]
 
 
-def iter_code_files():
-    for d in CODE_DIRS:
+def iter_code_files(dirs=None):
+    for d in (CODE_DIRS if dirs is None else dirs):
         root = os.path.join(REPO_ROOT, d)
         if not os.path.isdir(root):
             continue
@@ -82,9 +87,9 @@ def part1_static_census(quiet: bool) -> list[str]:
     if live_hits:
         errors.append("執行期代碼仍讀寫已刪除的旗標：\n    " + "\n    ".join(live_hits))
 
-    # 2. wakeup_timer 的寫入點分類
+    # 2. wakeup_timer 的寫入點分類（只算生產碼；見 PROD_DIRS 註解）
     seeds, decrements, zeroes, other = [], [], [], []
-    for path in iter_code_files():
+    for path in iter_code_files(PROD_DIRS):
         if not path.endswith(".gd"):
             continue
         rel = os.path.relpath(path, REPO_ROOT)
