@@ -21,7 +21,7 @@ structural problems that make every new feature more expensive than the last:
 | Problem | Symptom |
 |---|---|
 | Four coexisting time domains | Seconds, 60 FPS logical frames, 120 FPS physics frames, and a `FrameCounter` all mixed together, with dozens of scattered `*2` / `*120` / `/2.0` conversions |
-| ~34 boolean state flags | `is_hit`, `is_knockfly`, `is_blocking`, `is_attacking`, `is_dashing`… combinations are unenforceable, so illegal states are reachable. Stage 2 slice 1 added a state layer that makes the remainder testable and deleted 6 dead flags; slice 2 ported the attack subsystem onto it and deleted one more; slice 3 ported the movement subsystem onto it (no further deletions, 32 held); slice 7 deleted the first *duplicate* flag (`is_wakeup_locked` ≡ `is_wakeup`, 31 held). Reproducible count (member-level `var x: bool` in `Movement`/`fighter`/`player`, excluding `@export` config and locals): **33 → 31** |
+| ~34 boolean state flags | `is_hit`, `is_knockfly`, `is_blocking`, `is_attacking`, `is_dashing`… combinations are unenforceable, so illegal states are reachable. Stage 2 slice 1 added a state layer that makes the remainder testable and deleted 6 dead flags; slice 2 ported the attack subsystem onto it and deleted one more; slice 3 ported the movement subsystem onto it (no further deletions, 32 held); slice 7 deleted the first *duplicate* flag (`is_wakeup_locked` ≡ `is_wakeup`, 31 held); slice 8 folded the first flag *into its own timer* (`is_wakeup` ≡ `wakeup_timer > 0`, 30 held). Reproducible count (member-level `var x: bool` in `Movement`/`fighter`/`player`, excluding `@export` config and locals): **33 → 30** |
 | Frame data spread across sources | The same numbers live in scripts, scenes, and tables, so they drift apart |
 | Two overlapping input paths | `InputManager` and `PlayerController` both interpret input, with different buffering rules |
 
@@ -52,7 +52,7 @@ These are non-negotiable and apply to every contribution:
 |---|---|---|
 | **0** | Stop the bleeding: `DebugLogger`, frame-test harness, frame data table, contributor rules | ✅ Done |
 | **1** | **Unify the time domain** — all gameplay logic in integer physics frames | ✅ Done (all 6 timer families migrated + conversions consolidated) |
-| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–7 landed (read-only state layer, attack / movement / hit-reaction / block subsystems ported, animation chain unified into one definition, AI `attack_type` parity fixed, AI crouch-backdash bug fixed, dead `_physics_process_jump` entry and the duplicate `Player._compute_target_state` removed; first duplicate flag pair `is_wakeup`/`is_wakeup_locked` collapsed; 7 dead flags deleted + 1 duplicate, 33 → 31, test count 30 → 39) |
+| **2** | **Explicit state machine** — replace the boolean flags | 🔄 In progress — slices 1–8 landed (read-only state layer, attack / movement / hit-reaction / block subsystems ported, animation chain unified into one definition, AI `attack_type` parity fixed, AI crouch-backdash bug fixed, dead `_physics_process_jump` entry and the duplicate `Player._compute_target_state` removed; first duplicate flag pair `is_wakeup`/`is_wakeup_locked` collapsed; first flag folded into its frame counter (`is_wakeup` → `wakeup_timer > 0`); 7 dead flags deleted + 1 duplicate + 1 folded, 33 → 30, test count 30 → 44) |
 | **3** | **Consolidate frame data** — one source of truth, fix corrupt entries | 🔄 Slice 1 landed — DEN `fireball` now uses one external `SpecialMoveData` source; source routing is CI-checked; remaining embedded specials and frame-data migration are still pending |
 | **4** | **Converge input handling** — a single `ActionMapper` | 🔄 Partial — parity fix #1 landed (AI `attack_type` restored via shared `PlayerController.resolve_attack_type`); `InputManager` / `PlayerController` collapse to a single `ActionMapper` still pending |
 | **5** | **Cleanup** — dead code, docs, scene splitting | ⏳ Planned |
@@ -603,25 +603,95 @@ case: a flag pair that provably always holds the same value.
 
 **Disclosed finding (deliberately *not* fixed here)**
 
-- **`is_wakeup` itself can fold into `wakeup_timer > 0` next.** The two wakeup
-  entries always seed `wakeup_timer > 0` alongside `is_wakeup = true`, and the
-  exit clears both on the frame the timer crosses zero — so the flag is already
-  fully derivable from the timer **except** `world.reset_players()` clears
-  `is_wakeup` while leaving `wakeup_timer` stale. Deleting `is_wakeup` too
-  requires also zeroing `wakeup_timer` in `reset_players()` (harmless: the
-  stale timer only ever decremented as no-ops). Left for the next slice so this
-  one stays a single, provable deletion.
+- **`is_wakeup` itself folded into `wakeup_timer > 0` — done in slice 8.** The two
+  wakeup entries always seed `wakeup_timer > 0` alongside `is_wakeup = true`, and
+  the exit clears both on the frame the timer crosses zero — so the flag was
+  already fully derivable from the timer **except** `world.reset_players()`
+  cleared `is_wakeup` while leaving `wakeup_timer` stale. Slice 8 deletes the
+  flag and zeroes the timer in `reset_players()` (harmless: the stale timer only
+  ever decremented as no-ops, because its side effects sat behind
+  `and is_wakeup`).
+
+**Slice 8 — the first flag folds into its own timer (landed 2026-09-04)**
+
+Slice 7 deleted a flag that *duplicated another flag*. Slice 8 is the next kind of
+deletion, and the one the "Next slices" table below is really about: a flag that
+duplicates a **frame counter**, so the flag disappears and the state becomes a
+property of the timer. `is_wakeup` was the cleanest case — and it is exactly the
+case slice 7 had already written down as "next".
+
+- ✅ **`is_wakeup` deleted (31 → 30); WAKEUP is now `wakeup_timer > 0`.**
+  The two entry sites (`Player._on_animation_tree_finished` closing the
+  `layground` animation, and `KnockflyHandler.reset_layground_with_health_check`)
+  both did `is_wakeup = true` **and** seeded `wakeup_timer` in the same block;
+  the only exit (`Player._physics_process`) decrements the timer and clears the
+  flag on the frame it crosses zero. So the two could never disagree on any
+  frame — which is precisely what the old `check_invariants()` rule ("wakeup
+  implies a running timer") asserted every frame without ever firing.
+- ✅ **One definition: `FighterState.is_wakeup_active(f)`.** All five read
+  sites inside the state layer route through it — `resolve()` (WAKEUP),
+  `can_start_ground_attack()`, `can_start_air_attack()`, `is_input_locked()`
+  and `animation_for()`'s `"wakeup"` segment — plus the two readers outside it
+  (`AttackExecutor`'s blocked-reason dump, `FrameBar`'s frame-bar phase).
+- ✅ **The one compensation: `world.reset_players()` now zeroes
+  `wakeup_timer`, not the flag.** It used to clear `is_wakeup` and leave a stale
+  timer counting down. That stale countdown was provably a no-op — its only
+  effect sat behind `and is_wakeup`, which is `false` after a reset — so
+  zeroing the timer too costs zero frames, while *not* doing it would make a
+  freshly reset fighter look like it was still getting up. `test_45` pins this
+  directly (inject a timer, reset, assert `0`, then run 60 frames and assert the
+  fighter never re-enters wakeup).
+- ✅ **The invariant is now structural, not checked.** The "wakeup lock without
+  a running timer" rule was removed from `check_invariants()`: after the fold
+  that combination cannot be written. Same ending as slice 2's orphan-attack
+  rule — one fewer thing to test because one more thing is unrepresentable.
+- ✅ Boolean state flags in the three core scripts: **31 → 30** (slice 2's
+  counting rule).
+
+**Proof, and how it was checked in-sandbox**
+
+The engine half is `test_45` (new): it forces the real
+`take_hit(force_knockfly = true)` path (`knockfly → layground → wakeup`, the same
+entry `test_18` / `test_34` use), asserts the flag is gone, then checks every
+frame of the wakeup that the state layer reports WAKEUP, input is locked, ground
+attacks are refused and `animation_for()` returns `"wakeup"`; that
+`wakeup_timer` steps by exactly −1 per physics frame; that the state lasts
+exactly as many frames as it was seeded; and that the release frame drops all of
+it (with `check_invariants()` clean).
+
+The sandbox half is `ci/verify_wakeup_fold.py` (new, ~1 s):
+
+| Part | What it establishes |
+|---|---|
+| Static census | No `.gd` outside comments/strings still touches `is_wakeup`; `wakeup_timer` has exactly 2 seed sites (`player.gd`, `KnockflyHandler.gd`), 1 decrement site, 1 reset-zero site; every seed is positive (all three characters' `wakeup` animations are 0.5 s → 60 frames, read straight out of the `.tscn`; the fallbacks are 60 / 120) |
+| Lifecycle equivalence | The old model (flag + timer) and the new one (timer only) are transcribed into two small state machines and compared frame by frame over **2,940 sequences** — seed × reset timing × re-entry after reset × hitstop freeze — with **0 divergences**, on both the derived wakeup state *and* whether the countdown's side effects fire |
+| Self-test | Two deliberately broken new models (a `reset` that forgets to zero the timer; a countdown that releases a frame early) must each be caught — so a vacuous green is itself a failure |
+
+That census is also why `KnockflyAnimationDebugger`'s local variable is now
+called `wakeup_active` instead of `is_wakeup`: "no live code mentions this
+identifier" is only worth checking if the check stays strict.
+
+Run it with `python3 ci/verify_wakeup_fold.py`.
+
+**Disclosed finding (deliberately *not* fixed here)**
+
+- **`is_landing` is the same shape of fold, but not the same size.** Slice 8
+  worked because wakeup has two entry sites, one exit, and no reader that needs
+  the flag to outlive the timer reaching zero. `is_landing` additionally only
+  has *one* direction pinned today (`test_25` asserts `is_landing →
+  landing_lock_frames > 0`, not the converse), so folding it needs its reset
+  sites audited the way `wakeup_timer` just was. That is its own slice.
 
 **Next slices**: the tail of Stage 2 is still *deleting* the duplicate flags and
 *folding* each family into a state field (plan DoD: flag count < 10 across the
-three core scripts). The surviving 31 flags, grouped by how they should die:
+three core scripts). The surviving 30 flags, grouped by how they should die:
 
 | Family | Flags (member-level `var x: bool`) | Fold target |
 |---|---|---|
 | Block stance | `is_holding_back`, `is_crouch_blocking`, `is_proximity_blocking` | a `block_stance` sub-field / `PROXIMITY_BLOCK` state |
 | Air-hit backjump | `is_air_hit_backjump` | `air_hit_backjump_timer > 0` (one set site, one clear site) |
 | Landing | `is_landing` | `landing_lock_frames > 0` (one direction already pinned by `test_25`) |
-| Wakeup | `is_wakeup` | `wakeup_timer > 0` (+ zero `wakeup_timer` in reset, see slice 7) |
+| ~~Wakeup~~ | ~~`is_wakeup`~~ | ✅ **done in slice 8** — `wakeup_timer > 0` via `FighterState.is_wakeup_active()`, with `reset_players()` zeroing the timer |
 | Hit / block reaction | `is_hit`, `is_blocking` | `hitstun_frames > 0` / `blockstun_frames > 0` |
 | Knockdown / knockfly | `is_layground`, `is_knockfly` | stored `State` (`KNOCKDOWN`/`KO`, `KNOCKFLY`) |
 | Movement | `is_dashing`, `is_backdashing`, `is_jumping`, `is_crouching` | stored `State` (`DASH`/`BACKDASH`/`JUMP`/`CROUCH`) |
@@ -735,7 +805,7 @@ The rules that bite hardest:
 - Measure in physics frames, never seconds. 1 logical frame = 2 physics frames.
 - Leave generous wait windows around hits — hitstop slows physics-frame advance by 50×.
 
-Frame tests currently cover 40 cases (`test_01`–`test_32`, `test_34`–`test_41`); the redundant dash-smoke `test_33` was removed because that feature is already stable. `test_37`–`test_39` cover the hitstop rework (animation freeze instead of `Engine.time_scale`, no double-trigger on long hitstop, attacker pose frozen on the connecting frame). Stage 1 contributed
+Frame tests currently cover 44 cases (`test_01`–`test_32`, `test_34`–`test_45`); the redundant dash-smoke `test_33` was removed because that feature is already stable. `test_42`–`test_44` cover the gameplay work that landed between the Stage 2 slices (`test_42` dash/backdash commitment, `test_43` the WOO fireball path, `test_44` the global air-reset / flip-out rules). `test_37`–`test_39` cover the hitstop rework (animation freeze instead of `Engine.time_scale`, no double-trigger on long hitstop, attacker pose frozen on the connecting frame). Stage 1 contributed
 the landing, PushManager stun-lock and conversion-boundary families (`test_21`
 combo-window frame counting, `test_22` the three conversion boundaries including
 the "families must not be swapped" guard, `test_23` AI decision/commitment tick
@@ -745,8 +815,10 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   failure is reproducible). Every frame it asserts the resolver is a pure
   function, returns a defined state, and that the structural invariants hold
   (dash/backdash mutually exclusive; `is_landing` always accompanied by lock
-  frames; `is_wakeup` always accompanied by a running `wakeup_timer`;
-  since slice 2, `is_attacking` always accompanied by a legal `attack_type`).
+  frames; since slice 2, `is_attacking` always accompanied by a legal
+  `attack_type`). The former wakeup rule was **removed** in slice 8: with
+  `is_wakeup` gone, WAKEUP *is* `wakeup_timer > 0`, so the rule became a
+  tautology rather than something worth asserting every frame.
   It also prints the observed state distribution and requires ≥4 distinct
   states — otherwise "standing still" would pass it trivially.
 - **`test_26`** — frame-by-frame comparison of the state layer against the
@@ -851,6 +923,21 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   reports the 12 embedded SpecialMoveData resources that remain for later
   slices.
 
+- **`test_45`** (Stage 2 slice 8) — WAKEUP's only authority is `wakeup_timer`,
+  not a flag. Phase 0 asserts `is_wakeup` is gone from the player entirely, so
+  nobody can quietly re-add it through a scene override. Phase 1 forces the real
+  `take_hit(force_knockfly = true)` path — `knockfly → layground → wakeup`, the
+  same entry `test_18` / `test_34` use — because random input does not reliably
+  produce a knockdown. Phase 2 checks every frame of the wakeup that
+  `FighterState.is_wakeup_active()` is true, the resolver returns `WAKEUP`,
+  input is locked, ground attacks are refused and `animation_for()` returns
+  `"wakeup"`; that `wakeup_timer` steps by exactly −1 per physics frame; that
+  the state lasts exactly as many frames as it was seeded; and that the release
+  frame drops all of it (with `check_invariants()` clean). Phase 3 pins the
+  slice's one compensation: inject a timer to simulate a reset mid-wakeup, call
+  `world.reset_players()`, assert `wakeup_timer == 0`, then run 60 frames and
+  assert the fighter never re-enters wakeup (a stale timer would).
+
 ### Not yet covered (honest disclosure)
 
 - Motion-input macros (Stage 4)
@@ -884,8 +971,11 @@ disclosed above, and in slice 6 `ci/verify_animation_chain.py` — 18,874,368
 combinations proving the unified animation chain equals the two copies it
 replaced (run it with `python3 ci/verify_animation_chain.py`; ~7 s — it is a
 standalone proof artifact, not a CI gate, because the sandbox's GitHub App
-cannot edit workflow files). **What only the engine can claim**: the physics-frame
-assertions themselves.
+cannot edit workflow files), and in slice 8 `ci/verify_wakeup_fold.py`
+(`python3 ci/verify_wakeup_fold.py`) — a static write-site census plus a
+2,940-sequence lifecycle equivalence proof, with a self-test that fails the run
+if two deliberately broken variants are *not* caught. **What only the engine can
+claim**: the physics-frame assertions themselves.
 
 Since the workflow was activated that gap is closed automatically — every push
 runs the full harness on real Godot 4.7.2, so the sandbox's inability no longer
@@ -920,7 +1010,9 @@ plan_game.md         The full six-stage refactor plan
   entry/release gates, and since slice 6 the animation priority chain itself
   ("which animation plays this frame") all live in `FighterState`, and the
   orphan-attack state is structurally impossible. Slice 7 deleted the first
-  duplicate flag (`is_wakeup_locked` ≡ `is_wakeup`, 32 → 31). What remains for
+  duplicate flag (`is_wakeup_locked` ≡ `is_wakeup`, 32 → 31) and slice 8 folded
+  the first flag into its own frame counter (`is_wakeup` ≡ `wakeup_timer > 0`,
+  31 → 30) — the pattern the rest of the tail follows. What remains for
   the tail of Stage 2 is *deleting* the rest of the now-duplicated boolean
   flags: the guards and the chain read them through one definition each, so the
   read sites are finally few enough to retire a flag family at a time (the
@@ -960,3 +1052,21 @@ plan_game.md         The full six-stage refactor plan
 - The ground-attack frame test waits for both gameplay state and the asynchronous AnimationTree transition before measuring recovery, avoiding a version-dependent one-frame sampling race.
 - The redundant `test_33_dash_smoke_one_shot` case was removed; the suite now contains 40 cases, including Stage 3 `test_41_den_fireball_resource_source`.
 - Stage 3 source routing now has a CI guard: DEN `fireball` uses the external resource that preserves the former scene-effective values; the remaining embedded special resources are intentionally listed as next slices rather than silently treated as fallbacks.
+
+### Frame-test reliability fixes (2026-09-04)
+
+- **`main` was red and is green again.** Since PR #61 the `frame-tests` job failed
+  on `test_30`'s *coverage* assertion — "the air-attack gate must be true at least
+  once" — never on the equivalence comparison. The air gate needs
+  "airborne + `is_jumping` + not `has_air_attacked`", and after dash commitment
+  (PR #57) and the air-reset work (PR #59/#61), seeded random input now almost
+  always holds an attack button on the very frame the fighter leaves the ground,
+  so `has_air_attacked` flips true immediately. Fixed the way `test_34` and
+  `test_36` fixed theirs: a deterministic phase 0 presses **only** the jump
+  buttons (no attack buttons) and samples every frame of the hop. The assertion
+  was not weakened. `main` is 44/44 green again.
+- **The sampling code now lives in `_sample()`** so the legacy control-group
+  expressions exist exactly once — copying them per phase would recreate the
+  "two copies of one definition" bug inside the test that is supposed to catch it.
+- **`test_45`** (Stage 2 slice 8) and **`ci/verify_wakeup_fold.py`** join the
+  safety net; see the Stage 2 slice 8 section above.

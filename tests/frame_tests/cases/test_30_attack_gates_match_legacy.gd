@@ -17,6 +17,11 @@ extends "res://tests/frame_tests/frame_test_case.gd"
 ##
 ## 對照組刻意保留舊寫法（一長串 and/not），不要「順手優化」成呼叫 FighterState，
 ## 否則這個用例會變成自己跟自己比。
+##
+## Stage 2 切片 8：`is_wakeup` 已刪除（WAKEUP 的唯一權威改為 `wakeup_timer > 0`），
+## 所以對照組裡原本的 `not fighter.is_wakeup` 改寫成
+## `not (int(fighter.wakeup_timer) > 0)` —— 同一語意的摺疊後寫法，
+## **不是**呼叫 FighterState，對照組依然獨立。
 
 const FRAMES: int = 600
 const SEED: int = 20260830
@@ -72,7 +77,7 @@ func run() -> bool:
 			var legacy_ground: bool = fighter.is_on_floor() \
 					and not fighter.is_dashing and not fighter.is_backdashing \
 					and not fighter.is_jumping and not fighter.is_blocking \
-					and not fighter.is_knockfly and not fighter.is_wakeup \
+					and not fighter.is_knockfly and not (int(fighter.wakeup_timer) > 0) \
 					and not fighter.is_layground \
 					and not (fighter.is_landing \
 						and fighter.landing_lock_frames > Movement.LANDING_INTERRUPT_FRAMES)
@@ -88,7 +93,7 @@ func run() -> bool:
 			var legacy_air: bool = not fighter.is_on_floor() and fighter.is_jumping \
 					and not fighter.is_air_attacking and not fighter.is_blocking \
 					and not fighter.is_knockfly and not fighter.is_hit \
-					and not fighter.is_wakeup and not fighter.has_air_attacked \
+					and not (int(fighter.wakeup_timer) > 0) and not fighter.has_air_attacked \
 					and not fighter.is_layground
 			var new_air: bool = FighterState.can_start_air_attack(fighter)
 			if legacy_air:

@@ -24,6 +24,9 @@ extends "res://tests/frame_tests/frame_test_case.gd"
 ## Python 暴力窮舉（所有相關旗標組合）已先證明 0 分岔，本用例在引擎內逐幀
 ## 釘住，並要求各守衛的 true/false 兩側都實際出現過（避免「永遠同一邊」
 ## 的假綠）。
+##
+## Stage 2 切片 8：`is_wakeup` 已刪除，對照組的 wakeup 項改寫成
+## `int(fighter.wakeup_timer) > 0`（同一語意，仍然刻意不呼叫 FighterState）。
 
 const FRAMES: int = 600
 const SEED: int = 20260901
@@ -141,7 +144,7 @@ func _sample(fighter: Node, frame: int) -> void:
 	var attack_type: String = String(fighter.attack_type) if "attack_type" in fighter else "none"
 
 	# ── 對照組 1：is_input_locked（Player.get_input 的舊提前返回鏈）──
-	var legacy_lock: bool = bool(fighter.is_knockfly) or bool(fighter.is_wakeup) \
+	var legacy_lock: bool = bool(fighter.is_knockfly) or (int(fighter.wakeup_timer) > 0) \
 			or bool(fighter.is_hit) or bool(fighter.is_layground) \
 			or (is_attacking and attack_type in ["throw_enter", "throw_seq"]) \
 			or bool(fighter.is_being_thrown)
@@ -151,7 +154,7 @@ func _sample(fighter: Node, frame: int) -> void:
 	if legacy_lock != new_lock and _lock_mismatch.size() < 8:
 		_lock_mismatch.append("frame %d %s: legacy=%s new=%s (knockfly=%s wakeup=%s hit=%s layground=%s attacking=%s atk='%s' being_thrown=%s)" % [
 			frame, fighter.name, legacy_lock, new_lock,
-			bool(fighter.is_knockfly), bool(fighter.is_wakeup),
+			bool(fighter.is_knockfly), int(fighter.wakeup_timer) > 0,
 			bool(fighter.is_hit), bool(fighter.is_layground),
 			is_attacking, attack_type, bool(fighter.is_being_thrown)])
 

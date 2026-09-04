@@ -41,11 +41,14 @@ func _check_player_state(player: Node, name: String) -> void:
 	
 	var is_knockfly: bool = player.is_knockfly
 	var is_layground: bool = player.is_layground if "is_layground" in player else false
-	var is_wakeup: bool = player.is_wakeup if "is_wakeup" in player else false
 	
 	var knockfly_frames: int = player.knockfly_frames if "knockfly_frames" in player else 0
 	var layground_timer: int = player.layground_timer if "layground_timer" in player else 0
 	var wakeup_timer: int = player.wakeup_timer if "wakeup_timer" in player else 0
+	# Stage 2 切片 8：起身狀態的唯一權威是 `wakeup_timer > 0`
+	# （`is_wakeup` 旗標已刪除；這裡刻意不叫 is_wakeup，避免與舊旗標同名，
+	#  讓 `ci/verify_wakeup_fold.py` 的「執行期不得再有此識別字」普查能維持嚴格）。
+	var wakeup_active: bool = wakeup_timer > 0
 	
 	var curr_anim: String = ""
 	if "animation_state" in player and player.animation_state:
@@ -67,7 +70,7 @@ func _check_player_state(player: Node, name: String) -> void:
 		Debug.log("  ⏱️  layground_timer: %d frames" % layground_timer)
 		Debug.log("  🎬 Animation: %s" % curr_anim)
 	
-	elif is_wakeup and not _last_wakeup_state and not is_layground:
+	elif wakeup_active and not _last_wakeup_state and not is_layground:
 		_wakeup_entered_frame = Engine.get_physics_frames()
 		var layground_duration = _wakeup_entered_frame - _layground_entered_frame
 		Debug.log("\n🟢 [%s] WAKEUP STARTED (Frame %d)" % [name, _wakeup_entered_frame])
@@ -75,19 +78,19 @@ func _check_player_state(player: Node, name: String) -> void:
 		Debug.log("  ⏱️  wakeup_timer: %d frames" % wakeup_timer)
 		Debug.log("  🎬 Animation: %s" % curr_anim)
 	
-	elif not is_knockfly and not is_layground and not is_wakeup and (_last_knockfly_state or _last_layground_state or _last_wakeup_state):
+	elif not is_knockfly and not is_layground and not wakeup_active and (_last_knockfly_state or _last_layground_state or _last_wakeup_state):
 		var total_sequence = Engine.get_physics_frames() - _knockfly_entered_frame
 		Debug.log("\n✅ [%s] SEQUENCE COMPLETE (Frame %d)" % [name, Engine.get_physics_frames()])
 		Debug.log("  ⏱️  Total knockdown duration: %d frames (%.3f seconds @ 120 FPS)" % [total_sequence, total_sequence / 120.0])
 		Debug.log("  🎬 Animation: %s" % curr_anim)
 	
 	# Verbose frame-by-frame logging
-	if verbose_mode and (is_knockfly or is_layground or is_wakeup):
+	if verbose_mode and (is_knockfly or is_layground or wakeup_active):
 		Debug.log("[%s-Frame%d] KF:%s LG:%s WU:%s | KF_frames:%d LG_timer:%d WU_timer:%d | Anim:%s" % [
 			name, Engine.get_physics_frames(),
 			"✓" if is_knockfly else "✗",
 			"✓" if is_layground else "✗",
-			"✓" if is_wakeup else "✗",
+			"✓" if wakeup_active else "✗",
 			knockfly_frames, layground_timer, wakeup_timer,
 			curr_anim
 		])
@@ -95,7 +98,7 @@ func _check_player_state(player: Node, name: String) -> void:
 	# Update tracking flags
 	_last_knockfly_state = is_knockfly
 	_last_layground_state = is_layground
-	_last_wakeup_state = is_wakeup
+	_last_wakeup_state = wakeup_active
 
 func enable() -> void:
 	enabled = true

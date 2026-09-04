@@ -60,10 +60,11 @@ var attack_execution_lock_frames: int = 1  # Minimum frames between same attack 
 # Stage 2：`current_mode` 已刪除（只有 world.reset_players() 寫入，零讀取）。
 var attack_type: String = "none"
 # Stage 2 切片 7：`is_wakeup_locked` 已刪除 —— 它與 `is_wakeup` 是**永遠同時**
-# 寫入/清除的重複對（4 個寫入點全部成對：player.gd 起身進入/結束、world.reset_players、
-# KnockflyHandler 起身觸發），兩個 bool 表達的是同一個 WAKEUP 狀態。起身鎖定現在
-# 只有一個旗標 `is_wakeup`（權威時長仍是 `wakeup_timer`，見 _physics_process 倒數）。
-var is_wakeup: bool = false
+# 寫入/清除的重複對（4 個寫入點全部成對），兩個 bool 表達的是同一個 WAKEUP 狀態。
+# Stage 2 切片 8：`is_wakeup` 本身也刪除了 —— 它與 `wakeup_timer` 永遠同步
+# （進入時種入正值、倒數歸零那一幀清除），所以 WAKEUP 的唯一權威回到
+# 計時器本身：`wakeup_timer > 0`（唯一定義見 `FighterState.is_wakeup_active`）。
+# 這是 README「Next slices」表裡 wakeup 族的摺疊目標，也是核心三檔旗標 31 → 30。
 var is_air_attacking: bool = false
 var is_special_moving: bool = false
 var has_air_attacked: bool = false
@@ -551,13 +552,17 @@ func _physics_process(delta: float) -> void:
 	# 🟢 【回歸修復】起身（wakeup）計時器倒數。
 	# 這段在 hitstop 解耦那一版被連同舊的 _update_animation_state 呼叫一起刪掉了，
 	# 但全代碼再也沒有第二個地方遞減 wakeup_timer —— 結果角色被擊倒起身後
-	# `is_wakeup` 永遠是 true（只有 world.reset_players() 會清），
+	# 當年的 `is_wakeup` 永遠是 true（只有 world.reset_players() 會清），
 	# can_start_ground_attack / can_jump 全部被擋死。這裡照原樣補回，
 	# 並與其他計時器一樣在 hitstop 期間凍結（開頭 return 已保證）。
+	# （Stage 2 切片 8 後 `is_wakeup` 已不存在，這段同時就是起身狀態本身。）
+	# Stage 2 切片 8：這裡不再需要 `and is_wakeup`。那項條款唯一擋下的是
+	# `world.reset_players()` 留下的過期計時器（清旗標但沒清計時器）；
+	# 該處現在連 `wakeup_timer` 一起歸零，所以倒數歸零必然代表「有人真的
+	# 在起身」。收尾動作（清著地鎖 / 清攻擊計時 / 重算面向）維持原樣。
 	if wakeup_timer > 0:
 		wakeup_timer -= 1
-		if wakeup_timer <= 0 and is_wakeup:
-			is_wakeup = false
+		if wakeup_timer <= 0:
 			is_landing = false
 			attack_duration_timer = 0
 			update_facing_direction()
@@ -607,7 +612,8 @@ func _on_animation_tree_finished(anim_name: StringName) -> void:
 		if healthbar and healthbar.current_health <= 0:
 			return
 		is_layground = false
-		is_wakeup = true
+		# Stage 2 切片 8：不再寫 `is_wakeup` —— 下面種入的 `wakeup_timer`
+		# 就是起身狀態本身（`FighterState.is_wakeup_active`）。
 		fixed_velocity = Vector2i.ZERO
 		# Set wakeup timer based on animation length (seconds → physics frames via Movement)
 		if animation_player and animation_player.has_animation("wakeup"):

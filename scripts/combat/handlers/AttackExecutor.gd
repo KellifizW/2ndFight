@@ -187,7 +187,7 @@ func debug_air_attack_blocked(input_data: Dictionary, parent: Node) -> void:
 	if parent.is_blocking: blocked_reasons.append("is_blocking")
 	if parent.is_knockfly: blocked_reasons.append("is_knockfly")
 	if parent.is_hit: blocked_reasons.append("is_hit")
-	if parent.is_wakeup: blocked_reasons.append("is_wakeup")
+	if FighterState.is_wakeup_active(parent): blocked_reasons.append("wakeup(wakeup_timer>0)")
 	if parent.has_air_attacked: blocked_reasons.append("has_air_attacked=TRUE")
 	if parent.is_layground: blocked_reasons.append("is_layground")
 	

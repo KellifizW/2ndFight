@@ -393,10 +393,21 @@ layground) / Wakeup, 加上摔投兩個「輸入被外部接管」的階段。
      `FighterState.resolve()` / `animation_for()` / `check_invariants()`、
      `FrameBar.gd`、`test_40` 對照組; `ci/verify_animation_chain.py`
      18,874,368 組合重指後仍 0 分岔。核心三檔旗標 **32 → 31**。
-   - 待辦: 其餘 31 個旗標按族摺進狀態欄位/幀計數器(順序見 README
-     「Next slices」表: block 站姿 → air-hit backjump → landing → wakeup →
-     hit/block → knockdown/knockfly → movement → attack → throw; 物理/衍生
-     族保留為成員), 之後達成 DoD(旗標數 < 10)。
+   - ✅ **切片 8 完成**(2026-09-04): **第一個「旗標摺進自己的幀計數器」**。
+     `is_wakeup` 與 `wakeup_timer` 永遠同步(兩個寫入點同區塊種入正值、
+     唯一倒數點在歸零那幀清除), 唯一例外是 `world.reset_players()` 只清
+     旗標、留下過期計時器 —— 而那段過期倒數是純空操作(副作用受
+     `and is_wakeup` 保護)。所以做法是: 刪旗標 + 在 reset 處補
+     `wakeup_timer = 0`, 起身狀態改由 `FighterState.is_wakeup_active()`
+     (`wakeup_timer > 0`) 單一定義; `check_invariants()` 裡那條「wakeup
+     必伴隨倒數中的計時器」升級為結構不可能, 故移除。核心三檔旗標
+     **31 → 30**。證明: `ci/verify_wakeup_fold.py`(靜態寫入點普查 +
+     2,940 條生命週期序列等價窮舉, 含反向自測); 引擎內由 `test_45` 逐幀
+     釘住。
+   - 待辦: 其餘 30 個旗標按族摺進狀態欄位/幀計數器(順序見 README
+     「Next slices」表: block 站姿 → air-hit backjump → landing →
+     hit/block → knockdown/knockfly → movement → attack → throw; wakeup 族
+     已於切片 8 完成; 物理/衍生族保留為成員), 之後達成 DoD(旗標數 < 10)。
 
 **驗收(DoD)**:
 - [x] 狀態層存在且被 frame 測試釘住(`test_25`/`test_26`)
@@ -691,6 +702,18 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
    `ci/verify_animation_chain.py`（18,874,368 組合重指後仍 0 分岔）。
    核心三檔 bool 旗標 **32 → 31**（計數規則見 §6.2 第 7 點）。**行為零變更**。
    剩餘 31 個旗標的摺疊順序見 README「Next slices」表與 §6.5 待辦。
+---
+14. **[已完成 2026-09-04]** Stage 2 切片 8: 第一個「旗標摺進自己的幀計數器」。
+   `is_wakeup` 刪除, WAKEUP 的唯一權威改為 `wakeup_timer > 0`
+   (`FighterState.is_wakeup_active()`), `world.reset_players()` 補
+   `wakeup_timer = 0`(過期計時器過去是純空操作, 見 §6 切片 8 說明)。
+   讀者重指向: `FighterState.resolve()` / `can_start_ground_attack()` /
+   `can_start_air_attack()` / `is_input_locked()` / `animation_for()`、
+   `AttackExecutor`、`FrameBar`、`KnockflyAnimationDebugger`(其區域變數改名
+   `wakeup_active`, 讓「執行期不得再有此識別字」的普查維持嚴格)、
+   `test_30`/`test_34`/`test_40` 對照組、`ci/verify_animation_chain.py`
+   (18,874,368 組合重指後仍 0 分岔)。新增 `test_45`(suite 共 44 用例) 與
+   `ci/verify_wakeup_fold.py`。核心三檔 bool 旗標 **31 → 30**。**行為零變更**。
 ---
 ## 附錄 A: 關鍵代碼位置(供各階段參考)
 | 系統 | 檔案 |
