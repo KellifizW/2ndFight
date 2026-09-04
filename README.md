@@ -938,6 +938,19 @@ semantics, `test_24` the 36-tick double-tap window). Stage 2 adds:
   `world.reset_players()`, assert `wakeup_timer == 0`, then run 60 frames and
   assert the fighter never re-enters wakeup (a stale timer would).
 
+### Known flakiness (honest disclosure)
+
+- **`test_17_ai_toggle_drives_player` and `test_23_ai_decision_timers_in_frames`
+  are flaky, and it is not the harness's fault.** Both assert on AI *decisions*
+  (`test_17`: the AI must produce non-neutral input at round-start distance;
+  `test_23`: a new decision must establish ≥1 frame of commitment). The AI
+  spec (`ai/specs/ai_behavior.gd`) rolls `randf()` **without seeding**, so the
+  decisions differ run to run. Observed on the same commit: `main` failed
+  `test_23`, and an unchanged tree produced one 44/44 green run followed by a
+  run that failed `test_17` + `test_23`. Seeding the AI's RNG in tests (or
+  making these two cases assert on something deterministic) is its own piece
+  of work — disclosed here so a red run is not misread as a regression.
+
 ### Not yet covered (honest disclosure)
 
 - Motion-input macros (Stage 4)
