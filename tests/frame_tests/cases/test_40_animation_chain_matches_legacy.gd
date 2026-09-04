@@ -168,7 +168,9 @@ func _legacy_chain(f: Node, crouch_input: bool, on_floor: bool, anim_jump_dir: f
 		return "layground"
 	if f.is_knockfly:
 		return "knockfly"
-	if f.is_wakeup:
+	# Stage 2 切片 8：舊鏈讀的是 `is_wakeup`；該旗標已刪除，起身段的權威
+	# 改為 `wakeup_timer > 0`（同一語意，仍直接讀欄位、不呼叫 FighterState）。
+	if int(f.wakeup_timer) > 0:
 		return "wakeup"
 	if f.is_hit:
 		# 【AIR RESET 修正】空中重置期間 is_air_hit_backjump 與 is_hit 同時為真，

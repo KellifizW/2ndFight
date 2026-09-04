@@ -60,6 +60,7 @@ const CASES: Array = [
 	"res://tests/frame_tests/cases/test_42_dash_commitment.gd",
 	"res://tests/frame_tests/cases/test_43_woo_fireball.gd",
 	"res://tests/frame_tests/cases/test_44_air_reset.gd",
+	"res://tests/frame_tests/cases/test_45_wakeup_folded_into_timer.gd",
 ]
 
 var _passed: int = 0

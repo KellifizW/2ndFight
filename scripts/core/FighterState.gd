@@ -22,6 +22,9 @@ class_name FighterState extends RefCounted
 ##     AnimationManager.compute_target_state 兩份抄本）
 ## 切片 7 — 第一個重複旗標刪除：
 ##   - `is_wakeup_locked` 刪除（與 `is_wakeup` 永遠成對寫入/清除，重複對）
+## 切片 8 — 第一個「旗標摺進計時器」：
+##   - `is_wakeup` 刪除（WAKEUP 的唯一權威改為 `wakeup_timer > 0`，
+##     見 `is_wakeup_active()`）；`world.reset_players()` 補 `wakeup_timer = 0`
 ##
 ## ── 為什麼先做解析器，而不是直接改寫控制流 ─────────────────────────────
 ## plan_game.md §6 的遷移策略寫得很清楚：「按子系統切段，旗標與狀態並行期間
@@ -188,7 +191,7 @@ static func resolve(f: Node) -> int:
 	# 判定一致（摔投最後的拋飛階段屬於 KNOCKFLY）。
 	if _flag(f, "is_being_thrown"):
 		return State.BEING_THROWN
-	if _flag(f, "is_wakeup"):
+	if is_wakeup_active(f):
 		return State.WAKEUP
 
 	# ── 受擊/防禦族 ──
@@ -260,7 +263,7 @@ static func can_start_ground_attack(f: Node) -> bool:
 	if _flag(f, "is_dashing") or _flag(f, "is_backdashing") or _flag(f, "is_jumping"):
 		return false
 	if _flag(f, "is_blocking") or _flag(f, "is_knockfly") \
-			or _flag(f, "is_wakeup") or _flag(f, "is_layground"):
+			or is_wakeup_active(f) or _flag(f, "is_layground"):
 		return false
 	if _flag(f, "is_landing") and _int(f, "landing_lock_frames") > Movement.LANDING_INTERRUPT_FRAMES:
 		return false
@@ -281,7 +284,7 @@ static func can_start_air_attack(f: Node) -> bool:
 	if not _flag(f, "is_jumping") or _flag(f, "is_air_attacking") or _flag(f, "has_air_attacked"):
 		return false
 	if _flag(f, "is_blocking") or _flag(f, "is_knockfly") or _flag(f, "is_hit") \
-			or _flag(f, "is_wakeup") or _flag(f, "is_layground"):
+			or is_wakeup_active(f) or _flag(f, "is_layground"):
 		return false
 	return true
 
@@ -401,6 +404,27 @@ static func can_jump(f: Node, jump_pressed: bool, is_special_moving: bool = fals
 ## ThrowHandler.gd，且彼此抄得不完全一樣（例：輸入吞沒收 blockstun，
 ## 連段續航有收）。收攏後**所有受擊相關的「能不能」判定都讀這裡**。
 
+# ── Stage 2 切片 8：WAKEUP 的唯一權威是 `wakeup_timer`（旗標已刪除）──────
+##
+## 切片 7 刪掉了重複對的其中一半（`is_wakeup_locked`），留下的 `is_wakeup`
+## 則是「與計時器永遠同步的另一半」。切片 8 把它也刪掉：
+##
+##   - 兩個寫入點（`Player._on_animation_tree_finished` 的 layground 收尾、
+##     `KnockflyHandler.reset_layground_with_health_check`）都在**同一個區塊**
+##     裡做「`is_wakeup = true` + 種入正值的 `wakeup_timer`」；
+##   - 唯一的清除點（`Player._physics_process` 的倒數）在計時器歸零那一幀
+##     清旗標，所以 `is_wakeup 為真 ⟺ wakeup_timer > 0` 在**每一幀**都成立；
+##   - 唯一的例外是 `world.reset_players()`（只清旗標、留下過期計時器），
+##     本切片在該處補上 `wakeup_timer = 0`。過期計時器過去是純空操作：
+##     倒數那段唯一的副作用受 `and is_wakeup` 保護，而 reset 後 `is_wakeup`
+##     必為 false —— 所以連「順手清掉」都不會改變任何一幀的行為。
+##
+## 摺疊後，「wakeup 鎖定卻沒有在倒數的計時器」這種狀態**結構上不可達**
+## （它曾經是 `check_invariants()` 裡的一條不變式，現在是型別的結果）。
+## 所有讀點一律走這個函式，讓「起身狀態從哪裡判斷」只有一份定義。
+static func is_wakeup_active(f: Node) -> bool:
+	return _int(f, "wakeup_timer") > 0
+
 ## 這一幀玩家輸入是否應被**完全吞沒**（回傳中性輸入）。
 ##
 ## 對應舊版（Player.get_input() 開頭的五個提前返回）：
@@ -420,7 +444,7 @@ static func can_jump(f: Node, jump_pressed: bool, is_special_moving: bool = fals
 static func is_input_locked(f: Node) -> bool:
 	if f == null:
 		return false
-	if _flag(f, "is_knockfly") or _flag(f, "is_wakeup") \
+	if _flag(f, "is_knockfly") or is_wakeup_active(f) \
 			or _flag(f, "is_hit") or _flag(f, "is_layground"):
 		return true
 	if is_throw_in_progress(f):
@@ -587,10 +611,12 @@ static func check_invariants(f: Node) -> Array:
 		broken.append("is_landing 為真但 landing_lock_frames=%d（殘留鎖）"
 			% _int(f, "landing_lock_frames"))
 
-	# wakeup 鎖定必然伴隨仍在倒數的 wakeup_timer（歸零那幀一起清除）。
-	if _flag(f, "is_wakeup") and _int(f, "wakeup_timer") <= 0:
-		broken.append("is_wakeup 為真但 wakeup_timer=%d"
-			% _int(f, "wakeup_timer"))
+	# ── Stage 2 切片 8：wakeup 不變式從「每幀檢查」升級為「結構不可能」──
+	# 切片 7 之前這裡檢查的是「`is_wakeup` 為真卻沒有在倒數的 wakeup_timer」
+	# （殘留鎖）。`is_wakeup` 已於切片 8 刪除，WAKEUP 狀態現在**就是**
+	# `wakeup_timer > 0`（`FighterState.is_wakeup_active`），所以那條不變式
+	# 變成重言式 —— 跟切片 2 的「孤兒攻擊不可達」同一種收尾：不是靠測試
+	# 盯著，而是根本寫不出那個狀態。這裡保留說明，避免日後有人把它加回來。
 
 	# ── Stage 2 切片 2 新增：攻擊狀態必須「成對」出現 ──
 	# is_attacking 與 attack_type 是同一件事的兩半：前者說「在出招」，
@@ -663,7 +689,7 @@ static func animation_for(
 		return "layground"
 	if _flag(f, "is_knockfly"):
 		return "knockfly"
-	if _flag(f, "is_wakeup"):
+	if is_wakeup_active(f):
 		return "wakeup"
 
 	# 4. HITSTUN

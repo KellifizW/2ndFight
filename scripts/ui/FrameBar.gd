@@ -333,7 +333,9 @@ func _get_player_flags() -> Dictionary:
 			  (target_player.has_method("is_in_hitstun") and target_player.is_in_hitstun()),
 		knockfly = "is_knockfly" in target_player and target_player.is_knockfly,
 		layground = "is_layground" in target_player and target_player.is_layground,
-		wakeup = "is_wakeup" in target_player and target_player.is_wakeup
+		# Stage 2 切片 8：起身狀態的唯一權威是 `wakeup_timer > 0`
+		# （`FighterState.is_wakeup_active`，對缺少該屬性的節點回傳 false）。
+		wakeup = FighterState.is_wakeup_active(target_player)
 	}
 
 func _update_airborne(anim_name: String, on_floor: bool) -> void:

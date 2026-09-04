@@ -59,6 +59,10 @@ godot --headless --path . -s res://tests/frame_tests/run_tests.gd
 | test_39_attacker_pose_frozen_on_hit | 命中連接幀攻擊者姿勢保持凍結 |
 | test_40_animation_chain_matches_legacy | Stage 2 切片 6：統一後的動畫判定鏈與舊合成鏈逐幀等價 |
 | test_41_den_fireball_resource_source | Stage 3 slice 1：DEN `fireball` 使用外部 `SpecialMoveData`，且保留原本生效的命中資料 |
+| test_42_dash_commitment | 衝刺承諾：dash / backdash 期間所有行動守衛關閉，且不得觸發格擋（含受擊瞬間） |
+| test_43_woo_fireball | WOO 火球端到端（一鍵 SPM2 路徑）：資源、move library、Call Method 生成投射物與收招 |
+| test_44_air_reset | 全局空中重置（Air Reset / Flip-out）五條規則：非擊倒空中受擊進 backjump、清除原動量、取消出招、水平速度單調收斂、落地解除 |
+| test_45_wakeup_folded_into_timer | Stage 2 切片 8：`is_wakeup` 已刪除，WAKEUP 的唯一權威是 `wakeup_timer > 0`（含 reset 歸零補償） |
 
 ## 設計規則（寫新用例時請遵守）
 

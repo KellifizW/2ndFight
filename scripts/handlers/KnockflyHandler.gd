@@ -163,9 +163,9 @@ func reset_layground_with_health_check() -> void:
 	movement_node.knockfly_duration_frames = 0
 	movement_node.is_knockfly_animation_finished = false
 	
-	if "is_wakeup" in movement_node:
-		movement_node.is_wakeup = true
-		
+	# Stage 2 切片 8：起身狀態的唯一權威是 `wakeup_timer > 0`
+	# （`FighterState.is_wakeup_active`），所以這裡只種計時器、不再寫旗標。
+	if "wakeup_timer" in movement_node:
 		# 【關鍵】Initialize wakeup_timer based on animation duration (120 FPS physics frames)
 		if "animation_player" in movement_node and movement_node.animation_player and movement_node.animation_player.has_animation("wakeup"):
 			var wakeup_duration = movement_node.animation_player.get_animation("wakeup").length
@@ -176,13 +176,13 @@ func reset_layground_with_health_check() -> void:
 			movement_node.wakeup_timer = 120
 			Debug.log("[WAKEUP TIMER] Using fallback: wakeup_timer = 120 frames")
 		
-		Debug.log("[WAKEUP TRIGGERED] is_wakeup: %s, wakeup_timer: %d" % [movement_node.is_wakeup, movement_node.wakeup_timer])
+		Debug.log("[WAKEUP TRIGGERED] wakeup_timer: %d" % movement_node.wakeup_timer)
 		movement_node.animation_state.travel("wakeup")
 		Debug.log("[WAKEUP ANIM] animation_state.travel('wakeup') called")
 	else:
-		Debug.log("[WAKEUP FAILED] movement_node: %s, has_is_wakeup: %s" % [
+		Debug.log("[WAKEUP FAILED] movement_node: %s, has_wakeup_timer: %s" % [
 			movement_node.name,
-			"is_wakeup" in movement_node
+			"wakeup_timer" in movement_node
 		])
 	
 	movement_node._update_animation_state(0, false)

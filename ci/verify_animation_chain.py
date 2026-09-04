@@ -56,7 +56,10 @@ MOVE_LIBRARY = {"dp", "hdk", "powerkk"}
 FLAG_NAMES = [
     "is_layground",
     "is_knockfly",
-    "is_wakeup",
+    # Stage 2 切片 8：`is_wakeup` 已刪除，起身狀態的唯一權威是 `wakeup_timer > 0`
+    # （FighterState.is_wakeup_active）。這裡仍當作獨立的一個位元窮舉，
+    # 因為動畫鏈只關心「此刻是否處於 wakeup 段」，不關心它是旗標還是計時器。
+    "wakeup_active",
     "is_hit",
     "is_air_hit_backjump",
     "was_hit_while_crouching",
@@ -97,7 +100,7 @@ def legacy_chain(f: dict, attack_type: str, active_move: str, jump_dir: float) -
         return "layground"
     if f["is_knockfly"]:
         return "knockfly"
-    if f["is_wakeup"]:
+    if f["wakeup_active"]:
         return "wakeup"
     if f["is_hit"]:
         # 【AIR RESET 修正】空中重置期間 is_air_hit_backjump 與 is_hit 同時為真，
@@ -129,7 +132,7 @@ def legacy_chain(f: dict, attack_type: str, active_move: str, jump_dir: float) -
         return "layground"
     if f["is_knockfly"]:                                # 不可達
         return "knockfly"
-    if f["is_wakeup"]:                                  # 不可達
+    if f["wakeup_active"]:                             # 不可達
         return "wakeup"
     if f["landing_lock_pos"] and not f["is_spmove"]:    # 不可達
         return "landing"
@@ -167,7 +170,7 @@ def unified_chain(f: dict, attack_type: str, active_move: str, jump_dir: float) 
         return "layground"
     if f["is_knockfly"]:
         return "knockfly"
-    if f["is_wakeup"]:
+    if f["wakeup_active"]:
         return "wakeup"
     if f["is_hit"]:
         # 【AIR RESET 修正】空中重置優先於泛用 HITSTUN（見 animation_for 註解）。
@@ -236,7 +239,7 @@ def main() -> int:
             # 走到過，否則「air_reset 在 HITSTUN 內優先於 Jump_B」沒有被證明。
             if old == "air_reset" and f["is_air_hit_backjump"] \
                     and not f["is_knockfly"] and not f["is_layground"] \
-                    and not f["is_wakeup"]:
+                    and not f["wakeup_active"]:
                 dead_branch_hits += 1
 
     print("combinations checked : %d (%d flag masks × %d parameter tuples)"
