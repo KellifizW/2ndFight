@@ -11,13 +11,13 @@
 [ext_resource type="Script" uid="uid://c1uv7ba3h5bo2" path="res://scripts/input/PlayerController.gd" id="8_o64jn"]
 [ext_resource type="Script" uid="uid://tld6w015ripa" path="res://data/SpecialMoveData.gd" id="9_061tp"]
 [ext_resource type="Script" uid="uid://cdns34piysikv" path="res://scripts/input/InputManager.gd" id="9_pid0y"]
-[ext_resource type="AudioStream" uid="uid://donxd3nqn4jt2" path="res://assets/audio/heavy_hit_sound.wav" id="10_6t1g5"]
-[ext_resource type="AudioStream" uid="uid://dbe6n06qwaw2i" path="res://assets/audio/block_sound.wav" id="11_061tp"]
-[ext_resource type="AudioStream" uid="uid://g3rf7nob7jv3" path="res://assets/audio/hurt_grunt_p1.wav" id="12_sffaq"]
-[ext_resource type="AudioStream" uid="uid://bxlmatohwkn4l" path="res://assets/audio/powerkk_call.mp3" id="13_vn450"]
-[ext_resource type="AudioStream" uid="uid://drhqr2x37xtuj" path="res://assets/audio/fireball_call_p1.wav" id="14_wkibw"]
-[ext_resource type="AudioStream" uid="uid://chf6ovrhyejma" path="res://assets/audio/loud3.mp3" id="15_wkibw"]
-[ext_resource type="AudioStream" uid="uid://bdoof7d18fx5a" path="res://assets/audio/heavyblock.mp3" id="16_wkibw"]
+[ext_resource type="AudioStream" uid="uid://cms7r6jjuki35" path="res://assets/audio/heavy_hit_sound.wav" id="10_6t1g5"]
+[ext_resource type="AudioStream" uid="uid://belsj61findou" path="res://assets/audio/block_sound.wav" id="11_061tp"]
+[ext_resource type="AudioStream" uid="uid://chhkw2i6yrqqj" path="res://assets/audio/hurt_grunt_p1.wav" id="12_sffaq"]
+[ext_resource type="AudioStream" uid="uid://b1h32xlp7um3u" path="res://assets/audio/powerkk_call.mp3" id="13_vn450"]
+[ext_resource type="AudioStream" uid="uid://bhgx3a8oi1nxg" path="res://assets/audio/fireball_call_p1.wav" id="14_wkibw"]
+[ext_resource type="AudioStream" uid="uid://ddjd8jwl7ai7c" path="res://assets/audio/loud3.mp3" id="15_wkibw"]
+[ext_resource type="AudioStream" uid="uid://crbeajuebewov" path="res://assets/audio/heavyblock.mp3" id="16_wkibw"]
 [ext_resource type="AudioStream" uid="uid://bjne6dtrx2f7l" path="res://assets/audio/lwhoosh.mp3" id="22_061tp"]
 [ext_resource type="AudioStream" uid="uid://duhprpw6tcr5j" path="res://assets/audio/mwhoosh.mp3" id="23_sffaq"]
 [ext_resource type="AudioStream" uid="uid://uxhsj285rci4" path="res://assets/audio/dash.mp3" id="32_dash1"]
@@ -4239,10 +4239,10 @@ tracks/5/path = NodePath("AnimatedSprite2D:frame")
 tracks/5/interp = 1
 tracks/5/loop_wrap = true
 tracks/5/keys = {
-"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.1, 0.16666667),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.033333335, 0.06666667, 0.1, 0.11666667, 0.13333334, 0.15, 0.16666667, 0.18333334),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 0,
-"values": [0, 1, 2, 3, 0]
+"values": [0, 1, 2, 3, 4, 5, 6, 7, 8]
 }
 tracks/6/type = "value"
 tracks/6/imported = false
@@ -4251,10 +4251,22 @@ tracks/6/path = NodePath("AnimatedSprite2D:animation")
 tracks/6/interp = 1
 tracks/6/loop_wrap = true
 tracks/6/keys = {
-"times": PackedFloat32Array(0, 0.16666667),
-"transitions": PackedFloat32Array(1, 1),
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
 "update": 0,
-"values": [&"layground", &"wakeup"]
+"values": [&"layground"]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("AnimatedSprite2D:offset")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0, 0.13333334),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [Vector2(0, 10), Vector2(0, 30)]
 }
 
 [sub_resource type="Animation" id="Animation_yev3d"]
@@ -5855,8 +5867,32 @@ tracks/4/loop_wrap = true
 tracks/4/keys = {
 "times": PackedFloat32Array(0, 0.05, 0.13333334, 0.21666667, 0.28333333, 0.35, 0.4, 0.45),
 "transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1),
-"update": 0,
+"update": 1,
 "values": [0, 1, 2, 3, 4, 5, 6, 7]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("AnimatedSprite2D:offset")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0, 0.05),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [Vector2(0, 0), Vector2(0, 20)]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("AnimatedSprite2D:scale")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0, 0.05),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [Vector2(0.5, 0.5), Vector2(0.5, 0.5)]
 }
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_46qut"]
