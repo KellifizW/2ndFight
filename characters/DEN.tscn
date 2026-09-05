@@ -6350,7 +6350,6 @@ texture = ExtResource("4_a1vnf")
 offset = Vector2(0, -2)
 hframes = 10
 vframes = 23
-frame = 1
 
 [node name="Pushbox" type="CollisionShape2D" parent="." unique_id=131107152]
 position = Vector2(0, 5)
@@ -6440,7 +6439,7 @@ stream = ExtResource("14_qpqbf")
 
 [node name="HeavyHitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=401270843]
 stream = ExtResource("16_x0tr5")
-volume_db = 0.085
+volume_db = -10.0
 pitch_scale = 1.07
 
 [node name="HeavyBlockSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=291408183]
@@ -6453,40 +6452,50 @@ pitch_scale = 1.19
 
 [node name="LPSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=265701766]
 stream = ExtResource("20_ydrny")
+volume_db = -10.0
 pitch_scale = 1.2
 
 [node name="MPSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=298531381]
 stream = ExtResource("21_m8rlt")
+volume_db = -10.0
 pitch_scale = 1.2
 
 [node name="HPSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=2042969070]
 stream = ExtResource("10_bi6lw")
+volume_db = -10.0
 pitch_scale = 0.73
 
 [node name="LKSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1520425974]
 stream = ExtResource("23_qpqbf")
+volume_db = -10.0
 pitch_scale = 1.4
 
 [node name="MKSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1392199174]
 stream = ExtResource("24_c623c")
+volume_db = -10.0
 
 [node name="HKSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1932176227]
 stream = ExtResource("25_vhewk")
+volume_db = -10.0
 pitch_scale = 0.8
 
 [node name="HitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1940861008]
 stream = ExtResource("10_bi6lw")
+volume_db = -10.0
 pitch_scale = 0.73
 
 [node name="LWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=2037532026]
 stream = ExtResource("26_qpqbf")
+volume_db = -10.0
 
 [node name="MWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=604141119]
 stream = ExtResource("27_c623c")
+volume_db = -10.0
 pitch_scale = 1.15
 
 [node name="HWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=386761792]
 stream = ExtResource("27_c623c")
+volume_db = -10.0
 pitch_scale = 0.7
 
 [node name="AttackGrunt_l1" type="AudioStreamPlayer" parent="." unique_id=1261581827]
@@ -6503,6 +6512,8 @@ position = Vector2(0, 70)
 
 [node name="DashSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=212095260]
 stream = ExtResource("32_dash1")
+volume_db = -10.0
 
 [node name="BackdashSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1703930965]
 stream = ExtResource("33_bdash1")
+volume_db = -10.0

@@ -26,4 +26,6 @@ st_lk_knockback = 60.0
 st_hk_hitstun_frames = 28
 st_hk_knockback = 70.0
 st_hk_movement = ExtResource("2_js3jy")
+cr_hk_blockstun_frames = 10
+cr_hk_knockback = 100.0
 metadata/_custom_type_script = "uid://ccjfweg28wskh"

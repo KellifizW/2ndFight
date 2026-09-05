@@ -841,7 +841,7 @@ tracks/5/keys = {
 
 [sub_resource type="Animation" id="Animation_6ev7e"]
 resource_name = "davis_cr_block"
-length = 0.2
+length = 0.31666666
 loop_mode = 1
 step = 0.0167
 tracks/0/type = "value"
@@ -959,10 +959,10 @@ tracks/9/path = NodePath("AnimatedSprite2D:frame")
 tracks/9/interp = 1
 tracks/9/loop_wrap = true
 tracks/9/keys = {
-"times": PackedFloat32Array(0, 0.016666666, 0.033333335, 0.05, 0.08333334, 0.13333334, 0.15, 0.16666667, 0.18333334),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1),
-"update": 0,
-"values": [0, 1, 2, 3, 4, 5, 6, 7, 8]
+"times": PackedFloat32Array(0, 0.016666668, 0.033333335, 0.05, 0.11666667, 0.16666667),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [1, 2, 3, 4, 5, 6]
 }
 
 [sub_resource type="Animation" id="Animation_kcguo"]
@@ -1371,10 +1371,10 @@ tracks/18/path = NodePath("AnimatedSprite2D:frame")
 tracks/18/interp = 1
 tracks/18/loop_wrap = true
 tracks/18/keys = {
-"times": PackedFloat32Array(0, 0.05, 0.1, 0.13333334, 0.26666668, 0.31666666, 0.38333333, 0.45),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1),
+"times": PackedFloat32Array(0, 0.01666667, 0.05, 0.083333336, 0.11666667, 0.15, 0.21666667, 0.28333333, 0.31666666, 0.36666667, 0.38333333, 0.41666666, 0.45),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
 "update": 1,
-"values": [0, 1, 2, 3, 4, 5, 6, 7]
+"values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 }
 tracks/19/type = "value"
 tracks/19/imported = false
@@ -6388,15 +6388,17 @@ script = ExtResource("9_pid0y")
 
 [node name="HitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1506171807]
 stream = ExtResource("10_6t1g5")
+volume_db = -10.0
 pitch_scale = 0.8
 
 [node name="BlockSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=259775119]
 stream = ExtResource("11_061tp")
+volume_db = -10.0
 pitch_scale = 1.1
 
 [node name="HurtGruntPlayer" type="AudioStreamPlayer" parent="." unique_id=358371568]
 stream = ExtResource("12_sffaq")
-volume_db = -5.0
+volume_db = -10.0
 pitch_scale = 1.13
 
 [node name="SpecialCallPlayer" type="AudioStreamPlayer" parent="." unique_id=1318737305]
@@ -6408,11 +6410,12 @@ stream = ExtResource("14_wkibw")
 
 [node name="HeavyHitSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=942591714]
 stream = ExtResource("15_wkibw")
-volume_db = 0.085
+volume_db = -10.0
 pitch_scale = 0.91
 
 [node name="HeavyBlockSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=76667026]
 stream = ExtResource("16_wkibw")
+volume_db = -10.0
 
 [node name="HeavyHurtGruntPlayer" type="AudioStreamPlayer" parent="." unique_id=13766152]
 stream = ExtResource("12_sffaq")
@@ -6422,17 +6425,22 @@ position = Vector2(0, 70)
 
 [node name="DashSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1156613321]
 stream = ExtResource("32_dash1")
+volume_db = -10.0
 
 [node name="BackdashSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=1188913631]
 stream = ExtResource("33_bdash1")
+volume_db = -10.0
 
 [node name="LWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=52476677]
 stream = ExtResource("22_061tp")
+volume_db = -10.0
 
 [node name="MWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=557536044]
 stream = ExtResource("23_sffaq")
+volume_db = -10.0
 pitch_scale = 1.15
 
 [node name="HWhooshSoundPlayer" type="AudioStreamPlayer" parent="." unique_id=134923578]
 stream = ExtResource("23_sffaq")
+volume_db = -10.0
 pitch_scale = 0.7
